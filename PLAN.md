@@ -13,8 +13,8 @@
      (`docs/parked.md` #11).
   2. **Asset catalogue** for the game agent from `E:\3D models` (Kenney + Quaternius, CC0,
      ~4,400 `.glb`): a searchable index plus the rule "use real models when they fit; copy
-     only what the game uses". 2D stays drawn in code (Luka's call; 2D packs are optional,
-     after launch: `parked.md` #10).
+     only what the game uses". 2D is always drawn in code (no 2D packs); real sound
+     effects later, after the web app (`parked.md` #10).
 - **Parked items with dates:** `docs/parked.md` (name + domain due Wed 10-14).
 
 Updated 2026-10-12. Luka works 8+ h/day, 6 days a week. Claude Code (Max 20x) does the typing;
@@ -56,7 +56,7 @@ of the waits below.
 
 ## Waits (start them early)
 
-- **Name + domain:** needed for the landing page (package 2). Candidates in `docs/names.md`.
+- **Name + domain:** TypePlay (decided 2026-10-13): typeplay.app (site) + typeplay.dev (games), bought at Cloudflare. Details in `docs/names.md`.
 - **Individual Entrepreneur registration:** before the Paddle application (about a day).
 - **Paddle review:** ~3-7 business days, can be longer; if rejected → Whop. Apply on day 2.
 - **Anthropic's answer** on the question above: email this week.
@@ -108,7 +108,7 @@ of the waits below.
 |---|---|---|
 | Claude Code Max 20x | already paid | — |
 | Agent and test builds before beta | on Max | $0 |
-| Domain | day 2 | ~$15-150 (.app is cheapest, .ai is dearest and often sold for 2 years) |
+| Domains | day 2 | $16.40 (typeplay.app + typeplay.dev, $8.20 each; ~$26/yr after) |
 | API credits, beta 1 + 2 | from 10-22 | ~$150-300 (buy $50-100 at a time; $40+ → tier 2) |
 | CPU server | from 10-22 | ~€20-50/month |
 | Supabase | at launch | $25/month (free before) |

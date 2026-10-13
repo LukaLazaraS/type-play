@@ -6,7 +6,9 @@ Steam (desktop) and the web. "Lovable, but for games." Started 2026-10-11 after 
 thinking; decided in the Satisfying 2D Sims session of 2026-10-02 → 10-11.
 
 "GameForge" is only the folder name: Gameforge AG (Karlsruhe) is a game publisher with game
-software trademarks. The product name is picked before the domain and the landing page.
+software trademarks. **Product name: TypePlay** (decided 2026-10-13). Site on **typeplay.app**;
+users' games run from **typeplay.dev**, a separate domain so a game's code can't reach the
+site's logins. Both are bought at Cloudflare; typeplay.ai / .com can be added later.
 
 Luka owns the product and decides; Claude Code builds. Luka has shipped games before
 (`../../BlackHoleGalaxy`: Unity, Play Store + App Store, see its `IOS_RELEASE.md`), so store
@@ -59,7 +61,10 @@ Claude Code runs on his Max 20x plan.
   the agent, at launch. **Luka's library: `E:\3D models`**: `Kenney\` (50 3D packs, each with
   a CC0 `License.txt`, incl. racing-kit, tower-defense-kit, car-kit, city kits, platformer-kit)
   and `All in One - Quaternius\` (CC0 per its `License.txt`); ~4,400 `.glb` among ~46K files.
-  The agent copies only the files a game uses into it; the library stays outside the repo → after launch: Blender scripted headless by the agent (Blender 5.1 is
+  The agent copies only the files a game uses into it; the library stays outside the repo.
+  **2D art is always drawn and animated in code by the agent, no 2D packs** (Luka: packs
+  make every game look the same; code-drawn art is unique, easy to animate, and the user
+  can change all of it). Real sound effects come later (`docs/parked.md` #10). **After launch**: Blender scripted headless by the agent (Blender 5.1 is
   on this PC) → text-to-3D API (Meshy / Tripo; or self-hosted Hunyuan3D / TRELLIS).
 - **Store publishing is the user's own account** (Google $25 once, Apple $99/yr): we produce
   the build, they upload. iOS builds need a cloud Mac (Codemagic / MacStadium, ~$0.10/min).

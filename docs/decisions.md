@@ -103,8 +103,26 @@ Every build is partly luck (Luka: "it's dice"), so the product doesn't hide the 
 
 - **One website on one domain**: public pages and the app in one Next.js project, public
   pages first (Paddle reviews them). Game previews stay on a separate domain.
-- **2D art stays drawn in code** for launch (Luka: easy for the agent; the code-drawn 2D games
-  scored 9-10/10). Kenney 2D packs are optional, after launch.
+- **2D art is always drawn and animated in code by the agent; no downloaded 2D packs**
+  (Luka: packs make every game look the same; code-drawn art is unique per game, easy to
+  animate, and the user can change all of it; the code-drawn 2D games scored 9-10/10).
+  Revisit only if it becomes a problem.
+- **Real sound effects later**, after the web app (`parked.md` #10); games generate simple
+  sounds in code until then.
 - **3D library: `E:\3D models`** (Kenney 50 packs + Quaternius all-in-one, 7.4 GB, ~4,400
   `.glb`), CC0 verified from each `License.txt`. Next: a searchable catalogue for the agent.
 - Haiku new games are built in two short sessions (core, then polish): $0.07-0.12 per build.
+
+## 2026-10-13: name is TypePlay
+
+- **TypePlay.** It says what it does and has one spelling when said aloud. Type2Play was dropped:
+  people who hear it type typetoplay.com, which someone else owns.
+- **typeplay.app for the site ($8.20 first year), typeplay.dev for users' games ($8.20).** Not .ai:
+  the 2-year minimum makes it ~$160, and Lovable (lovable.dev, started on gptengineer.app),
+  v0 (v0.app) and Bolt (bolt.new) don't use .ai either. Add typeplay.ai or typeplay.com once
+  there's revenue.
+- Games run on a separate domain because they run code: on the site's domain, a game could
+  act as the logged-in player. GitHub (github.io), Lovable and Replit split their domains the same way.
+- Not typeplay.game ($309/yr). typeplay.games ($26/yr) waits until published games get their own
+  public addresses; nothing public points at the games domain before then, so moving it later is one setting.
+  Extra domains (.ai, .games, .com) a few months after launch if there are users (`parked.md` #13).

@@ -1,5 +1,7 @@
 # Product name candidates
 
+**Decided 2026-10-13: TypePlay**, on typeplay.app (site) + typeplay.dev (game previews).
+
 Domains checked 2026-10-12 (registry RDAP for .com/.app, whois for .ai/.gg). "Free" means
 unregistered that day; buy right after deciding. Before launch, search the name on EUIPO
 TMview / USPTO (10 minutes).
@@ -45,6 +47,35 @@ All 40+ two-word `.com` names checked (playforge, gamesmith, promptplay, wishpla
 Most of these are also free on .io, but skip .io: its future is uncertain since the UK agreed
 to hand the Chagos Islands (the .io territory) to Mauritius.
 
+## Prices (2026-10-13)
+
+Every name above costs the same within a domain ending; the ending sets the price. Cloudflare
+Registrar sells at cost (no markup, same price at renewal, free WHOIS privacy) and we use
+Cloudflare for DNS, email forwarding and previews anyway, so buy there. Porkbun for comparison.
+
+| Ending | Cloudflare 1st year | Cloudflare renewal | Porkbun 1st / renewal | Notes |
+|---|---|---|---|---|
+| **.app** | **$8.20** | $14.20/yr | $8.75 / $14.93 | Cheapest good one. HTTPS forced (fine) |
+| **.dev** | **$8.20** | $12.20/yr | $8.75 / $12.87 | Reads "for developers"; fine for the preview domain |
+| .com | $10.46 | $10.46/yr | $11.08 | Only the get-/try- forms and type2play.com are free |
+| .gg | not sold | | $51.80 / $51.80 | Gamer slang ("good game") |
+| .ai | $80/yr, **2-year minimum = $160 up front** | $160 per 2 years | $165.40 for 2 years | What most AI products use; the minimum is a registry rule |
+| .xyz | $12.30 | $11.20/yr | $2.04 / $14.21 | Skip: spam reputation, some school and office filters block it |
+| .io | $32 | $50/yr | $28.12 / $51.80 | Skip (see above) |
+| typeplay.com | $10,595 resale (HugeDomains) | | | Later, if the product takes off |
+
+A short name can be priced "premium" by the registry, above this table. These names don't
+look premium, but the checkout price is final: if it's higher than the table, stop and ask.
+
+**TypePlay: main site + preview domain (Cloudflare prices)**
+
+| Plan | Main site | Previews | Pay now | Per year after |
+|---|---|---|---|---|
+| **Cheapest** | typeplay.app | typeplay.dev | **$16.40** | $26.40 |
+| .com | gettypeplay.com | typeplay.app | $18.66 | $24.66 |
+| .ai | typeplay.ai | typeplay.app | $168.20 | ~$94 |
+| (Type2Play) | type2play.com | type2play.app | $18.66 | $24.66 |
+
 ## Rechecked 2026-10-13
 
 - .ai, .app and .dev are still free for every name in the shortlist table (checked with each
@@ -54,3 +85,15 @@ to hand the Chagos Islands (the .io territory) to Mauritius.
 - typetoplay.com is taken (it has DNS). That counts against Type2Play: anyone who hears the
   name in a video and types "typetoplay.com" lands on someone else's site.
 - No app, game or AI product named TypePlay, Type2Play, PlayJuice or GameJuice found in a web search.
+
+## What similar products use (checked 2026-10-13, where each site lands after redirects)
+
+- **Prompt-to-app builders:** Lovable on **lovable.dev** (it owns lovable.com, which redirects
+  to .dev; it started as gptengineer.app), v0 on **v0.app** (moved from v0.dev), Bolt on
+  **bolt.new**. Replit, Cursor, Base44 and Anything use .com. None of the big three use .ai.
+- **AI game tools:** rosebud.ai, ludo.ai and layer.ai use .ai; Astrocade, Summer Engine, Bezi and
+  Scenario use .com; GDevelop uses .io.
+- **Moved to .com after growing:** suno.ai → suno.com, websim.ai → websim.com,
+  runwayml.com → runway.com.
+- **Cheapest .ai anywhere:** ~$75/yr (Epik, per domainoffer.net 2026-10-03). With the
+  2-year minimum that's ~$150, versus $160 at Cloudflare.
