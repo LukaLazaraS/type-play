@@ -1,0 +1,235 @@
+{"date":"2026-10-12T06:34:41.778Z","game":"runner-iso-sonnet","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"env\" variable because the value doesn't have a set type. (at: GDScript::reload (res://sfx.gd:49))"}
+{"date":"2026-10-12T06:34:41.778Z","game":"runner-iso-sonnet","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-12T06:34:41.779Z","game":"runner-iso-sonnet","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-12T06:34:41.779Z","game":"runner-iso-sonnet","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-12T06:34:41.780Z","game":"runner-iso-sonnet","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:54))"}
+{"date":"2026-10-12T06:34:41.780Z","game":"runner-iso-sonnet","error":"[browser] ERROR: Required object \"rp_child\" is null."}
+{"date":"2026-10-12T06:34:41.780Z","game":"runner-iso-sonnet","error":"[browser] ERROR: Cannot connect to 'jumped': the provided callable is null."}
+{"date":"2026-10-12T06:37:50.922Z","game":"runner-iso-sonnet-playtest","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"released\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:57))"}
+{"date":"2026-10-12T06:37:50.923Z","game":"runner-iso-sonnet-playtest","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-12T06:39:36.413Z","game":"runner-iso-sonnet-playtest","error":"[browser] ERROR: Invalid polygon data, triangulation failed."}
+{"date":"2026-10-12T06:39:54.076Z","game":"runner-iso-opus-medium","error":"[run] ERROR: Invalid polygon data, triangulation failed. (at: canvas_item_add_polygon (servers/rendering/renderer_canvas_cull.cpp:1770))"}
+{"date":"2026-10-12T22:42:13.055Z","game":"ab-high-sonnet","error":"[import] SCRIPT ERROR: Parse Error: Expected statement, found \"Indent\" instead. (at: GDScript::reload (res://main.gd:176))"}
+{"date":"2026-10-12T22:42:13.055Z","game":"ab-high-sonnet","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-12T22:50:53.871Z","game":"ab3-high-haiku","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"got\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:168))"}
+{"date":"2026-10-12T22:50:53.872Z","game":"ab3-high-haiku","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-12T22:50:56.145Z","game":"ab3-med-haiku","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"f\" variable because the value doesn't have a set type. (at: GDScript::reload (res://coins.gd:20))"}
+{"date":"2026-10-12T22:50:56.145Z","game":"ab3-med-haiku","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"spin\" variable because the value doesn't have a set type. (at: GDScript::reload (res://coins.gd:45))"}
+{"date":"2026-10-12T22:50:56.145Z","game":"ab3-med-haiku","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://world.gd:0))"}
+{"date":"2026-10-12T22:50:56.146Z","game":"ab3-med-haiku","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-12T22:50:56.146Z","game":"ab3-med-haiku","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-12T22:50:56.146Z","game":"ab3-med-haiku","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://world.gd:16))"}
+{"date":"2026-10-12T22:50:56.146Z","game":"ab3-med-haiku","error":"[browser] ERROR: Required object \"rp_child\" is null."}
+{"date":"2026-10-12T23:59:17.590Z","game":"ab3-opus-opus","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"a\" variable because the value doesn't have a set type. (at: GDScript::reload (res://coins.gd:104))"}
+{"date":"2026-10-12T23:59:17.591Z","game":"ab3-opus-opus","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-12T23:59:17.592Z","game":"ab3-opus-opus","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-12T23:59:17.592Z","game":"ab3-opus-opus","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-12T23:59:17.607Z","game":"ab3-opus-opus","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:37))"}
+{"date":"2026-10-12T23:59:17.607Z","game":"ab3-opus-opus","error":"[run] SCRIPT ERROR: Invalid assignment of property or key 'run_rate' with value of type 'float' on a base object of type 'Nil'. (at: _process (res://main.gd:107))"}
+{"date":"2026-10-12T23:59:17.608Z","game":"ab3-opus-opus","error":"[browser] ERROR: Required object \"rp_child\" is null."}
+{"date":"2026-10-13T00:09:20.658Z","game":"ft-med-haiku","error":"[test coin_test.tscn] FAIL: touching coin 3: coins 2 -> 2, score 20.4 -> 20.6"}
+{"date":"2026-10-13T00:10:57.628Z","game":"match3-haiku-medium","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"t\" variable because the value doesn't have a set type. (at: GDScript::reload (res://board.gd:226))"}
+{"date":"2026-10-13T00:10:57.628Z","game":"match3-haiku-medium","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-13T00:10:57.628Z","game":"match3-haiku-medium","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T00:10:57.629Z","game":"match3-haiku-medium","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T00:10:57.629Z","game":"match3-haiku-medium","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:25))"}
+{"date":"2026-10-13T00:10:57.629Z","game":"match3-haiku-medium","error":"[browser] ERROR: Required object \"rp_child\" is null."}
+{"date":"2026-10-13T00:15:03.039Z","game":"ft-med-haiku","error":"[test duck_test.tscn] FAIL: ducking under the bird (1): state 2, ducking true"}
+{"date":"2026-10-13T00:15:03.039Z","game":"ft-med-haiku","error":"[test duck_test.tscn] FAIL: ducking under the bird (2): state 2, ducking true"}
+{"date":"2026-10-13T00:15:03.039Z","game":"ft-med-haiku","error":"[test duck_test.tscn] FAIL: ducking under the bird (3): state 2, ducking true"}
+{"date":"2026-10-13T00:23:03.557Z","game":"skill-runner-sonnet-1","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-13T00:23:26.752Z","game":"skill-boxpush-sonnet","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"side\" variable because the value doesn't have a set type. (at: GDScript::reload (res://board_view.gd:163))"}
+{"date":"2026-10-13T00:23:26.753Z","game":"skill-boxpush-sonnet","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-13T00:23:26.753Z","game":"skill-boxpush-sonnet","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T00:23:26.756Z","game":"skill-boxpush-sonnet","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T00:23:26.757Z","game":"skill-boxpush-sonnet","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:17))"}
+{"date":"2026-10-13T00:23:26.758Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: level 4 solvable (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:23:26.758Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: level 4 solution wins (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:23:26.759Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: level 5 solvable (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:23:26.760Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: level 5 solution wins (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:23:26.761Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: PAR constant matches solver (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:23:26.762Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"side\" variable because the value doesn't have a set type. (at: GDScript::reload (res://board_view.gd:163))"}
+{"date":"2026-10-13T00:23:26.763Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-13T00:23:26.764Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T00:23:26.765Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:17))"}
+{"date":"2026-10-13T00:23:26.767Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'hide_overlay' in base 'Nil'. (at: begin (res://main.gd:38))"}
+{"date":"2026-10-13T00:23:26.768Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'on_move' in base 'Nil'. (at: do_move (res://main.gd:55))"}
+{"date":"2026-10-13T00:23:26.769Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: win state reached (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:23:26.774Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'overlay' on a base object of type 'Nil'. (at: _ready (res://test/core_test.gd:44))"}
+{"date":"2026-10-13T00:23:26.774Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-13T00:23:26.775Z","game":"skill-boxpush-sonnet","error":"[browser] ERROR: Required object \"rp_child\" is null."}
+{"date":"2026-10-13T00:24:00.921Z","game":"skill-runner-sonnet-2","error":"[run] ERROR: Invalid polygon data, triangulation failed. (at: canvas_item_add_polygon (servers/rendering/renderer_canvas_cull.cpp:1770))"}
+{"date":"2026-10-13T00:24:00.921Z","game":"skill-runner-sonnet-2","error":"[test core_test.tscn] ERROR: Invalid polygon data, triangulation failed. (at: canvas_item_add_polygon (servers/rendering/renderer_canvas_cull.cpp:1770))"}
+{"date":"2026-10-13T00:24:00.921Z","game":"skill-runner-sonnet-2","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-13T00:24:29.035Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: level 4 solvable (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:24:29.035Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: level 4 solution wins (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:24:29.035Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: level 5 solvable (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:24:29.036Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: level 5 solution wins (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:24:29.036Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: PAR constant matches solver (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:24:29.036Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-13T00:25:15.805Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: level 5 solvable (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:25:15.806Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: level 5 solution wins (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:25:15.806Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: PAR constant matches solver (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:25:15.807Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: win state reached (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:25:15.807Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: win overlay shown (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:26:00.499Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: PAR constant matches solver (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:26:48.151Z","game":"skill-runner-haiku-1","error":"[import] SCRIPT ERROR: Parse Error: Cannot find member \"translated\" in base \"Rect2\". (at: GDScript::reload (res://obstacles.gd:39))"}
+{"date":"2026-10-13T00:26:48.154Z","game":"skill-runner-haiku-1","error":"[import] SCRIPT ERROR: Parse Error: Function \"translated()\" not found in base Rect2. (at: GDScript::reload (res://obstacles.gd:39))"}
+{"date":"2026-10-13T00:26:48.158Z","game":"skill-runner-haiku-1","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-13T00:26:48.158Z","game":"skill-runner-haiku-1","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T00:26:48.159Z","game":"skill-runner-haiku-1","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T00:26:48.163Z","game":"skill-runner-haiku-1","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:42))"}
+{"date":"2026-10-13T00:26:48.163Z","game":"skill-runner-haiku-1","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'tick' in base 'Nil'. (at: _process (res://main.gd:107))"}
+{"date":"2026-10-13T00:26:48.164Z","game":"skill-runner-haiku-1","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot find member \"translated\" in base \"Rect2\". (at: GDScript::reload (res://obstacles.gd:39))"}
+{"date":"2026-10-13T00:26:48.164Z","game":"skill-runner-haiku-1","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Function \"translated()\" not found in base Rect2. (at: GDScript::reload (res://obstacles.gd:39))"}
+{"date":"2026-10-13T00:26:48.167Z","game":"skill-runner-haiku-1","error":"[test core_test.tscn] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-13T00:26:48.167Z","game":"skill-runner-haiku-1","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T00:26:48.172Z","game":"skill-runner-haiku-1","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:42))"}
+{"date":"2026-10-13T00:26:48.179Z","game":"skill-runner-haiku-1","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'tick' in base 'Nil'. (at: _process (res://main.gd:107))"}
+{"date":"2026-10-13T00:26:48.179Z","game":"skill-runner-haiku-1","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'reset' in base 'Nil'. (at: _reset_run (res://main.gd:65))"}
+{"date":"2026-10-13T00:26:48.179Z","game":"skill-runner-haiku-1","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'show_playing' in base 'Nil'. (at: _start (res://main.gd:73))"}
+{"date":"2026-10-13T00:26:48.180Z","game":"skill-runner-haiku-1","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'release_jump' in base 'Nil'. (at: _unhandled_input (res://main.gd:152))"}
+{"date":"2026-10-13T00:26:48.182Z","game":"skill-runner-haiku-1","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'hitbox' in base 'Nil'. (at: _process (res://main.gd:101))"}
+{"date":"2026-10-13T00:26:48.183Z","game":"skill-runner-haiku-1","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'position' on a base object of type 'Nil'. (at: _run (res://test/core_test.gd:43))"}
+{"date":"2026-10-13T00:26:48.184Z","game":"skill-runner-haiku-1","error":"[browser] ERROR: Required object \"rp_child\" is null."}
+{"date":"2026-10-13T00:27:03.388Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: PAR constant matches solver (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T00:27:28.061Z","game":"skill-runner-haiku-1","error":"[test core_test.tscn] FAIL: jump lifts the robot (rose 0 px)"}
+{"date":"2026-10-13T00:27:28.062Z","game":"skill-runner-haiku-1","error":"[test core_test.tscn] FAIL: Space restarts the run"}
+{"date":"2026-10-13T00:28:15.679Z","game":"skill-match3-haiku","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-13T00:28:26.192Z","game":"skill-boxpush-sonnet","error":"[test core_test.tscn] ERROR: TEST FAIL: PAR constant matches solver [2, 12, 27, 25, 28] (at: push_error (core/variant/variant_utility.cpp:1023))"}
+{"date":"2026-10-13T03:08:43.150Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: timed jumps clear the cactus"}
+{"date":"2026-10-13T03:08:43.150Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: a tap restarts after game over"}
+{"date":"2026-10-13T03:08:43.150Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: score resets on restart"}
+{"date":"2026-10-13T03:09:23.495Z","game":"steps-match3-haiku-2","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"bad_row\" variable because the value doesn't have a set type. (at: GDScript::reload (res://board.gd:51))"}
+{"date":"2026-10-13T03:09:23.496Z","game":"steps-match3-haiku-2","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"bad_col\" variable because the value doesn't have a set type. (at: GDScript::reload (res://board.gd:52))"}
+{"date":"2026-10-13T03:09:23.496Z","game":"steps-match3-haiku-2","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-13T03:09:23.497Z","game":"steps-match3-haiku-2","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T03:09:23.497Z","game":"steps-match3-haiku-2","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T03:09:23.497Z","game":"steps-match3-haiku-2","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _setup_board (res://main.gd:230))"}
+{"date":"2026-10-13T03:09:23.497Z","game":"steps-match3-haiku-2","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"bad_row\" variable because the value doesn't have a set type. (at: GDScript::reload (res://board.gd:51))"}
+{"date":"2026-10-13T03:09:23.498Z","game":"steps-match3-haiku-2","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"bad_col\" variable because the value doesn't have a set type. (at: GDScript::reload (res://board.gd:52))"}
+{"date":"2026-10-13T03:09:23.498Z","game":"steps-match3-haiku-2","error":"[test core_test.tscn] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-13T03:09:23.498Z","game":"steps-match3-haiku-2","error":"[test core_test.tscn] ERROR: Failed to load script \"res://test/core_test.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T03:09:23.498Z","game":"steps-match3-haiku-2","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _test_fill_is_playable (res://test/core_test.gd:49))"}
+{"date":"2026-10-13T03:09:23.499Z","game":"steps-match3-haiku-2","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'find_matches' in base 'Nil'. (at: _test_matches_and_gravity (res://test/core_test.gd:67))"}
+{"date":"2026-10-13T03:09:23.499Z","game":"steps-match3-haiku-2","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-13T03:09:53.014Z","game":"steps-match3-haiku-2","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-13T03:10:31.333Z","game":"steps-match3-haiku-1","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-13T03:10:42.809Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: timed jumps clear the cactus"}
+{"date":"2026-10-13T03:10:42.809Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: a tap restarts after game over"}
+{"date":"2026-10-13T03:10:42.809Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: score resets on restart"}
+{"date":"2026-10-13T03:11:29.923Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: timed jumps clear the cactus [ahead=10 limit=135 y=898.6 ground=898.6 ground_on=true held=false state=2 elapsed=2.20]"}
+{"date":"2026-10-13T03:11:29.923Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: a tap restarts after game over"}
+{"date":"2026-10-13T03:11:29.924Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: score resets on restart"}
+{"date":"2026-10-13T03:12:21.019Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: timed jumps clear the cactus [ahead=10 limit=135 y=898.6 ground=898.6 ground_on=true held=false state=2 elapsed=2.20 sent=2 req=0 jumps=0]"}
+{"date":"2026-10-13T03:12:21.020Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: a tap restarts after game over"}
+{"date":"2026-10-13T03:12:21.020Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: score resets on restart"}
+{"date":"2026-10-13T03:13:26.394Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: timed jumps clear the cactus [ahead=10 limit=135 y=898.6 ground=898.6 ground_on=true held=false state=2 elapsed=2.20 sent=1 req=0 jumps=0]"}
+{"date":"2026-10-13T03:13:26.395Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: a tap restarts after game over"}
+{"date":"2026-10-13T03:13:26.395Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: score resets on restart"}
+{"date":"2026-10-13T03:14:08.113Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: timed jumps clear the cactus [iters=113 ahead=10 limit=135 y=898.6 ground=898.6 ground_on=true held=false state=2 elapsed=2.20 sent=1 req=0 jumps=0 trail=5/true 108/true 100/true 93/true 85/true 78/true 70/true 63/true 55/true 48/true 40/true 33/true 25/true 18/true 10/true]"}
+{"date":"2026-10-13T03:14:08.113Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: a tap restarts after game over"}
+{"date":"2026-10-13T03:14:08.114Z","game":"steps-runner-haiku","error":"[test core_test.tscn] FAIL: score resets on restart"}
+{"date":"2026-10-13T03:15:01.443Z","game":"steps-runner-haiku","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-13T03:15:44.702Z","game":"steps-runner-haiku","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-13T03:16:36.303Z","game":"steps-runner-haiku","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-13T03:25:26.203Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap uses one move"}
+{"date":"2026-10-13T03:25:26.203Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap scores points"}
+{"date":"2026-10-13T03:25:26.204Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: reaching the goal shows the stage-cleared screen"}
+{"date":"2026-10-13T03:25:26.204Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the end screen is visible"}
+{"date":"2026-10-13T03:25:26.204Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: Space after a win starts stage 2"}
+{"date":"2026-10-13T03:25:26.205Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: running out of moves shows the game-over screen"}
+{"date":"2026-10-13T03:25:26.205Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the game-over screen is visible"}
+{"date":"2026-10-13T03:25:53.302Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: a tap-swap that makes a line uses one move"}
+{"date":"2026-10-13T03:26:38.715Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: a tap-swap that makes a line uses one move DBG moves=0 busy=false sel=(-1, -1) good=[(0, 0), (1, 0)] state=1"}
+{"date":"2026-10-13T03:27:20.578Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap uses one move"}
+{"date":"2026-10-13T03:27:20.578Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap scores points DBG sel=(-1, -1) busy=false cell=(0, 0) good=[(0, 0), (0, 1)] pos=(131.5, 172.5)"}
+{"date":"2026-10-13T03:27:20.579Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: reaching the goal shows the stage-cleared screen"}
+{"date":"2026-10-13T03:27:20.583Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the end screen is visible"}
+{"date":"2026-10-13T03:27:20.584Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: Space after a win starts stage 2"}
+{"date":"2026-10-13T03:27:20.584Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: running out of moves shows the game-over screen"}
+{"date":"2026-10-13T03:27:20.584Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the game-over screen is visible"}
+{"date":"2026-10-13T03:27:22.709Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: a tap-swap that makes a line uses one move DBG moves=0 busy=false sel=(-1, -1) good=[(1, 0), (1, 1)] state=1 origin=(76.0, 96.0) tile=125.0 vp=(1152.0, 1152.0) p0=(263.5, 158.5) cellat=(1, 0)"}
+{"date":"2026-10-13T03:28:01.762Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: a tap-swap that makes a line uses one move"}
+{"date":"2026-10-13T03:28:06.538Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap uses one move"}
+{"date":"2026-10-13T03:28:06.538Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap scores points DBG  good=[(2, 0), (3, 0)] sel=(-1, -1)"}
+{"date":"2026-10-13T03:28:06.539Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: reaching the goal shows the stage-cleared screen"}
+{"date":"2026-10-13T03:28:06.539Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the end screen is visible"}
+{"date":"2026-10-13T03:28:06.539Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: Space after a win starts stage 2"}
+{"date":"2026-10-13T03:28:06.539Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: running out of moves shows the game-over screen"}
+{"date":"2026-10-13T03:28:06.540Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the game-over screen is visible"}
+{"date":"2026-10-13T03:28:44.726Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: DBG after tap1 sel=(-1, -1) pressing=false busy=false state=1"}
+{"date":"2026-10-13T03:28:44.726Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: DBG after tap2 sel=(-1, -1) moves=0 busy=false"}
+{"date":"2026-10-13T03:28:44.726Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: a tap-swap that makes a line uses one move"}
+{"date":"2026-10-13T03:29:29.087Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: DBG after tap1 sel=(-1, -1) dbg=pos=(2493.0, 2853.0) cell=(-1, -1) origin=(76.0, 96.0) tile=125.0 want=(138.5, 158.5)"}
+{"date":"2026-10-13T03:29:29.088Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: DBG after tap2 sel=(-1, -1) moves=0 busy=false"}
+{"date":"2026-10-13T03:29:29.088Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: a tap-swap that makes a line uses one move"}
+{"date":"2026-10-13T03:29:31.545Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap uses one move"}
+{"date":"2026-10-13T03:29:31.546Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap scores points DBG E1:false;P(-1, -1);E1:false;E1:false;P(-1, -1);E1:false;E1:false;P(-1, -1);E1:false;E1:false;P(-1, -1);E1:false; good=[(0, 0), (1, 0)] sel=(-1, -1)"}
+{"date":"2026-10-13T03:29:31.547Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: reaching the goal shows the stage-cleared screen"}
+{"date":"2026-10-13T03:29:31.547Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the end screen is visible"}
+{"date":"2026-10-13T03:29:31.547Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: Space after a win starts stage 2"}
+{"date":"2026-10-13T03:29:31.548Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: running out of moves shows the game-over screen"}
+{"date":"2026-10-13T03:29:31.548Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the game-over screen is visible"}
+{"date":"2026-10-13T03:30:11.601Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: a tap-swap that makes a line uses one move"}
+{"date":"2026-10-13T03:30:12.679Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap uses one move"}
+{"date":"2026-10-13T03:30:12.680Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap scores points DBG E1:false;P(-1, -1)/(2367.0, 3105.0)/(1152.0, 1152.0)/(68.0, 109.0);E1:false;E1:false;P(-1, -1)/(4653.0, 3105.0)/(1152.0, 1152.0)/(68.0, 109.0);E1:false;E1:false;P(-1, -1)/(11511.0, 5391.0)/(1152.0, 1152.0)/(68.0, 109.0);E1:false;E1:false;P(-1, -1)/(13797.0, 5391.0)/(1152.0, 1152.0)/(68.0, 109.0);E1:false; good=[(4, 1), (5, 1)] sel=(-1, -1)"}
+{"date":"2026-10-13T03:30:12.680Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: reaching the goal shows the stage-cleared screen"}
+{"date":"2026-10-13T03:30:12.680Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the end screen is visible"}
+{"date":"2026-10-13T03:30:12.681Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: Space after a win starts stage 2"}
+{"date":"2026-10-13T03:30:12.681Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: running out of moves shows the game-over screen"}
+{"date":"2026-10-13T03:30:12.681Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the game-over screen is visible"}
+{"date":"2026-10-13T03:30:41.534Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: DBG tap1 sel=(-1, -1) good=[(1, 0), (1, 1)] busy=false"}
+{"date":"2026-10-13T03:30:41.535Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: DBG tap2 sel=(-1, -1) moves=0 busy=false"}
+{"date":"2026-10-13T03:30:41.535Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: a tap-swap that makes a line uses one move"}
+{"date":"2026-10-13T03:31:05.139Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap uses one move"}
+{"date":"2026-10-13T03:31:05.139Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap scores points"}
+{"date":"2026-10-13T03:31:05.139Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: reaching the goal shows the stage-cleared screen"}
+{"date":"2026-10-13T03:31:05.140Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the end screen is visible"}
+{"date":"2026-10-13T03:31:05.140Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: Space after a win starts stage 2"}
+{"date":"2026-10-13T03:31:05.140Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: running out of moves shows the game-over screen"}
+{"date":"2026-10-13T03:31:05.140Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the game-over screen is visible"}
+{"date":"2026-10-13T03:31:20.788Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: DBG tap1 sel=(-1, -1) ft=[X: (0.055556, 0.0), Y: (0.0, 0.055556), O: (0.0, 0.0)] inv_cell=(9243.0, 2853.0) fi=(18.0, 18.0)"}
+{"date":"2026-10-13T03:31:20.789Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: DBG tap2 sel=(-1, -1) moves=0 busy=false"}
+{"date":"2026-10-13T03:31:20.789Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: a tap-swap that makes a line uses one move"}
+{"date":"2026-10-13T03:31:40.756Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: PROBE final=[X: (0.055556, 0.0), Y: (0.0, 0.055556), O: (0.0, 0.0)] screen=[X: (0.055556, 0.0), Y: (0.0, 0.055556), O: (0.0, 0.0)] canvas=[X: (1.0, 0.0), Y: (0.0, 1.0), O: (0.0, 0.0)] win=(0, 0) size=(1152.0, 1152.0) stretch=[X: (0.055556, 0.0), Y: (0.0, 0.055556), O: (0.0, 0.0)]"}
+{"date":"2026-10-13T03:31:40.756Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap uses one move"}
+{"date":"2026-10-13T03:31:40.756Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: a valid swap scores points"}
+{"date":"2026-10-13T03:31:40.757Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: reaching the goal shows the stage-cleared screen"}
+{"date":"2026-10-13T03:31:40.757Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the end screen is visible"}
+{"date":"2026-10-13T03:31:40.757Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: Space after a win starts stage 2"}
+{"date":"2026-10-13T03:31:40.758Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: running out of moves shows the game-over screen"}
+{"date":"2026-10-13T03:31:40.758Z","game":"steps2-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: the game-over screen is visible"}
+{"date":"2026-10-13T03:32:03.714Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: a tap-swap that makes a line uses one move"}
+{"date":"2026-10-13T03:32:37.821Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: a tap-swap that makes a line uses one move"}
+{"date":"2026-10-13T03:33:10.379Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: DBG tap1 sel=(-1, -1) good=[(0, 0), (1, 0)] busy=false"}
+{"date":"2026-10-13T03:33:10.379Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: DBG tap2 sel=(-1, -1) moves=0 busy=false"}
+{"date":"2026-10-13T03:33:10.379Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: a tap-swap that makes a line uses one move"}
+{"date":"2026-10-13T03:33:48.765Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: DBG tap1 sel=(3, 0) good=[(3, 0), (3, 1)] busy=false"}
+{"date":"2026-10-13T03:33:48.766Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] FAIL: DBG tap2 sel=(-1, -1) moves=0 busy=true"}
+{"date":"2026-10-13T03:36:32.133Z","game":"steps2-match3-haiku-low-1","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'tween_callback' in base 'IntervalTweener'. (at: BoardView._burst (res://board_view.gd:212))"}
+{"date":"2026-10-13T03:43:49.123Z","game":"steps3-match3-haiku-medium","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"bad_row\" variable because the value doesn't have a set type. (at: GDScript::reload (res://board.gd:40))"}
+{"date":"2026-10-13T03:43:49.123Z","game":"steps3-match3-haiku-medium","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"bad_col\" variable because the value doesn't have a set type. (at: GDScript::reload (res://board.gd:41))"}
+{"date":"2026-10-13T03:43:49.124Z","game":"steps3-match3-haiku-medium","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-13T03:43:49.124Z","game":"steps3-match3-haiku-medium","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T03:43:49.124Z","game":"steps3-match3-haiku-medium","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T03:43:49.125Z","game":"steps3-match3-haiku-medium","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: @implicit_new (res://main.gd:25))"}
+{"date":"2026-10-13T03:43:49.125Z","game":"steps3-match3-haiku-medium","error":"[run] ERROR: Required object \"rp_child\" is null. (at: add_child (scene/main/node.cpp:1715))"}
+{"date":"2026-10-13T03:43:49.125Z","game":"steps3-match3-haiku-medium","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'setup' in base 'Nil'. (at: _ready (res://main.gd:43))"}
+{"date":"2026-10-13T03:43:49.125Z","game":"steps3-match3-haiku-medium","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"bad_row\" variable because the value doesn't have a set type. (at: GDScript::reload (res://board.gd:40))"}
+{"date":"2026-10-13T03:43:49.126Z","game":"steps3-match3-haiku-medium","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"bad_col\" variable because the value doesn't have a set type. (at: GDScript::reload (res://board.gd:41))"}
+{"date":"2026-10-13T03:43:49.126Z","game":"steps3-match3-haiku-medium","error":"[test core_test.tscn] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://test/core_test.gd:0))"}
+{"date":"2026-10-13T03:43:49.127Z","game":"steps3-match3-haiku-medium","error":"[test core_test.tscn] ERROR: Failed to load script \"res://test/core_test.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-13T03:43:49.127Z","game":"steps3-match3-haiku-medium","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _test_rules (res://test/core_test.gd:16))"}
+{"date":"2026-10-13T03:43:49.127Z","game":"steps3-match3-haiku-medium","error":"[test core_test.tscn] ERROR: Required object \"rp_child\" is null. (at: add_child (scene/main/node.cpp:1715))"}
+{"date":"2026-10-13T03:43:49.128Z","game":"steps3-match3-haiku-medium","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'setup' in base 'Nil'. (at: _ready (res://main.gd:43))"}
+{"date":"2026-10-13T03:43:49.128Z","game":"steps3-match3-haiku-medium","error":"[test core_test.tscn] SCRIPT ERROR: Invalid assignment of property or key 'num_types' with value of type 'int' on a base object of type 'Nil'. (at: _start_game (res://main.gd:218))"}
+{"date":"2026-10-13T03:43:49.128Z","game":"steps3-match3-haiku-medium","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'find_move' in base 'Nil'. (at: _test_game (res://test/core_test.gd:42))"}
+{"date":"2026-10-13T03:43:49.129Z","game":"steps3-match3-haiku-medium","error":"[test core_test.tscn] FAIL: game: Space starts a full game"}
+{"date":"2026-10-13T03:45:17.409Z","game":"steps3-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: running out of moves ends the game"}
+{"date":"2026-10-13T03:45:17.410Z","game":"steps3-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: game-over panel shows"}
+{"date":"2026-10-13T03:45:17.414Z","game":"steps3-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: tap starts round 2"}
+{"date":"2026-10-13T03:45:17.414Z","game":"steps3-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: round 2 adds a fruit kind"}
+{"date":"2026-10-13T03:45:17.414Z","game":"steps3-match3-haiku-low-2","error":"[test core_test.tscn] FAIL: round 2 has a higher goal"}
+{"date":"2026-10-13T03:46:54.712Z","game":"steps3-match3-haiku-low-1","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'tween_callback' in base 'IntervalTweener'. (at: BoardView._burst (res://board_view.gd:194))"}
+{"date":"2026-10-13T03:48:40.234Z","game":"steps3-match3-haiku-low-2","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'tween_callback' in base 'IntervalTweener'. (at: BoardView._burst (res://board_view.gd:159))"}

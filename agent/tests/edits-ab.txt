@@ -1,0 +1,3 @@
+Make the robot jump a little higher.
+Add coins floating in the air to collect.
+Let the robot double jump.

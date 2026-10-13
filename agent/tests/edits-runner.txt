@@ -1,0 +1,8 @@
+Make the robot jump a little higher.
+Add coins floating in the air to collect.
+Let the robot double jump.
+The cactuses come too fast at the start, make the beginning easier.
+Add a shield power-up that saves you from one hit.
+Make the score text bigger.
+Change the sky to night with stars.
+Add sounds when you jump and when you collect a coin.
