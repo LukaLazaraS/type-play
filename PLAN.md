@@ -1,12 +1,22 @@
 # Plan: first users in ~2 weeks, launch in ~5 weeks
 
-## Start here (handoff, end of 2026-10-13)
+## Start here (handoff, 2026-10-14)
 
 - **Done:** step 1 (Godot check) and step 3 (agent core) except the asset catalogue. How the
   game agent works and what each part costs: `packages/agent/RESULTS.md`; rules in `packages/agent/rules/`,
   genre skills in `packages/agent/genres/`, runner `packages/agent/run.mjs`, check `packages/agent/tools/check.mjs`.
   Gallery of every test game: `cd packages/agent && npm run gallery` → http://127.0.0.1:8070/.
 - **Next session, in order:**
+  0. **Deploy the public pages (hosting decided 2026-10-14, see `docs/decisions.md`):** Hetzner Cloud
+     CX22 in Falkenstein for the site (Docker, Caddy with automatic HTTPS, `next start`), the games
+     origin `apps/games` on a Cloudflare R2 bucket with the custom domain typeplay.dev, DNS on
+     Cloudflare, one deploy script in `deploy/`. Domains are bought (both active on Cloudflare).
+     Needs from Luka, in the git-ignored root `.env`: `HETZNER_TOKEN` (Hetzner Cloud project
+     "typeplay", Read & Write), `CLOUDFLARE_API_TOKEN` (Edit zone DNS for typeplay.app and
+     typeplay.dev), `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY` (R2 object
+     read & write). Also hello@typeplay.app via Cloudflare Email Routing (parked #1). Done means:
+     https://typeplay.app serves the site, https://typeplay.dev/play.html?g=robot-runner plays, and
+     Paddle can review the pricing, terms, privacy and refund pages.
   1. **Step 4, the web app** in `apps/web/` (the public pages are built, see below): sign-in with
      Google, projects, chat with streaming, preview frame, version history, credits. The
      home page's prompt box already hands the sentence to `/create?prompt=`, which is the

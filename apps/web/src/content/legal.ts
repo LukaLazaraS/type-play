@@ -3,9 +3,7 @@ import { site } from "./site";
 export type Section = { heading: string; paragraphs: string[]; list?: string[] };
 export type LegalDoc = { title: string; intro: string; sections: Section[] };
 
-const operator = [site.seller.name, site.seller.form, site.seller.city, site.seller.country]
-  .filter(Boolean)
-  .join(", ");
+const operator = [site.seller.name, site.seller.form].filter(Boolean).join(", ");
 
 export const terms: LegalDoc = {
   title: "Terms of service",

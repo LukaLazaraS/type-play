@@ -11,12 +11,12 @@ export const site = {
   email: "hello@typeplay.app",
   // Who runs TypePlay. Named once, at the end of the terms and the privacy policy (Paddle wants
   // the sole proprietor's legal name in the terms; privacy law wants the data controller named);
-  // everywhere else the site says "TypePlay" (Luka, 2026-10-14). Must match the Paddle account and
-  // the Individual Entrepreneur registration exactly; set `form` once that registration exists.
+  // everywhere else the site says "TypePlay", and no city or address (Luka, 2026-10-14). Must
+  // match the Paddle account and the Individual Entrepreneur registration exactly; set `form`
+  // once that registration exists. `country` is only the governing law of the terms.
   seller: {
     name: "Luka Lazarashvili",
     form: null as string | null, // "Individual Entrepreneur" once registered (~10-16)
-    city: "Tbilisi",
     country: "Georgia",
   },
   minAge: 13,

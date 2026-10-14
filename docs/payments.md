@@ -67,6 +67,17 @@ Lemon Squeezy https://www.lemonsqueezy.com/blog/2026-update ·
 EU OSS https://vat-one-stop-shop.ec.europa.eu/one-stop-shop_en ·
 UK https://www.gov.uk/government/publications/vat-notice-7001-should-i-be-registered-for-vat/vat-notice-7001-should-i-be-registered-for-vat
 
+## Tax on top of the price (Luka, 2026-10-14)
+
+Prices are shown without tax and Paddle adds the buyer's VAT / sales tax at checkout, as
+Anthropic does (Claude Max $200 → $236 in Georgia = 18% VAT). Paddle price `tax_mode:
+"external"`; the pricing page already says "tax is added at checkout by Paddle". We keep the
+same amount from every country (tax-inclusive would cost us ~16-21% in the EU). Paddle's
+"no hidden fees" is about what Paddle charges *us*. A separate surcharge on top of price + tax
+is not the same thing: card surcharges on consumers are banned in the EU; put any margin in
+the price. If EU rules ever need tax-inclusive display, `tax_mode: "location"` switches per
+country automatically. https://developer.paddle.com/changelog/2025/automatic-tax-inclusive-exclusive-prices/
+
 ## What signup asks of an individual (checked 2026-10-14)
 
 Neither asks for IE or Small Business Status papers, so the application can go in before the

@@ -30,7 +30,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${gabarito.variable} ${onest.variable} ${martian.variable}`}>
-      <body>
+      {/* Browser extensions (Grammarly and others) add attributes to <body> before React runs;
+          ignore attribute differences on this one element so they don't raise hydration errors. */}
+      <body suppressHydrationWarning>
         <Wallpaper />
         <LauncherProvider>
           <StatusBar />
