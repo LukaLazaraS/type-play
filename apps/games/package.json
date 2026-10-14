@@ -1,0 +1,13 @@
+{
+  "name": "typeplay-games",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The games origin (typeplay.dev): loader page, versioned Godot web engines, game builds.",
+  "type": "module",
+  "scripts": {
+    "build-demo": "node scripts/build-demo.mjs",
+    "dev": "node scripts/serve.mjs",
+    "serve": "node scripts/serve.mjs",
+    "check": "node --check scripts/serve.mjs && node --check scripts/build-demo.mjs"
+  }
+}

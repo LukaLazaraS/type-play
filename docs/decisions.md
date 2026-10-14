@@ -113,6 +113,24 @@ Every build is partly luck (Luka: "it's dice"), so the product doesn't hide the 
   `.glb`), CC0 verified from each `License.txt`. Next: a searchable catalogue for the agent.
 - Haiku new games are built in two short sessions (core, then polish): $0.07-0.12 per build.
 
+## 2026-10-14: monorepo layout, games origin as its own package
+
+Luka delegated the architecture decision ("best practice, long-term"). Claude decided:
+- **Layout:** `apps/` for deployables (`web` = typeplay.app, `games` = typeplay.dev, later
+  `server`, `desktop`, `mobile`) and `packages/` for libraries (`agent` now; `shared`, `ui`
+  when they have content). `proof/` and `docs/` stay at the root. Every package runs alone;
+  apps deploy separately; code shared between apps goes through `packages/`, never by reaching
+  into another app's folder.
+- **Tooling:** npm workspaces (one install, one lockfile at the root) + Turborepo (`turbo.json`:
+  ordered, cached `check` / `build` / `lint`, `dev` runs every app). Not Nx: more machinery than a
+  one-person team with Claude writing the code will use.
+- **Games origin:** `apps/games` mirrors the live bucket one to one: `play.html` loader,
+  `engine/<godot-version>/` kept forever, immutable `builds/<id>/` with a `game.json` manifest
+  naming the engine version. Reason: a game runs code, so it never shares the site's origin;
+  one engine per version so upgrades can't break old games.
+- **Platform labels** on the site: "now" for the web, "coming" for Android, iOS and Steam; no dates
+  we can't be sure of (Luka).
+
 ## 2026-10-13: name is TypePlay
 
 - **TypePlay.** It says what it does and has one spelling when said aloud. Type2Play was dropped:

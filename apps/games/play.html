@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>TypePlay game</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #170d33; overflow: hidden; }
+  canvas { display: block; outline: none; }
+  #status { position: absolute; inset: 0; display: grid; place-items: center; color: #fff;
+    font: 500 15px/1.4 system-ui, sans-serif; text-align: center; padding: 24px; }
+  #status[hidden] { display: none; }
+  #bar { width: min(280px, 60vw); height: 6px; background: #251948; border-radius: 3px; overflow: hidden; margin: 12px auto 0; }
+  #bar i { display: block; height: 100%; width: 0; background: #ffb347; transition: width 200ms linear; }
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="0">Your browser does not support the canvas tag.</canvas>
+<div id="status"><div><div id="msg">Loading the game…</div><div id="bar"><i id="fill"></i></div></div></div>
+<script>
+  // The loader: reads builds/<id>/game.json, loads that game's engine version, starts the game.
+  // ?g=<id>      which game
+  // ?auto=1      press Space for the viewer now and then (the site's demo), until they take over
+  // Tells the parent page how it goes: postMessage({ typeplay: "ready" | "error", game }).
+  const params = new URLSearchParams(location.search);
+  const id = (params.get("g") || "").replace(/[^a-z0-9-]/g, "");
+  const auto = params.get("auto") === "1";
+  const canvas = document.getElementById("canvas");
+  const status = document.getElementById("status"), msg = document.getElementById("msg"), fill = document.getElementById("fill");
+  const tell = (what) => { try { parent.postMessage({ typeplay: what, game: id }, "*"); } catch (e) {} };
+  const fail = (text) => { msg.textContent = text; tell("error"); };
+  const loadScript = (src) => new Promise((ok, no) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = ok; s.onerror = () => no(new Error("engine script failed: " + src));
+    document.head.appendChild(s);
+  });
+
+  let playerTookOver = false;
+  const press = () => {
+    if (playerTookOver) return;
+    for (const type of ["keydown", "keyup"]) {
+      canvas.dispatchEvent(new KeyboardEvent(type, { key: " ", code: "Space", keyCode: 32, which: 32, bubbles: true }));
+    }
+  };
+  canvas.addEventListener("pointerdown", () => { playerTookOver = true; canvas.focus(); });
+  window.addEventListener("keydown", (e) => { if (e.isTrusted) playerTookOver = true; });
+  window.addEventListener("message", (e) => { if (e.data === "typeplay:focus") canvas.focus(); });
+
+  (async () => {
+    if (!id) return fail("No game chosen.");
+    const res = await fetch(`builds/${id}/game.json`, { cache: "no-cache" });
+    if (!res.ok) return fail("This game is not here.");
+    const meta = await res.json();
+    const version = String(meta.engine || "").replace(/[^0-9a-z.-]/g, "");
+    if (!version) return fail("This game names no engine version.");
+    document.title = (meta.name || "Game") + " | TypePlay";
+    await loadScript(`engine/${version}/index.js`);
+    const engine = new Engine({
+      executable: `engine/${version}/index`,
+      mainPack: `builds/${id}/${meta.pack || "index.pck"}`,
+      canvasResizePolicy: 2,
+      focusCanvas: false,
+      args: [],
+      onProgress(current, total) { if (total > 0) fill.style.width = Math.round(100 * current / total) + "%"; },
+    });
+    await engine.startGame();
+    status.hidden = true;
+    tell("ready");
+    if (auto) { setTimeout(press, 900); setInterval(press, 4000); }
+  })().catch((e) => fail("The game could not load: " + (e && e.message ? e.message : e)));
+</script>
+</body>
+</html>

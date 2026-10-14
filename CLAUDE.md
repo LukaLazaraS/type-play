@@ -86,7 +86,7 @@ Claude Code runs on his Max 20x plan.
 | Sonnet 5.5 `claude-sonnet-5-5` | 2 | 10 | 0.20 | **$0.16** medium isolated (1.6 min); v1 high $0.42-0.54, 3D $0.76 | v1 resumed session $0.62 |
 | Haiku 5.5 `claude-haiku-5-5` | 0.10 | 0.50 | ~0.01 | **$0.07-0.12** with genre skill, built in 2 short steps (8-12 min; core playable at ~5-7) | **$0.003-0.03** (4 edits with tests: $0.069) |
 
-Measured in `proof/RESULTS.md` (v1) and `agent/RESULTS.md` (v2 isolated, the current setup):
+Measured in `proof/RESULTS.md` (v1) and `packages/agent/RESULTS.md` (v2 isolated, the current setup):
 API-price estimates, one short prompt each. Prompt caching is what keeps input cheap: the
 agent re-reads the project every turn. Haiku 5.5 costs 5× more above 100K input tokens, so
 keep the context the agent sees small. API spend tiers go by credits bought ($40 → tier 2);
@@ -111,8 +111,8 @@ open the API account just before beta 1.
 - The Agent SDK loads `CLAUDE.md` and user settings by default, and on a claude.ai login it
   also loads that account's connectors (Luka's Google Drive, vidIQ/YouTube, Docs: 84 tools,
   +89K tokens on every call, with write access). The game agent always runs isolated
-  (`agent/run.mjs` `ISOLATED`: 7 tools, `settingSources: []`, `disableClaudeAiConnectors`,
-  `strictMcpConfig`, no skills); `agent/tests/isolation.mjs` checks it (first call ~9K tokens).
+  (`packages/agent/run.mjs` `ISOLATED`: 7 tools, `settingSources: []`, `disableClaudeAiConnectors`,
+  `strictMcpConfig`, no skills); `packages/agent/tests/isolation.mjs` checks it (first call ~9K tokens).
 
 ## Working with Luka
 
@@ -128,14 +128,37 @@ open the API account just before beta 1.
   list of parked items that are due or overdue. Luka parks non-technical steps on purpose
   while the core is proven, and relies on these reminders.
 
+## Design skills (the Builder, for `apps/web/`)
+
+Installed 2026-10-13 in `.claude/skills/` (copies, versions in `skills-lock.json`); use them for
+all UI work in `apps/web/`. The game agent never loads them (`ISOLATED`, `settingSources: []`).
+
+- **impeccable** leads layout, type, colour and copy (`/impeccable init|shape|critique|audit|polish`).
+  Its project context goes in `PRODUCT.md` / `DESIGN.md`; working files in `.impeccable/` (ignored).
+  Its edit/Stop hook is not installed; telemetry is off (`DO_NOT_TRACK` in `.claude/settings.json`).
+- **emil-design-eng** leads motion and interaction feel; on animation it wins.
+- **design-taste-frontend** (Taste) is an extra anti-slop pass on public pages (home, pricing);
+  by its own scope not for app screens. ~90 KB: load it for those pages only. Impeccable wins ties.
+- **mobile-native** for phone fixes; **break-ui** (worst-case data) before a screen is called done.
+- Update Impeccable from its repo's `.claude/skills/impeccable` folder: the `skills` CLI copies
+  its generic variant, whose script paths point at `.agents/`.
+
 ## Layout (grows as built)
 
 ```
-game-forge/
-  CLAUDE.md  PLAN.md  .gitignore
-  docs/           decisions, parked steps (reminders), name candidates, research, logs
-  proof/          Godot check: the agent builds a Godot game from one prompt (this PC)
-  agent/          the game-building agent: skills, genre templates, tools
-  web/            the site: chat, preview, projects, credits
-  server/         export workers: Godot headless, Blender, queue
+game-forge/                 npm workspaces + Turborepo (decided 2026-10-14, docs/decisions.md)
+  CLAUDE.md  PLAN.md  PRODUCT.md  DESIGN.md  package.json  turbo.json  .gitignore
+  docs/           decisions, parked steps (reminders), pricing brief, research, name candidates
+  proof/          Godot check (archive): the agent builds a Godot game from one prompt
+  apps/           deployables, each runs and deploys alone
+    web/          the site (typeplay.app): public pages, then chat, preview, projects, credits
+    games/        the games origin (typeplay.dev): loader page, engine per Godot version, builds
+    server/       (next) NestJS API, agent sessions, export workers: Godot headless, Blender, queue
+    desktop/ mobile/   (later) the builder as a Cursor-style desktop app; phone apps
+  packages/       libraries shared by apps, never reached into directly
+    agent/        the game agent: runner, rules, genre skills, check tool, gallery
+    shared/ ui/   (when they have content) types and contracts; shared React parts
 ```
+
+Root scripts: `npm install` once; `npm run dev` (site on :3000 + games origin on :3001),
+`npm run check` (every package's type-check and lint), `npm run build`.

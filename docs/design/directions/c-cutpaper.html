@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>TypePlay · Cut-Paper Pun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat+Brush&family=Archivo:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#fdfdfb;--ink:#161616;--cobalt:#1f3fbf;--leaf:#2f9e44;--poppy:#e8412c;}
+  *{box-sizing:border-box;margin:0}
+  html,body{width:1440px;height:900px;overflow:hidden}
+  body{font-family:Archivo,sans-serif;color:var(--ink);background:var(--paper);position:relative}
+  .defs{position:absolute;width:0;height:0}
+  header{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:34px 72px}
+  .mark{font:900 26px Archivo,sans-serif;letter-spacing:-.03em}
+  nav{display:flex;gap:34px;align-items:center;font:600 15px Archivo,sans-serif}
+  nav .in{background:var(--cobalt);color:#fff;padding:9px 16px;transform:rotate(-2deg);filter:url(#rag)}
+  h1{position:absolute;top:84px;left:72px;font:400 148px/.84 "Caveat Brush",cursive;letter-spacing:-.01em;transform:rotate(-2.5deg);transform-origin:left top}
+  h1 em{font-style:normal}
+  .under{position:absolute;left:66px;top:332px}
+  .pun{position:absolute;top:490px;left:72px;right:72px;font:800 86px/1 Archivo,sans-serif;letter-spacing:-.035em;white-space:nowrap}
+  .pun .g{display:inline-block;width:.6em;position:relative;height:.8em;vertical-align:baseline}
+  .pun .g svg{transform:scale(1.22);transform-origin:left bottom}
+  .pun svg{position:absolute;overflow:visible}
+  .strip{position:absolute;top:650px;left:72px;width:1010px;display:flex;align-items:stretch;transform:rotate(-1deg)}
+  .strip .p{flex:1;background:#fff;border:3px solid var(--ink);padding:20px 24px;font:400 21px/1.35 Archivo,sans-serif;filter:url(#rag)}
+  .strip .p span{color:#5d5d5d}
+  .go{margin-left:-6px;background:var(--poppy);color:#fff;font:400 40px/1 "Caveat Brush",cursive;padding:18px 34px;transform:rotate(3deg) translateY(-6px);filter:url(#rag)}
+  .credits{position:absolute;bottom:40px;left:72px;right:72px;display:flex;justify-content:space-between;font:600 14px Archivo,sans-serif;border-top:2px solid var(--ink);padding-top:14px}
+  .credits span{color:#404040;font-weight:400}
+</style></head>
+<body>
+<svg class="defs" aria-hidden="true"><filter id="rag"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="4"/></filter>
+<filter id="crayon"><feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="9" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+<header><div class="mark">TypePlay</div><nav><span>How it works</span><span>Games</span><span>Pricing</span><span class="in">Sign in</span></nav></header>
+
+<h1>Type it.<br><em>Play it.</em></h1>
+<svg class="under" width="440" height="50" viewBox="0 0 440 50" filter="url(#crayon)" aria-hidden="true"><path d="M8 28 C100 14 240 12 428 20 M26 40 C150 28 290 26 406 34" stroke="#e8412c" stroke-width="9" fill="none" stroke-linecap="round"/></svg>
+
+<!-- the pun: the sentence you type is already the game -->
+<div class="pun" aria-label="a little robot jumps over cactuses">a little rob<span class="g"><svg width="74" height="150" viewBox="0 0 74 150" style="left:-6px;top:-118px">
+    <path d="M-40 128 C-24 40 40 20 56 6" stroke="#1f3fbf" stroke-width="5" stroke-dasharray="2 12" stroke-linecap="round" fill="none" filter="url(#crayon)"/>
+    <g filter="url(#rag)"><rect x="8" y="0" width="56" height="48" rx="8" fill="#1f3fbf"/><rect x="18" y="12" width="14" height="14" fill="#fff"/><rect x="40" y="12" width="14" height="14" fill="#fff"/><rect x="24" y="17" width="6" height="6" fill="#161616"/><rect x="46" y="17" width="6" height="6" fill="#161616"/><rect x="33" y="-14" width="6" height="16" fill="#161616"/><circle cx="36" cy="-16" r="6" fill="#e8412c"/><rect x="14" y="50" width="44" height="30" rx="4" fill="#1f3fbf"/><rect x="16" y="82" width="12" height="18" fill="#161616"/><rect x="44" y="82" width="12" height="18" fill="#161616"/></g>
+  </svg></span>t jumps over cac<span class="g"><svg width="70" height="120" viewBox="0 0 70 120" style="left:-8px;top:-78px"><g filter="url(#rag)"><rect x="26" y="0" width="22" height="120" rx="11" fill="#2f9e44"/><path d="M26 64 H12 a8 8 0 0 1 -8 -8 V30 a8 8 0 0 1 16 0 V50 h6z" fill="#2f9e44"/><path d="M48 44 h10 a6 6 0 0 0 6 -6 V18 a7 7 0 0 0 -14 0 V34 h-2z" fill="#2f9e44"/></g></svg></span>uses</div>
+
+<div class="strip"><div class="p">Make an endless runner where <span>a little robot jumps over cactuses</span> and it gets faster over time.</div><div class="go">Make it!</div></div>
+
+<footer class="credits"><div>Real Godot games, built by AI from one sentence. <span>Play in the browser now. Android, iOS and Steam next.</span></div><div>Free to start <span>· no code</span></div></footer>
+</body></html>

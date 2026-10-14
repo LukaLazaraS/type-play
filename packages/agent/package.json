@@ -1,8 +1,12 @@
 {
-  "name": "gameforge-agent",
+  "name": "@typeplay/agent",
   "private": true,
   "type": "module",
   "description": "The game agent: builds and edits Godot games from a player's request",
+  "scripts": {
+    "check": "node --check run.mjs && node --check tools/check.mjs && node --check tools/gallery.mjs",
+    "gallery": "node tools/gallery.mjs"
+  },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.296"
   }

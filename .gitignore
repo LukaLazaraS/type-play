@@ -7,3 +7,12 @@ output/
 *.ipa
 .godot/
 export/
+.impeccable/*
+!.impeccable/design.json
+apps/games/engine/*/
+apps/games/builds/
+apps/games/.tmp/
+.claude/settings.local.json
+.turbo/
+apps/*/.impeccable/
+packages/*/.impeccable/

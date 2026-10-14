@@ -10,8 +10,9 @@ import { existsSync, readFileSync, openSync, readSync, closeSync } from 'node:fs
 import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SOURCES = { proof: join(ROOT, 'proof'), agent: join(ROOT, 'agent') };
+const HERE = join(dirname(fileURLToPath(import.meta.url)), '..'); // packages/agent
+const ROOT = join(HERE, '..', '..'); // the repo
+const SOURCES = { proof: join(ROOT, 'proof'), agent: HERE };
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm', '.pck': 'application/octet-stream', '.png': 'image/png' };
 
 // Build and edit records per game folder, from each source's runs.jsonl.
