@@ -1,5 +1,5 @@
 {
-  "name": "gameforge-proof",
+  "name": "typeplay-proof",
   "private": true,
   "type": "module",
   "description": "Godot check: the game agent builds a Godot game from one prompt",

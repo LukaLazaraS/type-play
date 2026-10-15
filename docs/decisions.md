@@ -144,3 +144,18 @@ Luka delegated the architecture decision ("best practice, long-term"). Claude de
 - Not typeplay.game ($309/yr). typeplay.games ($26/yr) waits until published games get their own
   public addresses; nothing public points at the games domain before then, so moving it later is one setting.
   Extra domains (.ai, .games, .com) a few months after launch if there are users (`parked.md` #13).
+
+## 2026-10-15: folder renamed to `type-play`
+
+`projects/game-forge` → `projects/type-play`, so the folder matches the product. "GameForge" was
+only a working name (see "name is TypePlay" above).
+
+- Claude Code files saved sessions by folder path, under `~/.claude/projects/`. The project's folder
+  `c--Users-lazar-Desktop-projects-game-forge` became `c--Users-lazar-Desktop-projects-type-play`,
+  as did the ~50 game-agent test-run folders that share the prefix. Memory was empty: knowledge
+  lives in the repo.
+- `node_modules` links the workspaces by absolute path, so after any folder rename run
+  `npm install`: it re-links them and also syncs the stale `gameforge-agent` entry in
+  `package-lock.json` to `@typeplay/agent`. The archived `proof/` package is now `typeplay-proof`.
+- Windows won't rename a folder while a program has it open: close VS Code and its Claude session first.
+- Old sessions, commits and notes still say "GameForge" or `game-forge`; it is the same project.

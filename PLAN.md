@@ -11,10 +11,11 @@
      CX22 in Falkenstein for the site (Docker, Caddy with automatic HTTPS, `next start`), the games
      origin `apps/games` on a Cloudflare R2 bucket with the custom domain typeplay.dev, DNS on
      Cloudflare, one deploy script in `deploy/`. Domains are bought (both active on Cloudflare).
-     Needs from Luka, in the git-ignored root `.env`: `HETZNER_TOKEN` (Hetzner Cloud project
-     "typeplay", Read & Write), `CLOUDFLARE_API_TOKEN` (Edit zone DNS for typeplay.app and
-     typeplay.dev), `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY` (R2 object
-     read & write). Also hello@typeplay.app via Cloudflare Email Routing (parked #1). Done means:
+     Root `.env` (git-ignored) already has the Cloudflare keys, tested 10-14 (`CLOUDFLARE_API_TOKEN`:
+     R2 Storage Edit + DNS Edit + Zone Settings Edit + Zone Read on both zones; `CLOUDFLARE_ACCOUNT_ID`;
+     `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY`: object read & write). R2 is on; hello@typeplay.app
+     works. `HETZNER_TOKEN` too (project "typeplay", token "typeplay-deploy", Read & Write; tested
+     10-15). Cloudflare details and emergencies: `docs/cloudflare.md`. Done means:
      https://typeplay.app serves the site, https://typeplay.dev/play.html?g=robot-runner plays, and
      Paddle can review the pricing, terms, privacy and refund pages.
   1. **Step 4, the web app** in `apps/web/` (the public pages are built, see below): sign-in with

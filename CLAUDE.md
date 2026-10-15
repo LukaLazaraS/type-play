@@ -1,14 +1,15 @@
-# GameForge (working name, folder `projects/game-forge`): prompt → playable game → app stores
+# TypePlay (folder `projects/type-play`): prompt → playable game → app stores
 
 Luka's product: a website where a user types what game they want, an AI agent builds it,
 they play it in the browser straight away, iterate by chat, and export it to Android, iOS,
 Steam (desktop) and the web. "Lovable, but for games." Started 2026-10-11 after a week of
 thinking; decided in the Satisfying 2D Sims session of 2026-10-02 → 10-11.
 
-"GameForge" is only the folder name: Gameforge AG (Karlsruhe) is a game publisher with game
-software trademarks. **Product name: TypePlay** (decided 2026-10-13). Site on **typeplay.app**;
-users' games run from **typeplay.dev**, a separate domain so a game's code can't reach the
-site's logins. Both are bought at Cloudflare; typeplay.ai / .com can be added later.
+**Product name: TypePlay** (decided 2026-10-13); the folder is `projects/type-play` (renamed from
+`game-forge` on 2026-10-15, so older sessions and notes may say "GameForge"). That working name
+was dropped: Gameforge AG (Karlsruhe) is a game publisher with game software trademarks. Site on
+**typeplay.app**; users' games run from **typeplay.dev**, a separate domain so a game's code
+can't reach the site's logins. Both are bought at Cloudflare; typeplay.ai / .com can be added later.
 
 Luka owns the product and decides; Claude Code builds. Luka has shipped games before
 (`../../BlackHoleGalaxy`: Unity, Play Store + App Store, see its `IOS_RELEASE.md`), so store
@@ -124,6 +125,9 @@ open the API account just before beta 1.
 - No git commit or push unless asked; no AI co-author trailer. API keys in a git-ignored
   `.env`, never printed.
 - Knowledge lives in this repo (`CLAUDE.md`, `PLAN.md`, `docs/`), not in memory.
+- Browser tasks (Claude in Chrome): only the Edge browser named **"Automation"** (signed in to
+  Cloudflare etc.). If it isn't the connected one, run `switch_browser` and ask Luka to click
+  Connect there; never fall back to another browser.
 - **At the start of every session, read `docs/parked.md`** and open the reply with a short
   list of parked items that are due or overdue. Luka parks non-technical steps on purpose
   while the core is proven, and relies on these reminders.
@@ -146,7 +150,7 @@ all UI work in `apps/web/`. The game agent never loads them (`ISOLATED`, `settin
 ## Layout (grows as built)
 
 ```
-game-forge/                 npm workspaces + Turborepo (decided 2026-10-14, docs/decisions.md)
+type-play/                  npm workspaces + Turborepo (decided 2026-10-14, docs/decisions.md)
   CLAUDE.md  PLAN.md  PRODUCT.md  DESIGN.md  package.json  turbo.json  .gitignore
   docs/           decisions, parked steps (reminders), pricing brief, research, name candidates
   proof/          Godot check (archive): the agent builds a Godot game from one prompt
