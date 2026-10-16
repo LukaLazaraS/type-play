@@ -10,7 +10,7 @@ Everything below was set up on 2026-10-14 in Luka's account (Lazarashvili02@gmai
   it; beta testers write to it.
 - **DNS records added on typeplay.app** (by Email Routing; never delete them):
   - 3 × MX `route1/2/3.mx.cloudflare.net`: mail for typeplay.app goes to Cloudflare.
-  - TXT SPF `v=spf1 include:_spf.mx.cloudflare.net -all`: only Cloudflare may send as typeplay.app.
+  - TXT SPF `v=spf1 include:_spf.mx.cloudflare.net ~all`: only Cloudflare may send as typeplay.app (`~all`: others are marked suspicious).
   - TXT DKIM `cf2024-1._domainkey`: signature so forwarded mail isn't marked as spam.
 - **Rule:** hello@typeplay.app → Gmail. Catch-all is off: mail to any other address is dropped.
 - **Limit:** receive only. Replies go out from the Gmail address. When the app sends its own
@@ -31,7 +31,7 @@ Everything below was set up on 2026-10-14 in Luka's account (Lazarashvili02@gmai
 - **Budget alert** "TypePlay usage over $5" (added 2026-10-15): emails Luka's Gmail if R2 usage
   passes $5 in a month. Catches a bug uploading in a loop or abuse, not normal growth.
 - **Cancel / watch:** R2 page (usage, budget alert); Manage account → Billing → Subscriptions.
-- No bucket exists yet; the deploy creates it.
+- Bucket `typeplay-games` (made 2026-10-15 by the deploy), served at typeplay.dev (section 6).
 
 ## 3. Main API token "typeplay-deploy" → `CLOUDFLARE_API_TOKEN`
 
@@ -76,3 +76,15 @@ read and deleted with the R2 keys, and the bucket was deleted. Nothing is left.
 - **Email stopped arriving:** Email Routing → Settings: all records should be "Locked"; Activity log
   shows what happened to each mail.
 - Keys live only in the root `.env` (git-ignored, never committed); later also on the server.
+
+## 6. Live since 2026-10-15 (made by `node deploy/deploy.mjs setup`)
+
+- **typeplay.app DNS:** `A` → 188.245.229.201 and `AAAA` → 2a01:4f8:c016:50af::1 (the Hetzner
+  server), `CNAME www` → typeplay.app; all proxied (orange cloud), so visitors see Cloudflare's
+  addresses, never the server's. The email records above are untouched.
+- **typeplay.dev:** the R2 bucket `typeplay-games` is connected as a custom domain (Cloudflare made
+  its DNS record itself, type "R2"). Games load at https://typeplay.dev/play.html?g=robot-runner.
+- **SSL/TLS on both domains:** "Full (strict)", minimum TLS 1.2. "Always Use HTTPS" is on for
+  typeplay.dev and **must stay off for typeplay.app**: the server renews its certificate over plain
+  http (Caddy redirects visitors to HTTPS itself). Both .app and .dev are HTTPS-only in browsers anyway.
+- Deploy, server and emergencies: `deploy/README.md`.

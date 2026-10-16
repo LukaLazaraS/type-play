@@ -1,5 +1,13 @@
 {
   "env": {
     "DO_NOT_TRACK": "1"
+  },
+  "permissions": {
+    "allow": [
+      "ClaudeInChromeDomain(supabase.com)",
+      "mcp__claude-in-chrome__tabs_create_mcp",
+      "ClaudeInChromeDomain(groups.google.com)",
+      "ClaudeInChromeDomain(console.cloud.google.com)"
+    ]
   }
 }

@@ -1,30 +1,22 @@
 # Plan: first users in ~2 weeks, launch in ~5 weeks
 
-## Start here (handoff, 2026-10-14)
+## Start here (handoff, 2026-10-15)
 
+- **Live since 2026-10-15:** https://typeplay.app (public pages, Hetzner CX23 + Caddy behind
+  Cloudflare) and https://typeplay.dev (games, R2). Update with `node deploy/deploy.mjs site` /
+  `games`; everything about it in `deploy/README.md`, the why in `docs/decisions.md` (hosting).
 - **Done:** step 1 (Godot check) and step 3 (agent core) except the asset catalogue. How the
   game agent works and what each part costs: `packages/agent/RESULTS.md`; rules in `packages/agent/rules/`,
   genre skills in `packages/agent/genres/`, runner `packages/agent/run.mjs`, check `packages/agent/tools/check.mjs`.
   Gallery of every test game: `cd packages/agent && npm run gallery` → http://127.0.0.1:8070/.
 - **Next session, in order:**
-  0. **Deploy the public pages (hosting decided 2026-10-14, see `docs/decisions.md`):** Hetzner Cloud
-     CX22 in Falkenstein for the site (Docker, Caddy with automatic HTTPS, `next start`), the games
-     origin `apps/games` on a Cloudflare R2 bucket with the custom domain typeplay.dev, DNS on
-     Cloudflare, one deploy script in `deploy/`. Domains are bought (both active on Cloudflare).
-     Root `.env` (git-ignored) already has the Cloudflare keys, tested 10-14 (`CLOUDFLARE_API_TOKEN`:
-     R2 Storage Edit + DNS Edit + Zone Settings Edit + Zone Read on both zones; `CLOUDFLARE_ACCOUNT_ID`;
-     `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY`: object read & write). R2 is on; hello@typeplay.app
-     works. `HETZNER_TOKEN` too (project "typeplay", token "typeplay-deploy", Read & Write; tested
-     10-15). Cloudflare details and emergencies: `docs/cloudflare.md`. Done means:
-     https://typeplay.app serves the site, https://typeplay.dev/play.html?g=robot-runner plays, and
-     Paddle can review the pricing, terms, privacy and refund pages.
+  0. ✅ **Deploy (2026-10-15):** site and games live, see the top of this list.
   1. **Step 4, the web app** in `apps/web/` (the public pages are built, see below): sign-in with
      Google, projects, chat with streaming, preview frame, version history, credits. The
      home page's prompt box already hands the sentence to `/create?prompt=`, which is the
-     app's front door to replace. Needs Luka's free Supabase account (`docs/parked.md` #11).
-     Before that: put the public pages live on typeplay.app (domain, parked #1) so Paddle can
-     review them, and Luka confirms the seller name, plan names/prices and refund rule in
-     `apps/web/src/content/site.ts` and `legal.ts`.
+     app's front door to replace. Supabase (Frankfurt) and Google sign-in are set up and tested (10-15), keys in `.env`: `docs/auth.md`.
+     Before Paddle's review (Mon 10-19), Luka confirms the seller name, plan names/prices and
+     refund rule in `apps/web/src/content/site.ts` and `legal.ts`, then `deploy.mjs site`.
   2. **Asset catalogue** for the game agent from `E:\3D models` (Kenney + Quaternius, CC0,
      ~4,400 `.glb`): a searchable index plus the rule "use real models when they fit; copy
      only what the game uses". 2D is always drawn in code (no 2D packs); real sound
@@ -152,7 +144,8 @@ of the waits below.
 | Agent and test builds before beta | on Max | $0 |
 | Domains | day 2 | $16.40 (typeplay.app + typeplay.dev, $8.20 each; ~$26/yr after) |
 | API credits, beta 1 + 2 | from 10-22 | ~$150-300 (buy $50-100 at a time; $40+ → tier 2) |
-| CPU server | from 10-22 | ~€20-50/month |
+| Site server (Hetzner CX23) | from 10-15 | ~€7/month |
+| Backend server (package 5; may share the CX23) | from 10-22 | ~€0-50/month |
 | Supabase | at launch | $25/month (free before) |
 | Cloudflare R2, email | | $0 at this size |
 | Paddle | per sale | no upfront fee; 5% + $0.50 per sale |

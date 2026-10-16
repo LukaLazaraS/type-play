@@ -114,6 +114,9 @@ open the API account just before beta 1.
   +89K tokens on every call, with write access). The game agent always runs isolated
   (`packages/agent/run.mjs` `ISOLATED`: 7 tools, `settingSources: []`, `disableClaudeAiConnectors`,
   `strictMcpConfig`, no skills); `packages/agent/tests/isolation.mjs` checks it (first call ~9K tokens).
+- Browser work with keys: Google puts secret values inside copy buttons' labels, so never read a
+  page's text or element labels while a secret is shown. Copy with a real click, move clipboard →
+  `.env` in a script that prints only the length, then clear the clipboard (`docs/auth.md`).
 
 ## Working with Luka
 
@@ -124,7 +127,9 @@ open the API account just before beta 1.
   read only that.
 - No git commit or push unless asked; no AI co-author trailer. API keys in a git-ignored
   `.env`, never printed.
-- Knowledge lives in this repo (`CLAUDE.md`, `PLAN.md`, `docs/`), not in memory.
+- Knowledge lives in this repo (`CLAUDE.md`, `PLAN.md`, `docs/`), not in memory. Accounts and keys:
+  `docs/cloudflare.md` (domains, R2), `docs/auth.md` (Supabase, Google sign-in), `deploy/README.md` (server).
+  Code: private GitHub repo `LukaLazaraS/type-play`, branch `main`.
 - Browser tasks (Claude in Chrome): only the Edge browser named **"Automation"** (signed in to
   Cloudflare etc.). If it isn't the connected one, run `switch_browser` and ask Luka to click
   Connect there; never fall back to another browser.
@@ -154,6 +159,7 @@ type-play/                  npm workspaces + Turborepo (decided 2026-10-14, docs
   CLAUDE.md  PLAN.md  PRODUCT.md  DESIGN.md  package.json  turbo.json  .gitignore
   docs/           decisions, parked steps (reminders), pricing brief, research, name candidates
   proof/          Godot check (archive): the agent builds a Godot game from one prompt
+  deploy/         live hosting: `node deploy/deploy.mjs site|games|status` (Hetzner + Cloudflare R2), see its README
   apps/           deployables, each runs and deploys alone
     web/          the site (typeplay.app): public pages, then chat, preview, projects, credits
     games/        the games origin (typeplay.dev): loader page, engine per Godot version, builds
@@ -166,3 +172,5 @@ type-play/                  npm workspaces + Turborepo (decided 2026-10-14, docs
 
 Root scripts: `npm install` once; `npm run dev` (site on :3000 + games origin on :3001),
 `npm run check` (every package's type-check and lint), `npm run build`.
+Live: https://typeplay.app (site) and https://typeplay.dev (games) since 2026-10-15; `node deploy/deploy.mjs site` puts the
+current `apps/web` live in ~1 min, `games` uploads `apps/games` (`deploy/README.md`).

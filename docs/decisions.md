@@ -159,3 +159,51 @@ only a working name (see "name is TypePlay" above).
   `package-lock.json` to `@typeplay/agent`. The archived `proof/` package is now `typeplay-proof`.
 - Windows won't rename a folder while a program has it open: close VS Code and its Claude session first.
 - Old sessions, commits and notes still say "GameForge" or `game-forge`; it is the same project.
+
+## 2026-10-14/15: hosting (decided 10-14, live 10-15)
+
+- **Site (typeplay.app): our own Hetzner Cloud server**, Docker with Caddy (HTTPS) in front of Next.js,
+  Cloudflare proxying in front of both. **Games (typeplay.dev): Cloudflare R2** with the custom domain.
+  How to deploy and what runs where: `deploy/README.md`.
+- **Why not Vercel / Render:** the backend (package 5) needs a long-running machine anyway (agent
+  sessions of minutes, Godot headless exports, a git folder per project), which serverless hosts
+  don't do cheaply; the site rides on that machine for free. Vercel's free plan forbids commercial
+  use (Pro $20/month per member); Render is $7 for 512 MB or $25 for 2 GB, against 4 GB for €7 here.
+  Cloudflare gives the same global cache and DDoS protection. The site is a standard Next.js app:
+  moving it to Vercel later is hours, and the backend would stay put.
+- **CX23, not CX22:** Hetzner retired the CX22; the CX23 (2 vCPU, 4 GB) is €6.49 + ~€0.60 IPv4 a
+  month, the cheapest 4 GB machine (ARM CAX11 is €6.99). This box is the site's; the package 5
+  backend may run on it or on a bigger one (`parked.md` #7).
+- **Build on the server** from `turbo prune web --docker` (no Docker on Luka's PC); Next.js
+  `output: "standalone"`. A failed build leaves the running version up.
+- **Certificates:** Let's Encrypt via Caddy's HTTP challenge through the Cloudflare proxy (SSL "Full
+  (strict)"); no Cloudflare origin certificate, so the deploy token needs no SSL permission. Port
+  80/443 accept only Cloudflare's addresses, so the server's IP serves nothing directly.
+- **Pipeline:** the deploy script for now; GitHub Actions (check + deploy on push to `main`) arrives
+  with the backend and database migrations in package 5, when an unchecked push could hurt user data.
+
+## 2026-10-15: accounts, sign-in, phone play
+
+- **Supabase locked down from the start:** Data API off (the backend uses Postgres directly through
+  Prisma; no table can leak through the public REST API), automatic RLS on, **Google-only sign-in**
+  (Email provider off). Frankfurt, next to the server. Details: `docs/auth.md`.
+- **Support address on Google's sign-in screen: a private Google Group**
+  (typeplay-support@googlegroups.com), not Luka's Gmail. Google Workspace (support@typeplay.app,
+  ~$7-8/user/month) waits for a team or real support volume; it is not needed to reply as
+  hello@typeplay.app (Gmail "Send mail as" + a free sending service).
+- **Code on GitHub:** private `LukaLazaraS/type-play`, default branch renamed `master` → `main`.
+  The deploy doesn't use it (it ships from Luka's PC); it is the offsite backup now and the
+  CI/CD trigger from package 5.
+- **Phone play (Poki / CrazyGames pattern):** the game sheet stays (poster, prompt, "Make my
+  own"); Play on a touch device opens the game full screen and locks it to the game's
+  orientation (Android), or covers the page with a "Turn your phone sideways" card where full
+  screen isn't allowed (iPhone), with "Play upright" as the way out. A small ✕ at the left edge
+  returns to the sheet with the game still running. Desktop: inline as before plus a Full screen
+  button. Each `game.json` names its orientation, so portrait games lock to portrait.
+
+## 2026-10-16: games are portrait-first
+
+- **Luka:** most games should play upright on a phone; landscape only where the game needs width.
+  It's a game decision, not a site one: **the game agent picks the orientation per game when it
+  builds**, from the genre and the prompt. The site already follows whatever `game.json` says
+  (full screen locks to it). Work item: `parked.md` #17.
