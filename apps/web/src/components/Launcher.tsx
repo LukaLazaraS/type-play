@@ -11,10 +11,10 @@ import {
   type ReactNode,
 } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowLeft, ArrowSquareOut } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowSquareOut, ArrowsOut } from "@phosphor-icons/react";
 import type { Game } from "@/content/games";
 import { DRAFT_EVENT } from "./PromptForm";
-import { GameFrame, playUrl } from "./GameFrame";
+import { GameFrame, playUrl, type GameFrameHandle } from "./GameFrame";
 
 type LauncherState = {
   game: Game | null;
@@ -74,6 +74,8 @@ function LauncherOverlay() {
   const { game, close } = useLauncher();
   const reduce = useReducedMotion();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const frameRef = useRef<GameFrameHandle>(null);
+  const fullRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (game) requestAnimationFrame(() => closeRef.current?.focus());
@@ -107,13 +109,25 @@ function LauncherOverlay() {
           <div className="launcher__bar">
             <button ref={closeRef} className="launcher__close" onClick={close} type="button">
               <ArrowLeft size={18} weight="bold" aria-hidden="true" />
-              Home
+              <span className="launcher__label">Home</span>
             </button>
             <span className="title launcher__title">{game.name}</span>
-            <a className="launcher__close" href={playUrl(game.slug)} target="_blank" rel="noopener">
-              New tab
-              <ArrowSquareOut size={18} weight="bold" aria-hidden="true" />
-            </a>
+            <div className="launcher__actions">
+              {/* Outside the game, so it never covers a game's own buttons. */}
+              <button
+                ref={fullRef}
+                className="launcher__close"
+                onClick={() => frameRef.current?.fullscreen()}
+                type="button"
+              >
+                <ArrowsOut size={18} weight="bold" aria-hidden="true" />
+                <span className="launcher__label">Full screen</span>
+              </button>
+              <a className="launcher__close" href={playUrl(game.slug)} target="_blank" rel="noopener">
+                <span className="launcher__label">New tab</span>
+                <ArrowSquareOut size={18} weight="bold" aria-hidden="true" />
+              </a>
+            </div>
           </div>
           <div className="launcher__stage">
             <motion.div
@@ -121,7 +135,17 @@ function LauncherOverlay() {
               layoutId={reduce ? undefined : `game-${game.slug}`}
               transition={{ duration: 0.32, ease }}
             >
-              <GameFrame key={game.slug} slug={game.slug} poster={game.image} name={game.name} mode="click" />
+              <GameFrame
+                ref={frameRef}
+                key={game.slug}
+                slug={game.slug}
+                poster={game.image}
+                name={game.name}
+                orientation={game.orientation}
+                mode="click"
+                onEscape={close}
+                returnFocus={fullRef}
+              />
             </motion.div>
           </div>
           <div className="launcher__info">
@@ -129,9 +153,9 @@ function LauncherOverlay() {
               <q>{game.prompt}</q>
               <div className="figures">
                 Built on {game.tier} in {game.minutes} min
-                {game.edits ? `, then ${game.edits.length} edits by chat` : ""}. Keyboard or tap;
-                best on a desktop browser.
+                {game.edits ? `, then ${game.edits.length} edits by chat` : ""}
               </div>
+              <p className="launcher__how">Play with keys or touch. On a phone it opens full screen.</p>
             </div>
             <button className="button" type="button" onClick={makeOwn}>
               Make my own

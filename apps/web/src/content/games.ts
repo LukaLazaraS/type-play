@@ -3,6 +3,9 @@
 
 export type Tier = "Fast" | "Smart" | "Best";
 
+/** Which way the game is played. Phones lock to it in full screen, and ask to turn when they can't. */
+export type Orientation = "landscape" | "portrait";
+
 export type Game = {
   slug: string;
   name: string;
@@ -10,6 +13,8 @@ export type Game = {
   tier: Tier;
   minutes: number;
   genre: string;
+  /** From the project's display settings (game.json on the games origin says the same). */
+  orientation: Orientation;
   /** Wide screenshot, 1128x556 */
   image: string;
   /** Square crop for icons, 240x240 */
@@ -26,6 +31,7 @@ export const games: Game[] = [
     tier: "Smart",
     minutes: 1.6,
     genre: "Endless runner",
+    orientation: "landscape",
     image: "/games/runner_sunset.jpg",
     icon: "/games/runner_sunset_sq.jpg",
   },
@@ -36,6 +42,7 @@ export const games: Game[] = [
     tier: "Smart",
     minutes: 2.2,
     genre: "Puzzle",
+    orientation: "landscape",
     image: "/games/match3.jpg",
     icon: "/games/match3_sq.jpg",
   },
@@ -47,6 +54,7 @@ export const games: Game[] = [
     tier: "Best",
     minutes: 7.6,
     genre: "3D driving",
+    orientation: "landscape",
     image: "/games/car_city.jpg",
     icon: "/games/car_city_sq.jpg",
   },
@@ -58,6 +66,7 @@ export const games: Game[] = [
     tier: "Smart",
     minutes: 8.8,
     genre: "Puzzle",
+    orientation: "landscape",
     image: "/games/boxpush.jpg",
     icon: "/games/boxpush_sq.jpg",
   },
@@ -69,6 +78,7 @@ export const games: Game[] = [
     tier: "Smart",
     minutes: 1.6,
     genre: "Endless runner",
+    orientation: "landscape",
     image: "/games/runner_night.jpg",
     icon: "/games/runner_night_sq.jpg",
     edits: [
@@ -89,6 +99,7 @@ export const games: Game[] = [
     tier: "Fast",
     minutes: 10.5,
     genre: "Puzzle",
+    orientation: "landscape",
     image: "/games/match3_dark.jpg",
     icon: "/games/match3_dark_sq.jpg",
   },
@@ -100,6 +111,7 @@ export const games: Game[] = [
     tier: "Smart",
     minutes: 4.4,
     genre: "3D driving",
+    orientation: "landscape",
     image: "/games/car_sonnet.jpg",
     icon: "/games/car_sonnet_sq.jpg",
   },
@@ -111,6 +123,7 @@ export const games: Game[] = [
     tier: "Smart",
     minutes: 4.1,
     genre: "Endless runner",
+    orientation: "landscape",
     image: "/games/runner_day.jpg",
     icon: "/games/runner_day_sq.jpg",
   },

@@ -22,7 +22,8 @@
   // The loader: reads builds/<id>/game.json, loads that game's engine version, starts the game.
   // ?g=<id>      which game
   // ?auto=1      press Space for the viewer now and then (the site's demo), until they take over
-  // Tells the parent page how it goes: postMessage({ typeplay: "ready" | "error", game }).
+  // Tells the parent page how it goes: postMessage({ typeplay: "ready" | "error" | "escape", game }).
+  // Listens for "typeplay:focus" (the site entered full screen; give the game the keyboard).
   const params = new URLSearchParams(location.search);
   const id = (params.get("g") || "").replace(/[^a-z0-9-]/g, "");
   const auto = params.get("auto") === "1";
@@ -44,7 +45,10 @@
     }
   };
   canvas.addEventListener("pointerdown", () => { playerTookOver = true; canvas.focus(); });
-  window.addEventListener("keydown", (e) => { if (e.isTrusted) playerTookOver = true; });
+  window.addEventListener("keydown", (e) => {
+    if (e.isTrusted) playerTookOver = true;
+    if (e.key === "Escape") tell("escape"); // the site leaves full screen or closes the game
+  });
   window.addEventListener("message", (e) => { if (e.data === "typeplay:focus") canvas.focus(); });
 
   (async () => {

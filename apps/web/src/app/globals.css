@@ -685,6 +685,11 @@ q {
   background: var(--sky-2);
   overflow: hidden;
 }
+/* The game's screen: the whole frame inline; the safe area (or a letterbox) when immersive. */
+.gameframe__screen {
+  position: absolute;
+  inset: 0;
+}
 .gameframe__poster,
 .gameframe__frame {
   position: absolute;
@@ -700,6 +705,11 @@ q {
 .gameframe[data-ready] .gameframe__poster {
   visibility: hidden;
 }
+.gameframe button {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
 .gameframe__play {
   position: absolute;
   left: 50%;
@@ -708,6 +718,8 @@ q {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  max-width: calc(100% - 32px);
+  white-space: nowrap;
   background: var(--hot);
   color: var(--ink);
   border: 0;
@@ -720,8 +732,15 @@ q {
 .gameframe__play:active {
   transform: translate(-50%, -50%) scale(0.97);
 }
+@media (max-width: 480px) {
+  .gameframe__play {
+    padding: 14px 22px;
+    font-size: 17px;
+  }
+}
 .gameframe__loading {
   position: absolute;
+  z-index: 3;
   left: 50%;
   bottom: 14px;
   transform: translateX(-50%);
@@ -730,6 +749,244 @@ q {
   font: 500 13px var(--font-ui);
   padding: 8px 14px;
   border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* Immersive: the game alone on the screen. The browser's full screen where it has one (the
+   element goes to the top layer); else a fixed layer over the page (iPhone). */
+.gameframe[data-immersive] {
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  width: 100%;
+  height: 100dvh;
+  aspect-ratio: auto;
+  background: var(--ink);
+  overscroll-behavior: contain;
+  touch-action: none;
+}
+.gameframe[data-immersive] .gameframe__screen {
+  inset: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);
+}
+.gameframe[data-immersive] .gameframe__loading {
+  bottom: calc(16px + var(--safe-b));
+}
+/* A fixed child must not be caught by the zoom's transform on the launcher frame. */
+.launcher__frame:has(> .gameframe[data-immersive]) {
+  transform: none !important;
+  will-change: auto !important;
+}
+.launcher:has(.gameframe[data-immersive="layer"]) {
+  overflow: hidden;
+}
+
+/* Close: a tab on the left edge, halfway down. Games keep score and timer along the top and
+   their own buttons in the bottom corners (Restart, help lines), so the mid-edge is the one place
+   no HUD lives. The touch target is 44x56; the tab you see is 34x48. */
+.gameframe__exit {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: var(--safe-l);
+  display: grid;
+  align-items: center;
+  justify-items: start;
+  width: 44px;
+  height: 56px;
+  padding: 0 0 0 7px;
+  border: 0;
+  background: none;
+  color: #fff;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transform-origin: left center;
+  transition: transform 160ms var(--ease-out);
+}
+.gameframe__exit::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  width: 34px;
+  border-radius: 0 var(--r-button) var(--r-button) 0;
+  background: rgba(23, 13, 51, 0.6);
+  transition: background-color 160ms var(--ease-out);
+}
+.gameframe__exit svg {
+  position: relative;
+}
+.gameframe__exit:active {
+  transform: translateY(-50%) scale(0.95);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gameframe__exit:hover::before {
+    background: var(--ink);
+  }
+}
+
+@media (orientation: portrait) {
+  /* A wide game on an upright phone: letterboxed in the middle (16:9, the games' design size). */
+  .gameframe[data-immersive][data-orientation="landscape"] .gameframe__screen {
+    top: 50%;
+    bottom: auto;
+    width: calc(100% - var(--safe-l) - var(--safe-r));
+    height: auto;
+    aspect-ratio: 16 / 9;
+    transform: translateY(-50%);
+  }
+  /* Then the bands above and below are empty: close sits in the top one, in the corner, as an
+     Ink Recess circle like the launcher's own pills. */
+  .gameframe[data-immersive][data-orientation="landscape"] .gameframe__exit {
+    top: calc(var(--safe-t) + 12px);
+    left: calc(var(--safe-l) + 16px);
+    height: 44px;
+    padding: 0;
+    justify-items: center;
+    transform: none;
+    transform-origin: center;
+  }
+  .gameframe[data-immersive][data-orientation="landscape"] .gameframe__exit::before {
+    inset: 0;
+    width: auto;
+    border-radius: 999px;
+    background: var(--ink-2);
+  }
+  .gameframe[data-immersive][data-orientation="landscape"] .gameframe__exit:active {
+    transform: scale(0.95);
+  }
+}
+@media (orientation: landscape) {
+  .gameframe[data-immersive][data-orientation="portrait"] .gameframe__screen {
+    left: 50%;
+    right: auto;
+    width: auto;
+    height: calc(100% - var(--safe-t) - var(--safe-b));
+    aspect-ratio: 9 / 16;
+    transform: translateX(-50%);
+  }
+}
+
+/* Rotate hint: over the game while the phone is held the other way. */
+.rotate {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: calc(var(--safe-t) + 56px) calc(var(--safe-r) + 24px) calc(var(--safe-b) + 56px)
+    calc(var(--safe-l) + 24px);
+  background: var(--ink);
+  color: var(--on-sky);
+  text-align: center;
+  animation: rotate-in 240ms var(--ease-out) both;
+}
+@keyframes rotate-in {
+  from {
+    opacity: 0;
+  }
+}
+.rotate__art {
+  width: 132px;
+  height: 132px;
+  overflow: visible;
+}
+.rotate__arrow {
+  fill: none;
+  stroke: var(--sun);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rotate__phone {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.rotate__art[data-to="portrait"] .rotate__phone {
+  transform: rotate(-90deg);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .rotate__phone {
+    animation: turn-wide 3.2s var(--ease-in-out) infinite;
+  }
+  .rotate__art[data-to="portrait"] .rotate__phone {
+    animation-name: turn-tall;
+  }
+}
+/* Turn, hold, then fade and start over (turning back would read as the wrong way). */
+@keyframes turn-wide {
+  0% {
+    transform: rotate(0deg);
+    opacity: 0;
+  }
+  8%,
+  24% {
+    transform: rotate(0deg);
+    opacity: 1;
+  }
+  52%,
+  84% {
+    transform: rotate(-90deg);
+    opacity: 1;
+  }
+  94%,
+  100% {
+    transform: rotate(-90deg);
+    opacity: 0;
+  }
+}
+@keyframes turn-tall {
+  0% {
+    transform: rotate(-90deg);
+    opacity: 0;
+  }
+  8%,
+  24% {
+    transform: rotate(-90deg);
+    opacity: 1;
+  }
+  52%,
+  84% {
+    transform: rotate(0deg);
+    opacity: 1;
+  }
+  94%,
+  100% {
+    transform: rotate(0deg);
+    opacity: 0;
+  }
+}
+.rotate__title {
+  margin: 0;
+  max-width: 14ch;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.rotate__stay {
+  min-height: 44px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink-2);
+  color: #fff;
+  font: 600 15px var(--font-ui);
+  cursor: pointer;
+  transition: transform 160ms var(--ease-out);
+}
+.rotate__stay:active {
+  transform: scale(0.97);
 }
 
 /* The live demo: chat on the left, the real game on the right */
@@ -1023,20 +1280,48 @@ q {
   display: grid;
   grid-template-rows: auto 1fr auto;
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-tap-highlight-color: transparent;
 }
+/* Upright screens: the page stacks from the top (bar, game, sentence) instead of floating the
+   game in the middle of a tall sheet. */
+@media (max-aspect-ratio: 1 / 1) {
+  .launcher {
+    grid-template-rows: auto auto auto;
+    align-content: start;
+  }
+}
+/* Home | the game's name, centred | Full screen, New tab. On phones an app bar: icons, the name
+   beside the back arrow. */
 .launcher__bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   padding: 16px clamp(16px, 3vw, 40px);
 }
+.launcher__bar > :first-child {
+  justify-self: start;
+}
 .launcher__title {
+  min-width: 0;
   font-size: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.launcher__actions {
+  justify-self: end;
+  display: flex;
+  gap: 8px;
 }
 .launcher__close {
   display: inline-flex;
+  flex: none;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  min-height: 44px;
   background: var(--ink-2);
   color: #fff;
   border: 0;
@@ -1045,14 +1330,41 @@ q {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  transition: transform 160ms var(--ease-out);
+}
+.launcher__close:active {
+  transform: scale(0.97);
+}
+/* Phones: the pills keep their icons (labels stay for screen readers), so the name has the room. */
+@media (max-width: 600px) {
+  .launcher__bar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .launcher__close {
+    width: 44px;
+    padding: 0;
+  }
+  .launcher__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 .launcher__stage {
   display: grid;
   place-items: center;
   padding: 0 clamp(16px, 3vw, 40px);
 }
+/* As wide as fits, and never taller than a landscape phone shows under the bar. */
 .launcher__frame {
-  width: min(1128px, 100%);
+  width: min(1128px, 100%, (100dvh - 96px) * 1128 / 556);
   aspect-ratio: 1128 / 556;
   border-radius: 24px;
   overflow: hidden;
@@ -1081,12 +1393,22 @@ q {
 }
 .launcher__info .figures {
   color: var(--on-sky-muted);
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 12px;
+  line-height: 1.4;
+}
+.launcher__how {
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--on-sky-muted);
+  text-wrap: pretty;
 }
 @media (max-width: 700px) {
   .launcher__info {
     grid-template-columns: 1fr;
+    gap: 20px;
+    padding-top: 20px;
   }
 }
 
