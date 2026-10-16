@@ -8,9 +8,10 @@ cookies or storage. This folder mirrors the live bucket one to one.
 apps/games/
   play.html            the loader page: /play.html?g=<id>  (the only code on this origin)
   engine/<version>/    one Godot web engine per Godot version (index.js, index.wasm, worklets)
-  builds/<id>/         one game: index.pck (12-40 KB) + game.json (name, engine version, source)
+  builds/<id>/         one game: index.pck (12-40 KB) + game.json (name, engine version, orientation, source)
   scripts/serve.mjs    dev server on http://127.0.0.1:3001
   scripts/build-demo.mjs   assembles the site's demo games from packages/agent/output (dev + marketing)
+  scripts/publish.mjs  uploads this folder to the live bucket (changed files only)
 ```
 
 Rules:
@@ -22,8 +23,9 @@ Rules:
   on iPhone Safari. Turning threads on brings the headers back (CLAUDE.md, Known traps).
 - **No cookies, no site code, no analytics** on this origin.
 
-Live hosting (package 5): Cloudflare R2 bucket with the custom domain typeplay.dev; the server's
-export worker uploads `builds/<id>/` after each build; `scripts/publish.mjs` will push this folder.
+Live hosting (since 2026-10-15): Cloudflare R2 bucket `typeplay-games` with the custom domain typeplay.dev;
+`node scripts/publish.mjs` (or `node deploy/deploy.mjs games` at the root) uploads changed files. The server's
+export worker (package 5) will upload `builds/<id>/` after each build the same way.
 Dev: `node scripts/build-demo.mjs` then `node scripts/serve.mjs`; the site points at it through
 `NEXT_PUBLIC_GAMES_ORIGIN` (default `http://127.0.0.1:3001`).
 

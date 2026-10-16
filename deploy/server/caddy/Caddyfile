@@ -1,0 +1,32 @@
+# typeplay.app: Caddy holds the HTTPS certificate (Let's Encrypt) and passes requests to Next.js.
+# Cloudflare sits in front (DNS proxied, SSL "Full (strict)"), so visitors never reach this box directly.
+{
+	email hello@typeplay.app
+}
+
+# Cloudflare ends the visitor's TLS itself, so the TLS-ALPN challenge can't reach us; certificates
+# come through the HTTP challenge on port 80, which Cloudflare passes through for http requests.
+(cert) {
+	tls {
+		issuer acme {
+			disable_tlsalpn_challenge
+		}
+	}
+}
+
+typeplay.app {
+	import cert
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Content-Security-Policy "frame-ancestors 'none'"
+	}
+	reverse_proxy web:3000
+}
+
+www.typeplay.app {
+	import cert
+	redir https://typeplay.app{uri} permanent
+}

@@ -1,0 +1,22 @@
+#cloud-config
+# First boot of the web server (Ubuntu 24.04 on Hetzner); `deploy.mjs setup` passes it as user_data.
+package_update: true
+package_upgrade: true
+swap:
+  filename: /swapfile
+  size: 2G
+write_files:
+  # SSH with keys only.
+  - path: /etc/ssh/sshd_config.d/10-typeplay.conf
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin prohibit-password
+  # Container logs rotate instead of filling the disk.
+  - path: /etc/docker/daemon.json
+    content: |
+      { "log-driver": "local" }
+runcmd:
+  - systemctl reload ssh
+  - curl -fsSL https://get.docker.com | sh
+  - mkdir -p /opt/typeplay

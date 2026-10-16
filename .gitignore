@@ -16,3 +16,5 @@ apps/games/.tmp/
 .turbo/
 apps/*/.impeccable/
 packages/*/.impeccable/
+deploy/.build/
+deploy/release.tgz

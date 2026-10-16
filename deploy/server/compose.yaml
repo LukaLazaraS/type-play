@@ -1,0 +1,26 @@
+# The live site on the server (/opt/typeplay): Next.js behind Caddy. `deploy.mjs site` uploads
+# this folder with the pruned source in src/ and runs `docker compose up -d --build`.
+name: typeplay
+services:
+  web:
+    build:
+      context: ./src
+      args:
+        NEXT_PUBLIC_GAMES_ORIGIN: https://typeplay.dev
+    init: true
+    restart: unless-stopped
+  caddy:
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+volumes:
+  caddy_data:
+  caddy_config:
