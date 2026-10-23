@@ -1,14 +1,16 @@
 import type { MetadataRoute } from "next";
+import { siteUrl, sitemapDate } from "@/content/seo";
 import { site } from "@/content/site";
 
+// Only the pages meant for search. A date only where we know it (search engines distrust dates
+// that change on every visit): the legal pages carry their "last updated" date.
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = `https://${site.domain}`;
-  const now = new Date();
+  const legal = sitemapDate(site.updated);
   return [
-    { url: base, lastModified: now, changeFrequency: "weekly", priority: 1 },
-    { url: `${base}/pricing`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${base}/terms`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${base}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${base}/refunds`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${siteUrl}/` },
+    { url: `${siteUrl}/pricing` },
+    { url: `${siteUrl}/terms`, lastModified: legal },
+    { url: `${siteUrl}/privacy`, lastModified: legal },
+    { url: `${siteUrl}/refunds`, lastModified: legal },
   ];
 }

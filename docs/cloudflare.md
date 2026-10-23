@@ -88,3 +88,5 @@ read and deleted with the R2 keys, and the bucket was deleted. Nothing is left.
   typeplay.dev and **must stay off for typeplay.app**: the server renews its certificate over plain
   http (Caddy redirects visitors to HTTPS itself). Both .app and .dev are HTTPS-only in browsers anyway.
 - Deploy, server and emergencies: `deploy/README.md`.
+- **TXT `google-site-verification=…` on typeplay.app** (added 2026-10-16): proves to Google Search
+  Console that we own the domain. Keep it; deleting it loses the Search Console access.

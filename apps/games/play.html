@@ -13,24 +13,96 @@
   #status[hidden] { display: none; }
   #bar { width: min(280px, 60vw); height: 6px; background: #251948; border-radius: 3px; overflow: hidden; margin: 12px auto 0; }
   #bar i { display: block; height: 100%; width: 0; background: #ffb347; transition: width 200ms linear; }
+
+  /* The Free plan's mark (game.json "badge": true; paid plans' builds and older builds have none). While the game
+     loads it is a link to typeplay.app; over the game it is a label that never takes a tap, a click or a key, because
+     games use the whole screen (steering halves, "tap anywhere", buttons anywhere). It is a tab on the right edge,
+     halfway down, in both orientations: games keep their HUD along the top and their buttons along the bottom
+     (portrait) or in the bottom corners (landscape), title panels leave a margin at the sides, and the middle of the
+     left edge is the site's close tab in full screen. The wordmark is Gabarito Black cut to the seven letters of
+     "TypePlay" (SIL OFL 1.1, The Gabarito Project Authors), inline, so nothing is fetched from anywhere. */
+  @font-face { font-family: "Gabarito"; font-weight: 900; font-display: block;
+    src: url(data:font/woff;base64,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) format("woff"); }
+  :root { --ease-out: cubic-bezier(0.23, 1, 0.32, 1); }
+  .word { font: 900 1em/1 "Gabarito", system-ui, sans-serif; color: #fff; white-space: nowrap; }
+  .word span { color: #ffb347; }
+
+  /* The loading screen: an Ink Recess pill under the bar (out of the flow, so the bar stays where it always is). */
+  .loader { position: relative; }
+  .credit { position: absolute; top: calc(100% + 28px); left: 50%; transform: translateX(-50%);
+    display: inline-flex; align-items: center; box-sizing: border-box; height: 44px; padding: 0 18px;
+    border-radius: 999px; background: #251948; color: rgba(255, 255, 255, 0.78); font: 600 13px/1 system-ui, sans-serif;
+    text-decoration: none; white-space: nowrap; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    -webkit-user-select: none; user-select: none;
+    opacity: 0; transition: opacity 200ms var(--ease-out), transform 160ms var(--ease-out), background-color 160ms var(--ease-out); }
+  .credit[hidden] { display: none; }
+  .credit[data-on] { opacity: 1; }
+  .credit__row { display: flex; align-items: baseline; gap: 7px; }
+  .credit .word { font-size: 17px; letter-spacing: -0.01em; }
+  .credit:active { transform: translateX(-50%) scale(0.97); }
+  .credit:focus-visible { outline: 3px solid #ffb347; outline-offset: 3px; }
+  @media (hover: hover) and (pointer: fine) { .credit:hover { background: #33245f; } }
+
+  /* Over the game. Vertical text, read top to bottom; the flat side is the screen's edge, and in landscape on a
+     notched phone the tab runs under the notch while its words stay clear of it. Anchored at the end of "TypePlay",
+     so the resting tab sits halfway down and "Made with" folds into the word that stays. Ink at 80% then 72%: a game
+     can be white or pastel behind it, so the mark gets quieter by getting shorter, not by going see-through. */
+  .tag { --t: clamp(11px, calc(7px + 0.9vmin), 12.5px); position: fixed; z-index: 2; right: 0;
+    bottom: calc(50% - 3.55 * var(--t) + (env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px)) / 2);
+    writing-mode: vertical-rl; display: flex; align-items: center; box-sizing: border-box;
+    padding: calc(var(--t) * 0.85) calc(var(--t) * 0.4 + env(safe-area-inset-right, 0px)) calc(var(--t) * 0.85) calc(var(--t) * 0.48);
+    border-radius: 999px 0 0 999px; background: rgba(23, 13, 51, 0.8);
+    color: rgba(255, 255, 255, 0.9); font: 600 var(--t)/1 system-ui, sans-serif;
+    pointer-events: none; -webkit-user-select: none; user-select: none;
+    transform: translateX(100%); opacity: 0;
+    transition: transform 280ms var(--ease-out), opacity 200ms var(--ease-out), background-color 240ms var(--ease-out); }
+  .tag[hidden] { display: none; }
+  .tag[data-state] { transform: none; opacity: 1; }
+  .tag[data-state="rest"] { background: rgba(23, 13, 51, 0.72); }
+  .tag .word { font-size: 1.2em; }
+  .tag__made { display: grid; grid-template-columns: 1fr; transition: grid-template-columns 240ms var(--ease-out), opacity 140ms var(--ease-out); }
+  .tag__made > span { overflow: hidden; white-space: nowrap; padding-inline-end: 0.4em; }
+  .tag[data-state="rest"] .tag__made { grid-template-columns: 0fr; opacity: 0; }
+  /* Short frames (a wide game on an upright phone, small embeds): a smaller pill, a smaller tab with only the name;
+     none at all where nothing would fit around them. */
+  @media (max-height: 360px) {
+    .credit { top: calc(100% + 14px); height: 36px; padding: 0 14px; font-size: 12px; }
+    .credit .word { font-size: 15px; }
+    .tag { --t: clamp(8px, calc(4px + 2vmin), 11px); }
+    .tag__made { display: none; }
+  }
+  @media (max-height: 150px), (max-width: 190px) { .credit { display: none; } }
+  @media (max-height: 150px), (max-width: 150px) { .tag { display: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .tag { transform: none; transition: opacity 200ms var(--ease-out), background-color 200ms var(--ease-out); }
+    .tag__made { transition: none; }
+  }
 </style>
 </head>
 <body>
 <canvas id="canvas" tabindex="0">Your browser does not support the canvas tag.</canvas>
-<div id="status"><div><div id="msg">Loading the game…</div><div id="bar"><i id="fill"></i></div></div></div>
+<div id="status"><div class="loader"><div id="msg">Loading the game…</div><div id="bar"><i id="fill"></i></div>
+  <a id="credit" class="credit" href="https://typeplay.app" target="_blank" rel="noopener" aria-label="Made with TypePlay, opens typeplay.app in a new tab" hidden><span class="credit__row">Made with <span class="word">Type<span>Play</span></span></span></a></div></div>
+<div id="tag" class="tag" aria-hidden="true" hidden><span class="tag__made"><span>Made with</span></span><span class="word">Type<span>Play</span></span></div>
 <script>
   // The loader: reads builds/<id>/game.json, loads that game's engine version, starts the game.
   // ?g=<id>      which game
   // ?auto=1      press Space for the viewer now and then (the site's demo), until they take over
   // Tells the parent page how it goes: postMessage({ typeplay: "ready" | "error" | "escape", game }).
   // Listens for "typeplay:focus" (the site entered full screen; give the game the keyboard).
+  // ?mark=quiet the mark starts small, without its few seconds of "Made with" (the app's next version of a game the
+  //              player is already playing). It never hides the mark.
+  // game.json "badge": true (a Free plan build): "Made with TypePlay" while it loads, then a small mark on the game.
   const params = new URLSearchParams(location.search);
   const id = (params.get("g") || "").replace(/[^a-z0-9-]/g, "");
   const auto = params.get("auto") === "1";
+  const quiet = params.get("mark") === "quiet";
   const canvas = document.getElementById("canvas");
   const status = document.getElementById("status"), msg = document.getElementById("msg"), fill = document.getElementById("fill");
+  const credit = document.getElementById("credit"), tag = document.getElementById("tag");
   const tell = (what) => { try { parent.postMessage({ typeplay: what, game: id }, "*"); } catch (e) {} };
-  const fail = (text) => { msg.textContent = text; tell("error"); };
+  let creditTimer = 0;
+  const fail = (text) => { clearTimeout(creditTimer); credit.hidden = true; msg.textContent = text; tell("error"); };
   const loadScript = (src) => new Promise((ok, no) => {
     const s = document.createElement("script");
     s.src = src; s.onload = ok; s.onerror = () => no(new Error("engine script failed: " + src));
@@ -51,6 +123,25 @@
   });
   window.addEventListener("message", (e) => { if (e.data === "typeplay:focus") canvas.focus(); });
 
+  // The mark over the running game: "Made with TypePlay" for a few seconds (or until the player's first tap or key),
+  // then only the name, lighter. Taps, clicks and keys all go to the game (pointer-events: none, not focusable).
+  const showTag = () => {
+    let state = "";
+    const set = (s) => { if (state !== "rest") tag.dataset.state = state = s; };
+    const onInput = (e) => { if (e.isTrusted) rest(); };
+    const rest = () => {
+      set("rest");
+      removeEventListener("pointerdown", onInput, true);
+      removeEventListener("keydown", onInput, true);
+    };
+    addEventListener("pointerdown", onInput, true);
+    addEventListener("keydown", onInput, true);
+    tag.hidden = false;
+    if (quiet) return rest(); // in place at once: no slide, no words
+    setTimeout(() => set("intro"), 400); // a beat after the game's first frame
+    setTimeout(rest, 4400);
+  };
+
   (async () => {
     if (!id) return fail("No game chosen.");
     const res = await fetch(`builds/${id}/game.json`, { cache: "no-cache" });
@@ -59,6 +150,12 @@
     const version = String(meta.engine || "").replace(/[^0-9a-z.-]/g, "");
     if (!version) return fail("This game names no engine version.");
     document.title = (meta.name || "Game") + " | TypePlay";
+    const badge = meta.badge === true; // builds from before the mark have no field: none
+    // Only on a load long enough to read it: a cached engine starts in under a second, and the mark on the game follows.
+    if (badge) creditTimer = setTimeout(() => {
+      credit.hidden = false;
+      requestAnimationFrame(() => requestAnimationFrame(() => (credit.dataset.on = "")));
+    }, 700);
     await loadScript(`engine/${version}/index.js`);
     const engine = new Engine({
       executable: `engine/${version}/index`,
@@ -69,8 +166,10 @@
       onProgress(current, total) { if (total > 0) fill.style.width = Math.round(100 * current / total) + "%"; },
     });
     await engine.startGame();
+    clearTimeout(creditTimer);
     status.hidden = true;
     tell("ready");
+    if (badge) showTag();
     if (auto) { setTimeout(press, 900); setInterval(press, 4000); }
   })().catch((e) => fail("The game could not load: " + (e && e.message ? e.message : e)));
 </script>

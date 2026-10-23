@@ -40,3 +40,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 !.env.example
+# Dev-only switches (no secrets): `next dev` reads it, `next build` never does.
+!.env.development

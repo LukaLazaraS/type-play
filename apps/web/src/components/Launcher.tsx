@@ -132,6 +132,7 @@ function LauncherOverlay() {
           <div className="launcher__stage">
             <motion.div
               className="launcher__frame"
+              data-orientation={game.orientation}
               layoutId={reduce ? undefined : `game-${game.slug}`}
               transition={{ duration: 0.32, ease }}
             >

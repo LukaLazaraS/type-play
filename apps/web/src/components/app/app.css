@@ -1,0 +1,4203 @@
+/* The app's screens (package 4): /create, /games, the game page and the status bar's account
+   place. Imported by components/app/AccountSlot.tsx, which only app builds contain (next.config.ts),
+   so the public build ships none of this. Loads after globals.css and uses its tokens and parts. */
+
+/* The status bar on app pages: the public section links step aside. */
+body:has(main[data-app]) .statusbar nav a[href="/#how"],
+body:has(main[data-app]) .statusbar nav a[href="/#games"] {
+  display: none;
+}
+/* Short app pages: the footer's ground stays at the bottom of the screen. */
+body:has(main[data-app]:not(.ws)) {
+  display: flex;
+  flex-direction: column;
+}
+body:has(main[data-app]:not(.ws)) > main {
+  margin-bottom: clamp(56px, 8vw, 120px);
+}
+body:has(main[data-app]:not(.ws)) > .ground-band {
+  margin-top: auto;
+}
+/* The game page fills the screen under the status bar: no footer below it. */
+body:has(.ws) .ground-band {
+  display: none;
+}
+
+/* Account place in the status bar: credits, then the avatar that opens the menu. */
+.account__wait {
+  display: inline-block;
+  width: 84px;
+  height: 40px;
+}
+.account__credits {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+  color: var(--on-sky-muted);
+}
+.account__credits b {
+  font-family: var(--font-figures);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--on-sky);
+}
+.account__me {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font: 700 16px var(--font-ui);
+  cursor: pointer;
+  transition: transform 160ms var(--ease-out);
+}
+.account__me:active {
+  transform: scale(0.95);
+}
+.account__me img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* The menu is a popover in the top layer, pinned under the status bar at the right. */
+.account__menu {
+  position: fixed;
+  inset: 64px clamp(16px, 4vw, 56px) auto auto;
+  margin: 0;
+  width: min(300px, calc(100vw - 32px));
+  padding: 18px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--paper);
+  color: var(--on-paper);
+  font-size: 15px;
+  flex-direction: column;
+  gap: 14px;
+  transform-origin: top right;
+  opacity: 0;
+  transform: scale(0.97) translateY(-4px);
+  /* Leaving is quicker than arriving (120 vs 160 ms): the transition here is the closing one. */
+  transition:
+    opacity 120ms var(--ease-out),
+    transform 120ms var(--ease-out),
+    overlay 120ms allow-discrete,
+    display 120ms allow-discrete;
+}
+.account__menu:popover-open {
+  display: flex;
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 160ms var(--ease-out),
+    transform 160ms var(--ease-out),
+    overlay 160ms allow-discrete,
+    display 160ms allow-discrete;
+}
+@starting-style {
+  .account__menu:popover-open {
+    opacity: 0;
+    transform: scale(0.97) translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .account__menu,
+  .account__menu:popover-open {
+    transform: none;
+  }
+}
+.account__who b {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.account__who span {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--on-paper-muted);
+  overflow-wrap: anywhere;
+}
+.account__facts {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--field);
+}
+.account__facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.account__facts dt {
+  color: var(--on-paper-muted);
+}
+.account__facts dd {
+  margin: 0;
+  font-weight: 600;
+}
+.account__facts dd.figures {
+  font-size: 13px;
+  font-weight: 400;
+}
+.account__problem {
+  margin: 0;
+  font-size: 14px;
+  color: var(--on-paper-muted);
+}
+.account__links {
+  display: flex;
+  flex-direction: column;
+}
+/* Inside the status bar's nav, so these beat its sky-coloured link rules (and stay on phones). */
+.statusbar nav .account__menu .account__links a {
+  display: block;
+  padding: 10px 2px;
+  font-weight: 600;
+  color: var(--on-paper);
+}
+@media (hover: hover) and (pointer: fine) {
+  .statusbar nav .account__menu .account__links a:hover {
+    color: var(--on-paper);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+.account__menu .button {
+  align-self: flex-start;
+}
+@media (max-width: 640px) {
+  .account__credits {
+    font-size: 13px;
+  }
+}
+@media (max-width: 380px) {
+  .statusbar nav .statusbar__keep[href="/pricing"] {
+    display: none;
+  }
+}
+
+/* Buttons, a size down, for the app's dense places (composer, asks, the account menu). */
+.button--small {
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 15px;
+}
+/* A pill on ink (the game's bar, the versions): Ink Recess, like the launcher's. */
+.inkpill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink-2);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 160ms var(--ease-out);
+}
+.inkpill:active {
+  transform: scale(0.97);
+}
+.inkpill:disabled {
+  color: var(--on-sky-muted);
+  cursor: not-allowed;
+}
+.inkpill--small {
+  min-height: 36px;
+  padding: 8px 14px;
+  font-size: 14px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .inkpill:not(:disabled):hover {
+    background: #33245f;
+  }
+}
+
+/* Form parts on paper */
+.field-label {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--on-paper);
+  padding: 0;
+}
+.field {
+  background: var(--field);
+  border-radius: var(--r-field);
+  padding: 6px 20px;
+}
+.field:focus-within {
+  outline: 3px solid var(--sun);
+  outline-offset: 2px;
+}
+.field textarea {
+  display: block;
+  width: 100%;
+  resize: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--on-paper);
+  padding: 10px 0;
+  min-height: 48px;
+  outline: none;
+  caret-color: var(--hot);
+}
+.field textarea::placeholder {
+  color: var(--on-paper-muted);
+}
+.field-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--on-paper-muted);
+}
+/* A problem: ink and heavier, marked with the hot dot (no red in this world). */
+.field-hint--error,
+.composer__error {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--on-paper);
+}
+.field-hint--error::before,
+.composer__error::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: var(--hot);
+  vertical-align: 1px;
+}
+
+/* Ask first: an estimate over the limit (25 credits, 3 on Free) waits for a yes. */
+.ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding: 14px 14px 14px 18px;
+  border-radius: var(--r-field);
+  background: var(--field);
+}
+.ask p {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--on-paper);
+}
+.ask__actions {
+  display: flex;
+  gap: 8px;
+}
+.ask .button--quiet {
+  background: var(--paper);
+}
+
+/* Sign in */
+.signin {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.devsignin {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 12px 14px;
+  border-radius: var(--r-field);
+  background: var(--field);
+  font-size: 13px;
+  color: var(--on-paper-muted);
+}
+.devsignin div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.devsignin .button--quiet {
+  background: var(--paper);
+}
+.devsignin input {
+  flex: 1 1 180px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--on-paper);
+  font: inherit;
+  font-size: 16px;
+}
+
+/* /create */
+.make {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: min(760px, 100% - 2 * clamp(16px, 4vw, 80px));
+  margin: 32px auto 0;
+  padding: clamp(24px, 4.5vw, 48px);
+}
+.make[aria-busy="true"] {
+  min-height: 520px;
+}
+.make__title {
+  font-size: clamp(36px, 5vw, 56px);
+  margin: 0;
+}
+.make__lead {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--on-paper-muted);
+  overflow-wrap: anywhere;
+}
+.make__form {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.make__idea {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.make__idea textarea {
+  min-height: 56px;
+}
+.make__wait {
+  height: 200px;
+}
+.make__signin {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.make__go {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 20px;
+}
+.make__balance {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--on-paper-muted);
+}
+.make__balance b {
+  font-weight: 600;
+  color: var(--on-paper);
+}
+.make__send {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+}
+.make__send .figures {
+  font-size: 12px;
+  color: var(--on-paper-muted);
+  white-space: nowrap;
+}
+
+/* Genre starters: kinds of game as app icons; a tap puts an example idea in the box. */
+.starters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.starters__row {
+  --icon: clamp(52px, 14vw, 72px);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.starter {
+  color: var(--on-paper);
+  padding: 6px 0;
+}
+.starter .app__stat {
+  color: var(--on-paper-muted);
+}
+.starter:disabled {
+  cursor: default;
+}
+.starter:disabled .app__icon {
+  filter: grayscale(0.7);
+  opacity: 0.55;
+}
+.starter:disabled .app__name {
+  color: var(--on-paper-muted);
+}
+.app__icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The model picker as rows: tile, name and honest line, cost, the radio dot. */
+.models {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.models legend {
+  margin-bottom: 10px;
+}
+.model {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto 22px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px 12px 12px;
+  border-radius: var(--r-field);
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out);
+}
+.model[data-on] {
+  background: var(--field);
+}
+.model:has(input:focus-visible) {
+  outline: 3px solid var(--sun);
+  outline-offset: 2px;
+}
+.model[data-locked] {
+  cursor: not-allowed;
+}
+@media (hover: hover) and (pointer: fine) {
+  .model:not([data-on]):not([data-locked]):hover {
+    background: #f8f5fd;
+  }
+}
+.model__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-icon);
+  color: #fff;
+}
+.model__icon--fast {
+  background: #2f9e44;
+}
+.model__icon--smart {
+  background: var(--hot);
+  color: var(--ink);
+}
+.model__icon--best {
+  background: var(--sky-4);
+}
+.model[data-locked] .model__icon {
+  background: var(--field);
+  color: var(--on-paper-muted);
+}
+.model__text b {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+}
+.model__text span {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--on-paper-muted);
+}
+.model__side {
+  font-size: 12px;
+  color: var(--on-paper-muted);
+  white-space: nowrap;
+}
+.model__side--locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+/* The radio dot: a field circle; picked, an ink ring around a white centre. */
+.model::after {
+  content: "";
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--field);
+}
+.model[data-on]::after {
+  background: var(--paper);
+  border: 7px solid var(--ink);
+}
+.model[data-locked]::after {
+  visibility: hidden;
+}
+
+/* /games: the signed-in home screen */
+.mine {
+  --icon: 96px;
+  width: min(1280px, 100% - 2 * clamp(16px, 4vw, 80px));
+  margin: 24px auto 0;
+}
+.mine[aria-busy="true"] {
+  min-height: 50vh;
+}
+.mine__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+}
+.mine__title {
+  margin: 0;
+  font-size: clamp(36px, 4.6vw, 64px);
+}
+.mine__lead {
+  margin: 12px 0 0;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--on-sky-muted);
+}
+.mine__lead b {
+  font-weight: 600;
+  color: var(--on-sky);
+}
+.mine__grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 28px 18px;
+  margin: 40px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.mine__name {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.mine__ghost {
+  cursor: default;
+}
+.mine__empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+  margin-top: 40px;
+  padding: 28px 32px;
+}
+.mine__empty p {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.5;
+}
+.mine__problem {
+  margin: 24px 0 0;
+  font-size: 15px;
+  color: var(--on-sky);
+}
+@media (max-width: 1100px) {
+  .mine__grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .mine {
+    --icon: clamp(60px, 18vw, 76px);
+    margin-top: 12px;
+  }
+  .mine__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 22px 10px;
+    margin-top: 28px;
+  }
+  .mine__grid .app__stat {
+    font-size: 10px;
+  }
+  .mine__empty {
+    padding: 22px 20px;
+  }
+}
+
+/* The game page: chat (paper) beside the game (ink); two tabs on a phone. */
+.ws {
+  display: grid;
+  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 18px;
+  box-sizing: border-box;
+  height: calc(100dvh - 64px);
+  padding: 0 clamp(16px, 2.4vw, 32px) 16px;
+}
+.ws__tabs {
+  display: none;
+}
+.ws__chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.ws__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 24px 10px;
+}
+.ws__all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--on-paper-muted);
+  transition: color 160ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ws__all:hover {
+    color: var(--on-paper);
+  }
+}
+.ws__spent {
+  color: var(--on-paper-muted);
+  white-space: nowrap;
+}
+.ws__offline {
+  margin: 0 24px 6px;
+  font-size: 13px;
+  color: var(--on-paper-muted);
+}
+/* The Retry in that line: a button that reads like a link */
+.ws__retry {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Messages */
+.log {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 8px 24px 18px;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #d9d0ea transparent;
+}
+.msg {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.msg--you {
+  align-items: flex-end;
+}
+.msg--agent {
+  align-items: flex-start;
+}
+.msg .bubble {
+  max-width: 88%;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.msg__meta {
+  padding: 0 6px;
+  font-size: 11px; /* the figures size: this line carries the cost of the answer */
+  color: var(--on-paper-muted);
+}
+.bubble--live {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.pulse {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--hot);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pulse {
+    animation: pulse 1.1s var(--ease-in-out) infinite alternate;
+  }
+  @keyframes pulse {
+    from {
+      opacity: 0.35;
+      transform: scale(0.8);
+    }
+  }
+  .bubble__line,
+  .stage__busy-text {
+    animation: line-in 220ms var(--ease-out);
+  }
+  @keyframes line-in {
+    from {
+      opacity: 0;
+      transform: translateY(3px);
+    }
+  }
+}
+.msg__play {
+  display: none;
+}
+
+/* Composer */
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px 18px;
+  border-top: 1px solid var(--field);
+}
+.composer__field {
+  padding: 2px 16px;
+}
+.composer__field textarea {
+  min-height: 44px;
+  font-size: 16px;
+}
+.composer__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.composer__foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.composer__cost {
+  flex: none;
+  color: var(--on-paper-muted);
+  white-space: nowrap;
+}
+.composer__tip {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--on-paper-muted);
+}
+/* Fast / Smart / Best as one segmented control */
+.switch {
+  display: inline-flex;
+  min-width: 0;
+  margin: 0;
+  padding: 3px;
+  border: 0;
+  border-radius: var(--r-button);
+  background: var(--field);
+}
+.switch__opt {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 11px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--on-paper-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  transition:
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out);
+}
+.switch__opt[data-on] {
+  background: var(--paper);
+  color: var(--on-paper);
+}
+.switch__opt[data-locked] {
+  cursor: not-allowed;
+  color: #8a80a3;
+}
+.switch__opt:has(input:focus-visible) {
+  outline: 3px solid var(--sun);
+  outline-offset: 1px;
+}
+
+/* The game: bar, the building line, the frame, the versions */
+.ws__play {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.stage {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.stage__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 14px 16px 6px 28px;
+}
+.stage__name {
+  min-width: 0;
+  margin: 0;
+  font-size: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stage__version {
+  flex: none;
+  color: var(--on-sky-muted);
+}
+.stage__actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  margin-left: auto;
+}
+.stage__busy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 20px;
+  margin: 0 20px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--on-sky-muted);
+}
+.stage__busy-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stage__screen {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 16px;
+  container-type: size;
+}
+/* As big as fits, at the game's own shape: 16:9, or 9:16 for an upright game. */
+.stage__frame {
+  width: min(100cqw, 100cqh * 16 / 9);
+  aspect-ratio: 16 / 9;
+  border-radius: 24px;
+  overflow: hidden;
+  background: var(--sky-2);
+}
+.stage__frame[data-orientation="portrait"] {
+  width: min(100cqw, 100cqh * 9 / 16);
+  aspect-ratio: 9 / 16;
+}
+.stage__frame .gameframe:not([data-immersive]) {
+  height: 100%;
+  aspect-ratio: auto;
+}
+.stage__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 440px;
+  padding: 24px;
+  text-align: center;
+}
+.stage__build {
+  --icon: 132px;
+  margin-bottom: 6px;
+}
+.stage__line {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.stage__line .figures {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--on-sky-muted);
+}
+.stage__note {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--on-sky-muted);
+  text-wrap: pretty;
+}
+.stage__note--error {
+  color: var(--on-sky);
+  font-weight: 600;
+}
+
+/* Versions: a strip of cards under the game, newest first */
+.versions {
+  padding: 14px 16px 18px;
+}
+.versions__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 0 12px 10px;
+}
+.versions__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.versions__note,
+.versions__error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--on-sky-muted);
+}
+.versions__error {
+  color: var(--on-sky);
+  font-weight: 600;
+}
+.versions__strip {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 0 0 6px;
+  list-style: none;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-2) transparent;
+}
+.version {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 6px;
+  width: 232px;
+  padding: 12px 14px 14px;
+  border-radius: var(--r-field);
+  background: var(--ink-2);
+  scroll-snap-align: start;
+}
+.version__n {
+  color: var(--on-sky-muted);
+}
+.version__label {
+  display: -webkit-box;
+  min-height: 2.7em;
+  margin: 0;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.version__now {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  color: var(--sun);
+}
+.version .inkpill {
+  align-self: flex-start;
+  background: var(--ink);
+}
+.version__ask {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.version__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+/* Phones and narrow windows: Chat and Play as two tabs, each the full height. */
+@media (max-width: 959px) {
+  .ws {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 0 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  .ws__tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 999px;
+    background: var(--ink);
+  }
+  .ws__back {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    color: var(--on-sky);
+    transition: background-color 160ms var(--ease-out);
+  }
+  .ws__back:active {
+    background: var(--ink-2);
+  }
+  .ws__tab {
+    position: relative;
+    flex: 1;
+    min-height: 44px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--on-sky-muted);
+    font: 600 15px var(--font-ui);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      background-color 160ms var(--ease-out),
+      color 160ms var(--ease-out);
+  }
+  .ws__tab[aria-selected="true"] {
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .ws__tab:not([aria-selected="true"]):active {
+    background: var(--ink-2);
+    color: var(--on-sky);
+  }
+  .ws__dot {
+    position: absolute;
+    top: 11px;
+    margin-left: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--hot);
+  }
+  .ws[data-tab="chat"] .ws__play,
+  .ws[data-tab="play"] .ws__chat {
+    display: none;
+  }
+  .ws__chat,
+  .ws__play {
+    border-radius: 32px;
+  }
+  .ws__head {
+    display: none;
+  }
+  .log {
+    padding: 18px 16px 14px;
+  }
+  .composer {
+    padding: 12px 12px 14px;
+  }
+  .msg__play {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    margin-top: 2px;
+    padding: 8px 14px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--field);
+    color: var(--ink);
+    font: 600 14px var(--font-ui);
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform 160ms var(--ease-out);
+  }
+  .msg__play:active {
+    transform: scale(0.97);
+  }
+  /* The building line may take two lines on a phone: the chat has it in full anyway. */
+  .stage__busy {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .stage__busy .pulse {
+    margin-top: 5px;
+  }
+  .stage__busy-text {
+    display: -webkit-box;
+    white-space: normal;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .stage__bar {
+    min-height: 60px;
+    padding: 10px 10px 4px 20px;
+  }
+  .stage__screen {
+    padding: 0 10px;
+  }
+  .stage__frame {
+    border-radius: 20px;
+  }
+  .versions {
+    padding: 10px 10px 12px;
+  }
+  .version {
+    width: 200px;
+  }
+}
+@media (max-width: 600px) {
+  .stage .inkpill:not(.inkpill--small) {
+    width: 44px;
+    padding: 0;
+  }
+  .inkpill__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .make {
+    margin-top: 12px;
+    gap: 22px;
+    padding: 24px 20px;
+    border-radius: 32px;
+  }
+  .make__send {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 10px 14px;
+  }
+  /* Too narrow for both on one line (320px): the cost above, the button the full width. */
+  @media (max-width: 380px) {
+    .make__send .button {
+      flex: 1 1 100%;
+    }
+  }
+  .model {
+    grid-template-columns: 40px minmax(0, 1fr) 22px;
+    gap: 12px;
+    padding: 12px;
+  }
+  .model__icon {
+    width: 40px;
+    height: 40px;
+  }
+  .model__side {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .model::after {
+    grid-column: 3;
+    grid-row: 1 / 3;
+  }
+  .composer__row {
+    flex-wrap: wrap;
+  }
+}
+
+/* The narrowest phones (320-360px): Send and Stop keep their icons; the words stay for screen readers. */
+@media (max-width: 360px) {
+  .composer__row .button--small {
+    width: 44px;
+    padding: 12px 0;
+  }
+  .composer__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .switch__opt {
+    padding: 8px 9px;
+  }
+}
+
+/* App pages on phones: no tap flash, instant taps, no text selection on controls, and the game
+   page (an app shell with its own scrolling) doesn't drag the whole page or pull to refresh. */
+body:has(main[data-app]) {
+  -webkit-tap-highlight-color: transparent;
+}
+main[data-app] button,
+main[data-app] a,
+main[data-app] .model,
+.account__me {
+  touch-action: manipulation;
+}
+main[data-app] button,
+main[data-app] .model,
+.account__me {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+html:has(.ws),
+body:has(.ws) {
+  overscroll-behavior: none;
+}
+
+/* ---- Added 2026-10-18: effort, game menus, Manage, the account page, share pages ---------------- */
+
+/* The ink button: a final, deliberate action on paper that isn't the page's one hot action
+   (Delete game, Delete everything). Ink with white text, as on the lead plan's button. */
+.button--ink {
+  background: var(--ink);
+  color: #fff;
+}
+@media (hover: hover) and (pointer: fine) {
+  .button--ink:not(:disabled):hover {
+    background: var(--ink-2);
+  }
+}
+
+/* A one-line text box in a Field (the share link, a game's new name, "Type DELETE"). 16px and up:
+   phones don't zoom into it. */
+.field input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.3;
+  color: var(--on-paper);
+  padding: 10px 0;
+  outline: none;
+  caret-color: var(--hot);
+}
+
+/* Effort: Low / Medium / High, a size below Fast / Smart / Best. */
+.effort {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.effort__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--on-paper-muted);
+}
+.switch--small {
+  padding: 2px;
+  border-radius: 12px;
+}
+.switch--small .switch__opt {
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.composer__foot {
+  align-items: center;
+  flex-wrap: wrap;
+}
+.make__effort {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* A panel that opens under its button (Share, More): a popover in the top layer, placed by
+   usePopover.ts, entering like the account menu. Paper on the ink stage: depth by overlap. */
+.pop {
+  position: fixed;
+  inset: var(--pop-top, 120px) var(--pop-right, 16px) auto auto;
+  margin: 0;
+  width: var(--pop-width, min(340px, calc(100vw - 24px)));
+  max-height: calc(100dvh - var(--pop-top, 120px) - 12px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 18px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--paper);
+  color: var(--on-paper);
+  font-size: 15px;
+  flex-direction: column;
+  gap: 14px;
+  transform-origin: var(--pop-origin, top right);
+  opacity: 0;
+  transform: scale(0.97) translateY(-4px);
+  transition:
+    opacity 120ms var(--ease-out),
+    transform 120ms var(--ease-out),
+    overlay 120ms allow-discrete,
+    display 120ms allow-discrete;
+}
+.pop:popover-open {
+  display: flex;
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 160ms var(--ease-out),
+    transform 160ms var(--ease-out),
+    overlay 160ms allow-discrete,
+    display 160ms allow-discrete;
+}
+@starting-style {
+  .pop:popover-open {
+    opacity: 0;
+    transform: scale(0.97) translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pop,
+  .pop:popover-open {
+    transform: none;
+  }
+}
+.pop button,
+.pop a {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Share */
+.share__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.share__head b {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+}
+.share__head span {
+  display: block;
+  margin-top: 3px;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--on-paper-muted);
+}
+.share__link {
+  padding: 2px 16px;
+}
+.share__link input {
+  font-size: 16px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+.share__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.share__note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--on-paper-muted);
+  text-wrap: pretty;
+}
+/* The on/off switch: hot when the game is public (live, like the dock's Web slot). */
+.toggle {
+  flex: none;
+  position: relative;
+  width: 52px;
+  height: 32px;
+  padding: 3px;
+  border: 0;
+  border-radius: 999px;
+  background: #8a80a3;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 160ms var(--ease-out);
+}
+.toggle[aria-checked="true"] {
+  background: var(--hot);
+}
+.toggle__thumb {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--paper);
+  transition: transform 160ms var(--ease-out);
+}
+.toggle[aria-checked="true"] .toggle__thumb {
+  transform: translateX(20px);
+}
+.toggle:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+@media (prefers-reduced-motion: reduce) {
+  .toggle__thumb {
+    transition: none;
+  }
+}
+
+/* More: the game's menu */
+.menu {
+  padding: 8px;
+  gap: 4px;
+}
+.menu__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.menu__list button,
+.menu__list a {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border: 0;
+  border-radius: var(--r-button);
+  background: transparent;
+  color: var(--on-paper);
+  font: 600 15px/1.3 var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out);
+}
+.menu__list svg {
+  flex: none;
+  margin-top: 1px;
+}
+.menu__list small {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--on-paper-muted);
+}
+.menu__list button:disabled {
+  color: #8a80a3;
+  cursor: not-allowed;
+}
+.menu__list button:not(:disabled):active,
+.menu__list a:active {
+  background: var(--field);
+}
+@media (hover: hover) and (pointer: fine) {
+  .menu__list button:not(:disabled):hover,
+  .menu__list a:hover {
+    background: var(--field);
+  }
+}
+.menu__ask {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 10px 10px 6px;
+}
+.menu__ask p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.menu__ask b {
+  font-weight: 700;
+}
+.menu__ask-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.menu .composer__error {
+  padding: 2px 10px 8px;
+}
+/* "Play in a new tab" lives in the menu only where the bar has no room for its pill. */
+@media (min-width: 601px) {
+  .menu__newtab {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .stage__newtab {
+    display: none;
+  }
+}
+
+/* Renaming in the game's bar: the name becomes a box on ink. */
+.rename {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.rename__input {
+  flex: 1 1 160px;
+  min-width: 0;
+  height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--r-button);
+  background: var(--ink-2);
+  color: #fff;
+  font: 800 20px var(--font-display);
+  letter-spacing: -0.025em;
+  caret-color: var(--hot);
+  outline: none;
+}
+.rename__input:focus-visible {
+  outline: 3px solid var(--sun);
+  outline-offset: 2px;
+}
+.rename__error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--on-sky);
+}
+
+/* /games: Manage */
+.mine__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.manage {
+  margin: 40px 0 0;
+  padding: 6px 0;
+  list-style: none;
+  overflow: hidden;
+}
+.manage__row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 18px 28px;
+}
+.manage__row + .manage__row {
+  border-top: 1px solid var(--field);
+}
+.manage__icon {
+  --icon: 56px;
+}
+.manage__text {
+  min-width: 0;
+}
+.manage__name {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--on-paper);
+  overflow-wrap: anywhere;
+}
+@media (hover: hover) and (pointer: fine) {
+  .manage__name:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+.manage__meta {
+  display: block;
+  margin-top: 6px;
+  color: var(--on-paper-muted);
+}
+.manage__ask {
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--on-paper);
+}
+.manage__rename {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.manage__field {
+  flex: 1 1 220px;
+  padding: 2px 16px;
+}
+.manage__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.manage__actions {
+  justify-content: flex-end;
+}
+.manage .composer__error {
+  margin-top: 8px;
+}
+@media (max-width: 640px) {
+  .manage {
+    margin-top: 28px;
+  }
+  .manage__row {
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px 14px;
+    padding: 16px 18px;
+  }
+  .manage__icon {
+    --icon: 48px;
+  }
+  .manage__actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+/* /account: who, plan and credits, the credit history, your data, leaving */
+.acct {
+  width: min(1180px, 100% - 2 * clamp(16px, 4vw, 80px));
+  margin: 24px auto 0;
+}
+.acct[aria-busy="true"] {
+  min-height: 50vh;
+}
+.acct__title {
+  margin: 0 0 28px;
+}
+.acct__grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto 1fr;
+  grid-template-areas:
+    "me usage"
+    "plan usage"
+    "data usage"
+    "close usage"
+    ". usage";
+  gap: 18px;
+  align-items: start;
+}
+.acct__me {
+  grid-area: me;
+}
+.acct__plan {
+  grid-area: plan;
+}
+.acct__usage {
+  grid-area: usage;
+}
+.acct__data {
+  grid-area: data;
+}
+.acct__close {
+  grid-area: close;
+}
+.acct__card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+  padding: 26px 28px;
+}
+.acct__card > * {
+  max-width: 100%;
+}
+.acct__h {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.acct__note {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--on-paper-muted);
+  text-wrap: pretty;
+}
+.acct__me {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+.acct__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--ink);
+  font: 800 26px var(--font-display);
+}
+.acct__avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.acct__who {
+  display: flex;
+  flex: 1 1 180px;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.acct__who b {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.acct__who span {
+  font-size: 14px;
+  color: var(--on-paper-muted);
+  overflow-wrap: anywhere;
+}
+.acct__who .acct__via {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.acct__balance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0;
+}
+.acct__big {
+  font: 900 56px/1 var(--font-display);
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.acct__balance span:last-child {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--on-paper-muted);
+}
+.acct__facts {
+  align-self: stretch;
+}
+.acct__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.acct__usage-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.acct__usage {
+  align-items: stretch;
+}
+.acct__usage .usage__more,
+.acct__usage .usage__problem {
+  align-self: flex-start;
+}
+.acct__confirm {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 10px;
+}
+.acct__field {
+  padding: 2px 16px;
+}
+.acct__field input {
+  font-family: var(--font-figures);
+  letter-spacing: 0.04em;
+}
+.acct__warn {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.acct__warn::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: var(--hot);
+  vertical-align: 1px;
+}
+.acct__home {
+  align-self: flex-start;
+}
+@media (max-width: 900px) {
+  .acct__grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: "me" "plan" "usage" "data" "close";
+  }
+}
+@media (max-width: 640px) {
+  .acct {
+    margin-top: 12px;
+  }
+  .acct__title {
+    margin-bottom: 20px;
+  }
+  .acct__card {
+    padding: 22px 20px;
+    border-radius: 32px;
+  }
+  .acct__big {
+    font-size: 48px;
+  }
+}
+
+/* The credit history: when, what and for which game, and the credits in or out. */
+.usage {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.usage__row {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: baseline;
+  padding: 14px 0;
+}
+.usage__row + .usage__row {
+  border-top: 1px solid var(--field);
+}
+.usage__when {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--on-paper-muted);
+  white-space: nowrap;
+}
+.usage__when span {
+  display: block;
+}
+.usage__what {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.usage__what b {
+  font-size: 15px;
+  font-weight: 600;
+}
+.usage__game {
+  width: fit-content;
+  max-width: 100%;
+  font-size: 14px;
+  color: var(--on-paper);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.usage__game--gone {
+  color: var(--on-paper-muted);
+  text-decoration: none;
+}
+.usage__prompt {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--on-paper-muted);
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.usage__amount {
+  font-size: 14px;
+  color: var(--on-paper);
+  text-align: right;
+  white-space: nowrap;
+}
+.usage__amount[data-plus] {
+  font-weight: 700;
+}
+.usage__row--ghost span {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--field);
+}
+.usage__row--ghost span:last-child {
+  width: 40px;
+}
+.usage__empty {
+  margin: 0;
+  font-size: 15px;
+  color: var(--on-paper-muted);
+}
+.usage__problem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+@media (max-width: 640px) {
+  .usage__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "when amount"
+      "what what";
+    gap: 6px 12px;
+  }
+  .usage__when {
+    grid-area: when;
+  }
+  .usage__when span {
+    display: inline;
+  }
+  .usage__amount {
+    grid-area: amount;
+  }
+  .usage__what {
+    grid-area: what;
+  }
+}
+
+/* The share page (/play/<id>): the game on an ink stage, and the invitation beside or below it. */
+.play {
+  display: grid;
+  grid-template-columns: minmax(0, 1128px);
+  justify-content: center;
+  gap: 18px;
+  width: min(1280px, 100% - 2 * clamp(16px, 4vw, 80px));
+  margin: 24px auto 0;
+}
+.play[data-orientation="portrait"] {
+  grid-template-columns: auto minmax(300px, 400px);
+  align-items: start;
+}
+.play__stage {
+  min-width: 0;
+  padding: 16px 16px 20px;
+}
+.play__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 4px 16px 12px;
+}
+.play__titles {
+  min-width: 0;
+}
+.play__name {
+  margin: 0;
+  font-size: clamp(24px, 2.6vw, 34px);
+  overflow-wrap: anywhere;
+}
+.play__by {
+  margin: 8px 0 0;
+  color: var(--on-sky-muted);
+}
+.play__frame {
+  overflow: hidden;
+  border-radius: 24px;
+  background: var(--sky-2);
+}
+.play__frame[data-orientation="landscape"] {
+  width: min(100%, (100dvh - 64px - 210px) * 16 / 9);
+  aspect-ratio: 16 / 9;
+  margin: 0 auto;
+}
+.play__frame[data-orientation="portrait"] {
+  width: min(100%, max(240px, (100dvh - 64px - 210px) * 9 / 16));
+  aspect-ratio: 9 / 16;
+  margin: 0 auto;
+}
+.play__frame .gameframe:not([data-immersive]) {
+  height: 100%;
+  aspect-ratio: auto;
+}
+.play__how {
+  margin: 14px 12px 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--on-sky-muted);
+  text-wrap: pretty;
+}
+.play__made {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 32px;
+}
+.play[data-orientation="landscape"] .play__made {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 32px;
+}
+.play[data-orientation="landscape"] .play__made-text {
+  grid-column: 1;
+}
+.play[data-orientation="landscape"] .play__cta {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.play__made-title {
+  margin: 0;
+  font-size: clamp(28px, 3vw, 40px);
+}
+.play__made-text {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--on-paper-muted);
+  text-wrap: pretty;
+}
+.play__cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.play .button,
+.play .launcher__close {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+@media (max-width: 900px) {
+  .play[data-orientation="portrait"],
+  .play[data-orientation="landscape"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .play[data-orientation="landscape"] .play__made {
+    display: flex;
+  }
+}
+@media (max-width: 600px) {
+  .play {
+    margin-top: 8px;
+    gap: 12px;
+  }
+  .play__stage {
+    padding: 12px 12px 16px;
+    border-radius: 32px;
+  }
+  .play__bar {
+    padding: 4px 2px 12px 8px;
+  }
+  .play__made {
+    padding: 24px 20px;
+    border-radius: 32px;
+  }
+  .play__frame[data-orientation="portrait"] {
+    width: min(100%, max(220px, (100dvh - 64px - 190px) * 9 / 16));
+  }
+}
+
+/* Phones: the effort control and the estimate share one line; the stage bar keeps room for the name. */
+@media (max-width: 600px) {
+  .switch--small .switch__opt {
+    padding: 6px 8px;
+  }
+  .effort {
+    gap: 6px;
+  }
+}
+@media (max-width: 480px) {
+  .stage__version {
+    display: none;
+  }
+}
+
+/* A share link that leads nowhere: the page still ends with the ground at the bottom of the screen. */
+body:has(main.play-gone) {
+  display: flex;
+  flex-direction: column;
+}
+body:has(main.play-gone) > main {
+  margin-bottom: clamp(56px, 8vw, 120px);
+}
+body:has(main.play-gone) > .ground-band {
+  margin-top: auto;
+}
+
+/* Renaming takes the whole bar: Share, Full screen and More come back with the name. */
+.stage__bar:has(.rename) .stage__actions {
+  display: none;
+}
+
+/* Plan and billing (payments part 3): strips that need a decision, the plan and its credits, the
+   plan picker, the payment card, and the checkout page. Same world as /account: cards on the sky. */
+.bill {
+  width: min(1180px, 100% - 2 * clamp(16px, 4vw, 80px));
+  margin: 24px auto 0;
+}
+.bill[aria-busy="true"] {
+  min-height: 50vh;
+}
+.bill__title {
+  margin: 0 0 28px;
+}
+.bill__strips {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+/* One sentence and one button: a paper strip above the cards (a Field strip inside the composer). */
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 18px 24px;
+  border-radius: 24px;
+}
+.strip p {
+  flex: 1 1 320px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.strip p::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: var(--hot);
+  vertical-align: 1px;
+}
+.strip .act {
+  flex: none;
+}
+.strip--composer {
+  padding: 14px 18px;
+  border-radius: var(--r-field);
+  background: var(--field);
+}
+.strip--composer p {
+  flex-basis: 240px;
+  font-size: 14px;
+}
+.bill__grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+  grid-template-rows: auto auto 1fr;
+  grid-template-areas:
+    "plan pay"
+    "pick pay"
+    ". pay";
+  gap: 18px;
+  align-items: start;
+}
+.bill__plan {
+  grid-area: plan;
+}
+.picker {
+  grid-area: pick;
+}
+.bill__pay {
+  grid-area: pay;
+}
+.bill__card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+  padding: 26px 28px;
+}
+.bill__card > * {
+  max-width: 100%;
+}
+.bill__ghost {
+  min-height: 220px;
+}
+.bill__planline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0;
+}
+.bill__planname {
+  font: 800 30px/1 var(--font-display);
+  letter-spacing: -0.025em;
+}
+.bill__planline span {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--on-paper-muted);
+}
+.bill__credits {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.bill__ask {
+  align-self: stretch;
+}
+.bill__h3 {
+  margin: 8px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+/* A button that reads as a link inside a sentence. */
+.bill__linkbutton {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.bill__linkbutton:disabled {
+  cursor: progress;
+}
+/* A button and, beside it, what went wrong. */
+.act {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+/* The plan picker: one row per paid plan, the preview under the row that was asked. */
+.picker__rows {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.picker__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 16px;
+  align-items: center;
+  padding: 14px 0;
+}
+.picker__row + .picker__row {
+  border-top: 1px solid var(--field);
+}
+.picker__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.picker__name {
+  font-size: 17px;
+  font-weight: 700;
+}
+.picker__facts {
+  font-size: 13px;
+  color: var(--on-paper-muted);
+}
+.picker__action {
+  flex: none;
+}
+.picker__now {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--field);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--on-paper-muted);
+}
+.picker__preview {
+  grid-column: 1 / -1;
+}
+.picker__preview .composer__error {
+  flex: 1 1 100%;
+}
+
+/* The payments: when, what and the invoice, the amount with its tax and what became of it. */
+.pays {
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pays__row {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr) auto;
+  gap: 6px 16px;
+  align-items: baseline;
+  padding: 12px 0;
+}
+.pays__row + .pays__row {
+  border-top: 1px solid var(--field);
+}
+.pays__when {
+  font-size: 12px;
+  color: var(--on-paper-muted);
+}
+.pays__what {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.pays__what b {
+  font-size: 15px;
+  font-weight: 600;
+}
+.pays__what .figures {
+  color: var(--on-paper-muted);
+  overflow-wrap: anywhere;
+}
+.pays__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  text-align: right;
+}
+.pays__amount {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pays__tax {
+  color: var(--on-paper-muted);
+  white-space: nowrap;
+}
+.pays__status {
+  font-size: 12px;
+  color: var(--on-paper-muted);
+}
+.pays__status[data-status="disputed"],
+.pays__status[data-status="pending"] {
+  font-weight: 600;
+  color: var(--on-paper);
+}
+
+/* The checkout page: the sum, the tick box, the acceptance line, Continue. */
+.checkout__sum {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: var(--r-field);
+  background: var(--field);
+  cursor: pointer;
+}
+.consent input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  accent-color: var(--hot);
+  /* The page's colour scheme is dark (the sky); on paper the unticked box must be light too. */
+  color-scheme: light;
+  cursor: pointer;
+}
+.consent span {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.checkout__accept {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--on-paper-muted);
+}
+.checkout__go {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
+.checkout__note {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.checkout__paid {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+@media (max-width: 900px) {
+  .bill__grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: "plan" "pick" "pay";
+  }
+}
+@media (max-width: 640px) {
+  .bill {
+    margin-top: 12px;
+  }
+  .bill__title {
+    margin-bottom: 20px;
+  }
+  .bill__card {
+    padding: 22px 20px;
+    border-radius: 32px;
+  }
+  .strip {
+    padding: 16px 20px;
+  }
+  .pays__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "when side"
+      "what side";
+  }
+  .pays__when {
+    grid-area: when;
+  }
+  .pays__what {
+    grid-area: what;
+  }
+  .pays__side {
+    grid-area: side;
+  }
+}
+@media (max-width: 400px) {
+  .picker__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .picker__action .button {
+    width: 100%;
+  }
+}
+
+/* The composer's credit panel has up to three buttons: they wrap under the sentence instead of
+   running past the chat column. The strip inside the composer sits on Field, so its quiet button
+   is paper (as the ask panel's). */
+.ask--credits {
+  flex-direction: column;
+  align-items: stretch;
+}
+.ask--credits .ask__actions {
+  flex-wrap: wrap;
+}
+.strip--composer .button--quiet {
+  background: var(--paper);
+}
+
+/* ---- UX review 2026-10-18: touch targets, press feedback, the starters' row, the empty list ----- */
+
+/* Genre starters: the names may take two lines on a phone ("Tower defence"); the figures line
+   under every icon then sits at the same height, at the bottom of the row. */
+.starters__row li {
+  display: flex;
+}
+.starter {
+  height: 100%;
+}
+.starter .app__stat {
+  margin-top: auto;
+}
+/* The model rows' cost now says the unit ("about 1.7 credits"), so it may wrap under the text on
+   a phone; nowrap stays for desktop widths. */
+.model__side.figures {
+  white-space: normal;
+  text-align: right;
+}
+@media (max-width: 600px) {
+  .model__side.figures {
+    text-align: left;
+  }
+}
+/* Fingers, not pointers: every control is at least 44px tall (Apple's and the brief's floor) without
+   changing the desktop's density. Hover styles stay behind (hover: hover) above. */
+@media (pointer: coarse) {
+  .button--small,
+  .inkpill--small {
+    min-height: 44px;
+  }
+  .account__me {
+    width: 44px;
+    height: 44px;
+  }
+  .statusbar nav .account__menu .account__links a {
+    padding: 13px 2px;
+  }
+  .msg__play {
+    min-height: 44px;
+  }
+  /* The segmented controls keep their look; the label's hit area reaches 44px through a
+     transparent pseudo-element (the label is the target, so a tap there picks its radio). */
+  .switch__opt {
+    padding: 10px 12px;
+  }
+  .switch--small .switch__opt {
+    padding: 8px 10px;
+  }
+  .switch__opt::after {
+    content: "";
+    position: absolute;
+    inset: -5px 0;
+  }
+  .toggle::before {
+    content: "";
+    position: absolute;
+    inset: -6px -4px;
+  }
+  .ws__retry,
+  .bill__linkbutton {
+    padding: 8px 0;
+    margin: -8px 0;
+  }
+}
+
+/* ---- Android export (2026-10-18): the pill, setup, the hub, the builds, the Play checklist ---- */
+
+/* The Android pill lights up hot while a build of this game runs (as the dock's live slot). */
+.inkpill[data-on] {
+  background: var(--hot);
+  color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .inkpill[data-on]:not(:disabled):hover {
+    background: var(--hot-deep); /* the generic ink hover would put ink text on dark */
+  }
+}
+/* Between the phone's tab layout and a wide desktop, the stage bar's five pills keep their icons only
+   (the words stay for screen readers), as they do under 600px, so the game's name keeps its room. */
+@media (min-width: 960px) and (max-width: 1200px) {
+  .stage .inkpill:not(.inkpill--small) {
+    width: 44px;
+    padding: 0;
+  }
+  .stage .inkpill__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* /games/<id>/android: the page on the sky, cards like the account page's. Every figures line in
+   it is a muted fact; the few that aren't say so below. */
+.droid {
+  width: min(1180px, 100% - 2 * clamp(16px, 4vw, 80px));
+  margin: 24px auto 0;
+}
+.droid[aria-busy="true"] {
+  min-height: 50vh;
+}
+.droid .figures {
+  color: var(--on-paper-muted);
+}
+.droid__head {
+  margin: 0 0 28px;
+}
+.droid__title {
+  margin: 0;
+}
+/* Under the lead, not above the title (nothing sits above a headline): the way back to the game. */
+.droid__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin-top: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--on-sky-muted);
+  overflow-wrap: anywhere;
+  transition:
+    color 160ms var(--ease-out),
+    opacity 160ms var(--ease-out);
+}
+.droid__back:active {
+  opacity: 0.7;
+}
+@media (hover: hover) and (pointer: fine) {
+  .droid__back:hover {
+    color: var(--on-sky);
+  }
+}
+.droid__offline {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--on-sky-muted);
+}
+/* "Android is set up…": one line on the sky above the hub, with the hot dot. */
+.droid__notice {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--on-sky);
+}
+.droid__notice::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: var(--hot);
+  vertical-align: 1px;
+}
+/* One card on its own: the plan panel, "build your game first", the server without a toolchain. */
+.droid__panel {
+  width: min(680px, 100%);
+}
+.droid__h2 {
+  margin: 0;
+  font-size: clamp(28px, 3.6vw, 40px);
+}
+.droid__setup {
+  width: min(760px, 100%);
+  gap: 18px;
+}
+/* The hub: the build and the app's facts in the narrow column, the builds beside them, the checklist under both. */
+.droid__grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  grid-template-rows: auto auto auto 1fr auto;
+  grid-template-areas:
+    "build builds"
+    "app builds"
+    "key builds"
+    ". builds"
+    "play play";
+  gap: 18px;
+  align-items: start;
+}
+.droid__build {
+  grid-area: build;
+}
+.droid__builds {
+  grid-area: builds;
+  align-items: stretch;
+}
+.droid__app {
+  grid-area: app;
+}
+.droid__key {
+  grid-area: key;
+}
+.droid__play {
+  grid-area: play;
+}
+.droid__build h2:focus-visible {
+  outline-offset: 6px;
+}
+
+/* The version to build, the two builds, and the one running. */
+.droid__version {
+  align-self: stretch;
+}
+.field select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.3;
+  color: var(--on-paper);
+  padding: 10px 0;
+  outline: none;
+  color-scheme: light;
+}
+.droid__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-self: stretch;
+}
+.droid__action {
+  display: flex;
+  flex: 1 1 180px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.droid__action .button {
+  width: 100%;
+}
+.droid__live {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  align-self: stretch;
+  gap: 10px;
+  padding: 14px 18px;
+  border-radius: var(--r-field);
+  background: var(--field);
+}
+.droid__live-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+/* A quiet button on a Field panel is paper, as the ask panel's: Field on Field has no edge. */
+.droid__live .button--quiet,
+.builds__panel .button--quiet {
+  background: var(--paper);
+}
+
+/* This app: the icon tile, the name, the package name in figures, the facts. */
+.droid__who {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  max-width: 100%;
+}
+.droid__who-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.droid__appname {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.droid__package {
+  display: block;
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+.droid__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  max-width: 100%;
+}
+.droid__facts dt {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--on-paper-muted);
+}
+.droid__facts dd {
+  margin: 2px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+/* "If you lose it": what is behind the key card's toggle. */
+.droid__more {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 10px;
+}
+/* The fingerprint in colon pairs, breaking only between the groups of four (the <wbr>s). */
+.droid__facts .droid__fingerprint {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--on-paper);
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+/* The identity form (setup, and Change on the card): name, package name, icon. */
+.ident {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 22px;
+}
+.ident__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ident__input {
+  padding: 2px 16px;
+}
+.ident__input[data-readonly] input {
+  color: var(--on-paper-muted);
+}
+/* 16px, not the figures' 11-14: an input under 16px makes iPhone Safari zoom in on focus. */
+.ident__package {
+  font-family: var(--font-figures);
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+/* "Use my own", "Use the game's picture", "If you lose it": a button that reads like a link. */
+.ident__link {
+  align-self: flex-start;
+  font-size: 14px;
+  font-weight: 600;
+  transition: opacity 160ms var(--ease-out);
+}
+.ident__link:active {
+  opacity: 0.7;
+}
+.ident__icon {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.ident__tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border-radius: var(--r-icon);
+  background: var(--ink-2);
+  color: var(--paper);
+  /* A light icon (a white background is common) would melt into the white card: a hairline, inside the edge, keeps its shape. */
+  outline: 1px solid rgba(23, 13, 51, 0.12);
+  outline-offset: -1px;
+}
+.ident__tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: ident-in 200ms var(--ease-out) both;
+}
+@keyframes ident-in {
+  from {
+    opacity: 0;
+  }
+}
+/* A stored icon is fetched when the page opens. Until it lands the tile waits; the neutral icon shows only if that
+   takes longer than a blink, so one picture never flashes before the other. */
+.ident__late {
+  animation: ident-late 1ms linear 450ms backwards;
+}
+@keyframes ident-late {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ident__tile img {
+    animation: none;
+  }
+}
+.ident__icon-text {
+  display: flex;
+  flex: 1 1 200px;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.ident__icon-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.ident__ask {
+  align-self: stretch;
+}
+
+/* The builds: a format tag, the state and its facts, the actions; a panel opens under a row. */
+.builds {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.builds__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px 14px;
+  align-items: start;
+  padding: 16px 0;
+}
+.builds__row + .builds__row {
+  border-top: 1px solid var(--field);
+}
+.builds__format {
+  display: inline-block;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: var(--field);
+  font-size: 11px;
+}
+.builds__row[data-format="aab"] .builds__format {
+  background: var(--ink);
+  color: var(--paper);
+}
+.builds__text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.builds__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.builds__line b {
+  font-weight: 700;
+}
+.builds__problems {
+  font-weight: 600;
+}
+.builds__meta {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.builds__text .composer__error,
+.builds__text .acct__note {
+  margin-top: 2px;
+  overflow-wrap: anywhere; /* a failure sentence quotes the game's own error line, paths included */
+}
+.builds__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.builds__error {
+  grid-column: 1 / -1;
+}
+.builds__panel {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: var(--r-field);
+  background: var(--field);
+}
+.builds__log {
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--on-paper);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The phone link: the code beside the link, the steps under them; on a phone the steps first and no code. */
+.qrpanel {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 18px 24px;
+}
+.qrpanel__code {
+  flex: none;
+  width: 176px;
+  padding: 8px;
+  border-radius: var(--r-field);
+  background: var(--paper);
+}
+.qrpanel__code[data-expired] {
+  opacity: 0.3;
+}
+.qr {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.qr rect {
+  fill: var(--paper);
+}
+.qr path {
+  fill: var(--ink);
+}
+.qrpanel__text {
+  display: flex;
+  flex: 1 1 260px;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.qrpanel__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.qrpanel__link {
+  padding: 2px 16px;
+  background: var(--paper);
+}
+.qrpanel__link input {
+  font-family: var(--font-figures);
+  font-size: 16px; /* read-only, but a focus still zooms on iPhone under 16px */
+  letter-spacing: -0.02em;
+  color: var(--on-paper-muted);
+  text-overflow: ellipsis;
+}
+.qrpanel__text .acct__buttons {
+  align-items: center;
+}
+.qrpanel__steps {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--on-paper);
+}
+.qrpanel__steps li + li {
+  margin-top: 6px;
+}
+
+/* The checks list: a tick, or the hot dot and what to look at. */
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.checks__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.checks__item > span {
+  min-width: 0;
+  overflow-wrap: anywhere; /* "Asks for android.permission.ACCESS_FINE_LOCATION, …" has no spaces to break at */
+}
+.checks__item svg {
+  flex: none;
+  margin-top: 3px;
+}
+.checks__item:not([data-ok]) {
+  font-weight: 600;
+}
+.checks__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: 7px 4px 0;
+  border-radius: 999px;
+  background: var(--hot);
+}
+
+/* The Google Play checklist: numbered steps, read once, folded after the first visit. */
+.droid__play-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  align-self: stretch;
+}
+.playlist {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-self: stretch;
+  margin: 0;
+  padding-left: 28px;
+  max-width: 68ch;
+}
+.playlist__step {
+  padding-left: 6px;
+}
+.playlist__step::marker {
+  font-family: var(--font-figures);
+  font-size: 12px;
+  color: var(--on-paper-muted);
+}
+.playlist__step h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.playlist__step p {
+  margin: 6px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--on-paper-muted);
+  overflow-wrap: anywhere;
+}
+.playlist__link {
+  color: var(--on-paper);
+}
+.playlist__sub {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--on-paper-muted);
+}
+.playlist__sub li + li {
+  margin-top: 4px;
+}
+.playlist__account {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+}
+.playlist__account .switch {
+  flex-wrap: wrap;
+}
+.playlist__rule {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--on-paper);
+}
+@media (max-width: 900px) {
+  .droid__grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: "build" "builds" "app" "key" "play";
+  }
+}
+@media (max-width: 640px) {
+  .droid {
+    margin-top: 12px;
+  }
+  .droid__head {
+    margin-bottom: 20px;
+  }
+  .builds__row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .builds__actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  /* On the phone itself: the install steps first; a code to scan and "scan this with your phone" make no sense here. */
+  .qrpanel__code,
+  .qrpanel__caption {
+    display: none;
+  }
+  .qrpanel__steps {
+    order: -1;
+    margin: 0 0 4px;
+  }
+}
+@media (max-width: 400px) {
+  .droid__action {
+    flex-basis: 100%;
+  }
+  .builds__actions .button {
+    flex: 1 1 auto;
+  }
+}
+/* Fingers: the link-style controls and the back line reach 44px without moving anything. */
+@media (pointer: coarse) {
+  .ident__link,
+  .droid__back {
+    padding: 12px 0;
+    margin: -12px 0;
+  }
+  .droid__back {
+    margin-top: 2px;
+  }
+  .playlist__account .switch__opt::after {
+    inset: -6px 0;
+  }
+}
+
+/* ---- The public gallery (2026-10-18): /explore, Report this game, the Share menu's second switch ---- */
+
+/* /explore: the head on the sky (title, lead, the order as an ink pill bar), the first game in its frame,
+   then listings, then the invitation. Short pages still end with the ground at the bottom of the screen. */
+body:has(main.explore) {
+  display: flex;
+  flex-direction: column;
+}
+body:has(main.explore) > main {
+  margin-bottom: clamp(56px, 8vw, 120px);
+}
+body:has(main.explore) > .ground-band {
+  margin-top: auto;
+}
+.explore {
+  width: min(1280px, 100% - 2 * clamp(16px, 4vw, 80px));
+  margin: 24px auto 0;
+}
+.explore__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+}
+.explore__title {
+  margin: 0;
+  font-size: clamp(36px, 4.6vw, 64px);
+}
+.explore__lead {
+  margin: 12px 0 0;
+  max-width: 56ch;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--on-sky-muted);
+  text-wrap: pretty;
+}
+/* The order: two links in an ink pill bar, the current one paper with ink text, as the game page's phone tabs. */
+.explore__sort {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--ink);
+}
+.explore__sort a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  color: var(--on-sky-muted);
+  font-size: 15px;
+  font-weight: 600;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out);
+}
+.explore__sort a[aria-current] {
+  background: var(--paper);
+  color: var(--ink);
+}
+.explore__sort a:not([aria-current]):active {
+  transform: scale(0.97);
+  background: var(--ink-2);
+  color: var(--on-sky);
+}
+@media (hover: hover) and (pointer: fine) {
+  .explore__sort a:not([aria-current]):not(:has([data-pending])):hover {
+    color: var(--on-sky);
+  }
+}
+/* The other order is on its way (useLinkStatus): it takes the paper at once, the current one lets go. */
+.explore__sort a:has([data-pending]) {
+  background: var(--paper);
+  color: var(--ink);
+}
+.explore__sort:has([data-pending]) a[aria-current]:not(:has([data-pending])) {
+  background: transparent;
+  color: var(--on-sky-muted);
+}
+
+/* The first game: the share page's ink stage, its frame beside its words. The frame is as tall as the first
+   screen allows under the head (the listings' title still shows below it), never smaller than a small phone's
+   game; its column has that width, so the frame can fill it. */
+/* An upright top game sits beside the invitation, as on an upright share page; a wide one spans the row. */
+.explore__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+  margin-top: 28px;
+}
+/* The stage hugs its frame and words; the invitation takes the rest of the row. */
+.explore__top[data-orientation="portrait"] {
+  grid-template-columns: minmax(0, max-content) minmax(300px, 1fr);
+}
+.feature {
+  /* svh, not dvh: the frame keeps its size while a phone's address bar comes and goes. */
+  --frame-h: max(320px, 100svh - 64px - 330px);
+  display: grid;
+  grid-template-columns: calc(var(--frame-h) * 9 / 16) minmax(240px, 400px);
+  align-items: center;
+  gap: 20px 36px;
+  padding: 16px 36px 16px 16px;
+}
+.feature[data-orientation="landscape"] {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  padding: 16px 32px 16px 16px;
+}
+.feature__frame {
+  overflow: hidden;
+  border-radius: 24px;
+  background: var(--sky-2);
+}
+.feature__frame[data-orientation="portrait"] {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+}
+.feature__frame[data-orientation="landscape"] {
+  width: min(100%, var(--frame-h) * 16 / 9);
+  aspect-ratio: 16 / 9;
+  justify-self: center;
+}
+.feature__frame .gameframe:not([data-immersive]) {
+  height: 100%;
+  aspect-ratio: auto;
+}
+.feature__text {
+  min-width: 0;
+  padding: 0 0 12px;
+}
+/* The share page's stage name (DESIGN.md: 24-34px), as this is that stage. */
+.feature__name {
+  margin: 0;
+  font-size: clamp(24px, 2.6vw, 34px);
+  overflow-wrap: anywhere;
+}
+.feature__name a {
+  color: inherit;
+}
+@media (hover: hover) and (pointer: fine) {
+  .feature__name a:hover {
+    color: var(--sun);
+  }
+}
+/* The name is right beside the frame: the Play pill says just "Play", as in narrow frames. */
+.feature .gameframe__name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.feature__figures {
+  margin: 12px 0 0;
+  color: var(--on-sky-muted);
+}
+.feature__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 22px;
+}
+.feature .feature__foot {
+  margin: 18px 0 0;
+}
+
+/* Listings: paper cards at the listing's radius, in a grid that fills the width. */
+.explore__more {
+  margin-top: clamp(36px, 4vw, 48px);
+}
+.explore__subtitle {
+  margin: 0;
+  font-size: clamp(24px, 2.6vw, 34px);
+}
+.explore__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 28px 18px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+/* The card's link stretches over all of it; the report button sits above the link. */
+.glist {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: 28px;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--on-paper);
+  transition: transform 160ms var(--ease-out);
+}
+.glist:has(.glist__link:active) {
+  transform: scale(0.98);
+}
+.glist:has(.glist__link:focus-visible) {
+  outline: 3px solid var(--sun);
+  outline-offset: 3px;
+}
+.glist__link {
+  display: flex;
+  flex-direction: column;
+  color: inherit;
+  outline: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.glist__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+/* The start screen at 3:4 on Ink Recess: an upright one covers it (its title card sits mid-screen), a wide
+   one is letterboxed whole. */
+.glist__pic {
+  position: relative;
+  display: block;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: var(--ink-2);
+}
+.glist__pic img,
+.glist__pic svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.glist[data-orientation="landscape"] .glist__pic img {
+  object-fit: contain;
+}
+.glist__play {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px 7px 10px;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+.glist__name {
+  display: -webkit-box;
+  margin: 14px 16px 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+/* The plays over the genre, each on its own line, across the card's whole width (a dot at a line's end read
+   as a mistake); the plays keep "12.3K plays" and "this week" whole. */
+.glist__meta {
+  min-width: 0;
+  margin: auto 0 0;
+  padding: 6px 16px 16px;
+  line-height: 1.5;
+  color: var(--on-paper-muted);
+}
+.glist__meta span {
+  display: block;
+}
+/* Report: a translucent ink circle (the full-screen close tab's ink at 60%) in the picture's top corner,
+   above the card's link. */
+.glist__report {
+  position: absolute;
+  z-index: 1;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(23 13 51 / 0.6);
+  color: #fff;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 160ms var(--ease-out);
+}
+.glist__report:active {
+  transform: scale(0.97);
+  background: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .glist__report:hover {
+    background: var(--ink);
+  }
+}
+.explore__next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 18px;
+  margin-top: 32px;
+}
+.explore__error {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--on-sky);
+}
+.explore__error::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: var(--hot);
+}
+.explore__empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 32px;
+  margin-top: 28px;
+  padding: 32px;
+}
+.explore__empty p {
+  margin: 8px 0 0;
+  max-width: 56ch;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--on-paper-muted);
+}
+.explore__empty[role="alert"] p {
+  margin: 0;
+  color: var(--on-paper);
+}
+.explore__empty-title {
+  margin: 0;
+  font-size: clamp(24px, 2.6vw, 34px);
+}
+/* The invitation at the end: words left, buttons right, as on a wide share page. */
+.explore__made {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 32px;
+  margin-top: clamp(56px, 7vw, 96px);
+}
+.explore__made .play__made-text {
+  grid-column: 1;
+}
+/* A lone upright game's invitation sits beside it on a wide screen; this one is for narrow screens only. */
+.explore__made[data-narrow-only] {
+  display: none;
+}
+.explore__made .play__cta {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+/* Below 1100px a wide frame goes over its words; below 900px an upright one does too. */
+@media (max-width: 1100px) {
+  .feature[data-orientation="landscape"] {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px 16px 24px;
+  }
+  .feature[data-orientation="landscape"] .feature__text {
+    padding: 0 8px;
+  }
+}
+@media (max-width: 900px) {
+  .explore__top[data-orientation="portrait"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Nothing sits beside the stage here: the invitation waits at the page's end instead. */
+  .explore__top > .play__made {
+    display: none;
+  }
+  .explore__made[data-narrow-only] {
+    display: flex;
+  }
+  .feature {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px 16px 24px;
+  }
+  .feature__frame[data-orientation="portrait"] {
+    width: min(100%, max(240px, (100svh - 64px - 300px) * 9 / 16));
+    margin: 0 auto;
+  }
+  .feature__text {
+    padding: 0 8px;
+  }
+  .explore__made {
+    display: flex;
+    align-items: flex-start;
+  }
+}
+@media (max-width: 640px) {
+  .explore {
+    margin-top: 12px;
+  }
+  .explore__sort {
+    width: 100%;
+  }
+  .explore__sort a {
+    flex: 1;
+  }
+  .explore__top {
+    margin-top: 18px;
+    gap: 12px;
+  }
+  .feature {
+    padding: 12px 12px 20px;
+    border-radius: 32px;
+  }
+  .feature__frame[data-orientation="portrait"] {
+    width: min(100%, max(220px, (100svh - 64px - 330px) * 9 / 16));
+  }
+  .explore__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 12px;
+  }
+  .glist {
+    border-radius: 24px;
+  }
+  .glist__name {
+    margin: 12px 12px 0;
+    font-size: 15px;
+  }
+  .glist__meta {
+    padding: 4px 12px 12px;
+  }
+  .glist__report {
+    top: 6px;
+    right: 6px;
+  }
+  .glist__play {
+    left: 8px;
+    bottom: 8px;
+    padding: 6px 10px 6px 8px;
+    font-size: 12px;
+  }
+  .explore__empty {
+    padding: 24px 20px;
+    border-radius: 32px;
+  }
+}
+@media (pointer: coarse) {
+  .glist__report {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* The share page: how to play and Report this game under the frame; More games under the invitation. */
+.play__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin: 10px 12px 0;
+}
+.play__foot .play__how {
+  margin: 0;
+}
+.play__report {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--on-sky-muted);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  transition:
+    transform 160ms var(--ease-out),
+    color 160ms var(--ease-out);
+}
+.play__report:active {
+  transform: scale(0.97);
+  color: var(--on-sky);
+}
+@media (hover: hover) and (pointer: fine) {
+  .play__report:hover {
+    color: var(--on-sky);
+  }
+}
+.play__more {
+  font-size: 15px;
+  font-weight: 600;
+}
+.play[data-orientation="landscape"] .play__more {
+  grid-column: 1;
+}
+
+/* The Share menu's second switch: the gallery, under a Field line (the settings rows' divider). */
+.share__gallery {
+  padding-top: 14px;
+  border-top: 1px solid var(--field);
+}
+.share__head .share__plays {
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+/* "Report this game": a modal dialog in paper at the popovers' radius, arriving and leaving as they do. */
+.report {
+  width: min(440px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: var(--paper);
+  color: var(--on-paper);
+  overflow: auto;
+  overscroll-behavior: contain;
+  opacity: 0;
+  transform: scale(0.97);
+  transition:
+    opacity 120ms var(--ease-out),
+    transform 120ms var(--ease-out),
+    overlay 120ms allow-discrete,
+    display 120ms allow-discrete;
+}
+.report[open] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 160ms var(--ease-out),
+    transform 160ms var(--ease-out),
+    overlay 160ms allow-discrete,
+    display 160ms allow-discrete;
+}
+@starting-style {
+  .report[open] {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+.report::backdrop {
+  background: rgb(23 13 51 / 0.6);
+  opacity: 0;
+  transition:
+    opacity 120ms var(--ease-out),
+    overlay 120ms allow-discrete,
+    display 120ms allow-discrete;
+}
+.report[open]::backdrop {
+  opacity: 1;
+  transition-duration: 160ms;
+}
+@starting-style {
+  .report[open]::backdrop {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .report,
+  .report[open] {
+    transform: none;
+  }
+}
+
+.report__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+}
+.report button,
+.report label {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* Sent: the thanks fades in where the form was, so the box changing size doesn't read as a jump. */
+.report__body[role="status"] {
+  transition: opacity 160ms var(--ease-out);
+}
+@starting-style {
+  .report__body[role="status"] {
+    opacity: 0;
+  }
+}
+.report__title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.report__text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--on-paper-muted);
+  text-wrap: pretty;
+}
+.report__reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+/* A reason: the model picker's radio rows, without the tile. */
+.report__reason {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 14px;
+  min-height: 44px;
+  padding: 8px 12px 8px 16px;
+  border-radius: var(--r-field);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 160ms var(--ease-out);
+}
+.report__reason[data-on] {
+  background: var(--field);
+}
+.report__reason:has(input:focus-visible) {
+  outline: 3px solid var(--sun);
+  outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .report__reason:not([data-on]):hover {
+    background: #f8f5fd;
+  }
+}
+/* Unpicked, a ring that reads as a choice on paper (the toggle's off grey); picked, the model picker's ink ring. */
+.report__reason::after {
+  content: "";
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  border: 2px solid #8a80a3;
+  border-radius: 999px;
+  background: var(--paper);
+}
+.report__reason[data-on]::after {
+  background: var(--paper);
+  border: 7px solid var(--ink);
+}
+.report__reasons:disabled .report__reason {
+  cursor: default;
+}
+.report__label span {
+  margin-left: 6px;
+  font-weight: 400;
+  color: var(--on-paper-muted);
+}
+.report__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---- Beta 1 (2026-10-23): the closed-beta screen and Send feedback ---- */
+
+/* The closed-beta screen (components/app/ClosedBeta.tsx): the signed-out widget's sibling. It replaces a page once the
+   API says invite_only, so it fades in (opacity only, also under reduced motion); nothing moves. */
+.closed {
+  transition: opacity 160ms var(--ease-out);
+}
+@starting-style {
+  .closed {
+    opacity: 0;
+  }
+}
+.closed__play {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+/* The account sits in a Field panel: the address on a line of its own, then two quiet buttons on paper (the ask panel's). */
+.closed__who {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 18px 18px 22px;
+  border-radius: var(--r-field);
+  background: var(--field);
+}
+.closed__who p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--on-paper);
+  text-wrap: pretty;
+}
+.closed__who b {
+  display: block;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.closed__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.closed__who .button--quiet {
+  background: var(--paper);
+}
+.closed .button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.closed__idea {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.closed__idea p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--on-paper-muted);
+}
+/* A reminder, not something to read again: cut at three lines (the /create box takes up to 4,000 letters). */
+.closed__idea q {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--on-paper);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .closed__who {
+    padding: 16px;
+  }
+  /* A phone: the buttons take the whole width, one above the other; a label too long for its line wraps inside. */
+  .closed__play .button,
+  .closed__actions .button {
+    flex: 1 1 100%;
+    white-space: normal;
+    line-height: 1.25;
+    text-align: center;
+  }
+}
+
+/* Send feedback in the account menu: a button that reads as the links above it. */
+.account__links button {
+  display: block;
+  width: 100%;
+  padding: 10px 2px;
+  border: 0;
+  background: none;
+  color: var(--on-paper);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+  .account__links button:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+@media (pointer: coarse) {
+  .account__links button {
+    padding: 13px 2px;
+  }
+}
+/* On a phone the account menu lies on paper widgets with no edge between them: the page behind it dims, as behind the
+   report dialog (ink at 60%, 160 ms in, 120 ms out). A tap on the dimmed page still closes the menu. */
+@media (max-width: 640px) {
+  .account__menu::backdrop {
+    background: rgb(23 13 51 / 0.6);
+    opacity: 0;
+    transition:
+      opacity 120ms var(--ease-out),
+      overlay 120ms allow-discrete,
+      display 120ms allow-discrete;
+  }
+  .account__menu:popover-open::backdrop {
+    opacity: 1;
+    transition-duration: 160ms;
+  }
+  @starting-style {
+    .account__menu:popover-open::backdrop {
+      opacity: 0;
+    }
+  }
+}
+
+/* The feedback dialog (components/app/Feedback.tsx): the report dialog's box, a little wider for its two text boxes. */
+.feedback {
+  width: min(480px, calc(100vw - 24px));
+}
+.feedback__part {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* Room to write from the first open: three lines for what happened, two for what was expected (17px at 1.4, plus padding). */
+.feedback .field textarea.feedback__text {
+  min-height: 92px;
+}
+.feedback .field textarea.feedback__expected {
+  min-height: 68px;
+}
+.feedback__count {
+  margin: 0;
+  font-size: 11px;
+  color: var(--on-paper-muted);
+  text-align: right;
+  text-wrap: pretty;
+}
+.feedback__attach {
+  padding: 14px 16px;
+}
+.feedback__attach > span {
+  font-weight: 400;
+  text-wrap: pretty;
+}
+/* The game's name under the line, muted, cut at two lines (names come from prompts and can run 60 letters). Two classes
+   deep, so the checkout's `.consent span` doesn't reach it. */
+.feedback__attach .feedback__game {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--on-paper-muted);
+  overflow-wrap: anywhere;
+}
+.feedback__email {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  /* A phone: the boxes stop growing sooner, and Send stays in sight at the dialog's foot while the form scrolls. */
+  .feedback .field textarea {
+    max-height: 160px;
+  }
+  .feedback .report__actions {
+    position: sticky;
+    bottom: 0;
+    margin: 0 -22px -22px;
+    padding: 12px 22px 22px;
+    background: var(--paper);
+  }
+  /* A control the keyboard moves to is scrolled clear of the stuck buttons, not under them. */
+  .feedback {
+    scroll-padding-bottom: 84px;
+  }
+}

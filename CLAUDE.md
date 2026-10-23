@@ -1,11 +1,11 @@
-# TypePlay (folder `projects/type-play`): prompt → playable game → app stores
+# TypePlay (folder `master-project/startups/type-play`): prompt → playable game → app stores
 
 Luka's product: a website where a user types what game they want, an AI agent builds it,
 they play it in the browser straight away, iterate by chat, and export it to Android, iOS,
 Steam (desktop) and the web. "Lovable, but for games." Started 2026-10-11 after a week of
 thinking; decided in the Satisfying 2D Sims session of 2026-10-02 → 10-11.
 
-**Product name: TypePlay** (decided 2026-10-13); the folder is `projects/type-play` (renamed from
+**Product name: TypePlay** (decided 2026-10-13); the folder is `master-project/startups/type-play` (moved from `projects/type-play` on 2026-10-20; renamed from
 `game-forge` on 2026-10-15, so older sessions and notes may say "GameForge"). That working name
 was dropped: Gameforge AG (Karlsruhe) is a game publisher with game software trademarks. Site on
 **typeplay.app**; users' games run from **typeplay.dev**, a separate domain so a game's code
@@ -48,13 +48,17 @@ Claude Code runs on his Max 20x plan.
   review them early. Only game previews live on a separate domain (security).
   Self-hosted (`next start`), not tied to Vercel. Relational because credits and payments
   need transactions. Game files live in folders with git history per project, not in the DB.
-- **Tiers sell credits, never unlimited use** (Lovable's model). Free: Haiku 5.5, 3-5 builds a
-  month, no export, badge. Paid ~$20/month: Sonnet 5.5 by default, Opus 5.5 costs more
-  credits. ~$50: more credits. **The user picks the model per message** (Fast = Haiku, Smart
+- **Tiers sell credits, never unlimited use** (decided 2026-10-16, all numbers in `docs/pricing.md`).
+  Plans are named like graphics settings: **Free** (20 credits a month, max 5 a day, Fast only,
+  no export, badge), **Medium $20** (100 credits), **High $50** (275), **Ultra $100** (600),
+  **Ultra+ $200** (1,300); credit pack $10 = 40. Every paid plan has the same AI; bigger plans
+  only get more credits per dollar. **1 credit = $0.06 of API**, sold at $0.20: a message is
+  charged for the work it did, so every plan keeps 47-56% even when every credit is used
+  (after Paddle, 1% tax, 18% VAT on the API). USD everywhere, tax added by Paddle. Refunds:
+  unused credits within 14 days. **The user picks the model per message** (Fast = Haiku, Smart
   = Sonnet, Best = Opus; effort changeable) with honest tips; defaults: new games on Sonnet
   medium, edits on Haiku (Sonnet if Haiku's change fails). Output is partly luck, so the
-  choice is the user's; credits protect the budget. Credits are priced so $20 buys ~$9 of API (Paddle takes
-  ~$1.50; one Opus project with 20 edits is ~$9.50). The Godot check measures the real cost.
+  choice is the user's; credits protect the budget.
 - **Genres first, "any game" later.** Launch with 3-4 small genres (2D puzzle, endless runner,
   racer, tower defence). Open-world 3D is possible but slow and expensive today; it arrives as
   models improve, not by us pushing now.
@@ -78,6 +82,9 @@ Claude Code runs on his Max 20x plan.
 - **Launch order:** Godot check → landing page + Paddle application → agent core (2 genres)
   → web app → server → closed beta 1 (free) → genres 3-4, Android export, payments → paid
   beta → launch. iOS, Steam, Blender, text-to-3D after launch. Details in `PLAN.md`.
+- **Black Hole Galaxy on TypePlay is one of our games, made with TypePlay** (Luka, 2026-10-21):
+  the site, its cards and launch posts never mention Unity or a port. Its project is
+  `games/BlackHoleGalaxy-godot` (the web build comes from there).
 
 ## Numbers that drive the design (Anthropic prices, 2026-10-06)
 
@@ -114,6 +121,14 @@ open the API account just before beta 1.
   +89K tokens on every call, with write access). The game agent always runs isolated
   (`packages/agent/run.mjs` `ISOLATED`: 7 tools, `settingSources: []`, `disableClaudeAiConnectors`,
   `strictMcpConfig`, no skills); `packages/agent/tests/isolation.mjs` checks it (first call ~9K tokens).
+- **Luka's PC must never lag (2026-10-17: parallel agents' hidden Edge browsers took ~90% CPU,
+  froze the PC and outlived their parents).** Heavy work uses at most 12 of the 16 cores at
+  below-normal priority: `packages/agent/tools/cpu.mjs` (`limitThisProcess()` in scripts, or
+  `node packages/agent/tools/cpu.mjs <command>` for Lighthouse, `next build`, Playwright, Godot).
+  The check's hidden browser (`tools/web.mjs`) is capped, runs **one at a time across all
+  processes** (lock), keeps its software renderer in-process (`--in-process-gpu`: Edge's own GPU
+  process resets itself to all cores, above normal), and is killed as a whole tree. Agents stop
+  every server and browser they start, and at most 2-3 heavy agents run at once.
 - Browser work with keys: Google puts secret values inside copy buttons' labels, so never read a
   page's text or element labels while a secret is shown. Copy with a real click, move clipboard →
   `.env` in a script that prints only the length, then clear the clipboard (`docs/auth.md`).
@@ -149,6 +164,10 @@ all UI work in `apps/web/`. The game agent never loads them (`ISOLATED`, `settin
 - **design-taste-frontend** (Taste) is an extra anti-slop pass on public pages (home, pricing);
   by its own scope not for app screens. ~90 KB: load it for those pages only. Impeccable wins ties.
 - **mobile-native** for phone fixes; **break-ui** (worst-case data) before a screen is called done.
+- **Every UI task ends with a review pass by the skills** (Luka, 2026-10-18): `/impeccable critique`
+  + `audit` on the changed screens, emil-design-eng on any motion, mobile-native at phone width,
+  break-ui with worst-case data, and the findings fixed, before the task is called done. Building
+  with the skills loaded is not the same as reviewing with them.
 - Update Impeccable from its repo's `.claude/skills/impeccable` folder: the `skills` CLI copies
   its generic variant, whose script paths point at `.agents/`.
 
@@ -163,14 +182,14 @@ type-play/                  npm workspaces + Turborepo (decided 2026-10-14, docs
   apps/           deployables, each runs and deploys alone
     web/          the site (typeplay.app): public pages, then chat, preview, projects, credits
     games/        the games origin (typeplay.dev): loader page, engine per Godot version, builds
-    server/       (next) NestJS API, agent sessions, export workers: Godot headless, Blender, queue
+    server/       the API (:3002, NestJS + Prisma on Supabase): users, projects, agent runs, versions, credits, SSE; see its README
     desktop/ mobile/   (later) the builder as a Cursor-style desktop app; phone apps
   packages/       libraries shared by apps, never reached into directly
-    agent/        the game agent: runner, rules, genre skills, check tool, gallery
-    shared/ ui/   (when they have content) types and contracts; shared React parts
+    agent/        the game agent: runner, rules, genre skills, check tool, gallery, 3D model catalogue (`tools/assets.mjs`)
+    shared/       the API contract between web and server (types only); `ui/` later for shared React parts
 ```
 
-Root scripts: `npm install` once; `npm run dev` (site on :3000 + games origin on :3001),
+Root scripts: `npm install` once; `npm run dev` (site on :3000 + games origin on :3001 + API on :3002),
 `npm run check` (every package's type-check and lint), `npm run build`.
 Live: https://typeplay.app (site) and https://typeplay.dev (games) since 2026-10-15; `node deploy/deploy.mjs site` puts the
 current `apps/web` live in ~1 min, `games` uploads `apps/games` (`deploy/README.md`).

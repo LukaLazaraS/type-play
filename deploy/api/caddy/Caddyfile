@@ -1,0 +1,27 @@
+# api.typeplay.app: Caddy holds the HTTPS certificate (Let's Encrypt) and passes requests to the API.
+# Cloudflare sits in front (DNS proxied, SSL "Full (strict)"), like typeplay.app (deploy/server/caddy).
+{
+	email hello@typeplay.app
+}
+
+# Cloudflare ends the visitor's TLS itself, so the TLS-ALPN challenge can't reach us; certificates
+# come through the HTTP challenge on port 80, which Cloudflare passes through for http requests.
+(cert) {
+	tls {
+		issuer acme {
+			disable_tlsalpn_challenge
+		}
+	}
+}
+
+# No compression: the run events are a stream (SSE), and Caddy passes them on as they come.
+api.typeplay.app {
+	import cert
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+	reverse_proxy api:3002
+}

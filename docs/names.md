@@ -86,6 +86,27 @@ look premium, but the checkout price is final: if it's higher than the table, st
   name in a video and types "typetoplay.com" lands on someone else's site.
 - No app, game or AI product named TypePlay, Type2Play, PlayJuice or GameJuice found in a web search.
 
+## Rechecked 2026-10-17 (Luka asked whether a coined name would be better)
+
+- **Trademarks:** Trademarkia (US records) shows **0 results for "typeplay"**.
+- **EU check (2026-10-17): not done from here, Luka does it by hand (~2 min).** TMview, EUIPO eSearch
+  and WIPO's Global Brand Database only show results in a real browser: TMview's search API drops
+  non-browser requests, and WIPO adds a bot check (no browsers on this PC since it froze today).
+  A web search found no "TypePlay" trademark anywhere. Steps: open
+  https://www.tmdn.org/tmview/#/tmview/results?page=1&pageSize=30&criteria=C&basicSearch=typeplay
+  (EUIPO, every EU national office, WIPO international marks, UK and US), then the same with
+  `basicSearch=type%20play`; then https://branddb.wipo.int/en/quicksearch, brand name "typeplay".
+  **A conflict** = a live (filed or registered) mark for TYPEPLAY / TYPE PLAY or something close, in
+  class 9 (software, games), 41 (online games, entertainment) or 42 (SaaS). Write the result here.
+- **Other uses of the word, all outside games:** "TypePlay", a text-animation plugin for After
+  Effects (aescripts, launched ~Apr 2026); typeplay.js, a typing-animation JS library; "Typeplay",
+  a 1994 design book; a small typing-practice web app on GitHub.
+- **Rivals' names** (`docs/research/competitors.md`): coined ones (Tesana, Jabali, SEELE, Rork,
+  Makko, Aippy, Gambo) don't lead their groups; the two biggest game builders use English words
+  (Astrocade = astro + arcade, Rosebud), as do Lovable, Bolt, Replit, MakePlay, CodeWisp, Vibecode.
+- **Claude's advice: keep TypePlay** (Luka decides): it says the product, survives being heard in
+  a video, and the domains, Google sign-in, Supabase, terms and Paddle application already carry it.
+
 ## What similar products use (checked 2026-10-13, where each site lands after redirects)
 
 - **Prompt-to-app builders:** Lovable on **lovable.dev** (it owns lovable.com, which redirects

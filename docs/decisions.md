@@ -207,3 +207,45 @@ only a working name (see "name is TypePlay" above).
   It's a game decision, not a site one: **the game agent picks the orientation per game when it
   builds**, from the genre and the prompt. The site already follows whatever `game.json` says
   (full screen locks to it). Work item: `parked.md` #17.
+
+## 2026-10-16: SEO basics
+
+- Public pages stay **static** (Next.js builds the HTML at deploy), which is better than per-request
+  server rendering for SEO and speed; the app behind login is `noindex`. Next.js picks the mode per
+  page; the rule is to keep per-user data out of public pages. The big SEO lever comes with the web
+  app: **public game pages** (one per published game, static and rebuilt when the game changes,
+  with the poster as share image) and a gallery.
+- Done: titles, descriptions, canonical URLs, a share card and real icons (the default Next.js
+  favicon was still live), structured data, manifest, honest sitemap, Google Search Console (DNS
+  verified, sitemap submitted, home page indexing requested), IndexNow on every deploy. Details in
+  `apps/web/README.md`.
+
+## 2026-10-17 → 10-18: packages 4 and 5 built, the game agent's quality rules, the CPU cap
+
+- **Luka's PC must never lag.** Three helper agents ran hidden Edge browsers at once; Edge's GPU
+  process resets itself to every core at above-normal priority, the PC froze, and the browsers
+  outlived their parents. Rule in `CLAUDE.md` (Known traps): heavy work through
+  `packages/agent/tools/cpu.mjs` (12 of 16 cores, below-normal priority), one hidden browser at a
+  time across all processes, `--in-process-gpu`, whole-tree kills, orphan sweeps; at most 2-3 heavy
+  agents at once.
+- **Package 4 on this PC:** `apps/server` (NestJS + Prisma 7 on Supabase, port 3002) and the app
+  screens in `apps/web` (sign-in, create, game page with chat + live progress + preview + versions,
+  account, credit history, download my data, delete account, rename/delete/download a game, share
+  pages). Contract in `packages/shared` (types only). The live site keeps the app off
+  (`NEXT_PUBLIC_APP`); dev sign-in exists only for tests. Fake runs (`AGENT_FAKE=1`) keep tests free.
+- **Package 5 as code** (`deploy/README.md` "The API"): one image, two containers (api with the
+  secrets, runner with none and no internet except the key proxy), a token per run instead of the
+  API key, a throwaway Linux user per job, R2 publishing, `api-setup --yes` / `api-assets` / `api`.
+  Chosen address: `api.typeplay.app`. Nothing bought; Luka picks the server (`docs/server-proposal.md`).
+- **Game agent:** portrait-first, the 3D model catalogue (`tools/assets.mjs`, 8,449 CC0 models),
+  the check fails a game whose page stops answering, and after the big-game test (no 60-minute
+  problem: 5-16 min) and Luka's "I don't like these games": Opus builds were clearly better, so
+  the Opus layout became rules ("Make it look finished" in `BASE.md`), tower-defence and racer genre
+  skills, and 3-step builds for big prompts on Haiku. Result: Haiku/Sonnet build in the Opus layout
+  for 1/6-1/12 of its price; a new game now costs 2-3× the pricing table's row (`RESULTS.md`).
+  Charges use `chargeUsd` (kept attempts only): a rolled-back step costs the player nothing.
+- **Review with independent verification** (night of 10-17): 61 findings, 57 verified real, most
+  small; the real ones fixed in two rounds on 10-18. The night's work stopped at the Max session
+  limit (01:30 → 05:20); the plan "shut the PC down when done" was overtaken by the morning.
+- **Designs written, not built:** payments (`docs/payments-design.md`: ledger with expiry buckets,
+  Paddle webhooks inbox, ~43 h) and Android export (`docs/android-export-design.md`, 32-38 h).

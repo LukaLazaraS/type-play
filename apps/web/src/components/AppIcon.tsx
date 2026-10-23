@@ -1,11 +1,37 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import type { Game } from "@/content/games";
 import { useLauncher } from "./Launcher";
 
 const ease = [0.23, 1, 0.32, 1] as const;
+
+/**
+ * The home icon's picture at the width each screen needs: `sizes` follows `--icon` in globals.css
+ * (.home), so a phone at 2x gets 160px and a 1x desktop 128px, not the 240px file. Low priority:
+ * the first paint is the headline, and the icons shouldn't race the fonts for it.
+ * The srcset keeps only 64-256px. The files are 240px, so wider entries return the same file,
+ * and next/image would list every configured width up to 3840 for all eight icons: ~0.8 KB more
+ * gzipped HTML, enough to push the home page past the first network round trip (Lighthouse FCP
+ * +0.1-0.15 s, measured 2026-10-17).
+ */
+function iconImage(src: string) {
+  const { props } = getImageProps({
+    src,
+    alt: "",
+    width: 240,
+    height: 240,
+    sizes: "(max-width: 640px) 76px, (max-width: 1100px) 96px, 112px",
+    fetchPriority: "low",
+  });
+  const candidates = (props.srcSet ?? "").split(", ").filter((c) => {
+    const w = parseInt(c.slice(c.lastIndexOf(" ") + 1), 10);
+    return w >= 64 && w <= 256;
+  });
+  const largest = candidates.at(-1)?.split(" ")[0] ?? props.src;
+  return { ...props, src: largest, srcSet: candidates.join(", ") };
+}
 
 /** A game as an app icon: name, then model and minutes in figures. Tap to open it. */
 export function AppIcon({ game, stat }: { game: Game; stat?: string }) {
@@ -23,7 +49,8 @@ export function AppIcon({ game, stat }: { game: Game; stat?: string }) {
         layoutId={reduce ? undefined : `game-${game.slug}`}
         transition={{ duration: 0.32, ease }}
       >
-        <Image src={game.icon} alt="" width={240} height={240} />
+        {/* eslint-disable-next-line @next/next/no-img-element -- next/image's props, srcset trimmed */}
+        <img {...iconImage(game.icon)} alt="" />
       </motion.span>
       <span className="app__name">{game.name}</span>
       <span className="app__stat">{stat ?? `${game.tier} · ${game.minutes} min`}</span>

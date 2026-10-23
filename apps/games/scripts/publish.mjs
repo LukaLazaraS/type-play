@@ -23,7 +23,7 @@ const types = {
 };
 // Engines and game packs never change under the same name; the loader and manifests do.
 const cacheFor = (key) =>
-  key === "play.html" || key.endsWith(".json") ? "no-cache" : "public, max-age=31536000, immutable";
+  key === "play.html" || key.endsWith(".json") ? "no-cache" : "public, max-age=31536000, s-maxage=86400, immutable"; // the edge keeps a file a day (apps/server/src/games/publish.ts, the same)
 
 const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 const hmac = (key, data) => createHmac("sha256", key).update(data).digest();

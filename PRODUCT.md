@@ -77,9 +77,11 @@ and some pay for more credits and a store build.
   and desktop after launch. Copy can promise every platform, but it must not say a platform
   is available before it is, and it names no dates: the site says "now" for the web and
   "coming" for the rest (Luka, 2026-10-14).
-- **Tiers sell credits, never unlimited use.** Free: Fast only, a few builds a month, no
-  export, a TypePlay badge on the game. Paid (~$20/month, ~$50/month): more credits, Smart by
-  default, Best costs more. One build per project at a time.
+- **Tiers sell credits, never unlimited use** (decided 2026-10-16, `docs/pricing.md`). Plans
+  are named like graphics settings: Free (20 credits a month, Fast only, no export, a TypePlay
+  badge on the game), Medium $20, High $50, Ultra $100, Ultra+ $200. Every paid plan has the
+  same Fast / Smart / Best; bigger plans only get more credits per dollar, and the pricing page
+  says so. Prices in US dollars. One build per project at a time.
 - **The AI can refuse a prompt** (Anthropic safety classifiers): show a clear message, not an
   error.
 - **Age: 13+ for an account; paid plans need 18+ or a parent's consent** (Luka, 2026-10-13).
@@ -89,8 +91,7 @@ and some pay for more credits and a store build.
   consent.
 - **Terms in the UI:** game, build, edit, version, credits, Fast / Smart / Best, export.
   "Builder" and "game agent" are internal names, never shown to users.
-- **Undecided:** the exact credit amounts and prices per tier (`docs/parked.md` #9), how
-  parent consent works at checkout, and languages. Everything is written in English so far;
+- **Undecided:** how parent consent works at checkout, and languages. Everything is written in English so far;
   other languages are not decided.
 
 ## Brand Commitments

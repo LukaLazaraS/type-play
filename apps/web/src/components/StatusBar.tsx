@@ -1,4 +1,7 @@
 import Link from "next/link";
+// The Sign in pill in the public build; sign-in, credits and the account menu in app builds
+// (next.config.ts aliases this to components/SignInPill or components/app/AccountSlot).
+import { AccountSlot } from "@app-gate/account";
 
 export function StatusBar() {
   return (
@@ -12,9 +15,7 @@ export function StatusBar() {
         <Link href="/pricing" className="statusbar__keep">
           Pricing
         </Link>
-        <Link href="/create" className="pill">
-          Sign in
-        </Link>
+        <AccountSlot />
       </nav>
     </header>
   );

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": [
+    "//"
+  ],
+  "tasks": {
+    "dev": {
+      "passThroughEnv": [
+        "DEV_AUTH",
+        "AGENT_FAKE",
+        "AGENT_AUTH",
+        "NODE_ENV",
+        "PORT",
+        "HOST",
+        "DATA_DIR",
+        "GAMES_BUILDS_DIR",
+        "GODOT_VERSION",
+        "GODOT_EXE",
+        "BROWSER_EXE",
+        "MAX_RUNS",
+        "RUN_TIMEOUT_MIN",
+        "GAMES_PUBLISH",
+        "R2_GAMES_BUCKET",
+        "RUNNER_SOCKET",
+        "KEY_PROXY_HOST",
+        "KEY_PROXY_PORT",
+        "KEY_PROXY_URL",
+        "ANTHROPIC_UPSTREAM",
+        "ASSET_LIBRARY",
+        "CLAUDE_CONFIG_DIR",
+        "CLAUDE_CODE_OAUTH_TOKEN",
+        "USERPROFILE",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "ProgramData",
+        "ProgramFiles",
+        "ProgramFiles(x86)",
+        "SystemRoot",
+        "SYSTEMDRIVE",
+        "WINDIR",
+        "COMSPEC",
+        "PATHEXT",
+        "TEMP",
+        "TMP",
+        "PATH"
+      ]
+    }
+  }
+}

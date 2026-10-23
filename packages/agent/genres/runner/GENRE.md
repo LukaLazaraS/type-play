@@ -1,7 +1,10 @@
-## Genre: endless runner (proven patterns from our best runners)
+## Genre: endless runner (side-view runners, vertical jumpers, flappy flyers: proven patterns from our best runners)
 
 Use these as defaults, then make the game the player's own: theme, art, character, one twist.
 
+- **Orientation**: a side-view runner needs width: switch the project to landscape first (see
+  "The project"). A vertical runner or jumper (climbing upward) stays portrait: the same feel
+  numbers turned upright, the camera only moves up, falling below the screen ends the run.
 - **Scripts**: `main.gd` (states TITLE / PLAY / OVER, input, score, speed ramp, juice),
   `player.gd` (physics + drawing), `obstacles.gd` (ONE spawner that owns obstacles AND
   pickups), `world.gd` (sky, parallax layers, ground; sized from the viewport), `hud.gd`

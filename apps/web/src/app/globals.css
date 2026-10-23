@@ -684,6 +684,19 @@ q {
   aspect-ratio: 2 / 1;
   background: var(--sky-2);
   overflow: hidden;
+  container-type: inline-size; /* the Play pill drops the game's name in a narrow frame */
+}
+/* Under 440px (every upright game, and a landscape one on a phone) the pill says just "Play": a
+   name cut with an ellipsis read as a mistake. The name stays for screen readers. */
+@container (max-width: 440px) {
+  .gameframe__name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 /* The game's screen: the whole frame inline; the safe area (or a letterbox) when immersive. */
 .gameframe__screen {
@@ -729,6 +742,11 @@ q {
   cursor: pointer;
   transition: transform 160ms var(--ease-out);
 }
+.gameframe__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .gameframe__play:active {
   transform: translate(-50%, -50%) scale(0.97);
 }
@@ -750,6 +768,18 @@ q {
   padding: 8px 14px;
   border-radius: 999px;
   white-space: nowrap;
+}
+/* The loader could not load the game: the same pill, with a Try again that reads like a link. */
+.gameframe__failed button {
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
 /* Immersive: the game alone on the screen. The browser's full screen where it has one (the
@@ -1208,6 +1238,45 @@ q {
   }
 }
 
+/* "Your game is yours": the terms' promise as three checks (home and pricing) */
+.yours {
+  display: grid;
+  gap: 18px;
+  padding: 36px 40px;
+}
+.yours ul {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 32px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.yours li {
+  display: flex;
+  gap: 10px;
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--on-paper);
+}
+.yours li svg {
+  flex: none;
+  margin-top: 3px;
+}
+.yours p {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--on-paper-muted);
+}
+@media (max-width: 900px) {
+  .yours {
+    padding: 28px 24px;
+  }
+  .yours ul {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Pricing teaser / CTA widget */
 .cta {
   display: flex;
@@ -1375,6 +1444,14 @@ q {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+/* A portrait game: an upright 9:16 frame, as tall as fits with the bar and the sentence. */
+.launcher__frame[data-orientation="portrait"] {
+  width: min(100%, max(220px, (100dvh - 240px) * 9 / 16));
+  aspect-ratio: 9 / 16;
+}
+.launcher__frame[data-orientation="portrait"] .gameframe:not([data-immersive]) {
+  aspect-ratio: 9 / 16;
 }
 .launcher__info {
   display: grid;
@@ -1553,6 +1630,11 @@ q {
   gap: 18px;
   align-items: stretch;
 }
+/* The big plans (Ultra, Ultra+): a second row of two under the main three. */
+.plans--big {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
 .plan {
   padding: 32px 32px 28px;
   display: flex;
@@ -1615,7 +1697,8 @@ q {
   margin-top: 2px;
 }
 @media (max-width: 900px) {
-  .plans {
+  .plans,
+  .plans--big {
     grid-template-columns: 1fr;
   }
   .plan--lead {
@@ -1624,7 +1707,7 @@ q {
 }
 .faq {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 18px;
 }
 .faq div {

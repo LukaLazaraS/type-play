@@ -18,3 +18,9 @@ apps/*/.impeccable/
 packages/*/.impeccable/
 deploy/.build/
 deploy/release.tgz
+/data/
+apps/server/dist/
+apps/server/src/generated/
+
+deploy/.build-api/
+deploy/release-api.tgz

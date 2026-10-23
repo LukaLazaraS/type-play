@@ -11,6 +11,12 @@ change touches and the scripts it has to work with.
   palette, style and animation quality.
 - **Keep everything else as it is**: look, feel, controls, numbers and other features. Edit
   the lines that need it rather than rewriting files.
+- **A request about a number ("faster", "harder", "too slow", "bigger") is one clear step, about
+  +25-40%**, so the player can ask again. Change it only for the thing they named: grep for who
+  else uses that number (rivals, enemies, other levels, a test) and give those their own value.
+  Say how much in your last message ("about 30% faster").
+- **Pick the simplest design that does what was asked** and build it; don't weigh alternatives
+  at length. The player can ask for more.
 - Everything NOTES.md lists as "must not break" keeps working, unless the player asks to
   change exactly that: the player decides; then update NOTES.md.
 - **Test what you changed.** If the change adds or changes how something behaves (a move, a

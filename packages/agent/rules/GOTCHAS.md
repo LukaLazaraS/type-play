@@ -4,16 +4,21 @@
   anything other than `PASS:` / `FAIL:` lines never finish or never count: one build spent
   its whole turn budget on this. Use `test/helpers.gd` (`frames()`, `press()`, `check()`).
 
+- Never run `tools/serve.mjs`, `tools/gallery.mjs` or any web server or watcher: they never
+  end, and the whole session hangs until it is killed (one edit sat 15 minutes on this). Use
+  only the check, the assets tool, Godot with `--quit-after`, and your own tests.
+
 - "Cannot infer the type of … variable" (our most common error): `:=` only works when the
   right side has a known type. For values from a Dictionary, an Array, `get()`,
   `get_node()`, `min()`/`max()` or an untyped function, write the type (`var h: float =
   d["h"]`) or use plain `=`.
 
-- The visible area is NOT always 1152×648: the window stretches to any screen shape (wide
-  monitors, phones), so it can be wider or taller. Size backgrounds, ground and sky from
-  `get_viewport_rect().size` (and redraw on `get_viewport().size_changed`), and anchor the HUD
-  to the screen edges. Drawing to a fixed 1152 width leaves a grey strip on wide screens; the
-  check's browser window is wider than 16:9 on purpose, so look for it in the screenshots.
+- The visible area is NOT always the viewport size in `project.godot`: the window stretches
+  to any screen shape (wide monitors, tall phones), so it can be wider or taller. Size
+  backgrounds, ground and sky from `get_viewport_rect().size` (and redraw on
+  `get_viewport().size_changed`), and anchor the HUD to the screen edges. Drawing to a fixed
+  size leaves a grey strip; the check's page is wider than 16:9 (landscape) or taller than
+  9:16 (portrait) on purpose, so look for it in the screenshots.
 - HUD labels belong in the screen corners: on a `CanvasLayer`, use anchor presets
   (`set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT / PRESET_TOP_RIGHT)`), not fixed
   positions or vertical centring, or they drift to mid-height on wide screens.
@@ -22,6 +27,14 @@
   cactus group, a row in the gap), never on separate timers that let them overlap.
 - Every on-screen copy of a value (best score in the HUD and on the game-over screen) must be
   updated from the same place when it changes.
+- Draw a static board or map once in its own node (its `_draw()` runs again only after
+  `queue_redraw()`: call that on load and resize); redraw only what changes (pieces,
+  enemies, a small overlay for selections). A map redrawn every frame made a game crawl.
+- Even drawn once, thousands of tiny `draw_*` calls (scattered props, windows, grass, a town)
+  crawl in the web build: the renderer replays every command each frame (a racer and a stack
+  game both fell to 2-3 fps). Keep static scenery to a few hundred shapes near the camera, or
+  merge it into one `ArrayMesh`; if the frame rate the check prints at game start is under
+  ~10, fix that before polishing.
 
 - `Color.with_alpha()` doesn't exist. Use `Color(c, alpha)` or copy the colour and set `.a`.
 - "Invalid polygon data, triangulation failed": a Polygon2D / `draw_colored_polygon()` needs

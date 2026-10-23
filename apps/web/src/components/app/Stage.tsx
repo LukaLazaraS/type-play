@@ -1,0 +1,238 @@
+"use client";
+
+import { useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { AndroidLogo, ArrowSquareOut, ArrowsOut, ArrowClockwise } from "@phosphor-icons/react";
+import type { Project } from "@typeplay/shared";
+import { BuildLayers } from "@/components/BuildingIcon";
+import { GameFrame, playUrl, type GameFrameHandle } from "@/components/GameFrame";
+import { android } from "@/content/android";
+import { posterUrl } from "@/lib/urls";
+import { api } from "@/lib/api";
+import { clock, playsWord } from "@/lib/format";
+import type { LiveLine } from "./ChatLog";
+import { GameMenu } from "./GameMenu";
+import { ShareMenu } from "./ShareMenu";
+import { Versions } from "./Versions";
+
+/** The game side of the game page: the playable frame, or the build on its way, and the versions. */
+export function Stage({
+  project,
+  live,
+  now,
+  played,
+  onPlayed,
+  onRestore,
+  onRetry,
+  onChange,
+  android: androidOn,
+}: {
+  project: Project;
+  live: LiveLine;
+  now: number;
+  /** The player has started this game once: new versions start playing by themselves. */
+  played: boolean;
+  onPlayed: () => void;
+  onRestore: (n: number) => Promise<void>;
+  /** No version yet and nothing running: build the first sentence again. */
+  onRetry: (() => Promise<void>) | null;
+  /** A rename or a share changed the project. */
+  onChange: (p: Project) => void;
+  /** This server builds Android apps (Me.features.android): the Android pill shows. */
+  android: boolean;
+}) {
+  const frame = useRef<GameFrameHandle>(null);
+  // The error of the last Try again, shown only while nothing has happened since (no new message).
+  const [retryError, setRetryError] = useState<{ text: string; after: number } | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const full = useRef<HTMLButtonElement>(null);
+  const running = project.status === "running";
+  const runningMessage = running ? [...project.messages].reverse().find((m) => m.role === "agent" && m.status === "running") : undefined;
+  const nextN = (project.versions.reduce((n, v) => Math.max(n, v.n), 0) || 0) + 1;
+
+  return (
+    <section className="stage" aria-label="Your game">
+      <header className="stage__bar">
+        {renaming ? (
+          <RenameForm project={project} onDone={() => setRenaming(false)} onChange={onChange} />
+        ) : (
+          <>
+            <h1 className="title stage__name" title={project.name}>
+              {project.name}
+            </h1>
+            {project.currentVersion !== null && (
+              <span className="figures stage__version">
+                version {project.currentVersion}
+                {project.plays > 0 && <> · {playsWord(project.plays)}</>}
+              </span>
+            )}
+          </>
+        )}
+        <div className="stage__actions">
+          {project.buildId && <ShareMenu project={project} onChange={onChange} />}
+          {project.buildId && androidOn && (
+            <Link href={`/games/${project.id}/android`} className="inkpill" data-on={project.status === "exporting" || undefined} aria-label={project.status === "exporting" ? "Android: a build is running" : "Android: put it on a phone"}>
+              <AndroidLogo size={18} weight="bold" aria-hidden="true" />
+              <span className="inkpill__label">{android.pill}</span>
+            </Link>
+          )}
+          {project.buildId && (
+            <button ref={full} type="button" className="inkpill" onClick={() => frame.current?.fullscreen()}>
+              <ArrowsOut size={18} weight="bold" aria-hidden="true" />
+              <span className="inkpill__label">Full screen</span>
+            </button>
+          )}
+          {project.buildId && (
+            <a className="inkpill stage__newtab" href={playUrl(project.buildId)} target="_blank" rel="noopener">
+              <span className="inkpill__label">New tab</span>
+              <ArrowSquareOut size={18} weight="bold" aria-hidden="true" />
+            </a>
+          )}
+          <GameMenu project={project} onRename={() => setRenaming(true)} />
+        </div>
+      </header>
+
+      {/* Always there when a game is, so the frame keeps its size when a build starts or ends. */}
+      {project.buildId && (
+        <p className="stage__busy" role="status">
+          {running && (
+            <>
+              <span className="pulse" aria-hidden="true" />
+              <span className="stage__busy-text">
+                Making version {nextN}: {live?.text || "getting started"}
+              </span>
+            </>
+          )}
+          {project.status === "exporting" && (
+            <>
+              <span className="pulse" aria-hidden="true" />
+              <span className="stage__busy-text">{android.exporting.stage}</span>
+            </>
+          )}
+        </p>
+      )}
+
+      <div className="stage__screen">
+        {project.buildId ? (
+          <div className="stage__frame" data-orientation={project.orientation}>
+            <GameFrame
+              ref={frame}
+              key={project.buildId}
+              slug={project.buildId}
+              poster={project.poster ? posterUrl(project.buildId) : undefined}
+              name={project.name}
+              orientation={project.orientation}
+              mode="click"
+              autoStart={played}
+              onReady={onPlayed}
+              returnFocus={full}
+            />
+          </div>
+        ) : running ? (
+          <div className="stage__empty">
+            <span className="app__icon build stage__build" aria-hidden="true">
+              <BuildLayers />
+            </span>
+            <p className="stage__line" role="status">
+              {live?.text || "Getting started"}
+              {runningMessage && <span className="figures"> {clock(runningMessage.createdAt, now)}</span>}
+            </p>
+            <p className="stage__note">This takes a few minutes. You can leave this page: it keeps building.</p>
+          </div>
+        ) : (
+          <div className="stage__empty">
+            <p className="stage__line">No game yet.</p>
+            <p className="stage__note">The first build didn&apos;t work. Nothing was charged. Try again, or say it in other words in the chat.</p>
+            {retryError && retryError.after === project.messages.length && (
+              <p className="stage__note stage__note--error" role="alert">
+                {retryError.text}
+              </p>
+            )}
+            {onRetry && (
+              <button
+                type="button"
+                className="button"
+                disabled={retrying}
+                onClick={() => {
+                  setRetryError(null);
+                  setRetrying(true);
+                  const after = project.messages.length;
+                  onRetry()
+                    .catch((e: Error) => setRetryError({ text: e.message, after }))
+                    .finally(() => setRetrying(false));
+                }}
+              >
+                <ArrowClockwise size={18} weight="bold" aria-hidden="true" />
+                {retrying ? "Starting…" : "Try again"}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <Versions versions={project.versions} current={project.currentVersion} running={running} onRestore={onRestore} />
+    </section>
+  );
+}
+
+/** The name, editable in place: Enter or Save keeps it, Escape or Cancel puts it back. */
+function RenameForm({ project, onDone, onChange }: { project: Project; onDone: () => void; onChange: (p: Project) => void }) {
+  const [name, setName] = useState(project.name);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async (e?: FormEvent) => {
+    e?.preventDefault();
+    const next = name.replace(/\s+/g, " ").trim();
+    if (!next || next === project.name) return onDone();
+    setBusy(true);
+    setError(null);
+    try {
+      onChange(await api.update(project.id, { name: next }));
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="rename" onSubmit={(e) => void save(e)} noValidate>
+      <label htmlFor="rename" className="sr-only">
+        Name of the game
+      </label>
+      <input
+        id="rename"
+        className="rename__input"
+        value={name}
+        maxLength={60}
+        autoFocus
+        enterKeyHint="done"
+        autoComplete="off"
+        spellCheck={false}
+        disabled={busy}
+        onChange={(e) => setName(e.target.value)}
+        onFocus={(e) => e.currentTarget.select()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            onDone();
+          }
+        }}
+        aria-describedby={error ? "rename-error" : undefined}
+      />
+      <button type="submit" className="button button--small" disabled={busy}>
+        {busy ? "Saving…" : "Save"}
+      </button>
+      <button type="button" className="inkpill inkpill--small" disabled={busy} onClick={onDone}>
+        Cancel
+      </button>
+      {error && (
+        <p id="rename-error" className="rename__error" role="alert">
+          {error}
+        </p>
+      )}
+    </form>
+  );
+}

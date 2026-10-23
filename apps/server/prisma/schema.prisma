@@ -1,0 +1,643 @@
+// TypePlay's database (Supabase Postgres). Game files are not here: each project is a folder
+// with its own git history under DATA_DIR/projects/<id>/. The connection is in prisma.config.ts
+// (migrations, DIRECT_URL) and src/prisma.ts (runtime, DATABASE_URL through @prisma/adapter-pg).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  runtime             = "nodejs"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Plan {
+  free
+  medium
+  high
+  ultra
+  ultraplus
+}
+
+enum Orientation {
+  portrait
+  landscape
+}
+
+enum Role {
+  user
+  agent
+}
+
+enum ModelChoice {
+  fast
+  smart
+  best
+}
+
+enum Effort {
+  low
+  medium
+  high
+}
+
+enum MessageStatus {
+  running
+  done
+  failed
+  refused
+}
+
+/// grant: credits added (a bucket opens). charge: a message. refund: credits back (a correction).
+/// expire: a bucket's end (its remaining credits). reversal: credits removed after a refund or a chargeback.
+enum CreditKind {
+  grant
+  charge
+  refund
+  expire
+  reversal
+}
+
+/// Where a bucket's credits came from; also the spend order (ledger-math.ts): free, plan/upgrade, pack, admin.
+enum CreditSource {
+  free
+  plan
+  upgrade
+  pack
+  admin
+}
+
+enum PaymentKind {
+  plan
+  renewal
+  upgrade
+  pack
+}
+
+enum PaymentStatus {
+  completed
+  partly_refunded
+  refunded
+  charged_back
+}
+
+/// Paddle's subscription status as last applied (payments part 2 writes it).
+enum SubStatus {
+  active
+  past_due
+  canceled
+  paused
+}
+
+enum EventStatus {
+  received
+  processed
+  ignored
+  parked
+  failed
+}
+
+enum RefundStatus {
+  requested
+  pending
+  approved
+  rejected
+  lookup
+}
+
+enum CheckoutStatus {
+  open
+  completed
+  abandoned
+}
+
+/// Why a bucket closed before (or at) its end.
+enum ClosedWhy {
+  expired
+  refunded
+  charged_back
+  canceled
+}
+
+enum AndroidFormat {
+  apk
+  aab
+}
+
+/// queued → running (Godot exports) → signing → done | failed | cancelled; done → expired after 30 days.
+enum AndroidBuildStatus {
+  queued
+  running
+  signing
+  done
+  failed
+  expired
+  cancelled
+}
+
+/// Why someone reported a game (the terms' "What you may not do"); nothing about who sent it is kept.
+enum ReportReason {
+  sexual
+  hate
+  copied
+  scam
+  other
+}
+
+/// id is the Supabase user id ("dev-<slug>" for dev-only test users).
+model User {
+  id        String        @id
+  email     String        @unique
+  name      String?
+  avatarUrl String?
+  plan      Plan          @default(free)
+  createdAt DateTime      @default(now())
+  projects  Project[]
+  credits   CreditEntry[]
+
+  // Billing (docs/payments-design.md §3). The plan above changes only when money does (part 2);
+  // the subscription fields mirror Paddle and never set the plan themselves.
+  paddleCustomerId      String?    @unique
+  paddleSubscriptionId  String?    @unique
+  subscriptionStatus    SubStatus?
+  /// occurred_at of the last subscription event applied (older ones are skipped).
+  subscriptionUpdatedAt DateTime?
+  periodEndsAt          DateTime?
+  nextBilledAt          DateTime?
+  cancelsAt             DateTime?
+  /// A downgrade waiting for the renewal.
+  pendingPlan           Plan?
+  /// Free plan: when this month's free credits end and the next 20 arrive (ledger.service `settle`).
+  freeCycleEndsAt       DateTime?
+  /// The next moment something expires, refreshes or lapses for this user; null = nothing due.
+  nextSettleAt          DateTime?
+  /// Credits charged with no bucket to take them from (tenths); the next grant settles it first.
+  debtTenths            Int        @default(0)
+  /// chargeback | two_subscriptions | refund_review: an admin has to look (`admin flag <email> clear`).
+  billingFlag           String?
+  lastPaymentFailedAt   DateTime?
+  /// "Visa ending 4242", for the billing page.
+  paymentMethod         String?
+  buckets               CreditBucket[]
+  payments              Payment[]
+  checkouts             CheckoutSession[]
+  adjustments           Adjustment[]
+  refunds               Refund[]
+  feedback              Feedback[]
+}
+
+/// id: short lowercase random id (10 chars), used in URLs and build ids "<id>-v<n>".
+model Project {
+  id             String      @id
+  ownerId        String
+  owner          User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name           String
+  orientation    Orientation @default(portrait)
+  /// n of the version playing now (the newest); null before the first build passes.
+  currentVersion Int?
+  /// The player renamed it: later builds keep this name instead of the game agent's.
+  renamed        Boolean     @default(false)
+  /// Anyone with the link can play it at typeplay.app/play/<id>. Private by default.
+  shared         Boolean     @default(false)
+  sharedAt       DateTime?
+  /// The folder could not be put back at currentVersion after a failed run: the next run (or
+  /// download) settles it first and clears this; nothing builds on a dirty folder.
+  dirty          Boolean     @default(false)
+  /// Also in the public gallery (typeplay.app/explore): the maker's second step after sharing, off by default
+  /// and only while shared (unsharing takes it out too).
+  listed         Boolean     @default(false)
+  /// When it first went into the gallery (New sorts by it); kept when it leaves, so going back in doesn't move it up.
+  listedAt       DateTime?
+  /// An admin took it out of the gallery (`admin gallery hide`, or 3 open reports); its share link keeps working.
+  hiddenAt       DateTime?
+  hiddenReason   String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  messages       Message[]
+  versions       Version[]
+  android        AndroidApp?
+  plays          PlayCount[]
+  reports        GameReport[]
+  feedback       Feedback[]
+
+  @@index([ownerId, updatedAt])
+  @@index([listed, listedAt])
+}
+
+model Message {
+  id        String         @id @default(uuid())
+  projectId String
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role      Role
+  text      String
+  model     ModelChoice?
+  effort    Effort?
+  status    MessageStatus?
+  /// Credits charged (one decimal); 0 for failed, refused or cancelled runs.
+  credits   Decimal?       @db.Decimal(10, 1)
+  /// API-equivalent dollars of the run as the agent reports it (every attempt + the player-message
+  /// rewrite), for our accounting; the charge covers only the attempts in the game the player gets.
+  costUsd   Decimal?       @db.Decimal(10, 4)
+  /// Dollars the key proxy metered from the model's own usage figures (live server only; null on
+  /// Luka's PC, where the agent runs on the Max login). The charge is the larger of the two.
+  meteredUsd Decimal?      @db.Decimal(10, 4)
+  versionN  Int?
+  /// The plan the run started on (agent messages): the Free kill switch sums costUsd by plan and day.
+  plan      Plan?
+  createdAt DateTime       @default(now())
+  feedback  Feedback[]
+
+  @@index([projectId, createdAt])
+  @@index([plan, createdAt])
+}
+
+model Version {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  n         Int
+  /// The prompt that made it, or "Restored version 2".
+  label     String
+  /// Games origin build id, e.g. "k3x9p2m7qd-v4" (a restore reuses the old version's build).
+  buildId   String
+  /// Git commit of the game folder.
+  commit    String
+  /// builds/<buildId>/poster.png was published (the check's start-screen picture).
+  poster    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, n])
+}
+
+/// Plays of a shared game: one row per game and UTC day, a number and nothing else (no address, no visitor id).
+/// POST /public/games/:id/play adds one when the share page's game starts.
+model PlayCount {
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  day       DateTime @db.Date
+  count     Int      @default(0)
+
+  @@id([projectId, day])
+  @@index([day])
+}
+
+/// A "Report this game" from the share page or the gallery (POST /public/games/:id/report). Nothing about who
+/// sent it is kept. `admin gallery reports` lists the open ones.
+model GameReport {
+  id        String       @id @default(uuid())
+  projectId String
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reason    ReportReason
+  /// What the reporter added (one line, at most 500 letters): their words, read as data.
+  text      String?
+  createdAt DateTime     @default(now())
+  /// An admin dealt with it (`admin gallery hide | unhide | dismiss | unshare`).
+  handledAt DateTime?
+
+  @@index([projectId, createdAt])
+  @@index([handledAt, createdAt])
+}
+
+/// The credit ledger: one row per credit movement; the sum of `tenths` is what the user has
+/// (= open buckets' remaining − debt, checked by `admin audit`). A charge's split over buckets is
+/// in CreditAllocation; grant, expire and reversal rows name their bucket.
+model CreditEntry {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Credits, one decimal (the same number as `tenths`; kept for the older code and reports).
+  amount    Decimal    @db.Decimal(10, 1)
+  /// Integer tenths of a credit: the exact figure (amount × 10).
+  tenths    Int?
+  kind      CreditKind
+  messageId String?
+  note      String?
+  bucketId  String?
+  bucket    CreditBucket? @relation(fields: [bucketId], references: [id], onDelete: SetNull)
+  /// A reversal's Paddle adjustment (adj_…): one reversal per adjustment.
+  paddleAdjustmentId String? @unique
+  createdAt DateTime   @default(now())
+  allocations CreditAllocation[]
+
+  @@index([userId, createdAt])
+}
+
+/// Credits that arrived together and end together: the Free month, a plan period, an upgrade, a
+/// pack, or an admin grant. Charges take from buckets in spend order (ledger-math.ts).
+model CreditBucket {
+  id              String        @id @default(uuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source          CreditSource
+  grantedTenths   Int
+  /// What is left to spend (CHECK >= 0 in the migration).
+  remainingTenths Int
+  startsAt        DateTime      @default(now())
+  /// When the credits end (settle expires them); null for admin grants.
+  expiresAt       DateTime?
+  /// A refund is pending at Paddle: charges skip this bucket until it is approved or rejected.
+  frozenAt        DateTime?
+  closedAt        DateTime?
+  closedWhy       ClosedWhy?
+  /// The Paddle transaction that bought it (txn_…), so a refund is computed per payment.
+  paymentId       String?       @unique
+  payment         Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  /// Shown in the history as the grant's words ("Free plan", "Medium plan, October").
+  note            String?
+  createdAt       DateTime      @default(now())
+  entries         CreditEntry[]
+  allocations     CreditAllocation[]
+  refunds         Refund[]
+
+  @@index([userId, closedAt, expiresAt])
+}
+
+/// How a charge (or a negative admin grant) was split over buckets. bucketId null = debt: nothing
+/// was left to take it from; the next grant moves these onto its bucket.
+model CreditAllocation {
+  id       String        @id @default(uuid())
+  entryId  String
+  entry    CreditEntry   @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  bucketId String?
+  bucket   CreditBucket? @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  tenths   Int
+
+  @@index([entryId])
+  @@index([bucketId])
+}
+
+/// A completed Paddle transaction (id = txn_…). Kept after the account closes (userId null):
+/// cards are refundable for months, and the privacy policy keeps "records we must keep by law".
+model Payment {
+  id              String        @id
+  userId          String?
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  kind            PaymentKind
+  /// Paddle's transaction origin: web, subscription_recurring, subscription_update, subscription_charge…
+  origin          String
+  priceId         String
+  /// The line item (txnitm_…) a refund adjustment names.
+  lineItemId      String?
+  /// The line total after discount, before tax; tax and total in cents too (USD).
+  paidCents       Int
+  taxCents        Int
+  totalCents      Int
+  currency        String
+  invoiceNumber   String?
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  paidAt          DateTime
+  /// paidAt + 14 days (docs/pricing.md "Refunds").
+  refundableUntil DateTime
+  refundedCents   Int           @default(0)
+  status          PaymentStatus @default(completed)
+  /// The tick box at checkout: wording version and time (copied from the CheckoutSession).
+  consentVersion  String?
+  consentAt       DateTime?
+  termsAcceptedAt DateTime?
+  /// The PaddleEvent (or the verify pull's synthetic id) that wrote it.
+  eventId         String
+  raw             Json
+  createdAt       DateTime      @default(now())
+  bucket          CreditBucket?
+  adjustments     Adjustment[]
+  refunds         Refund[]
+
+  @@index([userId, paidAt])
+}
+
+/// A checkout we opened (id = the Paddle transaction, txn_…): what was bought and the consent given.
+model CheckoutSession {
+  id              String         @id
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// "plan:medium" … or "pack".
+  item            String
+  consentVersion  String
+  consentAt       DateTime
+  termsAcceptedAt DateTime
+  status          CheckoutStatus @default(open)
+  createdAt       DateTime       @default(now())
+
+  @@index([userId, createdAt])
+}
+
+/// A Paddle adjustment (id = adj_…): a refund, a chargeback or a credit on a payment.
+model Adjustment {
+  id            String   @id
+  paymentId     String
+  payment       Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action        String
+  type          String
+  status        String
+  subtotalCents Int
+  taxCents      Int
+  totalCents    Int
+  currency      String
+  /// The newest occurred_at seen (created and updated can arrive in either order).
+  occurredAt    DateTime
+  raw           Json
+  createdAt     DateTime @default(now())
+  refund        Refund?
+
+  @@index([paymentId])
+}
+
+/// A refund we asked Paddle for (`admin refund`): the quote, the frozen bucket, and how it ended.
+model Refund {
+  id           String       @id @default(uuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentId    String
+  payment      Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  bucketId     String
+  bucket       CreditBucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  quoteCents   Int
+  quoteTenths  Int
+  status       RefundStatus
+  adjustmentId String?      @unique
+  adjustment   Adjustment?  @relation(fields: [adjustmentId], references: [id], onDelete: SetNull)
+  reason       String?
+  createdAt    DateTime     @default(now())
+  resolvedAt   DateTime?
+
+  @@index([userId, createdAt])
+}
+
+/// Every webhook Paddle sent (id = evt_… / ntfsimevt_…), stored before it is processed; the
+/// payload is never changed. Kept after the account closes (no user relation).
+model PaddleEvent {
+  id             String      @id
+  notificationId String
+  type           String
+  occurredAt     DateTime
+  receivedAt     DateTime    @default(now())
+  processedAt    DateTime?
+  status         EventStatus @default(received)
+  attempts       Int         @default(0)
+  nextTryAt      DateTime?
+  error          String?
+  /// How many times Paddle delivered it (a replay keeps its event id).
+  deliveries     Int         @default(1)
+  userId         String?
+  payload        Json
+
+  @@index([status, nextTryAt])
+}
+
+/// Who changed billing state (or a game's place in the gallery: `admin gallery …`) and how: "webhook:evt_…",
+/// "user:<id>", "admin:<name>", "job:settle".
+/// Kept after the account closes (no user relation).
+model BillingAudit {
+  id      String   @id @default(uuid())
+  at      DateTime @default(now())
+  actor   String
+  userId  String?
+  action  String
+  details Json
+
+  @@index([userId, at])
+}
+
+/// The Free plan's AI spend per UTC day (the kill switch's number, docs/pricing.md): added to when a
+/// Free run ends, never lowered. Message rows go with their game when it is deleted; this stays.
+model FreeSpend {
+  day DateTime @id
+  usd Decimal  @default(0) @db.Decimal(12, 4)
+}
+
+/// Android export (docs/android-export-design.md §8): a game's identity on Android, set up once.
+model AndroidApp {
+  projectId       String         @id
+  project         Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// Reverse-DNS, unique across TypePlay; permanent on Google Play after the first upload.
+  packageName     String         @unique
+  /// The name on the phone and in the store (≤ 30).
+  appName         String
+  /// The last build number given out; each build takes the next one in the same transaction, never reused.
+  versionCode     Int            @default(0)
+  /// Set by the first AAB build: a package-name change then needs confirmPackageChange.
+  packageLockedAt DateTime?
+  /// The user's own launcher icon (a square PNG, ≤ 1 MB); null = the game's poster.
+  iconPng         Bytes?
+  createdAt       DateTime       @default(now())
+  key             AndroidKey?
+  builds          AndroidBuild[]
+}
+
+/// The game's upload keystore (PKCS12, alias "upload"), encrypted under ANDROID_KEY_MASTER (android/crypto.ts).
+/// Google holds the app signing key (Play App Signing); a lost upload key is reset in Play Console.
+model AndroidKey {
+  projectId    String     @id
+  app          AndroidApp @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  alias        String     @default("upload")
+  /// The certificate's SHA-256, lowercase hex: every signed build must carry it.
+  certSha256   String
+  /// keyId(1) | nonce(12) | tag(16) | AES-256-GCM(JSON { p12, password }), AAD = projectId.
+  blob         Bytes
+  keyId        Int        @default(1)
+  createdAt    DateTime   @default(now())
+  downloadedAt DateTime?
+  downloads    Int        @default(0)
+}
+
+/// One Android build: a version's commit + the server's preset + the toolchain, signed with the game's key.
+model AndroidBuild {
+  /// "<projectId>-a<versionCode>".
+  id           String             @id
+  projectId    String
+  app          AndroidApp         @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  versionN     Int
+  /// The game folder's commit the build was made from (40 hex).
+  commit       String
+  format       AndroidFormat
+  versionCode  Int
+  /// "<versionN>.<versionCode>".
+  versionName  String
+  status       AndroidBuildStatus @default(queued)
+  /// toolchain | game | gradle | timeout | mismatch | sign | store | interrupted | queue_full.
+  failCode     String?
+  failMessage  String?
+  /// The last 4 KB of the build's output, ANSI stripped.
+  logTail      String?
+  /// Where the signed file is: "data/android/<projectId>/<id>.<ext>" or an R2 key "android/<projectId>/<id>.<ext>".
+  path         String?
+  bytes        Int?
+  sha256       String?
+  /// poster | own | placeholder.
+  icon         String             @default("placeholder")
+  /// inspect.json: what the tools read out of the signed file.
+  checks       Json?
+  godotVersion String
+  toolchain    String
+  queuedAt     DateTime           @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  /// done + 30 days: the file goes, the row says expired.
+  expiresAt    DateTime?
+
+  @@index([projectId, queuedAt])
+  @@index([status, queuedAt])
+}
+
+/// The closed beta's invite list (beta 1; BETA_INVITE_ONLY, src/beta/invites.ts): only these emails, and ADMIN_EMAILS, get
+/// past the sign-in; anyone else is 403 invite_only and no user row is made. `admin invite add | list | remove`. Nothing
+/// links it to a user: the user row appears at the first sign-in.
+model Invite {
+  /// Lower-cased, as given to `admin invite add`.
+  email     String    @id
+  /// What a sign-in's email is matched on: lower-cased, and for Gmail without dots and a +tag (Gmail ignores both).
+  match     String    @unique
+  /// Luka's own words about who it is, for `admin invite list`.
+  note      String?
+  invitedAt DateTime  @default(now())
+  /// The first sign-in with it.
+  usedAt    DateTime?
+}
+
+/// "Send feedback" from the app (POST /feedback): a tester's note, the page it came from and the browser's User-Agent,
+/// and, when they ticked it, the game, its last message and the version playing then. Goes with the account (cascade);
+/// a deleted game leaves the note without it. `admin feedback list | show | done`.
+model Feedback {
+  /// 10 lowercase letters and digits, like a game's id (`admin feedback show <id>`).
+  id        String    @id
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The site's path it was sent from ("/games/k3x9p2m7qd"), no query string.
+  page      String
+  /// What happened (up to 4,000 letters, line breaks kept): the tester's words, read as data.
+  text      String
+  /// What they expected, when they said.
+  expected  String?
+  projectId String?
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  messageId String?
+  message   Message?  @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  /// The version playing when it was sent, and its build (games origin id "<projectId>-v<n>").
+  versionN  Int?
+  buildId   String?
+  /// The browser's User-Agent header, cut to 400 characters.
+  browser   String?
+  createdAt DateTime  @default(now())
+  /// Luka dealt with it (`admin feedback done <id>`).
+  doneAt    DateTime?
+
+  @@index([userId, createdAt])
+  @@index([doneAt, createdAt])
+}
+
+/// A closed account's tombstone (auth.service.ts): the old user id refuses that account's still-valid
+/// sign-in tokens for 2 hours, and the salted email hash keeps a sign-up with the same email within
+/// 90 days from getting the Free plan's credits again. Rows older than 90 days are removed.
+model ClosedAccount {
+  id        String   @id
+  emailHash String
+  closedAt  DateTime @default(now())
+
+  @@index([emailHash])
+}

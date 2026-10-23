@@ -1,0 +1,186 @@
+# The API server (typeplay-api, /opt/typeplay-api). `deploy.mjs api` uploads this folder with the
+# pruned source in src/, writes api.env (the secrets, only the keys the API needs) and runs
+# `docker compose up -d --build`. Four containers:
+#   caddy   HTTPS for api.typeplay.app (behind Cloudflare) → api
+#   api     NestJS + the key proxy. Holds the secrets. Never runs anything inside a game folder.
+#   runner  Game agent runs, Godot (web and Android exports), the hidden browser, git in game folders,
+#           each job as a throwaway user. No secrets; its only network is "agents" (internal: no
+#           internet), where it reaches the api container alone: the key proxy (8787), and the REST
+#           API (3002), whose routes need a sign-in token (the share pages' GET /public/* aside).
+#           Later: pin the api's addresses per network (ipam) so only the proxy is reachable from here.
+#   signer  Signs Android builds with the game's upload key (apps/server/signer/signer.mjs): the one
+#           process that ever holds a keystore in the clear, for seconds, in its tmpfs. No network at
+#           all, a read-only root, no secrets, no /data; it shares only the exports volume with the api.
+# CPU and memory: a CPX32 has 4 vCPU / 8 GB. The runner may use 3 vCPU and 5.5 GB, so the API, Caddy
+# and the system always keep a core and some memory, however many builds run. An Android build counts
+# as two run slots in the API (one Gradle JVM, -Xmx1536m), so it fits next to one agent run and its check.
+name: typeplay-api
+services:
+  api:
+    build: ./src
+    image: typeplay-api
+    init: true
+    restart: unless-stopped
+    user: "1000:1000"
+    command: ["sh", "-c", "cd apps/server && npx prisma migrate deploy && exec node dist/main.js"]
+    env_file: ./api.env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3002"
+      AGENT_AUTH: api
+      GAMES_PUBLISH: r2
+      RUNNER_SOCKET: /run/typeplay/runner.sock
+      KEY_PROXY_HOST: 0.0.0.0
+      KEY_PROXY_URL: http://api:8787
+      MAX_RUNS: "4"
+      RUN_TIMEOUT_MIN: "40"
+      DATA_DIR: /data
+      API_PUBLIC_URL: https://api.typeplay.app
+      # Android export (package 7, apps/server/README.md "Android export"): ANDROID_KEY_MASTER comes from
+      # api.env (deploy.mjs android-key). One build at a time, 14 minutes each (the runner's 15 is the
+      # backstop). ANDROID_STORE=folder keeps signed files in /data/android (served by the API);
+      # r2 = the private typeplay-exports bucket with presigned links, once `api-setup --yes` has made it.
+      # Off for beta 1 (testers are on Free, which has no export). To turn it on: `node deploy/deploy.mjs
+      # android-key`, save the key in the password manager, set "1" here, then `deploy.mjs api`.
+      ANDROID_EXPORT: "0"
+      SIGNER_SOCKET: /run/typeplay-signer/signer.sock
+      EXPORTS_DIR: /exports
+      MAX_ANDROID_BUILDS: "1"
+      ANDROID_BUILD_TIMEOUT_MIN: "14"
+      ANDROID_STORE: folder
+      R2_EXPORTS_BUCKET: typeplay-exports
+      # Paddle (payments part 2, apps/server/README.md "Billing"): the keys come from api.env; these name the
+      # environment and the catalog. Empty PADDLE_ENV = billing off (the API refuses a key without it).
+      # sandbox: real Paddle sandbox, usable on the live site only by ADMIN_EMAILS; live after Paddle's approval.
+      PADDLE_ENV: ""
+      PADDLE_PRICE_MEDIUM: ""
+      PADDLE_PRICE_HIGH: ""
+      PADDLE_PRICE_ULTRA: ""
+      PADDLE_PRICE_ULTRAPLUS: ""
+      PADDLE_PRICE_PACK: ""
+      ADMIN_EMAILS: "lazarashvili02@gmail.com"
+      # The closed beta (beta 1; apps/server/README.md "The closed beta"): only invited emails (`admin invite add`) and
+      # ADMIN_EMAILS get past the sign-in. On by default in production; "0" opens the app to everyone (then `api`).
+      BETA_INVITE_ONLY: "1"
+    volumes:
+      - ./data:/data
+      - runner-socket:/run/typeplay
+      - exports:/exports
+      - signer-socket:/run/typeplay-signer
+    networks: [web, agents]
+    depends_on:
+      runner:
+        condition: service_healthy
+      signer:
+        condition: service_healthy
+    cpus: 1.0
+    mem_limit: 1g
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+
+  runner:
+    build: ./src
+    image: typeplay-api
+    init: true
+    restart: unless-stopped
+    command: ["node", "apps/server/runner/runner.mjs"]
+    environment:
+      DATA_DIR: /data
+      RUNNER_SOCKET: /run/typeplay/runner.sock
+      RUNNER_SLOTS: "6"
+      RUN_TIMEOUT_MIN: "40"
+      ASSET_LIBRARY: /assets
+      # Android jobs (one at a time): Godot's exporter finds the JDK and SDK through these on a fresh
+      # home; the Gradle seed is copied into each job's home. No keystore, password or socket is here.
+      MAX_ANDROID_JOBS: "1"
+      JAVA_HOME: /opt/android/jdk
+      ANDROID_HOME: /opt/android/sdk
+      GRADLE_SEED: /opt/android/gradle-home
+      ANDROID_ICONS: /opt/typeplay/android/icons
+    volumes:
+      - ./data:/data
+      - ./assets:/assets:ro
+      - runner-socket:/run/typeplay
+    networks: [agents]
+    cpus: 3.0
+    mem_limit: 5632m
+    memswap_limit: 5632m
+    pids_limit: 4096
+    shm_size: 1g
+    # Root only to switch each job to its throwaway user; just the capabilities that needs.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, KILL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get({ socketPath: '/run/typeplay/runner.sock', path: '/health' }, (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+
+  signer:
+    build: ./src
+    image: typeplay-api
+    init: true
+    restart: unless-stopped
+    user: "1000:1000"
+    command: ["node", "apps/server/signer/signer.mjs"]
+    environment:
+      SIGNER_SOCKET: /run/typeplay-signer/signer.sock
+      EXPORTS_DIR: /exports
+      JAVA_HOME: /opt/android/jdk
+      ANDROID_HOME: /opt/android/sdk
+      BUNDLETOOL_JAR: /opt/android/bundletool.jar
+      HOME: /tmp
+      TMPDIR: /tmp
+      # The heap cap of every JVM it starts (keytool, apksigner, jarsigner, bundletool).
+      JAVA_TOOL_OPTIONS: -Xmx512m
+    volumes:
+      - exports:/exports
+      - signer-socket:/run/typeplay-signer
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    cpus: 1.0
+    mem_limit: 1g
+    pids_limit: 256
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get({ socketPath: '/run/typeplay-signer/signer.sock', path: '/health' }, (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+
+  caddy:
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [web]
+    depends_on:
+      - api
+
+networks:
+  web: {}
+  agents:
+    internal: true
+
+volumes:
+  runner-socket:
+  # Unsigned builds on their way to the signer and back (api + signer only; the runner never mounts it).
+  exports:
+  signer-socket:
+  caddy_data:
+  caddy_config:

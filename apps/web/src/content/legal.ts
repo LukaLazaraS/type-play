@@ -1,9 +1,11 @@
-import { site } from "./site";
+import { credits, plans, site } from "./site";
 
 export type Section = { heading: string; paragraphs: string[]; list?: string[] };
 export type LegalDoc = { title: string; intro: string; sections: Section[] };
 
 const operator = [site.seller.name, site.seller.form].filter(Boolean).join(", ");
+// How to reach us: the email, plus the support phone once it is set in site.ts.
+const contact = site.phone ? `${site.email} or ${site.phone}` : site.email;
 
 export const terms: LegalDoc = {
   title: "Terms of service",
@@ -26,7 +28,7 @@ export const terms: LegalDoc = {
     {
       heading: "Your games are yours",
       paragraphs: [
-        "You own the games you make: the descriptions you write, the code and art the agent produces for you, and the exported builds. You can publish them under your own name on any platform, and you are responsible for them there, including app-store rules and the laws of the countries you publish in.",
+        "You own the games you make: the descriptions you write, the code and art the agent produces for you, and the exported builds. We take no share of what your games earn. You can publish them under your own name on any platform, and you are responsible for them there, including app-store rules and the laws of the countries you publish in.",
         "Some parts of every game come from TypePlay: our templates, engine rules and bundled free assets (for example CC0 model packs). You may use those parts in your games without limit. You may not resell them on their own as asset packs.",
         "Games built on the free plan carry a small TypePlay badge. Paid plans remove it.",
       ],
@@ -51,7 +53,9 @@ export const terms: LegalDoc = {
     {
       heading: "Plans, credits and payment",
       paragraphs: [
-        "Paid plans give you monthly credits; extra credits can be bought on top. Credits are spent per message, and we show the cost before a build starts. Credits have no cash value, cannot be transferred, and unused monthly credits do not roll over unless the plan says so.",
+        `Paid plans give you credits every month, and on a paid plan you can buy credit packs on top. The free plan gives ${credits.freePerMonth} credits a month, at most ${credits.freePerDay} a day, for Fast builds. Credits are a prepaid allowance for using TypePlay's AI build service: they are not money or stored value, have no cash value, cannot be transferred, sold or exchanged, and work only on TypePlay.`,
+        `Each message spends credits for the work it does, and we show an estimate before it runs; if a message would cost much more than usual, we ask first. Unused monthly credits carry over to the next month once, up to one month's amount, while your plan is active. Credits from a pack last ${credits.pack.months} months. Free credits do not carry over. When your plan ends, its monthly credits end with it.`,
+        "Prices are in US dollars, and tax is added at checkout where it applies. If you move to a bigger plan, you pay the difference for the rest of the month and get the extra credits straight away; a move to a smaller plan starts at your next renewal.",
         "Our order process is conducted by our online reseller Paddle.com. Paddle.com is the Merchant of Record for all our orders. Paddle provides all customer service inquiries and handles returns.",
         `Subscriptions renew monthly until you cancel. You can cancel at any time from your account; the plan stays active until the end of the paid period. Refunds follow our refund policy.`,
       ],
@@ -74,7 +78,7 @@ export const terms: LegalDoc = {
       paragraphs: [
         `TypePlay is run by ${operator}.`,
         `These terms are governed by the laws of ${site.seller.country}. If you are a consumer in the EU or the UK, you also keep the protections of your own country's law.`,
-        `Questions: ${site.email}.`,
+        `Questions: ${contact}.`,
       ],
     },
   ],
@@ -92,6 +96,8 @@ export const privacy: LegalDoc = {
         "Your work: the descriptions you type, the games the agent builds, their version history, and screenshots and test results of each build.",
         "Usage: which features you use, credits spent per message, errors, and basic device and browser information from server logs.",
         "Payments: your plan, invoices and credit purchases. Card and bank details are entered on Paddle's checkout and never reach us.",
+        "Android builds: when you make one, the signing key we create for that game, kept encrypted so your builds keep working. You can download it at any time, and it is deleted with the game or your account.",
+        "Feedback: what you write when you send us feedback from the app, the page you sent it from, your browser and device type, and the game and its last message if you attach them.",
       ],
     },
     {
@@ -116,13 +122,14 @@ export const privacy: LegalDoc = {
     {
       heading: "Public games",
       paragraphs: [
-        `When you share a game, its play page on ${site.gamesDomain} is public to anyone with the link. Your projects and descriptions are private until you share them.`,
+        `When you share a game, its play page at ${site.domain}/play/<id> is public to anyone with the link (the game itself is served from ${site.gamesDomain}). Your projects and descriptions are private until you share them.`,
+        `A shared game appears in the public gallery at ${site.domain}/explore only if you also switch that on, and we count its plays as a number per day, with nothing about who played.`,
       ],
     },
     {
       heading: "How long we keep it",
       paragraphs: [
-        "Your account and games stay while your account exists. When you close your account we delete your projects within 30 days, except invoices and records we must keep by law. Server logs are kept for up to 90 days.",
+        "Your account and games stay while your account exists. When you close your account we delete your projects within 30 days, except invoices and records we must keep by law. Server logs are kept for up to 90 days. We also keep a scrambled copy of a closed account's email address for 90 days, so the free credits can't be claimed twice; it can't be turned back into the address.",
       ],
     },
     {
@@ -146,45 +153,58 @@ export const privacy: LegalDoc = {
     {
       heading: "Who is responsible",
       paragraphs: [
-        `TypePlay is run by ${operator}, who is responsible for your data under this policy (the data controller). Contact: ${site.email}.`,
+        `TypePlay is run by ${operator}, who is responsible for your data under this policy (the data controller). Contact: ${contact}.`,
       ],
     },
   ],
 };
 
+const example = plans.find((p) => p.id === "medium")!;
+const exampleUsed = 30;
+const exampleRefund = (example.price * (example.credits - exampleUsed)) / example.credits;
+
 export const refunds: LegalDoc = {
   title: "Refund policy",
   intro: `Paddle.com is the merchant of record for TypePlay purchases and processes all refunds. This is the policy Paddle applies on our behalf.`,
+  // Decided 2026-10-16 (docs/pricing.md): refund the unused share of a payment within 14 days. It is
+  // the EU rule for a digital service (CJEU C-234/25, July 2026) applied to everyone, and someone who
+  // used every credit gets nothing back.
   sections: [
     {
-      heading: "Subscriptions",
+      heading: `Within ${site.refundDays} days: the credits you haven't used`,
       paragraphs: [
-        `If you are not happy with a paid plan, ask for a refund within ${site.refundDays} days of the first payment and we refund it in full, as long as you have used less than a quarter of that month's credits. Renewals are refundable within ${site.refundDays} days on the same condition.`,
-        "Cancelling stops future payments; it does not refund the current month. The plan stays active until the period ends.",
+        `Within ${site.refundDays} days of any payment (a new plan, a monthly renewal or a credit pack) you can ask for a refund, for any reason. We refund the part of that payment you have not used: the full amount if none of its credits were spent, otherwise the price multiplied by the share of its credits still unused. Credits already spent are not refunded, because the AI work has been done.`,
+        `For example: the ${example.name} plan is $${example.price} for ${example.credits} credits. With ${exampleUsed} credits used, the refund is $${exampleRefund} for the other ${example.credits - exampleUsed}.`,
       ],
     },
     {
-      heading: "Credit packs",
+      heading: `After ${site.refundDays} days`,
       paragraphs: [
-        `Credit packs are refundable within ${site.refundDays} days of purchase if none of the credits have been used. Once credits are spent on builds they are not refundable, because the AI work has been done.`,
+        `Payments are not refundable after ${site.refundDays} days, except for billing mistakes, such as a double charge, or where the law requires a refund.`,
+      ],
+    },
+    {
+      heading: "Cancelling",
+      paragraphs: [
+        "Cancel any time from your account. Cancelling stops the next payment; your plan and its credits stay active until the end of the period you paid for.",
       ],
     },
     {
       heading: "Failed builds",
       paragraphs: [
-        "A build the model refuses is not charged. A build that fails our automatic check is retried on a stronger model at no extra cost. If a build fails completely, write to us and we return the credits.",
+        "A build the model refuses costs nothing. A build that fails our automatic check is retried at no extra cost, and if it still fails, its credits come back to you automatically.",
       ],
     },
     {
-      heading: "EU and UK consumers",
+      heading: "EU and UK customers",
       paragraphs: [
-        "You have a 14-day right of withdrawal. Because credits are digital content delivered immediately, you agree at checkout that delivery starts right away and that the right of withdrawal ends for credits you have used. Unused credits and subscriptions remain refundable as above.",
+        "You also have a legal 14-day right of withdrawal from the day you buy. TypePlay is a digital service that starts right away: at checkout you ask us to start immediately, and you agree that if you withdraw you pay for the credits you have used, and that the right ends once all credits from that purchase are used. This gives the same result as the 14-day rule above. You can withdraw by writing to us or through Paddle's customer portal.",
       ],
     },
     {
       heading: "How to ask",
       paragraphs: [
-        `Write to ${site.email} with the email address of your account and the invoice number from Paddle. Refunds go back to the original payment method, usually within 5 to 10 business days.`,
+        `Write to ${site.email} with the email address of your account and the invoice number from Paddle${site.phone ? `, call or message ${site.phone},` : ","} or ask Paddle directly through the link on your receipt. The money goes back to the original payment method within 14 days of approval.`,
       ],
     },
   ],

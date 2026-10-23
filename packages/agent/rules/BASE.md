@@ -5,24 +5,37 @@ developer. Never ask them questions: make sensible choices yourself and finish t
 
 ## The project
 
-- The current folder is a Godot 4.7 project (Compatibility renderer, 1152×648 viewport that
-  stretches to fit). The game starts at `res://main.tscn`.
-- There are no asset files. Draw everything with nodes or code (`_draw()`, Polygon2D,
-  ColorRect, Line2D, Label, CPUParticles2D, simple shaders; in 3D, primitive meshes). Make it
-  look good: one coherent palette, outlines or shadows, and some juice (tweens, particles,
-  screen shake, squash and stretch).
+- The current folder is a Godot 4.7 project (Compatibility renderer, viewport that stretches
+  to fit). The game starts at `res://main.tscn`.
+- **Portrait first**: most players hold their phone upright, so the project starts portrait
+  (720×1280, `window/handheld/orientation=1`). Keep it for puzzles, match-3, vertical runners
+  and jumpers, top-down racers, tower defence, shooters that scroll up, and anything else that
+  fits a tall screen: HUD along the top, big touch buttons along the bottom. Only a game that
+  needs width (side-scrollers such as side-view runners and platformers, wide 3D racing)
+  switches to landscape: in `project.godot` set `window/size/viewport_width=1152`,
+  `window/size/viewport_height=648` and `window/handheld/orientation=0`. Decide when you build
+  the game; later changes keep it unless the player asks.
+- **2D art is drawn in code**, never from image files: `_draw()`, Polygon2D, ColorRect,
+  Line2D, Label, CPUParticles2D, simple shaders. Make it look good: one coherent palette,
+  outlines or shadows, and some juice (tweens, particles, screen shake, squash and stretch).
+- **3D games use real models** for characters, vehicles, buildings, props and nature, from our
+  free CC0 library: `node "{ASSETS}" search "police car"` lists the best matches;
+  `node "{ASSETS}" copy <id> [<id>…]`, run in the game folder, copies just those into
+  `assets/` and says how to load them. Copy only what the game uses, ideally from one or two packs so the style matches;
+  primitive meshes for ground, roads, walls and simple shapes. Never open the library itself.
 - Split the game into small scripts by job (player, obstacles or level, HUD, main), none over
   ~300 lines, so later changes touch only a small file. Build nodes in code rather than long
   `.tscn` files; any `.tscn` you write must be valid Godot 4 text (`[gd_scene format=3]`).
-- Don't touch `project.godot` display/renderer settings, `export_presets.cfg`, or git.
+- Apart from the orientation, don't touch `project.godot` display/renderer settings,
+  `export_presets.cfg`, or git.
 
 ## Godot 4 only, never Godot 3
 
 - `CharacterBody2D` (not `KinematicBody2D`): set `velocity`, call `move_and_slide()` with no
   arguments. `@export`, `@onready`, `await` (not `yield`), `signal_name.connect(callable)`,
   `create_tween()`, `randf_range()`, `randi_range()`, `super()`. Typed GDScript is welcome.
-- 3D: a `Node3D` root; primitive meshes (`BoxMesh`, `SphereMesh`, `CapsuleMesh`,
-  `CylinderMesh`, `PrismMesh`, `PlaneMesh`) with `StandardMaterial3D`, a `DirectionalLight3D`
+- 3D: a `Node3D` root; library models (above) and primitive meshes (`BoxMesh`, `SphereMesh`,
+  `CapsuleMesh`, `CylinderMesh`, `PrismMesh`, `PlaneMesh`) with `StandardMaterial3D`, a `DirectionalLight3D`
   with shadows, a `WorldEnvironment` with a `ProceduralSkyMaterial`, a smooth follow
   `Camera3D`; `CharacterBody3D` / `RigidBody3D` / `Area3D`. A few hundred meshes at most
   (the web build is WebGL 2); reuse meshes and materials. HUD on a `CanvasLayer`.
@@ -33,8 +46,34 @@ developer. Never ask them questions: make sensible choices yourself and finish t
 ## Every game has
 
 - A title overlay (name + one-line controls); the first tap/click/Space starts.
+- A short title (2-3 words), the same on screen and as `config/name` in `project.godot`.
 - A score or goal; a game-over (or win) state; restart with tap/click/Space.
 - Playable by a first-timer within 5 seconds; difficulty rises over time.
+
+## Make it look finished (what our best games do)
+
+- **Title over the game**: a panel over the real game (board or map dimmed behind it, ideally
+  with a demo moving): the name big, one line of what to do, the game's own pieces drawn as
+  icons, one big coloured Play button; with levels, a list below it (locked ones greyed).
+  Never text on an empty background.
+- **One look** in `ui.gd`: rounded `StyleBoxFlat` panels and buttons (dark border, small
+  shadow, hover / pressed / disabled states, `focus_mode = FOCUS_NONE`), labels with a dark
+  outline. The HUD sits in solid bars: big numbers (32-40 px), each with a small drawn icon
+  (heart for lives, coin for gold), never loose text over the game.
+- **Show, don't label**: each piece, tower, enemy or car has ONE static draw function, used in
+  the game AND on its button, the title and the help. Pieces differ in shape as well as colour
+  (circle, diamond, star, hexagon…). Every shape: one dark outline colour, a lighter
+  highlight, a soft shadow below.
+- **A world that makes sense**: things come from somewhere and go somewhere (a portal, a
+  castle, a start line); fill the edges (trees, rocks, flowers placed with a seeded
+  `RandomNumberGenerator`, so they stay put). No screen is one flat dark colour: a gradient
+  plus a themed layer (grass, sky and clouds, sea, stars), menus and level maps included.
+- **Say what to do next**: a status line ("Tap grass to build. First wave in 12 s") and short
+  toasts for events ("Wave 3!", "Not enough gold", "Level clear! +40").
+- **Every action answers**: a pop (scale tween, `TRANS_BACK`), a particle burst, a floating
+  "+5", a shake or red flash on damage; screens fade in and ignore taps for 0.3 s.
+- **Levels differ in more than numbers** (layout, goal, a new enemy or piece): level 1 easy
+  to win, the last a real challenge; all level numbers in one data script.
 
 ## Check your work (required)
 

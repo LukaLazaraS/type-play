@@ -16,6 +16,7 @@ export function Footer() {
         <Link href="/privacy">Privacy</Link>
         <Link href="/refunds">Refunds</Link>
         <a href={`mailto:${site.email}`}>{site.email}</a>
+        {site.phone && <a href={`tel:${site.phone.replace(/[^\d+]/g, "")}`}>{site.phone}</a>}
       </nav>
     </footer>
   );

@@ -4,27 +4,32 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node -e \"require('fs').rmSync('.next/dev', { recursive: true, force: true })\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "check": "tsc --noEmit && eslint",
     "shots": "node scripts/shot.mjs",
-    "posters": "node scripts/posters.mjs"
+    "posters": "node scripts/posters.mjs",
+    "test:links": "node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/safe-next-check.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.118.0",
     "motion": "^14.1.0",
-    "next": "16.4.0",
+    "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
+    "@typeplay/shared": "*",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.0",
+    "eslint-config-next": "16.4.3",
     "playwright": "^1.64.0",
     "tailwindcss": "^4",
     "typescript": "^5"

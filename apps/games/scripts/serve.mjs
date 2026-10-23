@@ -12,6 +12,7 @@ const types = {
   ".wasm": "application/wasm",
   ".pck": "application/octet-stream",
   ".json": "application/json",
+  ".png": "image/png", // builds/<id>/poster.png: the start-screen picture (share pages, the frame before Play)
 };
 // Only what the bucket holds: the loader, engines, builds.
 const allowed = ["play.html", "engine" + sep, "builds" + sep];

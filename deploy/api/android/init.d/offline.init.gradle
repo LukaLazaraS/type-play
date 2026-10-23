@@ -1,0 +1,4 @@
+// Every Gradle run from this user home is offline: the seed (deploy/api/Dockerfile "gradle-seed")
+// holds every dependency, and the runner has no internet anyway. Put in place only after the
+// seed is warmed (the warm-up run needs the network).
+gradle.startParameter.offline = true

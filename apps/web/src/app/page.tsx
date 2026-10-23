@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Crown, Lightning, Sparkle } from "@phosphor-icons/react/dist/ssr";
+import { JsonLd } from "@/components/JsonLd";
+import { structuredData } from "@/content/seo";
 import { Demo } from "@/components/Demo";
 import { games } from "@/content/games";
 import { plans } from "@/content/site";
@@ -8,6 +11,7 @@ import { BuildingIcon } from "@/components/BuildingIcon";
 import { Dock, PlatformSlots } from "@/components/Dock";
 import { Ground } from "@/components/Ground";
 import { Notice } from "@/components/Notice";
+import { Ownership } from "@/components/Ownership";
 import { PromptForm } from "@/components/PromptForm";
 
 const game = (slug: string) => {
@@ -17,15 +21,19 @@ const game = (slug: string) => {
 };
 const robot = game("robot-runner");
 const night = game("night-runner");
-const maker = plans.find((p) => p.id === "maker")!;
+const free = plans.find((p) => p.id === "free")!;
+const medium = plans.find((p) => p.id === "medium")!;
 // The home screen's icon order: two left of the widget, two right, then the second row.
 const row1 = [game("robot-runner"), game("fruit-match")];
 const row1Right = [game("town-driver"), game("box-push")];
 const row2 = [night, game("fruit-match-night"), game("little-car"), game("desert-dash")];
 
+export const metadata: Metadata = { alternates: { canonical: "/" } };
+
 export default function Home() {
   return (
     <main id="top">
+      <JsonLd data={structuredData} />
       {/* The home screen */}
       <section className="home" aria-label="Type it, play it">
         <Ground className="home__ground" />
@@ -168,6 +176,9 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Whose game it is: the terms' ownership promise */}
+      <Ownership />
+
       {/* Pricing teaser */}
       <section className="section" aria-labelledby="free-title">
         <div className="widget cta">
@@ -176,8 +187,8 @@ export default function Home() {
               Free to start.
             </h2>
             <p>
-              A few games a month on Fast, played in the browser. {maker.name} is ${maker.price} a
-              month for Smart builds and exports.
+              {free.credits} free credits a month on Fast, played in the browser. The{" "}
+              {medium.name} plan is ${medium.price} a month for Smart builds and exports.
             </p>
           </div>
           <div className="cta__actions">

@@ -15,8 +15,10 @@ import { site } from "@/content/site";
 import type { Orientation } from "@/content/games";
 import { RotateHint } from "./RotateHint";
 
-export const playUrl = (slug: string, auto = false) =>
-  `${site.gamesOrigin}/play.html?g=${encodeURIComponent(slug)}${auto ? "&auto=1" : ""}`;
+/** `quiet`: a Free build's mark starts small, without its few seconds of "Made with" (play.html `mark=quiet`). */
+export const playUrl = (slug: string, auto = false, quiet = false) =>
+  `${site.gamesOrigin}/play.html?g=${encodeURIComponent(slug)}${auto ? "&auto=1" : ""}${quiet ? "&mark=quiet" : ""}`;
+
 
 const gamesOrigin = new URL(site.gamesOrigin).origin;
 
@@ -116,6 +118,7 @@ export function GameFrame({
   poster,
   name,
   mode = "click",
+  autoStart = false,
   orientation = "landscape",
   fullscreen = mode === "click",
   onReady,
@@ -124,9 +127,12 @@ export function GameFrame({
   ref,
 }: {
   slug: string;
-  poster: string;
+  /** The game's screenshot until the engine runs. Users' games have none: the frame shows its backdrop. */
+  poster?: string;
   name: string;
   mode?: "click" | "auto";
+  /** Click mode, but already playing: a new version of a game the player has started (the app). */
+  autoStart?: boolean;
   orientation?: Orientation;
   /** Offer full screen. Off for the demo, whose frame is swapped every few seconds. */
   fullscreen?: boolean;
@@ -138,8 +144,13 @@ export function GameFrame({
   ref?: Ref<GameFrameHandle>;
 }) {
   // Parents pass key={slug}, so a new game mounts a fresh frame.
-  const [playing, setPlaying] = useState(mode === "auto");
+  const [playing, setPlaying] = useState(mode === "auto" || autoStart);
   const [ready, setReady] = useState(false);
+  // The loader said the game couldn't load (play.html's "error"): Try again mounts a fresh frame.
+  const [failed, setFailed] = useState(false);
+  // A poster that doesn't load (gone from the games origin) shows the frame's backdrop, not a broken picture.
+  const [posterGone, setPosterGone] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [immersive, setImmersive] = useState<Immersive>(null);
   const [byTouch, setByTouch] = useState(false);
   // The orientation lock has answered: no hint flashes in the moment before Android turns.
@@ -236,9 +247,16 @@ export function GameFrame({
       if (e.data?.game !== slug) return;
       if (e.data.typeplay === "ready") {
         setReady(true);
+        setFailed(false);
         onReady?.(slug);
         // Desktop: the keyboard works at once, without a click into the game first.
         if (mode === "click" && !window.matchMedia(TOUCH).matches) focusGame();
+      }
+      // The loader couldn't load the game (gone from the games origin, the engine download dropped).
+      if (e.data.typeplay === "error") {
+        setFailed(true);
+        setReady(false);
+        if (live.current.immersive) leave("control");
       }
       // play.html passes Escape up, since the game holds the keyboard focus. One press steps
       // back one level: out of full screen, else out of the launcher.
@@ -304,14 +322,26 @@ export function GameFrame({
       data-orientation={orientation}
     >
       <div className="gameframe__screen">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="gameframe__poster" src={poster} alt={`${name} while playing`} />
+        {poster && !posterGone && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            // A picture that failed before the page woke up never fires onError for React: caught on mount too.
+            ref={(img) => {
+              if (img?.complete && img.naturalWidth === 0) setPosterGone(true);
+            }}
+            className="gameframe__poster"
+            src={poster}
+            alt={`${name} while playing`}
+            onError={() => setPosterGone(true)}
+          />
+        )}
         {playing && (
           <iframe
             ref={frame}
-            key={slug}
+            key={`${slug}-${attempt}`}
             className="gameframe__frame"
-            src={playUrl(slug, mode === "auto")}
+            // A new version of a game the player is already playing: the Free mark doesn't introduce itself again.
+            src={playUrl(slug, mode === "auto", autoStart)}
             title={`${name}, playable`}
             allow="autoplay; fullscreen"
           />
@@ -320,11 +350,29 @@ export function GameFrame({
       {!playing && (
         <button type="button" className="gameframe__play" onClick={play}>
           <Play size={22} weight="fill" aria-hidden="true" />
-          Play {name}
+          {/* In a narrow frame (an upright game on a phone, or in the app's stage) only "Play"
+              shows; the name stays for screen readers and sits in the bar above anyway. */}
+          <span className="gameframe__label">
+            Play<span className="gameframe__name"> {name}</span>
+          </span>
         </button>
       )}
       {hint && <RotateHint to={orientation} onStay={() => setStay(true)} />}
-      {playing && !ready && <div className="gameframe__loading">Loading the game…</div>}
+      {playing && !ready && !failed && <div className="gameframe__loading">Loading the game…</div>}
+      {failed && (
+        <div className="gameframe__loading gameframe__failed" role="alert">
+          This game couldn&apos;t load.
+          <button
+            type="button"
+            onClick={() => {
+              setFailed(false);
+              setAttempt((a) => a + 1);
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      )}
       {immersive && (
         <button type="button" className="gameframe__exit" aria-label="Close full screen" onClick={() => leave("control")}>
           <X size={20} weight="bold" aria-hidden="true" />
