@@ -825,6 +825,19 @@ async function main() {
   ok(offMe.billing?.mode === "off" && offMe.plan === "high", "GET /me still works: Me.billing.mode off, the plan as it is");
   offApi.kill();
 
+  // ---- Paddle's clock ahead of ours (this PC ran 32 s slow in the sandbox, 2026-10-25) ------------------------
+  console.log("Paddle's clock ahead of ours: a change applied from Paddle's answer is ordered by Paddle's time");
+  const N = token("n");
+  const coN = await api(N, "POST", "/billing/checkout", { item: "plan:medium", consentVersion: "v1", acceptedTerms: true });
+  const tN = stub.complete(coN.body.transactionId);
+  await api(N, "POST", `/billing/checkout/${coN.body.transactionId}/verify`);
+  stub.state.clockAheadMs = 30_000;
+  const subN = stub.state.subscriptions.get(tN.subscription_id);
+  await deliver(ev("subscription.updated", { ...subN, updated_at: new Date(Date.now() + 30_000).toISOString() }, { at: Date.now() + 30_000 }));
+  const cancelN = await api(N, "POST", "/billing/cancel");
+  stub.state.clockAheadMs = 0;
+  ok(cancelN.status === 200 && cancelN.body.cancelsAt === subN.current_billing_period.ends_at, `a cancel right after a webhook stamped 30 s ahead: applied from Paddle's answer at once, not skipped as older (${JSON.stringify(cancelN.body)})`);
+
   // ---- The start-up guards -----------------------------------------------------------------------------------
   console.log("start-up: a catalog mismatch refuses to start; Paddle down means 503 until it answers");
   stub.state.fail.priceMismatch = { [PRICE_IDS.high]: { unit_price: { amount: "4500", currency_code: "USD" } } };

@@ -240,7 +240,8 @@ node deploy/deploy.mjs site     # the billing pages with live Paddle.js
 - One real purchase: Luka buys Medium with his own card. The checkout completes, 100 credits arrive, and Paddle's receipt
   comes by email. Paddle > Events > Notifications shows the deliveries answered 200; on the server, `docker compose exec
   -T api node dist/admin.js events` shows them processed. Then he cancels the plan on /billing, and the refund goes
-  through Paddle (`admin refund <email> last`, run in the api container). Paddle keeps its fee (about $1.50).
+  through Paddle (`admin refund <email> last`, run in the api container). Paddle keeps its fee (5% + $0.50 of the
+  total with tax: $1.68 on Medium with 18% VAT in the sandbox, 2026-10-25).
 
 **Back off:** the five lines back as they were, then `api` and `site` again. Subscriptions keep running at Paddle; the
 webhooks that come while billing is off get 503, and Paddle retries them for 3 days.

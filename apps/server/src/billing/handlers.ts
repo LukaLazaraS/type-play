@@ -190,7 +190,7 @@ export class BillingHandlers {
     const userId = who.userId;
     return this.ledger.withUser(userId, async (tx, user): Promise<HandlerResult> => {
       if (await tx.payment.findUnique({ where: { id: t.id }, select: { id: true } })) return processed(`payment ${t.id} already recorded`, userId);
-      const main = lines.find((l) => l.subtotalCents >= 0) ?? lines[0];
+      const main = lines.find((l) => l.subtotalCents >= 0 && l.quantity > 0) ?? lines[0];
       const price = this.paddle.priceOf(main.priceId)!;
       const kind: PaymentKind =
         t.origin === "subscription_recurring" ? "renewal" : t.origin === "subscription_update" ? "upgrade" : t.origin === "subscription_charge" ? "pack" : price.kind === "pack" ? "pack" : "plan";

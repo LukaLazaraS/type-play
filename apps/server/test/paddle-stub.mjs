@@ -47,6 +47,8 @@ export function startStub({ port = 0 } = {}) {
     transactions: new Map(),
     subscriptions: new Map(),
     adjustments: new Map(),
+    // How far Paddle's clock runs ahead of ours (the test flips it): a changed subscription's updated_at.
+    clockAheadMs: 0,
     // Switches (the test flips them): a timeout on routes matching this regexp; 409 on POST /customers;
     // a declined card on PATCH /subscriptions/:id; the 30-minute lock on cancel; a cancel refused with
     // this error code (one with "cancel" in it, which is not "already canceled"); the key refused (403).
@@ -187,7 +189,7 @@ export function startStub({ port = 0 } = {}) {
       if (call.body && "scheduled_change" in call.body && call.body.scheduled_change === null) {
         s.scheduled_change = null;
         s.next_billed_at = s.current_billing_period?.ends_at ?? null;
-        s.updated_at = iso();
+        s.updated_at = iso(Date.now() + state.clockAheadMs);
         return ok(res, s);
       }
       if (call.body?.items) {
@@ -195,7 +197,7 @@ export function startStub({ port = 0 } = {}) {
           return error(res, 400, "subscription_payment_declined", "The payment for the update was declined (prevent_change).");
         }
         s.items = call.body.items.map((i) => ({ status: "active", quantity: i.quantity, price: state.prices[i.price_id] ?? { id: i.price_id }, next_billed_at: s.next_billed_at }));
-        s.updated_at = iso();
+        s.updated_at = iso(Date.now() + state.clockAheadMs);
         // Billed now: Paddle creates a subscription_update transaction; the test sends its transaction.completed itself.
         if (call.body.proration_billing_mode === "prorated_immediately") s.last_update_preview = previewFor(s, call.body);
         return ok(res, s);
@@ -218,7 +220,7 @@ export function startStub({ port = 0 } = {}) {
         s.scheduled_change = { action: "cancel", effective_at: s.current_billing_period?.ends_at ?? iso(monthLater(new Date())), resume_at: null };
         s.next_billed_at = null;
       }
-      s.updated_at = iso();
+      s.updated_at = iso(Date.now() + state.clockAheadMs);
       return ok(res, s);
     }
     // Adjustments
@@ -284,7 +286,8 @@ export function startStub({ port = 0 } = {}) {
     const next = { billing_period: { starts_at: s.current_billing_period?.ends_at ?? iso(), ends_at: iso(monthLater(s.current_billing_period?.ends_at ?? new Date())) }, details: { line_items: nextLines, totals: totalsFor([{ price_id: newPrice, quantity: 1 }]) } };
     if (body.proration_billing_mode !== "prorated_immediately") return { immediate_transaction: null, next_transaction: next, recurring_transaction_details: next.details, update_summary: { credit: { amount: "0", currency_code: "USD" }, charge: { amount: "0", currency_code: "USD" }, result: { action: "charge", amount: "0", currency_code: "USD" } } };
     const rate = state.prorationRate ?? 0.5;
-    const lines = [lineFor(newPrice, 1, rate), { ...lineFor(oldPrice, 1, rate), totals: negate(lineFor(oldPrice, 1, rate).totals) }];
+    // Paddle's shape (sandbox 2026-10-25): the old plan's unused share is a line of quantity -1 with negative totals.
+    const lines = [lineFor(newPrice, 1, rate), lineFor(oldPrice, -1, rate)];
     const subtotal = lines.reduce((x, l) => x + Number(l.totals.subtotal), 0);
     const tax = lines.reduce((x, l) => x + Number(l.totals.tax), 0);
     return {
@@ -294,7 +297,6 @@ export function startStub({ port = 0 } = {}) {
       update_summary: { credit: { amount: "0", currency_code: "USD" }, charge: { amount: String(subtotal + tax), currency_code: "USD" }, result: { action: "charge", amount: String(subtotal + tax), currency_code: "USD" } },
     };
   }
-  const negate = (t) => Object.fromEntries(Object.entries(t).map(([k, v]) => [k, k === "discount" ? v : String(-Number(v))]));
 
   // ---- What the test uses to play Paddle's side ----------------------------------------------
 
@@ -346,10 +348,8 @@ export function startStub({ port = 0 } = {}) {
 
   /** A transaction Paddle made itself (a renewal, an upgrade's charge, a one-time charge), completed. */
   function makeTransaction({ origin, customerId, subscriptionId, customData, lines, billingPeriod = null, billedAt = new Date() }) {
-    const lineItems = lines.map((l) => {
-      const line = lineFor(l.price_id, l.quantity ?? 1, l.rate ?? null);
-      return l.negative ? { ...line, totals: negate(line.totals) } : line;
-    });
+    // A negative line is the old plan's credit on an upgrade, as Paddle sends it: quantity -1, negative totals.
+    const lineItems = lines.map((l) => lineFor(l.price_id, l.negative ? -(l.quantity ?? 1) : (l.quantity ?? 1), l.rate ?? null));
     const subtotal = lineItems.reduce((x, l) => x + Number(l.totals.subtotal), 0);
     const tax = lineItems.reduce((x, l) => x + Number(l.totals.tax), 0);
     const t = {

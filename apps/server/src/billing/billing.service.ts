@@ -79,6 +79,12 @@ export function parseItem(item: unknown): CheckoutItem {
 }
 
 const hasSubscription = (u: User) => !!u.paddleSubscriptionId && (u.subscriptionStatus === "active" || u.subscriptionStatus === "past_due" || u.subscriptionStatus === "paused");
+/**
+ * When Paddle changed the subscription, by Paddle's clock: what a change applied straight from Paddle's answer is
+ * ordered by, against the webhooks' occurred_at (Paddle's clock too). Our own clock would mix two: on a PC running
+ * 32 s slow (sandbox, 2026-10-25) a cancel made 2 s after a webhook was skipped as "older" until its own webhook came.
+ */
+const changedAt = (s: PaddleSubscription) => (s.updated_at ? new Date(s.updated_at) : new Date());
 
 @Injectable()
 export class BillingService implements OnModuleInit, OnApplicationShutdown {
@@ -363,7 +369,7 @@ export class BillingService implements OnModuleInit, OnApplicationShutdown {
       this.paddleFailed(e, "plan change");
     }
     if (preview.direction === "down") await this.prisma.user.update({ where: { id: user.id }, data: { pendingPlan: plan } });
-    await this.handlers.subscription(sub, new Date(), { eventId: `sub:${sub.id}`, actor: `user:${user.id}` });
+    await this.handlers.subscription(sub, changedAt(sub), { eventId: `sub:${sub.id}`, actor: `user:${user.id}` });
     await this.ledger.audit(this.prisma, { actor: `user:${user.id}`, userId: user.id, action: preview.direction === "up" ? "upgrade" : "downgrade_scheduled", details: { from: user.plan, to: plan, chargeNowUsd: preview.chargeNowUsd } });
     return { direction: preview.direction, chargeNowUsd: preview.chargeNowUsd, taxNowUsd: preview.taxNowUsd, creditsNow: preview.creditsNow, nextRenewalUsd: preview.nextRenewalUsd, effectiveAt: preview.effectiveAt };
   }
@@ -381,7 +387,7 @@ export class BillingService implements OnModuleInit, OnApplicationShutdown {
       this.paddleFailed(e, "undo plan change");
     }
     await this.prisma.user.update({ where: { id: user.id }, data: { pendingPlan: null } });
-    await this.handlers.subscription(sub, new Date(), { eventId: `sub:${sub.id}`, actor });
+    await this.handlers.subscription(sub, changedAt(sub), { eventId: `sub:${sub.id}`, actor });
     await this.ledger.audit(this.prisma, { actor, userId: user.id, action: "downgrade_undone", details: { was: user.pendingPlan, plan: user.plan } });
   }
 
@@ -399,7 +405,7 @@ export class BillingService implements OnModuleInit, OnApplicationShutdown {
     } catch (e) {
       this.paddleFailed(e, "cancel");
     }
-    await this.handlers.subscription(sub, new Date(), { eventId: `sub:${sub.id}`, actor: `user:${user.id}` });
+    await this.handlers.subscription(sub, changedAt(sub), { eventId: `sub:${sub.id}`, actor: `user:${user.id}` });
     await this.ledger.audit(this.prisma, { actor: `user:${user.id}`, userId: user.id, action: "cancel_scheduled", details: { effectiveAt: sub.scheduled_change?.effective_at ?? null } });
     return { cancelsAt: (await this.fresh(user.id)).cancelsAt?.toISOString() ?? null };
   }
@@ -416,7 +422,7 @@ export class BillingService implements OnModuleInit, OnApplicationShutdown {
     } catch (e) {
       this.paddleFailed(e, "keep");
     }
-    await this.handlers.subscription(sub, new Date(), { eventId: `sub:${sub.id}`, actor: `user:${user.id}` });
+    await this.handlers.subscription(sub, changedAt(sub), { eventId: `sub:${sub.id}`, actor: `user:${user.id}` });
     await this.ledger.audit(this.prisma, { actor: `user:${user.id}`, userId: user.id, action: "cancel_undone", details: {} });
   }
 
@@ -559,7 +565,7 @@ export class BillingService implements OnModuleInit, OnApplicationShutdown {
     const out = { subscription: null as string | null, transactions: [] as string[], adjustments: [] as string[] };
     if (user.paddleSubscriptionId) {
       const sub = await client.get<PaddleSubscription>(`/subscriptions/${encodeURIComponent(user.paddleSubscriptionId)}`);
-      const r = await this.handlers.subscription(sub, new Date(), ctx(`sub:${sub.id}`));
+      const r = await this.handlers.subscription(sub, changedAt(sub), ctx(`sub:${sub.id}`));
       out.subscription = `${sub.id} ${sub.status}: ${r.status} (${r.note})`;
     }
     const customerId = user.paddleCustomerId;
@@ -604,7 +610,7 @@ export class BillingService implements OnModuleInit, OnApplicationShutdown {
       this.log.warn(`close ${user.id}: cancel refused: ${(e as Error).message}`);
       throw new ApiException(409, "billing_busy", "Your plan renews within the hour, so it can't be cancelled right now. Try again in an hour.");
     }
-    await this.handlers.subscription(sub, new Date(), { eventId: `sub:${sub.id}`, actor: `user:${user.id}` });
+    await this.handlers.subscription(sub, changedAt(sub), { eventId: `sub:${sub.id}`, actor: `user:${user.id}` });
     await this.ledger.audit(this.prisma, { actor: `user:${user.id}`, userId: user.id, action: "cancel_for_close", details: { subscription: sub.id, status: sub.status } });
   }
 }
