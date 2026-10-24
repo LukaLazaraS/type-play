@@ -265,8 +265,9 @@ export function Stage({
             <span className="app__icon build stage__build" aria-hidden="true">
               <BuildLayers />
             </span>
-            <p className="stage__line" role="status">
-              {live?.text || "Getting started"}
+            {/* Only the step is announced: the clock ticking inside the live region was read out every second. */}
+            <p className="stage__line">
+              <span role="status">{live?.text || "Getting started"}</span>
               {runningMessage && <span className="figures"> {clock(runningMessage.createdAt, now)}</span>}
             </p>
             <p className="stage__note">This takes a few minutes. You can leave this page: it keeps building.</p>

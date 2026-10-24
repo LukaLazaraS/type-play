@@ -2,9 +2,8 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { ArrowRight } from "@phosphor-icons/react";
+import { ArrowRight, Play } from "@phosphor-icons/react";
 import type { Genre, Orientation } from "@typeplay/shared";
-import { genreName } from "@/content/gallery";
 import { games as showcase } from "@/content/games";
 import { moreGames } from "@/lib/gallery";
 import { posterUrl } from "@/lib/urls";
@@ -21,10 +20,9 @@ export type WaitGame = {
   slug: string;
   name: string;
   orientation: Orientation;
-  /** The icon's picture: a square crop, or the gallery's start-screen picture (null: GameTile draws one). */
-  icon: string | null;
-  /** The frame's picture until the game runs. */
+  /** Its start screen: the card's picture (none: GameTile draws one) and the frame's until the game runs. */
   poster?: string;
+  /** Its genre skill, for the order only (most games have none: only four genres have a skill). */
   genre: Genre | null;
 };
 
@@ -34,7 +32,6 @@ const homeGames: WaitGame[] = showcase.map((g) => ({
   slug: g.slug,
   name: g.name,
   orientation: g.orientation,
-  icon: g.icon,
   poster: g.image,
   genre: HOME_GENRE[g.genre] ?? null,
 }));
@@ -80,7 +77,6 @@ export function useWaitGames(prompt: string, on: boolean): WaitGame[] | null {
             slug: g.buildId,
             name: g.name,
             orientation: g.orientation,
-            icon: g.poster ? posterUrl(g.buildId) : null,
             poster: g.poster ? posterUrl(g.buildId) : undefined,
             genre: g.genre ?? null,
           })),
@@ -129,7 +125,10 @@ export function forgetWaiting() {
 /** The game this tab's player is waiting for, away from its page (null: none). */
 export const useWaiting = () => useSyncExternalStore(subscribe, waitingFor, () => null);
 
-/** Under the build's progress: three games as app icons (a tap plays it in the stage) and the gallery. */
+/**
+ * Under the build's progress: three games as cards, the gallery's listings in small (Luka, 10-25: the icons were too
+ * small to read as games), each a big picture with a Play chip and its name; a tap plays it in the stage. Then the gallery.
+ */
 export function WhileYouWait({ projectId, games, onPlay }: { projectId: string; games: WaitGame[] | null; onPlay: (g: WaitGame) => void }) {
   return (
     <section className="wait" aria-labelledby="wait-title">
@@ -139,18 +138,22 @@ export function WhileYouWait({ projectId, games, onPlay }: { projectId: string; 
       <ul className="wait__games" aria-busy={games === null || undefined}>
         {(games ?? [null, null, null]).map((g, i) =>
           g ? (
-            <li key={g.key}>
-              <button type="button" className="app wait__game" onClick={() => onPlay(g)} aria-label={`Play ${g.name}`}>
-                <span className="app__icon">
-                  <GameTile id={g.key} name={g.name} building={false} poster={g.icon} />
+            <li key={g.key} className="wait__card">
+              <button type="button" className="wait__game" onClick={() => onPlay(g)} aria-label={`Play ${g.name}`}>
+                <span className="wait__pic">
+                  <GameTile id={g.key} name={g.name} building={false} poster={g.poster ?? null} fill />
+                  <span className="wait__play" aria-hidden="true">
+                    <Play size={12} weight="fill" />
+                    Play
+                  </span>
                 </span>
-                <span className="app__name">{g.name}</span>
-                {g.genre && <span className="app__stat">{genreName[g.genre]}</span>}
+                <span className="wait__name">{g.name}</span>
               </button>
             </li>
           ) : (
-            <li key={i} className="wait__slot" aria-hidden="true">
-              <span className="app__icon" />
+            <li key={i} className="wait__card wait__slot" aria-hidden="true">
+              <span className="wait__pic" />
+              <span className="wait__name">&nbsp;</span>
             </li>
           ),
         )}

@@ -6,6 +6,7 @@ import type { Project, UpdateProjectBody } from "@typeplay/shared";
 import { site } from "@/content/site";
 import { api } from "@/lib/api";
 import { playsWord } from "@/lib/format";
+import { Toggle } from "./Toggle";
 import { usePopover } from "./usePopover";
 
 const noop = () => () => {};
@@ -87,18 +88,13 @@ export function ShareMenu({ project, onChange }: { project: Project; onChange: (
             <span id={`share-state-${project.id}`}>{project.shared ? "Anyone with the link can play it." : "Only you can play it now."}</span>
             {project.plays > 0 && <span className="figures share__plays">{playsWord(project.plays)}</span>}
           </div>
-          <button
-            type="button"
-            role="switch"
-            className="toggle"
-            aria-checked={project.shared}
-            aria-labelledby={`share-title-${project.id}`}
-            aria-describedby={`share-state-${project.id}`}
-            disabled={busy}
-            onClick={() => void update({ shared: !project.shared })}
-          >
-            <span className="toggle__thumb" aria-hidden="true" />
-          </button>
+          <Toggle
+            on={project.shared}
+            onChange={(shared) => void update({ shared })}
+            labelledBy={`share-title-${project.id}`}
+            describedBy={`share-state-${project.id}`}
+            busy={busy}
+          />
         </div>
         {project.shared ? (
           <>
@@ -136,18 +132,14 @@ export function ShareMenu({ project, onChange }: { project: Project; onChange: (
                 </span>
               </div>
               {/* Taken out by an admin: the switch reads off and waits (writing to us is the way back). */}
-              <button
-                type="button"
-                role="switch"
-                className="toggle"
-                aria-checked={project.listed && !project.galleryHidden}
-                aria-labelledby={`gallery-title-${project.id}`}
-                aria-describedby={`gallery-state-${project.id}`}
-                disabled={busy || project.galleryHidden}
-                onClick={() => void update({ listed: !project.listed })}
-              >
-                <span className="toggle__thumb" aria-hidden="true" />
-              </button>
+              <Toggle
+                on={project.listed && !project.galleryHidden}
+                onChange={(listed) => void update({ listed })}
+                labelledBy={`gallery-title-${project.id}`}
+                describedBy={`gallery-state-${project.id}`}
+                busy={busy}
+                disabled={project.galleryHidden}
+              />
             </div>
             <p className="share__note">
               {project.galleryHidden

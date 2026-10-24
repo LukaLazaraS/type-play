@@ -245,7 +245,7 @@ model Message {
   /// Luka's PC, where the agent runs on the Max login). The charge is the larger of the two.
   meteredUsd Decimal?      @db.Decimal(10, 4)
   versionN  Int?
-  /// Up to 12 next steps, best first, the chat offers under this answer, three at a time (runs that made a version).
+  /// Up to 9 next steps, best first, the chat offers under this answer: three, then "More ideas" adds six (runs that made a version).
   suggestions String[]     @default([])
   /// The plan the run started on (agent messages): the Free kill switch sums costUsd by plan and day.
   plan      Plan?

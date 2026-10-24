@@ -15,7 +15,7 @@
 //          "Planning your change…" while the model thinks, tools/thinking.mjs), result;
 //          read by the server, apps/server. The result carries costUsd = every attempt, and
 //          chargeUsd = only the attempts in the game the player gets: what they are charged; and
-//          the chat's 12 next-step ideas, tools/next-steps.mjs, whose cost the server adds to the charge)
+//          the chat's 9 next-step ideas, tools/next-steps.mjs, whose cost the server adds to the charge)
 // Each game folder is its own git repo: every successful run is a commit, a failed one is
 // rolled back, so a change can never leave the game broken.
 // Auth: no ANTHROPIC_API_KEY → the Claude Code login on this PC (Luka's Max). AGENT_AUTH=api
@@ -315,7 +315,7 @@ progress('Almost done');
 const builderReply = PLAN && final.ok
   ? attempts.filter((a) => a.ok).map((a) => a.reply).join('\n\n')
   : final.reply;
-// Beside it, the chat's 12 next-step ideas: only when the game changed; part of the answer's charge (below).
+// Beside it, the chat's 9 next-step ideas: only when the game changed; part of the answer's charge (below).
 const [message, next] = await Promise.all([
   playerMessage(prompt, builderReply, { isNew: !isEdit }),
   final.ok

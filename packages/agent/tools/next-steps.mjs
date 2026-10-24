@@ -1,7 +1,8 @@
-// Next-step ideas (run.mjs, after a run that worked): twelve small changes the player could ask for
-// next, best first. The chat shows three under the answer and the next three with each "More ideas"
-// (Luka, 10-24: "never suggest what the game already has; as the game grows, the suggestions grow with
-// it"). One cheap Haiku call, no tools, beside the player-message rewrite, made once per answer; like
+// Next-step ideas (run.mjs, after a run that worked): nine small changes the player could ask for
+// next, best first. The chat shows three under the answer, and "More ideas" adds the other six under
+// them (Luka, 10-24: "never suggest what the game already has; as the game grows, the suggestions grow
+// with it"; 10-25: added, not replaced, so an earlier idea stays in sight). One cheap Haiku call, no
+// tools, beside the player-message rewrite, made once per answer; like
 // every AI cost a player causes, it is part of that answer's charge (run.mjs `suggestionsCostUsd`).
 // What the game has comes from the game's own record: every request so far (the folder's git log)
 // and NOTES.md, which the agent keeps current.
@@ -9,8 +10,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
-/** Three shown at first, then three more per "More ideas", three times. */
-export const MAX_SUGGESTIONS = 12;
+/** Three shown at first, then the other six with "More ideas". */
+export const MAX_SUGGESTIONS = 9;
 /** A chip is a short line: longer answers are dropped, not cut. */
 export const MAX_LENGTH = 48;
 
@@ -39,7 +40,7 @@ export function notesOf(dir) {
 
 export function suggestionsPrompt({ requests, notes, reply }) {
   return [
-    'A player is making a game by chatting with an AI game builder. Suggest 12 changes they could ask for next, best first.',
+    'A player is making a game by chatting with an AI game builder. Suggest 9 changes they could ask for next, best first.',
     `What the player asked for so far, oldest first:\n${requests.map((r) => `- ${r}`).join('\n') || '- (nothing recorded)'}`,
     notes && `The game now (the builder's notes):\n${notes}`,
     reply && `What the builder just did:\n${reply.slice(0, 1500)}`,
@@ -47,17 +48,17 @@ export function suggestionsPrompt({ requests, notes, reply }) {
       'Rules:',
       '- Each one is a single small change the builder can make in one go, said the way a player would type it: 2 to 6 words, starting with a verb, such as "Add coins to collect".',
       '- Fit the stage the game is at. A new game (one or two requests so far) gets gameplay first: a new move, things to collect, new obstacles or enemies, a way to win or lose. Once that is there: more variety, harder stages or levels, power-ups, a goal to chase. Then feel: sounds, effects, juicier motion. Looks (skins, themes, colours) come last.',
-      '- Best first: the first three are the ones most worth doing now; the player sees them first and the rest three at a time.',
+      '- Best first: the first three are the ones most worth doing now; the player sees them first, then the other six.',
       '- Never suggest anything the game already has or the player already asked for.',
-      '- Twelve different changes, not versions of one; mix the kinds within each group of three.',
+      '- Nine different changes, not versions of one; mix the kinds within each group of three.',
       '- Nothing the builder cannot make: no online play, accounts, shared leaderboards, ads, purchases, real music or voices, or anything outside the game.',
       "- Write them in the language of the player's requests.",
     ].join('\n'),
-    'Reply with a JSON array of 12 strings only, for example: ["Add coins to collect", "Add flying traps", "Add a shield power-up", …]',
+    'Reply with a JSON array of 9 strings only, for example: ["Add coins to collect", "Add flying traps", "Add a shield power-up", …]',
   ].filter(Boolean).join('\n\n');
 }
 
-/** The model's answer → up to 12 clean, distinct short lines, in its order ([] when it isn't a list of strings). */
+/** The model's answer → up to 9 clean, distinct short lines, in its order ([] when it isn't a list of strings). */
 export function parseSuggestions(answer) {
   const json = /\[[\s\S]*\]/.exec(answer ?? '')?.[0];
   if (!json) return [];

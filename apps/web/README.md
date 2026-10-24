@@ -402,11 +402,11 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   (`Composer` `prefill`), so the cost shows and the player sends it or changes it first (filling, not sending: a tap
   never spends credits). Another tap adds its idea to the same message ("Add coins to collect, add flying traps": one
   build, one charge), never the same one twice (`withIdea`; HQ's call for Luka, 10-24). They come with the answer:
-  `packages/agent/tools/next-steps.mjs` makes 12, best first, in one Haiku call beside the player-message rewrite, from
+  `packages/agent/tools/next-steps.mjs` makes 9, best first, in one Haiku call beside the player-message rewrite, from
   the game's requests so far and its NOTES.md (~$0.001), and its cost is part of the answer's charge like every AI cost
   a player causes (batch 3.1, Luka 10-24); stored on the message (`Message.suggestions`, migration
-  `20261025000000_suggestions`, the contract's `Message.suggestions`). **More ideas**: a fourth pill with a refresh mark
-  shows the next three at once, three times (3 + 3 × 3 = 12), then goes until the next answer; no call of its own.
+  `20261025000000_suggestions`, the contract's `Message.suggestions`). **More ideas**: a fourth pill with a plus mark
+  adds the other six under the first three (which stay), then goes until the next answer; no call of its own (batch 4.1).
 - **The preview's device** (batches 2.2 and 3.2, `components/app/DeviceMenu.tsx`, `Stage.tsx`): one pill beside Share
   with the device's icon and name opens the list, each with its size: Phones iPhone (393 × 852), Android (412 × 915),
   Small phone (iPhone SE, 375 × 667); Tablet iPad (820 × 1180); Computer Laptop (1366 × 768), Desktop (1920 × 1080),
@@ -416,8 +416,9 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   under 620 px wide drops its version line so the name keeps room. Not built yet: the "Made for phones" hint (a game
   doesn't record what it's made for until the platform choice exists).
 - **While the first build runs** (`components/app/WhileYouWait.tsx`): under the build's progress on the stage, "Play one
-  while you wait": three games as app icons (the gallery's most played this week, then the home page's games; one of the
-  kind the first sentence sounds like first, then other kinds) and **More in the gallery**. A tapped game plays in the
+  while you wait": three games as cards, the gallery's listings in small (the start screen at 3:4 with a Play chip, the
+  name under it, no kind line: most games have no genre; batch 4.2), the gallery's most played this week, then the home
+  page's games; one of the kind the first sentence sounds like first, then other kinds; and **More in the gallery**. A tapped game plays in the
   stage (full screen on a phone) with the build's line above it and Close; when the build is done that line becomes
   "<name> is ready." with a hot **Play it** (also over the game while it is full screen: `GameFrame` `notice`). Phones
   open the game page on Play during a first build. **The way back from the gallery** (`components/app/BuildPill.tsx`,

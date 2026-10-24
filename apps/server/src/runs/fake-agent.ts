@@ -1,7 +1,7 @@
 // AGENT_FAKE=1: a simulated run for site development and tests, so nobody burns the agent.
 // A few progress lines over ~5 s, then success with an existing demo build's pack, reported like a
 // two-step build whose second step was rolled back: $0.14 of work in all (costUsd, our accounting),
-// $0.10 in the game the player gets (chargeUsd, what they pay: 1.7 credits), with 12 next-step
+// $0.10 in the game the player gets (chargeUsd, what they pay: 1.7 credits), with 9 next-step
 // ideas. A prompt containing "FAIL" fails; "LONG" takes ~45 s. It makes a real git commit, like
 // the agent would.
 import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
@@ -120,12 +120,12 @@ function fakeModelCall(job: AgentJob): Promise<void> {
     );
 }
 
-/** A fake run's 12 next-step ideas, best first, as the real ideas call returns them. */
+/** A fake run's 9 next-step ideas, best first, as the real ideas call returns them. */
 const IDEAS = {
   new: ["Add a double jump", "Add coins to collect", "Add flying traps", "Add a second level", "Add a boss at the end", "Add a slow-motion power-up",
-    "Add moving platforms", "Add a magnet for coins", "Add a timer challenge", "Add rain and wind", "Add a combo meter", "Add a rocket boost"],
+    "Add moving platforms", "Add a magnet for coins", "Add a timer challenge"],
   edit: ["Add a shield power-up", "Add a boss at 500 m", "Add jump sounds", "Add lives and hearts", "Add a shop for hats", "Add a daily challenge",
-    "Add a night level", "Add dust when landing", "Add a high score board", "Add birds to dodge", "Add a dash move", "Add a pause button"],
+    "Add a night level", "Add dust when landing", "Add a high score board"],
 };
 
 export function runFakeAgent(job: AgentJob): AgentHandle {

@@ -215,7 +215,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     const { poster } = await publishBuild({ buildId, dir, name, orientation, badge, poster: !result.staleExport });
 
     // The player pays for the attempts in the game they get (chargeUsd; older records: everything), the
-    // player-message rewrite and the 12 next-step ideas (Luka, 10-24: every AI cost they cause is theirs),
+    // player-message rewrite and the 9 next-step ideas (Luka, 10-24: every AI cost they cause is theirs),
     // or what the key proxy metered when that is more (model calls the agent's shell made itself).
     const suggestionsUsd = result.suggestionsCostUsd ?? 0;
     const agentUsd = (result.chargeUsd ?? result.costUsd) + result.messageCostUsd + suggestionsUsd;

@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowsClockwise, Play } from "@phosphor-icons/react";
+import { Play, Plus } from "@phosphor-icons/react";
 import type { Message, ModelChoice } from "@typeplay/shared";
 import { clock, creditsWord } from "@/lib/format";
 
 const modelName: Record<ModelChoice, string> = { fast: "Fast", smart: "Smart", best: "Best" };
-/** Ideas shown at a time, and how many times "More ideas" shows the next ones (Luka, 10-24: 3 + 3 × 3 = the 12 made). */
+/** Ideas shown at first; "More ideas" adds the rest of the 9 made under them (Luka, 10-25). */
 const IDEAS_SHOWN = 3;
-const MORE_IDEAS = 3;
 
 export type LiveLine = { messageId: string; text: string } | null;
 
@@ -32,13 +31,14 @@ export function ChatLog({
   onSuggest: (text: string) => void;
 }) {
   // The newest answer's ideas for the next change, while its version is the one playing (a restore hides them): up to
-  // 12, best first, three at a time; "More ideas" shows the next three (3 times), then goes until the next answer.
+  // 9, best first. Three show; "More ideas" adds the other six under them (the first three stay where they were, so
+  // an earlier idea stays in sight) and goes until the next answer.
   const last = messages.at(-1);
-  const all = last?.role === "agent" && last.status === "done" && last.versionN === currentVersion ? (last.suggestions ?? []) : [];
-  const [paged, setPaged] = useState<{ id: string; page: number } | null>(null);
-  const page = last && paged?.id === last.id ? paged.page : 0;
-  const ideas = all.slice(page * IDEAS_SHOWN, (page + 1) * IDEAS_SHOWN);
-  const more = page < MORE_IDEAS && (page + 1) * IDEAS_SHOWN < all.length;
+  const all = last?.role === "agent" && last.status === "done" && last.versionN === currentVersion ? (last.suggestions ?? []).slice(0, 9) : [];
+  const [opened, setOpened] = useState<string | null>(null); // the answer whose ideas are all shown
+  const allShown = !!last && opened === last.id;
+  const ideas = allShown ? all : all.slice(0, IDEAS_SHOWN);
+  const more = !allShown && all.length > IDEAS_SHOWN;
   const list = useRef<HTMLOListElement>(null);
   const stick = useRef(true); // follow new messages while the reader is at the bottom
 
@@ -94,12 +94,18 @@ export function ChatLog({
                 className="idea idea--more"
                 onClick={(e) => {
                   const group = e.currentTarget.parentElement;
-                  setPaged({ id: last!.id, page: page + 1 });
-                  // The last time, the button goes with them: the keyboard moves on to the first new idea.
-                  if (page + 1 === MORE_IDEAS || (page + 2) * IDEAS_SHOWN >= all.length) requestAnimationFrame(() => group?.querySelector<HTMLElement>(".idea")?.focus());
+                  setOpened(last!.id);
+                  // The button goes with the tap: the keyboard moves on to the first new idea, and the chat (not the
+                  // page: on a phone that hid the top bar) scrolls to the end so the six new ones are in view.
+                  requestAnimationFrame(() => {
+                    group?.querySelectorAll<HTMLElement>(".idea")[IDEAS_SHOWN]?.focus({ preventScroll: true });
+                    const el = list.current;
+                    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+                    el?.scrollTo({ top: el.scrollHeight, behavior: still ? "auto" : "smooth" });
+                  });
                 }}
               >
-                <ArrowsClockwise size={15} weight="bold" aria-hidden="true" />
+                <Plus size={15} weight="bold" aria-hidden="true" />
                 More ideas
               </button>
             )}

@@ -193,8 +193,8 @@ export interface Message {
   credits?: number;
   /** The version this message produced, when it produced one. */
   versionN?: number;
-  /** Up to 12 next changes the player might ask for (short lines in the player's language), best first, made with the
-   * answer as part of its charge; the chat shows three under its newest answer and three more per "More ideas".
+  /** Up to 9 next changes the player might ask for (short lines in the player's language), best first, made with the
+   * answer as part of its charge; the chat shows three under its newest answer and "More ideas" adds the other six.
    * Missing when there are none. */
   suggestions?: string[];
   createdAt: string;

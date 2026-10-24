@@ -40,7 +40,7 @@ export interface AgentResult {
   /** Only the attempts in the game the player gets (0 on failure): what they pay for. Missing from
    * older records, in which case costUsd stands in. */
   chargeUsd?: number;
-  /** Up to 12 next-step ideas, best first, for the chat's chips (packages/agent/tools/next-steps.mjs); none on a failed run. */
+  /** Up to 9 next-step ideas, best first, for the chat's chips (packages/agent/tools/next-steps.mjs); none on a failed run. */
   suggestions?: string[];
   /** What the ideas call cost: part of the answer's charge, like the player-message rewrite. */
   suggestionsCostUsd?: number;
@@ -128,7 +128,7 @@ interface FinalRecord {
   attempts?: { ok?: boolean }[];
 }
 
-/** The record's ideas as the chat may show them: up to 12 short single lines in their order, anything else dropped. */
+/** The record's ideas as the chat may show them: up to 9 short single lines in their order, anything else dropped. */
 export function cleanSuggestions(list: unknown): string[] {
   if (!Array.isArray(list)) return [];
   const out: string[] = [];
@@ -136,7 +136,7 @@ export function cleanSuggestions(list: unknown): string[] {
     if (typeof item !== "string") continue;
     const s = item.replace(/\s+/g, " ").trim();
     if (s && s.length <= 60 && !out.includes(s)) out.push(s);
-    if (out.length === 12) break;
+    if (out.length === 9) break;
   }
   return out;
 }
