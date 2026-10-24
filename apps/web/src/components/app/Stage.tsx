@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import Link from "next/link";
-import { AndroidLogo, ArrowSquareOut, ArrowsOut, ArrowClockwise, Desktop, DeviceMobile, DeviceRotate, Play, X } from "@phosphor-icons/react";
+import { AndroidLogo, ArrowSquareOut, ArrowsOut, ArrowClockwise, DeviceRotate, Play, X } from "@phosphor-icons/react";
 import type { Project } from "@typeplay/shared";
 import { BuildLayers } from "@/components/BuildingIcon";
 import { GameFrame, playUrl, type GameFrameHandle } from "@/components/GameFrame";
@@ -11,6 +11,7 @@ import { posterUrl } from "@/lib/urls";
 import { api } from "@/lib/api";
 import { clock, playsWord } from "@/lib/format";
 import type { LiveLine } from "./ChatLog";
+import { DeviceMenu, FILL, type Device } from "./DeviceMenu";
 import { GameMenu } from "./GameMenu";
 import { ShareMenu } from "./ShareMenu";
 import { Versions } from "./Versions";
@@ -19,10 +20,8 @@ import { useWaitGames, WhileYouWait, type WaitGame } from "./WhileYouWait";
 /** Phones and tablets, as GameFrame decides it: a game started there opens full screen. */
 const TOUCH = "(hover: none) and (pointer: coarse)";
 
-type View = "computer" | "phone";
-/** The phone preview's screen: an iPhone's 390 × 844 CSS pixels, the size the game really runs at; the bezel around it. */
-const PHONE = { w: 390, h: 844 };
-const BEZEL = 12;
+/** Room kept around a device's drawn bezel (the widest, a tablet's, is 16 px). */
+const BEZEL = 16;
 
 /** The game side of the game page: the playable frame, or the build on its way, and the versions. */
 export function Stage({
@@ -75,31 +74,36 @@ export function Stage({
     setWaiting(null);
     setStartOwn(true);
   };
-  // Phone or computer (Luka, 10-24): the game in a phone's own screen size, or as wide as fits (as before). It is the
-  // same frame, resized: the game keeps running and fits itself to the new size, as it would on that screen.
+  // The preview's device (Luka, 10-24): the game at a phone's, a tablet's or a computer's own screen size, or filling
+  // the stage (as before, the default). It is the same frame, resized: the game keeps running and fits itself to the
+  // new size, as it would on that screen.
   const screen = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<View>("computer");
+  const [device, setDevice] = useState<Device>(FILL);
   const [turned, setTurned] = useState<boolean | null>(null); // null: the game's own way up
-  const sideways = turned ?? (waiting?.orientation ?? project.orientation) === "landscape";
+  const turns = device.kind !== "computer"; // phones and tablets
+  const sideways = turns && (turned ?? (waiting?.orientation ?? project.orientation) === "landscape");
   const [room, setRoom] = useState<{ w: number; h: number } | null>(null);
   useEffect(() => {
     const el = screen.current;
-    if (!el || view !== "phone") return;
+    if (!el || !device.size) return;
     const ro = new ResizeObserver(() => setRoom({ w: el.clientWidth, h: el.clientHeight }));
     ro.observe(el);
     return () => ro.disconnect();
-  }, [view]);
-  const device = sideways ? { w: PHONE.h, h: PHONE.w } : PHONE;
-  // Drawn smaller when the stage is shorter than a phone; the game still runs at the phone's size.
-  const scale = room ? Math.min(1, (room.w - 32 - 2 * BEZEL) / device.w, (room.h - 2 * BEZEL) / device.h) : 0;
-  const phone = view === "phone" && scale > 0;
-  const fitProps = { className: "stage__fit", "data-view": phone ? "phone" : undefined, style: phone ? { width: device.w * scale, height: device.h * scale } : undefined };
+  }, [device]);
+  const size = device.size && (sideways ? { w: device.size.h, h: device.size.w } : device.size);
+  // Drawn smaller when the stage is smaller than the screen; the game still runs at the device's size.
+  const scale = size && room ? Math.min(1, (room.w - 32 - 2 * BEZEL) / size.w, (room.h - 2 * BEZEL) / size.h) : 0;
+  const screenAt = size && scale > 0 ? { ...size, scale } : null;
+  const fitProps = {
+    className: "stage__fit",
+    "data-view": screenAt ? device.kind : undefined,
+    style: screenAt ? { width: screenAt.w * screenAt.scale, height: screenAt.h * screenAt.scale } : undefined,
+  };
   const frameProps = (orientation: Project["orientation"]) => ({
     className: "stage__frame",
     "data-orientation": orientation,
-    "data-view": phone ? "phone" : undefined,
-    "data-sideways": phone && sideways ? "" : undefined,
-    style: phone ? ({ "--s": scale } as CSSProperties) : undefined,
+    "data-view": screenAt ? device.kind : undefined,
+    style: screenAt ? ({ "--w": `${screenAt.w}px`, "--h": `${screenAt.h}px`, "--s": screenAt.scale } as CSSProperties) : undefined,
   });
 
   const readyLine = (
@@ -134,21 +138,12 @@ export function Stage({
           </>
         )}
         <div className="stage__actions">
-          {(project.buildId || waiting) && (
-            <div className="viewpick" role="group" aria-label="Preview the game on">
-              <button type="button" className="viewpick__opt" aria-pressed={view === "phone"} aria-label="Phone" title="Phone" onClick={() => setView("phone")}>
-                <DeviceMobile size={18} weight="bold" aria-hidden="true" />
-              </button>
-              <button type="button" className="viewpick__opt" aria-pressed={view === "computer"} aria-label="Computer" title="Computer" onClick={() => setView("computer")}>
-                <Desktop size={18} weight="bold" aria-hidden="true" />
-              </button>
-            </div>
-          )}
-          {(project.buildId || waiting) && view === "phone" && (
+          {(project.buildId || waiting) && <DeviceMenu id={project.id} value={device} onChange={setDevice} />}
+          {(project.buildId || waiting) && turns && (
             <button
               type="button"
-              className="inkpill viewpick__turn"
-              aria-label={sideways ? "Turn the phone upright" : "Turn the phone sideways"}
+              className="inkpill devicepick__turn"
+              aria-label={sideways ? `Turn the ${device.kind} upright` : `Turn the ${device.kind} sideways`}
               title={sideways ? "Turn upright" : "Turn sideways"}
               onClick={() => setTurned(!sideways)}
             >

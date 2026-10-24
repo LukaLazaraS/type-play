@@ -1,15 +1,15 @@
 // AGENT_FAKE=1: a simulated run for site development and tests, so nobody burns the agent.
 // A few progress lines over ~5 s, then success with an existing demo build's pack, reported like a
 // two-step build whose second step was rolled back: $0.14 of work in all (costUsd, our accounting),
-// $0.10 in the game the player gets (chargeUsd, what they pay: 1.7 credits), with three next-step
-// suggestions. A prompt containing "FAIL" fails; "LONG" takes ~45 s. It makes a real git commit, like
+// $0.10 in the game the player gets (chargeUsd, what they pay: 1.7 credits), with 12 next-step
+// ideas. A prompt containing "FAIL" fails; "LONG" takes ~45 s. It makes a real git commit, like
 // the agent would.
 import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { config, ROOT } from "../env.js";
 import { git } from "../games/git.js";
-import type { AgentHandle, AgentJob, AgentResult, IdeasHandle, IdeasJob, IdeasResult } from "./agent.js";
+import type { AgentHandle, AgentJob, AgentResult } from "./agent.js";
 
 const LINES = ["Reading your idea", "Writing the player", "Building the level", "Testing the game", "Making it look nice"];
 
@@ -120,34 +120,13 @@ function fakeModelCall(job: AgentJob): Promise<void> {
     );
 }
 
-/** Fake "More ideas": after ~1.2 s, three from this list that weren't shown yet ($0, like the fake runs' suggestions). */
-const MORE_IDEAS = [
-  "Add a second level",
-  "Add a boss at the end",
-  "Add a slow-motion power-up",
-  "Add moving platforms",
-  "Add a magnet for coins",
-  "Add a timer challenge",
-  "Add rain and wind",
-  "Add a combo meter",
-  "Add a rocket boost",
-  "Add lives and hearts",
-  "Add a shop for hats",
-  "Add a daily challenge",
-];
-export function runFakeIdeas(job: IdeasJob): IdeasHandle {
-  let resolve: (r: IdeasResult) => void = () => {};
-  const done = new Promise<IdeasResult>((r) => (resolve = r));
-  const shown = new Set(job.exclude.map((e) => e.toLowerCase()));
-  const timer = setTimeout(() => resolve({ list: MORE_IDEAS.filter((i) => !shown.has(i.toLowerCase())).slice(0, 3), costUsd: 0 }), 1200);
-  return {
-    done,
-    kill: () => {
-      clearTimeout(timer);
-      resolve({ list: [], costUsd: 0, error: "stopped" });
-    },
-  };
-}
+/** A fake run's 12 next-step ideas, best first, as the real ideas call returns them. */
+const IDEAS = {
+  new: ["Add a double jump", "Add coins to collect", "Add flying traps", "Add a second level", "Add a boss at the end", "Add a slow-motion power-up",
+    "Add moving platforms", "Add a magnet for coins", "Add a timer challenge", "Add rain and wind", "Add a combo meter", "Add a rocket boost"],
+  edit: ["Add a shield power-up", "Add a boss at 500 m", "Add jump sounds", "Add lives and hearts", "Add a shop for hats", "Add a daily challenge",
+    "Add a night level", "Add dust when landing", "Add a high score board", "Add birds to dodge", "Add a dash move", "Add a pause button"],
+};
 
 export function runFakeAgent(job: AgentJob): AgentHandle {
   const timers: NodeJS.Timeout[] = [];
@@ -180,8 +159,8 @@ export function runFakeAgent(job: AgentJob): AgentHandle {
           costUsd: 0.14,
           messageCostUsd: 0,
           chargeUsd: 0.1,
-          suggestions: job.kind === "new" ? ["Add a double jump", "Add coins to collect", "Add flying traps"] : ["Add a shield power-up", "Add a boss at 500 m", "Add jump sounds"],
-          suggestionsCostUsd: 0, // the real call costs ~$0.0006; kept at 0 so the tests' cost figures stay exact
+          suggestions: IDEAS[job.kind],
+          suggestionsCostUsd: 0, // the real call costs ~$0.001; kept at 0 so the tests' cost figures stay exact
         });
       } catch (e) {
         finish({ ok: false, costUsd: 0, messageCostUsd: 0, chargeUsd: 0, error: (e as Error).message });

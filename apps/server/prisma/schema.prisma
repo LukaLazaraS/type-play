@@ -245,11 +245,8 @@ model Message {
   /// Luka's PC, where the agent runs on the Max login). The charge is the larger of the two.
   meteredUsd Decimal?      @db.Decimal(10, 4)
   versionN  Int?
-  /// Up to 3 next steps the chat offers under this answer (runs that made a version); free to the player.
-  /// "More ideas" appends three more each time: every idea shown for the answer, oldest first (the chat shows the last 3).
+  /// Up to 12 next steps, best first, the chat offers under this answer, three at a time (runs that made a version).
   suggestions String[]     @default([])
-  /// Times "More ideas" was used on this answer (at most 3).
-  ideaRounds  Int          @default(0)
   /// The plan the run started on (agent messages): the Free kill switch sums costUsd by plan and day.
   plan      Plan?
   createdAt DateTime       @default(now())

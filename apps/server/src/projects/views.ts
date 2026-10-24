@@ -16,9 +16,6 @@ import type { Message, Project, Version } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
 import { RunRegistry } from "../runs/registry.js";
 
-/** "More ideas" per answer (Luka, 10-24): then the button goes until the next build or change brings new ones. */
-export const MORE_IDEAS = 3;
-
 export function toMessage(m: Message): MessageView {
   const view: MessageView = { id: m.id, role: m.role, text: m.text, createdAt: m.createdAt.toISOString() };
   if (m.role === "agent") {
@@ -27,11 +24,7 @@ export function toMessage(m: Message): MessageView {
     if (m.status) view.status = m.status;
     if (m.status && m.status !== "running") view.credits = Number(m.credits ?? 0);
     if (m.versionN != null) view.versionN = m.versionN;
-    // Every idea shown for this answer is kept (none comes back with More ideas): the chat shows the newest three.
-    if (m.suggestions?.length) {
-      view.suggestions = m.suggestions.slice(-3);
-      view.moreIdeas = Math.max(0, MORE_IDEAS - (m.ideaRounds ?? 0));
-    }
+    if (m.suggestions?.length) view.suggestions = m.suggestions;
   }
   return view;
 }

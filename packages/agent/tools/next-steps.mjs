@@ -1,15 +1,16 @@
-// Next-step suggestions (run.mjs, after a run that worked): three small changes the player could ask
-// for next, shown as chips under the answer in the chat (Luka, 10-24: "never suggest what the game
-// already has; as the game grows, the suggestions grow with it"). One cheap Haiku call, no tools,
-// beside the player-message rewrite; the player is not charged for it (run.mjs keeps its cost apart).
+// Next-step ideas (run.mjs, after a run that worked): twelve small changes the player could ask for
+// next, best first. The chat shows three under the answer and the next three with each "More ideas"
+// (Luka, 10-24: "never suggest what the game already has; as the game grows, the suggestions grow with
+// it"). One cheap Haiku call, no tools, beside the player-message rewrite, made once per answer; like
+// every AI cost a player causes, it is part of that answer's charge (run.mjs `suggestionsCostUsd`).
 // What the game has comes from the game's own record: every request so far (the folder's git log)
-// and NOTES.md, which the agent keeps current. The chat's "More ideas" asks again with every idea
-// already shown for that answer in `exclude` (run.mjs --ideas).
+// and NOTES.md, which the agent keeps current.
 import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
-export const MAX_SUGGESTIONS = 3;
+/** Three shown at first, then three more per "More ideas", three times. */
+export const MAX_SUGGESTIONS = 12;
 /** A chip is a short line: longer answers are dropped, not cut. */
 export const MAX_LENGTH = 48;
 
@@ -36,39 +37,38 @@ export function notesOf(dir) {
   return existsSync(file) ? readFileSync(file, 'utf8').split('\n').slice(0, 60).join('\n').trim() : '';
 }
 
-export function suggestionsPrompt({ requests, notes, reply, exclude = [] }) {
+export function suggestionsPrompt({ requests, notes, reply }) {
   return [
-    'A player is making a game by chatting with an AI game builder. Suggest 3 changes they could ask for next.',
+    'A player is making a game by chatting with an AI game builder. Suggest 12 changes they could ask for next, best first.',
     `What the player asked for so far, oldest first:\n${requests.map((r) => `- ${r}`).join('\n') || '- (nothing recorded)'}`,
     notes && `The game now (the builder's notes):\n${notes}`,
     reply && `What the builder just did:\n${reply.slice(0, 1500)}`,
-    exclude.length && `Already suggested, and the player wants other ideas: don't repeat these or anything close to them:\n${exclude.map((e) => `- ${e}`).join('\n')}`,
     [
       'Rules:',
       '- Each one is a single small change the builder can make in one go, said the way a player would type it: 2 to 6 words, starting with a verb, such as "Add coins to collect".',
       '- Fit the stage the game is at. A new game (one or two requests so far) gets gameplay first: a new move, things to collect, new obstacles or enemies, a way to win or lose. Once that is there: more variety, harder stages or levels, power-ups, a goal to chase. Then feel: sounds, effects, juicier motion. Looks (skins, themes, colours) come last.',
+      '- Best first: the first three are the ones most worth doing now; the player sees them first and the rest three at a time.',
       '- Never suggest anything the game already has or the player already asked for.',
-      '- Three different kinds of change, not three versions of one.',
+      '- Twelve different changes, not versions of one; mix the kinds within each group of three.',
       '- Nothing the builder cannot make: no online play, accounts, shared leaderboards, ads, purchases, real music or voices, or anything outside the game.',
       "- Write them in the language of the player's requests.",
     ].join('\n'),
-    'Reply with a JSON array of 3 strings only, for example: ["Add coins to collect", "Add flying traps", "Add a shield power-up"]',
+    'Reply with a JSON array of 12 strings only, for example: ["Add coins to collect", "Add flying traps", "Add a shield power-up", …]',
   ].filter(Boolean).join('\n\n');
 }
 
-/** The model's answer → up to 3 clean, distinct short lines, none of `exclude` ([] when it isn't a list of strings). */
-export function parseSuggestions(answer, exclude = []) {
+/** The model's answer → up to 12 clean, distinct short lines, in its order ([] when it isn't a list of strings). */
+export function parseSuggestions(answer) {
   const json = /\[[\s\S]*\]/.exec(answer ?? '')?.[0];
   if (!json) return [];
   let list;
   try { list = JSON.parse(json); } catch { return []; }
   if (!Array.isArray(list)) return [];
   const out = [];
-  const seen = (s) => [...out, ...exclude].some((o) => o.toLowerCase() === s.toLowerCase());
   for (const item of list) {
     if (typeof item !== 'string') continue;
     const s = item.replace(/\s+/g, ' ').trim().replace(/[.!]+$/, '');
-    if (!s || s.length > MAX_LENGTH || seen(s)) continue;
+    if (!s || s.length > MAX_LENGTH || out.some((o) => o.toLowerCase() === s.toLowerCase())) continue;
     out.push(s);
     if (out.length === MAX_SUGGESTIONS) break;
   }
@@ -79,13 +79,13 @@ export function parseSuggestions(answer, exclude = []) {
  * Asks the model (run.mjs passes the Agent SDK's query and its isolated Haiku options). Never throws:
  * a run that built the game must not fail over its chips.
  */
-export async function nextSteps({ dir, reply, exclude = [], query, options }) {
+export async function nextSteps({ dir, reply, query, options }) {
   let list = [], costUsd = 0;
   try {
-    const prompt = suggestionsPrompt({ requests: requestsOf(dir), notes: notesOf(dir), reply, exclude });
+    const prompt = suggestionsPrompt({ requests: requestsOf(dir), notes: notesOf(dir), reply });
     for await (const m of query({ prompt, options })) {
       if (m.type === 'result') {
-        if (m.subtype === 'success') list = parseSuggestions(m.result, exclude);
+        if (m.subtype === 'success') list = parseSuggestions(m.result);
         costUsd = m.total_cost_usd ?? 0;
       }
     }

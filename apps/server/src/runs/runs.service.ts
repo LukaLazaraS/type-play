@@ -15,10 +15,9 @@ import { exportWeb, gameNameOf, orientationOf } from "../games/godot.js";
 import { publishBuild, trimExport, unpublishBuild } from "../games/publish.js";
 import type { Message, Version } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
-import { MORE_IDEAS, ProjectViews, toMessage, toVersion } from "../projects/views.js";
-import { ApiException } from "../common/api-error.js";
-import { MODEL_FLAG, runAgent, runIdeas, sweep, type AgentResult } from "./agent.js";
-import { runFakeAgent, runFakeIdeas } from "./fake-agent.js";
+import { ProjectViews, toMessage, toVersion } from "../projects/views.js";
+import { MODEL_FLAG, runAgent, sweep, type AgentResult } from "./agent.js";
+import { runFakeAgent } from "./fake-agent.js";
 import { KeyProxy } from "./key-proxy.js";
 import { RunRegistry, type ActiveRun } from "./registry.js";
 
@@ -137,54 +136,6 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     this.log.log(`project ${projectId}: folder back in order`);
   }
 
-  /**
-   * "More ideas" under the newest answer (Luka, 10-24): three new next-step ideas, none shown before for that
-   * answer, at most MORE_IDEAS times per answer. One Haiku call, our cost, never the player's. Returns the message.
-   */
-  async moreIdeas(projectId: string): Promise<Message> {
-    const project = await this.prisma.project.findUniqueOrThrow({ where: { id: projectId } });
-    const message = await this.prisma.message.findFirst({ where: { projectId }, orderBy: { createdAt: "desc" } });
-    if (message?.role !== "agent" || message.status !== "done" || message.versionN == null || message.versionN !== project.currentVersion || !message.suggestions.length) {
-      throw new ApiException(400, "bad_request", "There are no ideas to change here.");
-    }
-    if (message.ideaRounds >= MORE_IDEAS) throw new ApiException(400, "bad_request", "That's all the ideas for this answer.");
-    const release = this.registry.reserve(projectId, "ideas");
-    try {
-      const token = this.keyProxy.enabled ? this.keyProxy.issue(`ideas ${projectId}`, "haiku", 5) : null;
-      const job = {
-        dir: projectDir(projectId),
-        exclude: message.suggestions,
-        logFile: join(config.dataDir, "logs", `${projectId}-${message.id}-ideas.log`),
-        auth: token ? { baseUrl: config.keyProxy.url, token } : undefined,
-      };
-      const handle = (config.agentFake ? runFakeIdeas : runIdeas)(job);
-      const timer = setTimeout(() => handle.kill(), 120_000);
-      let metered: number | null = null;
-      const result = await handle.done.finally(() => {
-        clearTimeout(timer);
-        if (token) {
-          metered = this.keyProxy.usageOf(token)?.costUsd ?? null;
-          this.keyProxy.revoke(token);
-        }
-      });
-      const costUsd = Math.max(result.costUsd, metered ?? 0);
-      const fresh = result.list.filter((s) => !message.suggestions.some((o) => o.toLowerCase() === s.toLowerCase()));
-      if (!fresh.length) {
-        if (costUsd > 0) await this.prisma.message.update({ where: { id: message.id }, data: { costUsd: { increment: costUsd } } });
-        this.log.warn(`ideas ${projectId}: none new${result.error ? ` (${result.error})` : ""}`);
-        throw new ApiException(503, "server_error", "No new ideas came this time. Try again in a moment.");
-      }
-      const updated = await this.prisma.message.update({
-        where: { id: message.id },
-        data: { suggestions: [...message.suggestions, ...fresh], ideaRounds: { increment: 1 }, costUsd: { increment: costUsd } },
-      });
-      if (updated.plan === "free") await this.ledger.addFreeSpend(this.prisma, costUsd).catch((e) => this.log.error(`free spend ${projectId}: ${e}`));
-      return updated;
-    } finally {
-      release();
-    }
-  }
-
   private async execute(run: ActiveRun) {
     const dir = projectDir(run.projectId);
     // Nothing builds on a folder a failed run could not reset: put it right first, or stop here.
@@ -263,12 +214,12 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     const badge = project.owner.plan === "free";
     const { poster } = await publishBuild({ buildId, dir, name, orientation, badge, poster: !result.staleExport });
 
-    // The player pays for the attempts in the game they get (chargeUsd; older records: everything),
+    // The player pays for the attempts in the game they get (chargeUsd; older records: everything), the
+    // player-message rewrite and the 12 next-step ideas (Luka, 10-24: every AI cost they cause is theirs),
     // or what the key proxy metered when that is more (model calls the agent's shell made itself).
-    const agentUsd = (result.chargeUsd ?? result.costUsd) + result.messageCostUsd;
-    // The chat's next-step suggestions are ours, never the player's: out of the meter's figure too.
     const suggestionsUsd = result.suggestionsCostUsd ?? 0;
-    const chargeUsd = Math.max(agentUsd, (metered ?? 0) - suggestionsUsd);
+    const agentUsd = (result.chargeUsd ?? result.costUsd) + result.messageCostUsd + suggestionsUsd;
+    const chargeUsd = Math.max(agentUsd, metered ?? 0);
     const costUsd = result.costUsd + result.messageCostUsd + suggestionsUsd; // every attempt: our accounting
     const credits = creditsForUsd(chargeUsd);
     const text = result.playerMessage?.trim() || "Your game is ready. Press play!";

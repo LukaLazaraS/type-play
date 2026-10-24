@@ -11,13 +11,11 @@
 //          request, else 2, sized by the same cheap call that picks the genre; else 1)
 //          --budget <usd> (tests only: overrides the safety cap below; the server never passes it)
 //          --dir <path> (the game folder instead of output/<game>; --game is then optional)
-//          --ideas [--exclude <json>] (no build: only next-step ideas for the game as it is, none of
-//          `--exclude`: the chat's "More ideas")
 //          --events (also print `@@event <json>` lines: started, progress in plain words (also
 //          "Planning your change…" while the model thinks, tools/thinking.mjs), result;
 //          read by the server, apps/server. The result carries costUsd = every attempt, and
 //          chargeUsd = only the attempts in the game the player gets: what they are charged; and
-//          the chat's next-step suggestions, tools/next-steps.mjs, whose cost is never charged)
+//          the chat's 12 next-step ideas, tools/next-steps.mjs, whose cost the server adds to the charge)
 // Each game folder is its own git repo: every successful run is a commit, a failed one is
 // rolled back, so a change can never leave the game broken.
 // Auth: no ANTHROPIC_API_KEY → the Claude Code login on this PC (Luka's Max). AGENT_AUTH=api
@@ -60,7 +58,7 @@ const isEdit = flag('edit');
 const playtest = flag('playtest');
 const slim = flag('slim');
 let modelKey = opt('model', isEdit ? 'auto' : 'sonnet');
-if (!game || (!prompt && !flag('ideas'))) { console.error('need --game (or --dir) and --prompt'); process.exit(2); }
+if (!game || !prompt) { console.error('need --game (or --dir) and --prompt'); process.exit(2); }
 if (process.env.ANTHROPIC_API_KEY && process.env.AGENT_AUTH !== 'api') {
   console.error('ANTHROPIC_API_KEY is set: unset it to run on Max, or set AGENT_AUTH=api.');
   process.exit(2);
@@ -92,19 +90,6 @@ function toolProgress(name, input = {}) {
 
 const dir = dirOpt ? resolve(dirOpt) : join(HERE, 'output', game);
 const git = (...a) => spawnSync('git', ['-c', 'user.name=game-agent', '-c', 'user.email=agent@local', ...a], { cwd: dir, encoding: 'utf8' });
-
-// --ideas [--exclude <json list>]: only the chat's next-step ideas for the game as it is, none of the
-// ones already shown (the player's "More ideas"); nothing in the folder changes. With --events it prints
-// `@@event {"type":"ideas","list":[…],"costUsd":…}`: our cost, never the player's.
-if (flag('ideas')) {
-  let exclude = [];
-  try { exclude = JSON.parse(opt('exclude', '[]')).filter((e) => typeof e === 'string'); } catch {}
-  const r = await nextSteps({ dir, reply: '', exclude, query, options: { ...ISOLATED, model: MODELS.haiku, effort: 'low', tools: [], maxTurns: 1, systemPrompt: 'You suggest the next small change for a game a player is making by chat. Reply with a JSON array of strings only.' } });
-  emit({ type: 'ideas', list: r.list, costUsd: +r.costUsd.toFixed(4) });
-  console.log(`more ideas ($${r.costUsd.toFixed(4)}, not charged): ${r.list.join(' | ') || '(none)'}`);
-  process.exit(0);
-}
-
 if (isEdit) {
   if (!existsSync(join(dir, '.git'))) { console.error(`no game in ${dir}`); process.exit(2); }
 } else {
@@ -330,7 +315,7 @@ progress('Almost done');
 const builderReply = PLAN && final.ok
   ? attempts.filter((a) => a.ok).map((a) => a.reply).join('\n\n')
   : final.reply;
-// Beside it, the chat's next-step chips: only when the game changed, and never charged (kept apart below).
+// Beside it, the chat's 12 next-step ideas: only when the game changed; part of the answer's charge (below).
 const [message, next] = await Promise.all([
   playerMessage(prompt, builderReply, { isNew: !isEdit }),
   final.ok
@@ -339,10 +324,11 @@ const [message, next] = await Promise.all([
 ]);
 
 // costUsd is the agent's work only (every attempt, for our own accounting); the player-message
-// rewrite is kept apart (messageCostUsd), and so are the next-step suggestions (suggestionsCostUsd:
-// ours, never the player's). chargeUsd is what the player pays: only the attempts that are in the
-// game they receive (a step or a Haiku try that failed the check and was rolled back costs them
-// nothing, as docs/pricing.md promises); 0 when the run failed.
+// rewrite (messageCostUsd) and the next-step ideas (suggestionsCostUsd) are kept apart, and the
+// server adds both to the charge (Luka, 10-24: every AI cost a player causes is theirs). chargeUsd is
+// the agent's part of it: only the attempts that are in the game they receive (a step or a Haiku try
+// that failed the check and was rolled back costs them nothing, as docs/pricing.md promises); 0 when
+// the run failed.
 const record = {
   date: new Date().toISOString(), game, kind: isEdit ? 'edit' : 'new', prompt, route: modelKey === 'auto' ? `auto→${route}` : route,
   genre, size, steps, playtest, slim, ok: final.ok, playerMessage: message.text, messageCostUsd: +message.costUsd.toFixed(4),
@@ -358,7 +344,7 @@ emit({ type: 'result', ...record, refused: !record.ok && attempts.some((a) => a.
 
 console.log(`\n--- agent's own reply ---\n${final.reply || '(none)'}\n`);
 console.log(`--- shown to the player ($${message.costUsd.toFixed(4)}) ---\n${message.text || '(none)'}\n`);
-if (next.list.length) console.log(`--- next steps ($${next.costUsd.toFixed(4)}, not charged) ---\n${next.list.join(' | ')}\n`);
+if (next.list.length) console.log(`--- next steps ($${next.costUsd.toFixed(4)}) ---\n${next.list.join(' | ')}\n`);
 console.log(`--- ${record.ok ? 'OK' : 'FAILED (rolled back)'}: ${record.minutes} min, ~$${record.costUsd} at API prices (player pays $${record.chargeUsd}), route ${record.route}`);
 for (const a of attempts) console.log(`    ${a.step ? a.step + ' ' : ''}${a.model} ${a.effort}: ${a.ok ? 'ok' : 'failed'}, ${a.minutes} min, ${a.turns} turns, $${a.costUsd}, ${JSON.stringify(a.tokens)}`);
 if (!final.ok) console.log(final.checkOutput);

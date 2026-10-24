@@ -6,6 +6,9 @@ import type { Message, ModelChoice } from "@typeplay/shared";
 import { clock, creditsWord } from "@/lib/format";
 
 const modelName: Record<ModelChoice, string> = { fast: "Fast", smart: "Smart", best: "Best" };
+/** Ideas shown at a time, and how many times "More ideas" shows the next ones (Luka, 10-24: 3 + 3 × 3 = the 12 made). */
+const IDEAS_SHOWN = 3;
+const MORE_IDEAS = 3;
 
 export type LiveLine = { messageId: string; text: string } | null;
 
@@ -17,7 +20,6 @@ export function ChatLog({
   currentVersion,
   onPlay,
   onSuggest,
-  onMoreIdeas,
 }: {
   messages: Message[];
   live: LiveLine;
@@ -28,22 +30,15 @@ export function ChatLog({
   onPlay: () => void;
   /** A next-step idea was tapped: it goes into the box, to send or change first. */
   onSuggest: (text: string) => void;
-  /** "More ideas": three new ones in place of these (the project's newest message comes back changed). */
-  onMoreIdeas: () => Promise<void>;
 }) {
-  // The newest answer's ideas for the next change, while its version is the one playing (a restore hides them).
+  // The newest answer's ideas for the next change, while its version is the one playing (a restore hides them): up to
+  // 12, best first, three at a time; "More ideas" shows the next three (3 times), then goes until the next answer.
   const last = messages.at(-1);
-  const ideas = last?.role === "agent" && last.status === "done" && last.versionN === currentVersion ? (last.suggestions ?? []) : [];
-  const [asking, setAsking] = useState(false);
-  const [ideasError, setIdeasError] = useState<{ text: string; for: string } | null>(null);
-  const moreIdeas = () => {
-    if (asking || !last) return;
-    setAsking(true);
-    setIdeasError(null);
-    onMoreIdeas()
-      .catch((e: unknown) => setIdeasError({ text: e instanceof Error ? e.message : String(e), for: last.id }))
-      .finally(() => setAsking(false));
-  };
+  const all = last?.role === "agent" && last.status === "done" && last.versionN === currentVersion ? (last.suggestions ?? []) : [];
+  const [paged, setPaged] = useState<{ id: string; page: number } | null>(null);
+  const page = last && paged?.id === last.id ? paged.page : 0;
+  const ideas = all.slice(page * IDEAS_SHOWN, (page + 1) * IDEAS_SHOWN);
+  const more = page < MORE_IDEAS && (page + 1) * IDEAS_SHOWN < all.length;
   const list = useRef<HTMLOListElement>(null);
   const stick = useRef(true); // follow new messages while the reader is at the bottom
 
@@ -87,24 +82,28 @@ export function ChatLog({
           <p className="ideas__label" id="ideas-label">
             Ideas for your next change
           </p>
-          <div className="ideas__list" role="group" aria-labelledby="ideas-label" aria-busy={asking || undefined} data-asking={asking || undefined}>
+          <div className="ideas__list" role="group" aria-labelledby="ideas-label">
             {ideas.map((idea) => (
               <button key={idea} type="button" className="idea" onClick={() => onSuggest(idea)}>
                 {idea}
               </button>
             ))}
-            {(last!.moreIdeas ?? 0) > 0 && (
-              <button type="button" className="idea idea--more" onClick={moreIdeas} disabled={asking}>
+            {more && (
+              <button
+                type="button"
+                className="idea idea--more"
+                onClick={(e) => {
+                  const group = e.currentTarget.parentElement;
+                  setPaged({ id: last!.id, page: page + 1 });
+                  // The last time, the button goes with them: the keyboard moves on to the first new idea.
+                  if (page + 1 === MORE_IDEAS || (page + 2) * IDEAS_SHOWN >= all.length) requestAnimationFrame(() => group?.querySelector<HTMLElement>(".idea")?.focus());
+                }}
+              >
                 <ArrowsClockwise size={15} weight="bold" aria-hidden="true" />
                 More ideas
               </button>
             )}
           </div>
-          {ideasError?.for === last!.id && (
-            <p className="ideas__error" role="alert">
-              {ideasError.text}
-            </p>
-          )}
         </li>
       )}
     </ol>

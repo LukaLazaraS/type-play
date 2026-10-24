@@ -1,14 +1,13 @@
 // The project routes of the contract (packages/shared/src/index.ts).
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Req, Res } from "@nestjs/common";
 import type { Request, Response } from "express";
-import type { Message, Project, ProjectSummary, RunEvent } from "@typeplay/shared";
+import type { Project, ProjectSummary, RunEvent } from "@typeplay/shared";
 import { CurrentUser } from "../auth/auth.guard.js";
 import { EventBus } from "../events/event-bus.js";
 import type { User } from "../generated/prisma/client.js";
 import { RunRegistry } from "../runs/registry.js";
-import { RunsService } from "../runs/runs.service.js";
 import { ProjectsService } from "./projects.service.js";
-import { ProjectViews, toMessage } from "./views.js";
+import { ProjectViews } from "./views.js";
 
 @Controller("projects")
 export class ProjectsController {
@@ -17,7 +16,6 @@ export class ProjectsController {
     private readonly views: ProjectViews,
     private readonly events: EventBus,
     private readonly registry: RunRegistry,
-    private readonly runs: RunsService,
   ) {}
 
   @Get()
@@ -79,14 +77,6 @@ export class ProjectsController {
   @HttpCode(200)
   cancel(@CurrentUser() user: User, @Param("id") id: string): Promise<Project> {
     return this.projects.cancel(user, id);
-  }
-
-  /** "More ideas": the newest answer with three new next-step suggestions (free; at most 3 times per answer). */
-  @Post(":id/ideas")
-  @HttpCode(200)
-  async ideas(@CurrentUser() user: User, @Param("id") id: string): Promise<Message> {
-    await this.views.owned(user.id, id);
-    return toMessage(await this.runs.moreIdeas(id));
   }
 
   /** Server-Sent Events: a snapshot first, then the project's run events; a heartbeat comment every 20 s. */

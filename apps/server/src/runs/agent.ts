@@ -40,9 +40,9 @@ export interface AgentResult {
   /** Only the attempts in the game the player gets (0 on failure): what they pay for. Missing from
    * older records, in which case costUsd stands in. */
   chargeUsd?: number;
-  /** Up to 3 next steps for the chat's chips (packages/agent/tools/next-steps.mjs); none on a failed run. */
+  /** Up to 12 next-step ideas, best first, for the chat's chips (packages/agent/tools/next-steps.mjs); none on a failed run. */
   suggestions?: string[];
-  /** What the suggestions call cost: ours, never charged to the player. */
+  /** What the ideas call cost: part of the answer's charge, like the player-message rewrite. */
   suggestionsCostUsd?: number;
   /** The last check exported a step that was then rolled back: export again before publishing. */
   staleExport?: boolean;
@@ -128,7 +128,7 @@ interface FinalRecord {
   attempts?: { ok?: boolean }[];
 }
 
-/** The record's suggestions as the chat may show them: up to 3 short single lines, anything else dropped. */
+/** The record's ideas as the chat may show them: up to 12 short single lines in their order, anything else dropped. */
 export function cleanSuggestions(list: unknown): string[] {
   if (!Array.isArray(list)) return [];
   const out: string[] = [];
@@ -136,7 +136,7 @@ export function cleanSuggestions(list: unknown): string[] {
     if (typeof item !== "string") continue;
     const s = item.replace(/\s+/g, " ").trim();
     if (s && s.length <= 60 && !out.includes(s)) out.push(s);
-    if (out.length === 3) break;
+    if (out.length === 12) break;
   }
   return out;
 }
@@ -222,51 +222,6 @@ export function runAgent(job: AgentJob): AgentHandle {
       suggestionsCostUsd: Number(r.suggestionsCostUsd ?? 0),
       staleExport: !!r.ok && r.attempts?.at(-1)?.ok === false,
     };
-  });
-  return { done, kill: () => started.kill() };
-}
-
-export interface IdeasJob {
-  dir: string;
-  /** Every idea already shown for the answer: none of them comes back. */
-  exclude: string[];
-  logFile: string;
-  auth?: AgentAuth;
-}
-export interface IdeasResult {
-  list: string[];
-  /** Our cost (one Haiku call), never the player's. */
-  costUsd: number;
-  error?: string;
-}
-export interface IdeasHandle {
-  done: Promise<IdeasResult>;
-  kill(): void;
-}
-
-/** The chat's "More ideas": run.mjs --ideas on the game as it is (it changes nothing in the folder). */
-export function runIdeas(job: IdeasJob): IdeasHandle {
-  // --edit: the live runner keeps the folder (it clears it for anything else, a first build).
-  const args = ["--edit", "--ideas", "--exclude", JSON.stringify(job.exclude), "--events"];
-  mkdirSync(dirname(job.logFile), { recursive: true, mode: 0o700 });
-  const log = createWriteStream(job.logFile, { flags: "a", mode: 0o600 });
-  let found: { list?: unknown; costUsd?: number } | null = null;
-  const onLine = (line: string) => {
-    log.write(line + "\n");
-    if (!line.startsWith("@@event ")) return;
-    try {
-      const e = JSON.parse(line.slice(8)) as { type?: string; list?: unknown; costUsd?: number };
-      if (e.type === "ideas") found = e;
-    } catch {
-      // not ours
-    }
-  };
-  const agentJob: AgentJob = { dir: job.dir, prompt: "", kind: "edit", model: "fast", effort: "low", logFile: job.logFile, onProgress: () => {}, auth: job.auth };
-  const started = (config.runnerSocket ? startInRunner : startLocal)(agentJob, args, onLine, (t) => log.write(t));
-  const done = started.exit.then(({ error }): IdeasResult => {
-    log.end();
-    const f = found as { list?: unknown; costUsd?: number } | null;
-    return { list: cleanSuggestions(f?.list), costUsd: Number(f?.costUsd ?? 0), ...(f ? {} : { error: error ?? "no ideas came back" }) };
   });
   return { done, kill: () => started.kill() };
 }
