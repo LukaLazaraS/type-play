@@ -2,7 +2,9 @@
 
 ## Start here (handoff, 2026-10-20 evening)
 
-- **Until the beta code is live, only the beta 1 go-live session deploys** (HQ's job `e7b8f573`, Luka 10-24): no other session runs `deploy.mjs` (site, games, api); hand changes to HQ.
+- **10-25: beta codes are live** (Luka 10-24): testers sign in with any Google account and type six digits on the
+  closed-beta page (`npm run admin:live -w @typeplay/server -- code add | list | remove`, `docs/beta/runbook.md` step 8;
+  the first code, 20 uses with 50 credits each, went to Luka 10-25). Invites by address work as before.
 - **10-24, beta 1 is live** (closed beta, invite only): typeplay.app with the app on, `api.typeplay.app` on the CPX32
   (`/health` as `docs/beta/runbook.md` step 5), the 10-20 game loader on typeplay.dev; commit `3c7bdcc` (the app switch
   and tonight's doc fixes are not committed yet). Sign-in's redirect fixed the same night (it went to Next's own
