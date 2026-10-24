@@ -225,3 +225,48 @@ export function runAgent(job: AgentJob): AgentHandle {
   });
   return { done, kill: () => started.kill() };
 }
+
+export interface IdeasJob {
+  dir: string;
+  /** Every idea already shown for the answer: none of them comes back. */
+  exclude: string[];
+  logFile: string;
+  auth?: AgentAuth;
+}
+export interface IdeasResult {
+  list: string[];
+  /** Our cost (one Haiku call), never the player's. */
+  costUsd: number;
+  error?: string;
+}
+export interface IdeasHandle {
+  done: Promise<IdeasResult>;
+  kill(): void;
+}
+
+/** The chat's "More ideas": run.mjs --ideas on the game as it is (it changes nothing in the folder). */
+export function runIdeas(job: IdeasJob): IdeasHandle {
+  // --edit: the live runner keeps the folder (it clears it for anything else, a first build).
+  const args = ["--edit", "--ideas", "--exclude", JSON.stringify(job.exclude), "--events"];
+  mkdirSync(dirname(job.logFile), { recursive: true, mode: 0o700 });
+  const log = createWriteStream(job.logFile, { flags: "a", mode: 0o600 });
+  let found: { list?: unknown; costUsd?: number } | null = null;
+  const onLine = (line: string) => {
+    log.write(line + "\n");
+    if (!line.startsWith("@@event ")) return;
+    try {
+      const e = JSON.parse(line.slice(8)) as { type?: string; list?: unknown; costUsd?: number };
+      if (e.type === "ideas") found = e;
+    } catch {
+      // not ours
+    }
+  };
+  const agentJob: AgentJob = { dir: job.dir, prompt: "", kind: "edit", model: "fast", effort: "low", logFile: job.logFile, onProgress: () => {}, auth: job.auth };
+  const started = (config.runnerSocket ? startInRunner : startLocal)(agentJob, args, onLine, (t) => log.write(t));
+  const done = started.exit.then(({ error }): IdeasResult => {
+    log.end();
+    const f = found as { list?: unknown; costUsd?: number } | null;
+    return { list: cleanSuggestions(f?.list), costUsd: Number(f?.costUsd ?? 0), ...(f ? {} : { error: error ?? "no ideas came back" }) };
+  });
+  return { done, kill: () => started.kill() };
+}

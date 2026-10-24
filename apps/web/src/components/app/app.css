@@ -853,6 +853,58 @@ body:has(.ws) .ground-band {
     min-height: 44px;
   }
 }
+/* "More ideas": the same pill, its refresh mark saying it is an action, not something to say. */
+.idea--more {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.idea--more:disabled {
+  cursor: progress;
+}
+.idea--more svg {
+  flex: none;
+}
+.ideas__error {
+  margin: 0;
+  padding: 0 6px;
+  max-width: 92%;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--on-paper);
+  text-align: right;
+}
+/* While new ideas are on the way: a flat shimmer, the pills dimming one after another, and the mark turning. */
+.ideas__list[data-asking] .idea:not(.idea--more) {
+  opacity: 0.55;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ideas__list[data-asking] .idea:not(.idea--more) {
+    animation: shimmer 900ms var(--ease-in-out) infinite alternate;
+  }
+  .ideas__list[data-asking] .idea:nth-child(2) {
+    animation-delay: 150ms;
+  }
+  .ideas__list[data-asking] .idea:nth-child(3) {
+    animation-delay: 300ms;
+  }
+  .ideas__list[data-asking] .idea--more svg {
+    animation: turn 800ms linear infinite;
+  }
+  @keyframes shimmer {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0.4;
+    }
+  }
+  @keyframes turn {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}
 /* They arrive with the answer, once per build: the label, then each idea 40 ms apart. */
 @media (prefers-reduced-motion: no-preference) {
   .ideas__label,
@@ -1064,6 +1116,101 @@ body:has(.ws) .ground-band {
 .stage__note--error {
   color: var(--on-sky);
   font-weight: 600;
+}
+
+/* Phone or computer (the stage bar): two icons in an Ink Recess pill, the chosen one on paper, like the phone tabs. */
+.viewpick {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--ink-2);
+}
+.viewpick__opt {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--on-sky-muted);
+  cursor: pointer;
+  transition:
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+.viewpick__opt[aria-pressed="true"] {
+  background: var(--paper);
+  color: var(--ink);
+}
+.viewpick__opt:active {
+  transform: scale(0.95);
+}
+@media (hover: hover) and (pointer: fine) {
+  .viewpick__opt[aria-pressed="false"]:hover {
+    color: var(--on-sky);
+  }
+}
+.viewpick__turn {
+  width: 44px;
+  padding: 0;
+}
+/* A narrow bar (a small laptop) with the picker in it: the game's name keeps the room, the version line goes (the
+   Versions list under the game says it too). */
+.stage__bar {
+  container-type: inline-size;
+}
+@container (max-width: 620px) {
+  .stage__bar:has(.viewpick) .stage__version {
+    display: none;
+  }
+}
+/* On a phone or tablet it is already the real thing; on a narrow window the bar has no room. */
+@media (hover: none) and (pointer: coarse), (max-width: 700px) {
+  .viewpick,
+  .viewpick__turn {
+    display: none;
+  }
+}
+/* The frame's wrapper takes no box on a computer; for a phone it is the phone drawn at the size that fits. */
+.stage__fit {
+  display: contents;
+}
+.stage__fit[data-view="phone"] {
+  display: block;
+  position: relative;
+  flex: none;
+}
+/* The phone itself: its real screen size in CSS pixels (the game runs at that size), drawn smaller by a scale
+   when the stage is shorter, with an Ink Recess bezel. */
+.stage__frame[data-view="phone"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 390px;
+  height: 844px;
+  aspect-ratio: auto;
+  border-radius: 46px;
+  outline: 12px solid var(--ink-2);
+  transform: scale(var(--s, 1));
+  transform-origin: 0 0;
+}
+.stage__frame[data-view="phone"][data-sideways] {
+  width: 844px;
+  height: 390px;
+}
+/* Full screen leaves the drawn phone behind. */
+.stage__frame[data-view="phone"]:has(.gameframe[data-immersive]) {
+  transform: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stage__fit[data-view="phone"] {
+    animation: line-in 220ms var(--ease-out);
+  }
 }
 
 /* The first build: its progress, then three games to play meanwhile and the gallery (WhileYouWait). */

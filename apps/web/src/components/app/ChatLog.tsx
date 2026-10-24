@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef } from "react";
-import { Play } from "@phosphor-icons/react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ArrowsClockwise, Play } from "@phosphor-icons/react";
 import type { Message, ModelChoice } from "@typeplay/shared";
 import { clock, creditsWord } from "@/lib/format";
 
@@ -17,6 +17,7 @@ export function ChatLog({
   currentVersion,
   onPlay,
   onSuggest,
+  onMoreIdeas,
 }: {
   messages: Message[];
   live: LiveLine;
@@ -27,10 +28,22 @@ export function ChatLog({
   onPlay: () => void;
   /** A next-step idea was tapped: it goes into the box, to send or change first. */
   onSuggest: (text: string) => void;
+  /** "More ideas": three new ones in place of these (the project's newest message comes back changed). */
+  onMoreIdeas: () => Promise<void>;
 }) {
   // The newest answer's ideas for the next change, while its version is the one playing (a restore hides them).
   const last = messages.at(-1);
   const ideas = last?.role === "agent" && last.status === "done" && last.versionN === currentVersion ? (last.suggestions ?? []) : [];
+  const [asking, setAsking] = useState(false);
+  const [ideasError, setIdeasError] = useState<{ text: string; for: string } | null>(null);
+  const moreIdeas = () => {
+    if (asking || !last) return;
+    setAsking(true);
+    setIdeasError(null);
+    onMoreIdeas()
+      .catch((e: unknown) => setIdeasError({ text: e instanceof Error ? e.message : String(e), for: last.id }))
+      .finally(() => setAsking(false));
+  };
   const list = useRef<HTMLOListElement>(null);
   const stick = useRef(true); // follow new messages while the reader is at the bottom
 
@@ -74,13 +87,24 @@ export function ChatLog({
           <p className="ideas__label" id="ideas-label">
             Ideas for your next change
           </p>
-          <div className="ideas__list" role="group" aria-labelledby="ideas-label">
+          <div className="ideas__list" role="group" aria-labelledby="ideas-label" aria-busy={asking || undefined} data-asking={asking || undefined}>
             {ideas.map((idea) => (
               <button key={idea} type="button" className="idea" onClick={() => onSuggest(idea)}>
                 {idea}
               </button>
             ))}
+            {(last!.moreIdeas ?? 0) > 0 && (
+              <button type="button" className="idea idea--more" onClick={moreIdeas} disabled={asking}>
+                <ArrowsClockwise size={15} weight="bold" aria-hidden="true" />
+                More ideas
+              </button>
+            )}
           </div>
+          {ideasError?.for === last!.id && (
+            <p className="ideas__error" role="alert">
+              {ideasError.text}
+            </p>
+          )}
         </li>
       )}
     </ol>

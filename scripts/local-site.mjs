@@ -325,6 +325,8 @@ async function supervise() {
         const names = f.slice(8).split("+").filter((n) => n in SERVICES);
         phase(`restarting ${names.join(" and ")}`);
         for (const n of names) stopChild(n);
+        // A new API may bring new tables or columns.
+        if (names.includes("api")) await prepareDatabase().catch((e) => note(`migrate: ${e.message ?? e}`));
         await sleep(1500);
         for (const n of names) start(n);
         for (let i = 0; i < 90 && !(await Promise.all(names.map(up))).every(Boolean); i++) await sleep(2000);

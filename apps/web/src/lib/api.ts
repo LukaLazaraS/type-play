@@ -14,6 +14,7 @@ import type {
   Estimate,
   FeedbackBody,
   Me,
+  Message,
   ModelChoice,
   PlanChangeBody,
   PlanChangePreview,
@@ -121,6 +122,7 @@ export const api = {
     call<Project>(`/projects/${id(projectId)}/messages`, { method: "POST", body }),
   restore: (projectId: string, n: number) => call<Project>(`/projects/${id(projectId)}/restore`, { method: "POST", body: { n } }),
   cancel: (projectId: string) => call<Project>(`/projects/${id(projectId)}/cancel`, { method: "POST" }),
+  moreIdeas: (projectId: string) => call<Message>(`/projects/${id(projectId)}/ideas`, { method: "POST" }),
   estimate: (kind: "new" | "edit", model: ModelChoice, effort: Effort = "medium") =>
     call<Estimate>(`/estimate?kind=${kind}&model=${model}${effort === "medium" ? "" : `&effort=${effort}`}`),
   /** Rename, share or unshare. */

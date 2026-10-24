@@ -29,8 +29,8 @@ export interface ActiveRun {
   finished: Promise<void>;
 }
 
-/** export: an Android build (android/android.service.ts) holds the project for its whole run. */
-type Purpose = "run" | "restore" | "delete" | "export";
+/** export: an Android build (android/android.service.ts) holds the project for its whole run; ideas: "More ideas" (a few seconds). */
+type Purpose = "run" | "restore" | "delete" | "export" | "ideas";
 
 @Injectable()
 export class RunRegistry {
@@ -66,6 +66,9 @@ export class RunRegistry {
   reserve(projectId: string, purpose: Purpose, owner?: { id: string; plan: PlanId }): () => void {
     if (this.reserved.get(projectId)?.purpose === "export") {
       throw new ApiException(409, "busy", "This game is being built for Android right now (a few minutes). Chat again when it's done.");
+    }
+    if (this.reserved.get(projectId)?.purpose === "ideas") {
+      throw new ApiException(409, "busy", "Getting more ideas for this game: try again in a few seconds.");
     }
     if (this.active.has(projectId) || this.reserved.has(projectId)) {
       throw new ApiException(409, "busy", "This game is already being built. Wait for it to finish, or stop it.");

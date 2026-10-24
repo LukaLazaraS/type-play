@@ -11,6 +11,8 @@
 //          request, else 2, sized by the same cheap call that picks the genre; else 1)
 //          --budget <usd> (tests only: overrides the safety cap below; the server never passes it)
 //          --dir <path> (the game folder instead of output/<game>; --game is then optional)
+//          --ideas [--exclude <json>] (no build: only next-step ideas for the game as it is, none of
+//          `--exclude`: the chat's "More ideas")
 //          --events (also print `@@event <json>` lines: started, progress in plain words (also
 //          "Planning your change…" while the model thinks, tools/thinking.mjs), result;
 //          read by the server, apps/server. The result carries costUsd = every attempt, and
@@ -58,7 +60,7 @@ const isEdit = flag('edit');
 const playtest = flag('playtest');
 const slim = flag('slim');
 let modelKey = opt('model', isEdit ? 'auto' : 'sonnet');
-if (!game || !prompt) { console.error('need --game (or --dir) and --prompt'); process.exit(2); }
+if (!game || (!prompt && !flag('ideas'))) { console.error('need --game (or --dir) and --prompt'); process.exit(2); }
 if (process.env.ANTHROPIC_API_KEY && process.env.AGENT_AUTH !== 'api') {
   console.error('ANTHROPIC_API_KEY is set: unset it to run on Max, or set AGENT_AUTH=api.');
   process.exit(2);
@@ -90,6 +92,19 @@ function toolProgress(name, input = {}) {
 
 const dir = dirOpt ? resolve(dirOpt) : join(HERE, 'output', game);
 const git = (...a) => spawnSync('git', ['-c', 'user.name=game-agent', '-c', 'user.email=agent@local', ...a], { cwd: dir, encoding: 'utf8' });
+
+// --ideas [--exclude <json list>]: only the chat's next-step ideas for the game as it is, none of the
+// ones already shown (the player's "More ideas"); nothing in the folder changes. With --events it prints
+// `@@event {"type":"ideas","list":[…],"costUsd":…}`: our cost, never the player's.
+if (flag('ideas')) {
+  let exclude = [];
+  try { exclude = JSON.parse(opt('exclude', '[]')).filter((e) => typeof e === 'string'); } catch {}
+  const r = await nextSteps({ dir, reply: '', exclude, query, options: { ...ISOLATED, model: MODELS.haiku, effort: 'low', tools: [], maxTurns: 1, systemPrompt: 'You suggest the next small change for a game a player is making by chat. Reply with a JSON array of strings only.' } });
+  emit({ type: 'ideas', list: r.list, costUsd: +r.costUsd.toFixed(4) });
+  console.log(`more ideas ($${r.costUsd.toFixed(4)}, not charged): ${r.list.join(' | ') || '(none)'}`);
+  process.exit(0);
+}
+
 if (isEdit) {
   if (!existsSync(join(dir, '.git'))) { console.error(`no game in ${dir}`); process.exit(2); }
 } else {

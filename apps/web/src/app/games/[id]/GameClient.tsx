@@ -292,6 +292,10 @@ export function GameClient() {
           currentVersion={project.currentVersion}
           onPlay={() => show("play")}
           onSuggest={(text) => setPrefill((p) => ({ text, n: (p?.n ?? 0) + 1 }))}
+          onMoreIdeas={async () => {
+            const m = await api.moreIdeas(id);
+            setProject((p) => (p ? { ...p, messages: p.messages.map((x) => (x.id === m.id ? m : x)) } : p));
+          }}
         />
         <Composer
           kind={kind}

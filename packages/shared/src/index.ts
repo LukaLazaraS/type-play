@@ -196,6 +196,8 @@ export interface Message {
   /** Up to 3 next changes the player might ask for (short lines in the player's language), made with the answer at
    * no charge; the chat offers them under its newest answer. Missing when there are none. */
   suggestions?: string[];
+  /** With suggestions: how many more times "More ideas" can replace them (POST /projects/:id/ideas; 3 per answer). */
+  moreIdeas?: number;
   createdAt: string;
 }
 
@@ -527,6 +529,8 @@ export interface FeedbackBody {
 // POST /projects/:id/messages    -> Project            (with the new user + running agent message)
 // POST /projects/:id/restore     -> Project
 // POST /projects/:id/cancel      -> Project            (stops the active run; nothing is charged; the game stays at its last version)
+// POST /projects/:id/ideas       -> Message            (added 10-24: "More ideas": the newest answer with three new suggestions,
+//                                                       none shown before; free; 400 when it has none or its 3 are used, 409 busy)
 // GET  /estimate?kind=new|edit&model=fast|smart|best[&effort=low|medium|high]   -> Estimate
 // GET  /projects/:id/events      -> text/event-stream of RunEvent (see below)
 //

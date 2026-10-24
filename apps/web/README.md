@@ -42,6 +42,10 @@ public site alone until the API has a server (package 5). It works through file 
 or `components/app/AccountSlot.tsx` (which also carries all app styles, `components/app/app.css`).
 `npm run build` = today's public site; `NEXT_PUBLIC_APP=1 npm run build` adds the app.
 
+**A local site for Luka** (no deploy to look at changes): `node scripts/local-site.mjs start | update | stop | status`
+runs a built copy of this checkout on http://localhost:3000 (Google sign-in, real builds, its own Postgres on :54329,
+the showcase games in the gallery) in the background until `stop`; `update` after a batch. Details in the script's head.
+
 **Run it locally** (one at a time, not the root `npm run dev`):
 
 ```bash
@@ -399,6 +403,15 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   build, one charge), never the same one twice (`withIdea`; HQ's call for Luka, 10-24). They come with the answer: `packages/agent/tools/next-steps.mjs` (one Haiku call beside the
   player-message rewrite, from the game's requests so far and its NOTES.md; ~$0.0006, never charged), stored on the
   message (`Message.suggestions`, migration `20261025000000_suggestions`), in the contract's `Message.suggestions`.
+  **More ideas** (batch 2.1): a fourth pill with a refresh mark replaces the three with three new ones (`POST
+  /projects/:id/ideas`: `run.mjs --ideas` with every idea shown for that answer excluded, the same free Haiku call;
+  `Message.ideaRounds`, migration `20261025010000_idea_rounds`); the pills dim one after another while it asks, the box
+  keeps its text; 3 times per answer (`moreIdeas` in the contract), then the pill goes until the next answer.
+- **Phone or computer** (batch 2.2, `Stage.tsx`): two icons beside Share. Phone puts the game in a phone's real screen,
+  390 × 844 CSS pixels (drawn smaller by a scale when the stage is shorter, so the game still runs at that size), the
+  game's own way up first and a Turn button beside the icons; Computer is the stage as before. The same frame is
+  resized, so the game keeps running. Hidden on phones and tablets and in windows under 700 px; a bar under 620 px wide
+  drops its version line so the name keeps room.
 - **While the first build runs** (`components/app/WhileYouWait.tsx`): under the build's progress on the stage, "Play one
   while you wait": three games as app icons (the gallery's most played this week, then the home page's games; one of the
   kind the first sentence sounds like first, then other kinds) and **More in the gallery**. A tapped game plays in the

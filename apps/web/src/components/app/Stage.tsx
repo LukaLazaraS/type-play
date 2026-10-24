@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import Link from "next/link";
-import { AndroidLogo, ArrowSquareOut, ArrowsOut, ArrowClockwise, Play, X } from "@phosphor-icons/react";
+import { AndroidLogo, ArrowSquareOut, ArrowsOut, ArrowClockwise, Desktop, DeviceMobile, DeviceRotate, Play, X } from "@phosphor-icons/react";
 import type { Project } from "@typeplay/shared";
 import { BuildLayers } from "@/components/BuildingIcon";
 import { GameFrame, playUrl, type GameFrameHandle } from "@/components/GameFrame";
@@ -18,6 +18,11 @@ import { useWaitGames, WhileYouWait, type WaitGame } from "./WhileYouWait";
 
 /** Phones and tablets, as GameFrame decides it: a game started there opens full screen. */
 const TOUCH = "(hover: none) and (pointer: coarse)";
+
+type View = "computer" | "phone";
+/** The phone preview's screen: an iPhone's 390 × 844 CSS pixels, the size the game really runs at; the bezel around it. */
+const PHONE = { w: 390, h: 844 };
+const BEZEL = 12;
 
 /** The game side of the game page: the playable frame, or the build on its way, and the versions. */
 export function Stage({
@@ -70,6 +75,33 @@ export function Stage({
     setWaiting(null);
     setStartOwn(true);
   };
+  // Phone or computer (Luka, 10-24): the game in a phone's own screen size, or as wide as fits (as before). It is the
+  // same frame, resized: the game keeps running and fits itself to the new size, as it would on that screen.
+  const screen = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<View>("computer");
+  const [turned, setTurned] = useState<boolean | null>(null); // null: the game's own way up
+  const sideways = turned ?? (waiting?.orientation ?? project.orientation) === "landscape";
+  const [room, setRoom] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    const el = screen.current;
+    if (!el || view !== "phone") return;
+    const ro = new ResizeObserver(() => setRoom({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [view]);
+  const device = sideways ? { w: PHONE.h, h: PHONE.w } : PHONE;
+  // Drawn smaller when the stage is shorter than a phone; the game still runs at the phone's size.
+  const scale = room ? Math.min(1, (room.w - 32 - 2 * BEZEL) / device.w, (room.h - 2 * BEZEL) / device.h) : 0;
+  const phone = view === "phone" && scale > 0;
+  const fitProps = { className: "stage__fit", "data-view": phone ? "phone" : undefined, style: phone ? { width: device.w * scale, height: device.h * scale } : undefined };
+  const frameProps = (orientation: Project["orientation"]) => ({
+    className: "stage__frame",
+    "data-orientation": orientation,
+    "data-view": phone ? "phone" : undefined,
+    "data-sideways": phone && sideways ? "" : undefined,
+    style: phone ? ({ "--s": scale } as CSSProperties) : undefined,
+  });
+
   const readyLine = (
     <>
       <span className="readyline">
@@ -102,6 +134,27 @@ export function Stage({
           </>
         )}
         <div className="stage__actions">
+          {(project.buildId || waiting) && (
+            <div className="viewpick" role="group" aria-label="Preview the game on">
+              <button type="button" className="viewpick__opt" aria-pressed={view === "phone"} aria-label="Phone" title="Phone" onClick={() => setView("phone")}>
+                <DeviceMobile size={18} weight="bold" aria-hidden="true" />
+              </button>
+              <button type="button" className="viewpick__opt" aria-pressed={view === "computer"} aria-label="Computer" title="Computer" onClick={() => setView("computer")}>
+                <Desktop size={18} weight="bold" aria-hidden="true" />
+              </button>
+            </div>
+          )}
+          {(project.buildId || waiting) && view === "phone" && (
+            <button
+              type="button"
+              className="inkpill viewpick__turn"
+              aria-label={sideways ? "Turn the phone upright" : "Turn the phone sideways"}
+              title={sideways ? "Turn upright" : "Turn sideways"}
+              onClick={() => setTurned(!sideways)}
+            >
+              <DeviceRotate size={18} weight="bold" aria-hidden="true" />
+            </button>
+          )}
           {project.buildId && <ShareMenu project={project} onChange={onChange} />}
           {project.buildId && androidOn && (
             <Link href={`/games/${project.id}/android`} className="inkpill" data-on={project.status === "exporting" || undefined} aria-label={project.status === "exporting" ? "Android: a build is running" : "Android: put it on a phone"}>
@@ -177,36 +230,40 @@ export function Stage({
         </p>
       )}
 
-      <div className="stage__screen">
+      <div ref={screen} className="stage__screen">
         {waiting ? (
-          <div className="stage__frame" data-orientation={waiting.orientation}>
-            <GameFrame
-              ref={frame}
-              key={`wait-${waiting.slug}`}
-              slug={waiting.slug}
-              poster={waiting.poster}
-              name={waiting.name}
-              orientation={waiting.orientation}
-              mode="click"
-              autoStart
-              returnFocus={full}
-              notice={ready ? readyLine : undefined}
-            />
+          <div {...fitProps}>
+            <div {...frameProps(waiting.orientation)}>
+              <GameFrame
+                ref={frame}
+                key={`wait-${waiting.slug}`}
+                slug={waiting.slug}
+                poster={waiting.poster}
+                name={waiting.name}
+                orientation={waiting.orientation}
+                mode="click"
+                autoStart
+                returnFocus={full}
+                notice={ready ? readyLine : undefined}
+              />
+            </div>
           </div>
         ) : project.buildId ? (
-          <div className="stage__frame" data-orientation={project.orientation}>
-            <GameFrame
-              ref={frame}
-              key={project.buildId}
-              slug={project.buildId}
-              poster={project.poster ? posterUrl(project.buildId) : undefined}
-              name={project.name}
-              orientation={project.orientation}
-              mode="click"
-              autoStart={played || startOwn}
-              onReady={onPlayed}
-              returnFocus={full}
-            />
+          <div {...fitProps}>
+            <div {...frameProps(project.orientation)}>
+              <GameFrame
+                ref={frame}
+                key={project.buildId}
+                slug={project.buildId}
+                poster={project.poster ? posterUrl(project.buildId) : undefined}
+                name={project.name}
+                orientation={project.orientation}
+                mode="click"
+                autoStart={played || startOwn}
+                onReady={onPlayed}
+                returnFocus={full}
+              />
+            </div>
           </div>
         ) : running ? (
           <div className="stage__empty stage__empty--wait">

@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { config, ROOT } from "../env.js";
 import { git } from "../games/git.js";
-import type { AgentHandle, AgentJob, AgentResult } from "./agent.js";
+import type { AgentHandle, AgentJob, AgentResult, IdeasHandle, IdeasJob, IdeasResult } from "./agent.js";
 
 const LINES = ["Reading your idea", "Writing the player", "Building the level", "Testing the game", "Making it look nice"];
 
@@ -118,6 +118,35 @@ function fakeModelCall(job: AgentJob): Promise<void> {
       () => undefined,
       () => undefined,
     );
+}
+
+/** Fake "More ideas": after ~1.2 s, three from this list that weren't shown yet ($0, like the fake runs' suggestions). */
+const MORE_IDEAS = [
+  "Add a second level",
+  "Add a boss at the end",
+  "Add a slow-motion power-up",
+  "Add moving platforms",
+  "Add a magnet for coins",
+  "Add a timer challenge",
+  "Add rain and wind",
+  "Add a combo meter",
+  "Add a rocket boost",
+  "Add lives and hearts",
+  "Add a shop for hats",
+  "Add a daily challenge",
+];
+export function runFakeIdeas(job: IdeasJob): IdeasHandle {
+  let resolve: (r: IdeasResult) => void = () => {};
+  const done = new Promise<IdeasResult>((r) => (resolve = r));
+  const shown = new Set(job.exclude.map((e) => e.toLowerCase()));
+  const timer = setTimeout(() => resolve({ list: MORE_IDEAS.filter((i) => !shown.has(i.toLowerCase())).slice(0, 3), costUsd: 0 }), 1200);
+  return {
+    done,
+    kill: () => {
+      clearTimeout(timer);
+      resolve({ list: [], costUsd: 0, error: "stopped" });
+    },
+  };
 }
 
 export function runFakeAgent(job: AgentJob): AgentHandle {
