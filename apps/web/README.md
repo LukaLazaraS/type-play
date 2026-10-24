@@ -45,6 +45,7 @@ or `components/app/AccountSlot.tsx` (which also carries all app styles, `compone
 **Run it locally** (one at a time, not the root `npm run dev`):
 
 ```bash
+node scripts/local-db.mjs start                            # this PC's Postgres (typeplay_dev; docs/environments.md)
 DEV_AUTH=1 AGENT_FAKE=1 node apps/server/dist/main.js     # API on :3002, fake builds (apps/server/README.md)
 node apps/games/scripts/serve.mjs                          # games origin on :3001
 NEXT_PUBLIC_DEV_AUTH=1 npm run dev -w web                  # site on http://localhost:3000

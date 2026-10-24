@@ -1,19 +1,20 @@
-// Settings, read once at startup. Secrets come from the repo's root .env (git-ignored) on Luka's PC,
-// or from the container's environment on the live server; the variables set in the shell win over
-// the file. Never log the values.
+// Settings, read once at startup. On Luka's PC from the repo's env files (env-files.ts: a local database from the
+// committed .env.development or .env.test, the secrets from the git-ignored root .env), on the live server from the
+// container's environment; the variables set in the shell win over the files. Never log the values.
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { assertLocalDatabase, envMode, loadEnvFiles } from "./env-files.js";
 
 /** The repo root (this file lives in apps/server/src or apps/server/dist). */
 export const ROOT = resolve(import.meta.dirname, "../../..");
 
-const envFile = join(ROOT, ".env");
-/** Key names defined in .env: kept out of the game agent's environment (it can run shell commands). */
-export const ENV_FILE_KEYS = existsSync(envFile)
-  ? [...readFileSync(envFile, "utf8").matchAll(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/gm)].map((m) => m[1])
-  : [];
-if (existsSync(envFile)) process.loadEnvFile(envFile);
+/** development, test, live (the admin CLI on the live database) or production (the live server). */
+export const ENV_MODE = envMode();
+/** Key names defined in the env files read: kept out of the game agent's environment (it can run shell commands). */
+export const ENV_FILE_KEYS = loadEnvFiles(ROOT, ENV_MODE);
+// Development and tests on this PC never reach the live database.
+assertLocalDatabase(process.env.DATABASE_URL, ENV_MODE);
 
 const env = process.env;
 const num = (v: string | undefined, fallback: number) => (v && Number.isFinite(Number(v)) ? Number(v) : fallback);

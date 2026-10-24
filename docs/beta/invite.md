@@ -1,6 +1,6 @@
 # Beta 1: the invitation
 
-For Luka. Send it to each tester **after** `npm run admin -w @typeplay/server -- invite add <their Google address> [note]`
+For Luka. Send it to each tester **after** `npm run admin:live -w @typeplay/server -- invite add <their Google address> [note]`
 (`docs/beta/runbook.md`, step 9). Before you send: put in their name and the address you invited; keep the Smart and
 Best line only if you moved them to a paid plan with `admin plan` (runbook step 10). The short version for a YouTube
 community post is at the end.

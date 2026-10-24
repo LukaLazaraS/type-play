@@ -14,6 +14,7 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
+import { useDevEnv } from "./dev-env.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 
@@ -22,7 +23,7 @@ export const galleryEmail = (stamp) => `gallery-${stamp}@dev.test`;
 
 /** Runs the gallery part with the test user `email`. The rest are shot-app's helpers: check, shot, devSignIn, admin. */
 export async function galleryPart({ browser, base, apiBase, email, check, shot, devSignIn, admin, stamp }) {
-  process.loadEnvFile(join(root, ".env"));
+  await useDevEnv();
   const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
   await db.connect();
   const DATA = process.env.DATA_DIR || join(root, "data");
