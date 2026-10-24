@@ -4013,6 +4013,52 @@ body:has(main.explore) > .ground-band {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  row-gap: 10px;
+}
+/* "No code yet?" on a line of its own above Play the games: the way for everyone who wasn't invited. */
+.closed__play .field-label {
+  flex: 1 1 100%;
+}
+/* The beta code (Luka, 10-24): its label, then the six-digit box and Join the beta on one line, the API's sentence under
+   both; a phone stacks them with the sentence between the box and the button, where the open keyboard leaves it seen. */
+.closed__code {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.closed__code-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 12px;
+}
+/* The box is the whole 54 px Field (no padding of its own): every point of it puts the caret in. */
+.closed__field {
+  flex: 0 1 176px;
+  min-width: 144px;
+  padding: 0;
+}
+.closed__field input {
+  padding: 16px 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.18em;
+}
+.closed__field input::placeholder {
+  color: var(--on-paper-muted);
+  font-weight: 400;
+  letter-spacing: normal;
+}
+.closed__code-row > .field-hint--error {
+  flex: 1 1 100%;
+  order: 1;
+}
+/* After a right code (InviteGate): one line on the sky above the page, the Android page's notice, its words in line
+   with the .make widget's under it (the same width and inset). */
+.joined {
+  width: min(760px, 100% - 2 * clamp(16px, 4vw, 80px));
+  margin: 18px auto 0;
+  padding-inline: clamp(24px, 4.5vw, 48px);
 }
 /* The account sits in a Field panel: the address on a line of its own, then two quiet buttons on paper (the ask panel's). */
 .closed__who {
@@ -4077,7 +4123,18 @@ body:has(main.explore) > .ground-band {
   .closed__who {
     padding: 16px;
   }
+  .closed__field {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .closed__code-row > .field-hint--error {
+    order: 0;
+  }
+  .joined {
+    padding-inline: 20px;
+  }
   /* A phone: the buttons take the whole width, one above the other; a label too long for its line wraps inside. */
+  .closed__code-row .button,
   .closed__play .button,
   .closed__actions .button {
     flex: 1 1 100%;

@@ -33,7 +33,7 @@ export class BetaCodeService {
   async redeem(who: Identity, body: unknown): Promise<BetaCodeResult> {
     const raw = (body as { code?: unknown } | null)?.code;
     const code = typeof raw === "string" ? raw.replace(/[\s-]+/g, "") : "";
-    if (!/^\d{6}$/.test(code)) throw badRequest("A beta code is 6 digits.");
+    if (!/^\d{6}$/.test(code)) throw badRequest("Type the 6 digits from your invitation.");
     const match = inviteMatch(who.email);
 
     // Already in (the closed beta is off, an admin, invited): nothing is used up; credits a failed request left are added.
@@ -47,9 +47,11 @@ export class BetaCodeService {
       throw new ApiException(429, "too_many", `Too many wrong codes. Try again in ${minutes(Math.max(1, Math.ceil((frees - now) / 60_000)))}.`);
     }
     if ((await this.prisma.betaCodeTry.count({ where: { at: { gt: new Date(now - HOUR) } } })) >= config.betaCodeTriesPerHourAll) {
-      throw new ApiException(429, "too_many", "Too many wrong codes were typed on TypePlay this hour. Please try again in an hour.");
+      throw new ApiException(429, "too_many", "It's not you: too many wrong codes were typed on TypePlay this hour. Please try again in an hour.");
     }
     const left = limit - mine.length - 1;
+    // After the last try: when the oldest of this hour's tries stops counting (this one, when it is the only one).
+    const nextTry = minutes(Math.max(1, Math.ceil(((mine[0]?.at.getTime() ?? now) + HOUR - now) / 60_000)));
     const wrong = async (message: string) => {
       await this.prisma.betaCodeTry.deleteMany({ where: { at: { lt: new Date(now - 24 * HOUR) } } });
       await this.prisma.betaCodeTry.create({ data: { match } });
@@ -58,12 +60,16 @@ export class BetaCodeService {
 
     const row = await this.prisma.betaCode.findUnique({ where: { code } });
     if (!row || row.removedAt) {
-      throw await wrong(left > 0 ? `That code isn't right. ${left} ${left === 1 ? "try" : "tries"} left this hour.` : "That code isn't right, and that was the last try this hour.");
+      throw await wrong(
+        left > 0
+          ? `That code isn't right. ${left} ${left === 1 ? "try" : "tries"} left this hour.`
+          : `That code isn't right, and that was the last try for now. Try again in ${nextTry}.`,
+      );
     }
     if (await this.prisma.betaCodeUse.findUnique({ where: { code_match: { code, match } } })) {
-      throw wrongCode("This account has used that code already. Ask us for a new one.");
+      throw wrongCode("This account has used that code already. Write to hello@typeplay.app for a new one.");
     }
-    if (row.used >= row.uses) throw await wrong("That code has been used up. Ask us for a new one.");
+    if (row.used >= row.uses) throw await wrong("That code has been used up. Write to hello@typeplay.app for a new one.");
 
     // One statement checks and raises the count, so the last use can't go to two people at once.
     let taken = false;
@@ -84,7 +90,7 @@ export class BetaCodeService {
       if ((e as { code?: string }).code !== "P2002") throw e;
       return { credits: await this.grantDue(who, match) };
     }
-    if (!taken) throw await wrong("That code has been used up. Ask us for a new one.");
+    if (!taken) throw await wrong("That code has been used up. Write to hello@typeplay.app for a new one.");
     return { credits: await this.grantDue(who, match) };
   }
 

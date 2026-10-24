@@ -772,7 +772,9 @@ async function codeChecks(db) {
     for (let i = 0; i < 5; i++) wrongs.push(await redeem(W, bad));
     ok(wrongs.every((r) => r.status === 403 && r.body?.error === "code_wrong"), "a wrong code: 403 code_wrong");
     ok(
-      /4 tries left this hour/.test(wrongs[0].body?.message) && /1 try left this hour/.test(wrongs[3].body?.message) && /last try this hour/.test(wrongs[4].body?.message),
+      /4 tries left this hour/.test(wrongs[0].body?.message) &&
+        /1 try left this hour/.test(wrongs[3].body?.message) &&
+        /last try for now\. Try again in (60|59) minutes\./.test(wrongs[4].body?.message),
       `each answer says the tries left ("${wrongs[0].body?.message}" … "${wrongs[4].body?.message}")`,
     );
     const sixth = await redeem(W, "424242");
@@ -791,7 +793,7 @@ async function codeChecks(db) {
     ok(againA.status === 200 && againA.body?.credits === 0, "the same account again while in: 200, nothing added, no use counted");
     ok((await redeem(B, "424242")).body?.credits === 50, "a second account: in, 50 credits");
     const usedUp = await redeem(C, "424242");
-    ok(usedUp.status === 403 && /used up/.test(usedUp.body?.message), "the third account: used up (2 uses)");
+    ok(usedUp.status === 403 && /used up\. Write to hello@typeplay\.app/.test(usedUp.body?.message), "the third account: used up (2 uses), and where to ask for a new one");
     const list = admin("code", "list");
     ok(
       list.status === 0 && /424242\s+2 of 2 used, 50 credits each, made \d{4}-\d\d-\d\d, used up\s+"e2e testers"/.test(list.stdout) && list.stdout.includes(emailOf(A)) && list.stdout.includes(emailOf(B)),

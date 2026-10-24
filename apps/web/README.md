@@ -353,19 +353,25 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
 
 - **The closed-beta page** (`components/app/ClosedBeta.tsx`): when the API answers 403 `invite_only` (any call, `GET /me`
   included; `lib/api.ts` marks the session, `lib/session.ts` `uninvited`), the app's pages show "TypePlay is in a closed
-  beta." instead of themselves: who it is for and that it opens to everyone soon, the one hot **Play the games** (the
-  home page's games: most people here were never invited), then a Field panel with the address this browser is signed in
-  with and two quiet buttons, **Use another account** (Google's account chooser, `prompt=select_account`; the new sign-in
-  replaces this one) and Sign out, and the idea saved in this browser quoted (cut at three lines) when there is one. No
-  form: nothing new is asked or kept. It fades in where the page was. It works through a `layout.app.tsx` in `create/`,
+  beta." instead of themselves: who it is for and that it opens to everyone soon, then **Have a beta code?**: a six-digit
+  box (digits only, a pasted code replaces the one there, the number keyboard, `one-time-code`) and the one hot **Join
+  the beta** (10-25, Luka's beta codes: `POST /beta/code`). A wrong code: the API's sentence (the tries left; a limit's
+  sentence stays while typing), and the box keeps its focus and the code, selected, so the keyboard stays up. A right
+  one: a fresh `GET /me` (`refreshMe({ fresh: true })`: the one sent on load was answered "not invited"), the page gives
+  way to the app, and one focused line above it says "You're in the beta. We added 50 credits." (if `GET /me` still says
+  not invited: "Your code worked. Reload the page to start."). Then "No code yet?" over a quiet **Play the games** (the
+  home page's games), then a Field panel
+  with the address this browser is signed in with and two quiet buttons, **Use another account** (Google's account
+  chooser, `prompt=select_account`; the new sign-in replaces this one) and Sign out, and the idea saved in this browser
+  quoted (cut at three lines) when there is one. It fades in where the page was. It works through a `layout.app.tsx` in `create/`,
   `games/`, `account/` and `billing/` (the `InviteGate`), so every page under them is covered and the public pages (home,
   pricing, the legal pages, `/explore`, `/play/<id>`) are as before. The answer is kept for the tab (`sessionStorage`), so
   a reload shows the page at once while `GET /me` asks again. The status bar's account place shows only the avatar letter,
   and its menu the address, one line on the closed beta and Sign out (no credits, no My games); on phones the page behind
   the account menu dims (any account). The live updates stop on a 403 instead of retrying.
 - **Before sign-in** (`NEXT_PUBLIC_CLOSED_BETA=1` at build time, set in `deploy/server/compose.yaml` next to
-  `NEXT_PUBLIC_APP`; `content/beta.ts`): the signed-out /create and /games say "A closed beta for now: sign in with the
-  Google account you were invited with." instead of the Free plan's line. Set it to `"0"` together with the API's
+  `NEXT_PUBLIC_APP`; `content/beta.ts`): the signed-out /create and /games say "A closed beta for now: sign in with
+  Google, then type the beta code from your invitation." instead of the Free plan's line. Set it to `"0"` together with the API's
   `BETA_INVITE_ONLY` when the app opens to everyone.
 - **Send feedback** (`components/app/Feedback.tsx`): one quiet entry in the account menu (under Plans and credits) and
   one in the game page's **More** menu. A modal `<dialog>` in the report dialog's box, put straight into `<body>`:

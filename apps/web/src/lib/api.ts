@@ -6,6 +6,7 @@ import type {
   AndroidState,
   ApiError,
   ApiErrorCode,
+  BetaCodeResult,
   BillingInfo,
   CheckoutBody,
   CheckoutStatus,
@@ -135,6 +136,8 @@ export const api = {
   closeAccount: () => call<{ ok: true }>("/me", { method: "DELETE", body: { confirm: "DELETE" } }),
   /** "Send feedback" (beta 1): 429 too_many after 10 a day. */
   feedback: (body: FeedbackBody) => call<{ id: string }>("/feedback", { method: "POST", body }),
+  /** A beta code from the closed-beta page (the one call an uninvited account may make): 403 code_wrong, 429 too_many. */
+  betaCode: (code: string) => call<BetaCodeResult>("/beta/code", { method: "POST", body: { code } }),
 
   // Plan and billing (payments part 3). 503 billing_off when payments are off for this user.
   billing: () => call<BillingInfo>("/billing"),
