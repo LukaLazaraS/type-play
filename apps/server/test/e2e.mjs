@@ -643,7 +643,9 @@ async function inviteChecks(db) {
       if (line.startsWith("//")) for (const m of line.matchAll(/\b(GET|POST|PATCH|DELETE)\s+(\/[^\s,?]*)/g)) contractRoutes.add(`${m[1]} ${m[2]}`);
     }
     const isPublicRoute = (r) => /^(GET|POST) \/(public|webhooks|android\/dl)\//.test(r);
-    const signedIn = [...contractRoutes].filter((r) => !isPublicRoute(r));
+    // POST /beta/code is the way in for an email that isn't invited (codeChecks below): it answers them, by design.
+    const wayIn = "POST /beta/code";
+    const signedIn = [...contractRoutes].filter((r) => !isPublicRoute(r) && r !== wayIn);
     const asked = new Set(routes.map(([method, path]) => `${method} ${path.split("?")[0]}`));
     for (const r of signedIn) {
       const [method, template] = r.split(" ");
@@ -663,14 +665,19 @@ async function inviteChecks(db) {
     // The public surface (security review 10-20): @Public() only on the phone link, the Paddle webhook and /public/*, and
     // main.ts's one route of its own is /health. A new @Public() fails here until it is looked at.
     const publicIn = [];
+    const identityOnlyIn = [];
     const walk = (dir) => {
       for (const d of readdirSync(dir, { withFileTypes: true })) {
         const p = join(dir, d.name);
         if (d.isDirectory()) {
           if (d.name !== "generated") walk(p);
         } else if (p.endsWith(".ts")) {
-          const n = (readFileSync(p, "utf8").match(/^\s*@Public\(\)/gm) ?? []).length;
-          if (n) publicIn.push(`${p.slice(join(here, "src").length + 1).replace(/\\/g, "/")}:${n}`);
+          const text = readFileSync(p, "utf8");
+          const name = p.slice(join(here, "src").length + 1).replace(/\\/g, "/");
+          const n = (text.match(/^\s*@Public\(\)/gm) ?? []).length;
+          if (n) publicIn.push(`${name}:${n}`);
+          const m = (text.match(/^\s*@IdentityOnly\(\)/gm) ?? []).length;
+          if (m) identityOnlyIn.push(`${name}:${m}`);
         }
       }
     };
@@ -680,6 +687,8 @@ async function inviteChecks(db) {
       publicIn.sort().join() === "android/android.controller.ts:1,billing/webhooks.controller.ts:1,public.controller.ts:1" && ownRoutes.join() === ').get("/health"',
       `the public surface: @Public() on ${publicIn.join(", ")}; main.ts's own route ${ownRoutes.join(", ")}`,
     );
+    // Signed in but before the invite check (no user row): only the beta code's route. A new one fails here until looked at.
+    ok(identityOnlyIn.sort().join() === "beta/codes.controller.ts:1", `@IdentityOnly() on ${identityOnlyIn.join(", ") || "nothing"}`);
     ok((await call(BOSS, "GET", "/me")).status === 200, "ADMIN_EMAILS get in without an invite");
     ok((await call(I, "GET", "/me")).status === 403, "the tester before the invite: 403");
 
@@ -716,6 +725,100 @@ async function inviteChecks(db) {
       audits.map((a) => a.action).join() === "invite_add,invite_add,invite_add,invite_remove" && !JSON.stringify(audits).includes("@"),
       `every invite command wrote an audit row, the address scrambled (${audits.map((a) => a.action).join()})`,
     );
+  } finally {
+    beta.kill();
+  }
+}
+
+/**
+ * Beta codes (Luka, 10-24), against an API of our own on :3027 with the closed beta on and the overall limit lowered to
+ * 9 wrong codes an hour (BETA_CODE_TRIES_PER_HOUR_ALL; 50 live): admin code add | list | remove; an account that isn't
+ * invited types a code (POST /beta/code, the one route it may call): six digits only; 5 wrong an hour per account
+ * (403 code_wrong saying the tries left, then 429 too_many, even for the right code); a right code invites the email and
+ * makes the account with the Free plan's 20 credits plus the code's; used up; the same account and code twice; a removed
+ * code; admins and invited accounts pass without using one; invite add as before; the overall limit; the audit rows.
+ */
+async function codeChecks(db) {
+  console.log("beta codes: an API of our own on :3027 (BETA_INVITE_ONLY=1, 9 wrong codes an hour in all); admin code add | list | remove");
+  const BOSS = `dev:e2e-${stamp}-cboss@test.local`;
+  const beta = await spawnApi(3027, { BETA_INVITE_ONLY: "1", ADMIN_EMAILS: emailOf(BOSS), BETA_CODE_TRIES_PER_HOUR_ALL: "9" });
+  const tok = (name) => `dev:e2e-${stamp}-c${name}@test.local`;
+  const [A, B, C, D, W] = ["a", "b", "c", "d", "w"].map(tok);
+  const ask = async (token, method, path, body) => {
+    const res = await fetch(beta.url + path, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+  const redeem = (token, code) => ask(token, "POST", "/beta/code", code === undefined ? {} : { code });
+  const me = (token) => ask(token, "GET", "/me");
+  try {
+    const add = admin("code", "add", "424242", "--uses", "2", "--credits", "50", "e2e", "testers");
+    ok(add.status === 0 && /424242: lets in 2 accounts, 50 credits each \("e2e testers"\)/.test(add.stdout), "admin code add 424242 --uses 2 --credits 50 with a note");
+    const random = admin("code", "add");
+    const other = /^(\d{6}):/m.exec(random.stdout)?.[1];
+    ok(random.status === 0 && other && other !== "424242" && /lets in 20 accounts, 50 credits each/.test(random.stdout), "admin code add alone: a random six-digit code, 20 uses, 50 credits each");
+    ok(
+      admin("code", "add", "424242").status === 1 && admin("code", "add", "12345").status === 1 && admin("code", "add", "--uses", "0").status === 1 && admin("code", "remove", "000").status === 1,
+      "the same code twice, five digits, 0 uses, a bad code to remove: exit 1",
+    );
+    const bad = ["111111", "222222"].find((c) => c !== other);
+
+    ok((await me(A)).status === 403, "before a code: 403 invite_only, as anyone who isn't invited");
+    ok((await redeem(A, "42424")).status === 400 && (await redeem(A)).status === 400 && (await redeem(A, "42a424")).status === 400, "not six digits: 400 (not counted as a try)");
+    const wrongs = [];
+    for (let i = 0; i < 5; i++) wrongs.push(await redeem(W, bad));
+    ok(wrongs.every((r) => r.status === 403 && r.body?.error === "code_wrong"), "a wrong code: 403 code_wrong");
+    ok(
+      /4 tries left this hour/.test(wrongs[0].body?.message) && /1 try left this hour/.test(wrongs[3].body?.message) && /last try this hour/.test(wrongs[4].body?.message),
+      `each answer says the tries left ("${wrongs[0].body?.message}" … "${wrongs[4].body?.message}")`,
+    );
+    const sixth = await redeem(W, "424242");
+    ok(sixth.status === 429 && sixth.body?.error === "too_many" && /Try again in (60|59) minutes\./.test(sixth.body?.message), `the 6th in the hour: 429, the right code too ("${sixth.body?.message}")`);
+    ok((await me(W)).status === 403, "... and still not in");
+
+    const inA = await redeem(A, "424 242");
+    ok(inA.status === 200 && inA.body?.credits === 50, "a right code (a space in it is fine): 200, 50 credits added");
+    const meA = await me(A);
+    ok(meA.status === 200 && meA.body?.credits?.available === 70, `in: GET /me answers, 20 Free credits + 50 from the code (${meA.body?.credits?.available})`);
+    const invA = (await db.query(`SELECT code, note, "usedAt" FROM "Invite" WHERE match = $1`, [emailOf(A)])).rows[0];
+    ok(invA?.code === "424242" && invA.usedAt && invA.note === "code 424242", "the code made an invite for that email");
+    const history = await ask(A, "GET", "/me/usage");
+    ok(JSON.stringify(history.body).includes("Beta code"), "the account's credit history names it: Beta code");
+    const againA = await redeem(A, "424242");
+    ok(againA.status === 200 && againA.body?.credits === 0, "the same account again while in: 200, nothing added, no use counted");
+    ok((await redeem(B, "424242")).body?.credits === 50, "a second account: in, 50 credits");
+    const usedUp = await redeem(C, "424242");
+    ok(usedUp.status === 403 && /used up/.test(usedUp.body?.message), "the third account: used up (2 uses)");
+    const list = admin("code", "list");
+    ok(
+      list.status === 0 && /424242\s+2 of 2 used, 50 credits each, made \d{4}-\d\d-\d\d, used up\s+"e2e testers"/.test(list.stdout) && list.stdout.includes(emailOf(A)) && list.stdout.includes(emailOf(B)),
+      "admin code list: 2 of 2 used, used up, the note, the two accounts",
+    );
+    ok(/by code 424242/.test(admin("invite", "list").stdout), "admin invite list: the accounts a code let in say so");
+
+    ok(admin("invite", "remove", emailOf(A)).status === 0 && (await me(A)).status === 403, "invite remove takes a code's account out too");
+    const twice = await redeem(A, "424242");
+    ok(twice.status === 403 && /used that code already/.test(twice.body?.message), "the same account and code once more: refused, no second grant");
+    ok(admin("code", "remove", other).status === 0, "admin code remove");
+    const removed = await redeem(D, other);
+    ok(removed.status === 403 && /isn't right/.test(removed.body?.message), "a removed code: as a wrong one");
+    ok((await me(B)).status === 200, "... the accounts let in before stay");
+    ok((await redeem(BOSS, "424242")).body?.credits === 0 && (await me(BOSS)).status === 200, "an admin: let through without using a code");
+    ok(admin("invite", "add", emailOf(D)).status === 0 && (await me(D)).status === 200 && (await redeem(D, "424242")).body?.credits === 0, "invite add as before; an invited account passes without using a code");
+
+    // The overall limit: so far W 5, C 1 (used up), D 1 (removed) = 7 wrong this hour; two more from new accounts make 9.
+    for (const name of ["e", "f"]) await redeem(tok(name), bad);
+    const capped = await redeem(tok("g"), "424242");
+    ok(capped.status === 429 && /typed on TypePlay this hour/.test(capped.body?.message), "the overall limit (9 here, 50 live): then 429 for every account");
+    const audits = (await db.query(`SELECT action, details FROM "BillingAudit" WHERE action IN ('code_add', 'code_list', 'code_remove', 'beta_code') ORDER BY at`)).rows;
+    ok(
+      audits.filter((a) => a.action === "beta_code").length === 2 && ["code_add", "code_list", "code_remove"].every((a) => audits.some((r) => r.action === a)) && !JSON.stringify(audits).includes("@"),
+      "audit rows: code_add, code_list, code_remove, and beta_code for each account's credits (no email in them)",
+    );
+    ok(auditOk(), "admin audit: the ledger's invariants hold");
   } finally {
     beta.kill();
   }
@@ -1346,6 +1449,7 @@ async function main() {
   await galleryChecks(db);
   await feedbackChecks(db, p.id);
   await inviteChecks(db);
+  await codeChecks(db);
   await badgeChecks();
   await securityChecks();
 

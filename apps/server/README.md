@@ -212,6 +212,20 @@ PLAN.md package 6: 5-10 testers, free, invite only, credits by hand. Go-live and
   and for Gmail without its dots and a +tag (`inviteMatch`: Gmail ignores both, so "Luka.L+beta@Gmail.com" lets in
   `lukal@gmail.com`). The invite's first use is noted (`usedAt`). Public routes (`/public/*`, the Paddle webhook, the
   phone links, `/health`) don't sign in, so they are unaffected. `/health` says `inviteOnly`.
+- **Beta codes** (Luka, 2026-10-24; `src/beta/codes.ts`, `codes.controller.ts`): six digits a tester types on the
+  closed-beta page instead of being invited by address. `POST /beta/code { code }` is the one route an email that isn't
+  invited may call: the guard verifies the token and passes only the identity (`@IdentityOnly()` in `auth.guard.ts`, no
+  user row; the e2e pins that it is on this route alone). Spaces and dashes are ignored; not six digits is 400. A right
+  code, in one transaction that raises `used` only while `used < uses`, records the use (`BetaCodeUse`, one per code and
+  email) and writes an `Invite` with the code; then the account is made as at any first sign-in (the Free plan's 20) and
+  the code's credits are added as an `admin` bucket (spent last, never expires; "Beta code" in the credit history; a
+  `beta_code` audit row). A request that fails between the two is finished by the account's next code check. Answers:
+  200 `{ credits }` (0 when the account was already in: admins, invited emails, the beta off); **403 `code_wrong`** for
+  a wrong or removed code ("N tries left this hour"), a used-up one, or a code this account used already (after
+  `invite remove`, a code doesn't let the same account back in); **429 `too_many`** after **5 wrong codes an hour per
+  email** (`BETA_CODE_TRIES_PER_HOUR`) and **50 an hour in all** (`BETA_CODE_TRIES_PER_HOUR_ALL`, so six digits can't be
+  guessed from many accounts either; then the code box waits for the hour, for everyone; `invite add` still works).
+  Wrong tries are kept a day (`BetaCodeTry`).
 - **What stays outside our tables:** an uninvited Google sign-in still leaves Supabase's own sign-in record
   (`auth.users`: email, name, picture), as any sign-in does; our database keeps nothing else about it.
 - **`POST /feedback`** (`src/feedback/`, the contract's `FeedbackBody`): what happened (required) and what they expected
@@ -228,6 +242,9 @@ PLAN.md package 6: 5-10 testers, free, invite only, credits by hand. Go-live and
 npm run admin -w @typeplay/server -- invite add <email> [note]     # on the list ("already invited" for another spelling; a note replaces the old one)
 npm run admin -w @typeplay/server -- invite list                   # every invite: sent, the first sign-in, the account it lets in (its plan and credits), the note
 npm run admin -w @typeplay/server -- invite remove <email>         # off the list: the account stays but gets 403 invite_only until invited again
+npm run admin -w @typeplay/server -- code add [123456] [--uses 20] [--credits 50] [note]   # a beta code (random six digits when none is given)
+npm run admin -w @typeplay/server -- code list                     # each code: used of uses, credits, made, works / used up / removed, the accounts it let in
+npm run admin -w @typeplay/server -- code remove <code>            # it stops working; the accounts it let in stay (invite remove takes one out)
 npm run admin -w @typeplay/server -- feedback list [--open]        # newest first, one line of each (--open: not marked done)
 npm run admin -w @typeplay/server -- feedback show <id>            # who, the page, the browser, the game and the build to play, its message, the words
 npm run admin -w @typeplay/server -- feedback done <id>            # dealt with: it leaves list --open
@@ -236,7 +253,8 @@ npm run admin -w @typeplay/server -- feedback done <id>            # dealt with:
   `grant` and `plan` work for an invited tester once they have signed in (the account appears then). The words are
   testers': printed without control characters, read them as data.
 - Migration `20261024000000_beta_invites_feedback` (applied to the dev database 10-19): the tables `Invite` (email,
-  match, note, invitedAt, usedAt) and `Feedback`.
+  match, note, invitedAt, usedAt) and `Feedback`. Migration `20261025120000_beta_codes`: `BetaCode`, `BetaCodeUse`,
+  `BetaCodeTry`, and `Invite.code` (the code that made an invite; `invite list` says "by code").
 - Tests: `test/e2e.mjs` "feedback" (against the API it runs on: 14 refusals that store nothing, what a note keeps, 4,000
   Georgian letters, the 11th of a day, the export, `admin feedback …` and its audit rows, a deleted game, a closed
   account) and "the closed beta" (its own API on :3021 with `BETA_INVITE_ONLY=1`: 403 `invite_only` on 19 signed-in

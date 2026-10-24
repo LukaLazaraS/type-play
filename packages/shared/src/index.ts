@@ -502,6 +502,19 @@ export interface PlanChangeBody {
 }
 
 /**
+ * POST /beta/code (beta 1, 2026-10-25): a beta code typed on the closed-beta page by someone signed in but not invited.
+ * Six digits (spaces and dashes are ignored). A right code invites that email and adds the code's credits once.
+ */
+export interface BetaCodeBody {
+  code: string;
+}
+
+export interface BetaCodeResult {
+  /** Credits the code added to the account (0 when the account was already in). */
+  credits: number;
+}
+
+/**
  * POST /feedback (beta 1, 2026-10-23): "Send feedback" from the account menu or a game's More menu. `text` (what happened)
  * and `expected` take up to 4,000 letters each, line breaks kept. `gameId` and `messageId` attach the user's own game and
  * one of its messages (the tick box); the API notes the version playing then. The browser comes from the request's
@@ -617,6 +630,12 @@ export interface FeedbackBody {
 // POST /feedback                  -> { id }             (FeedbackBody; 201; 400 bad_request, 404 not_found (not your game),
 //                                                       429 too_many (10 a day))
 // GET  /me/export                 gains `feedback`
+//
+// Added 2026-10-25 (beta codes, Luka 10-24):
+// POST /beta/code                 -> BetaCodeResult     (BetaCodeBody; signed in, the one route an uninvited email may call: it
+//                                                       is the way in; 400 bad_request (not six digits), 403 code_wrong (wrong,
+//                                                       used up, or used by this account already), 429 too_many (5 wrong an
+//                                                       hour per email, 50 an hour in all))
 
 export type ApiErrorCode =
   | "unauthorized" // no or bad token
@@ -636,6 +655,7 @@ export type ApiErrorCode =
   | "too_many" // too many builds, key downloads, reports or feedback notes for now (429)
   | "name_taken" // another game on TypePlay already uses this package name (409)
   | "invite_only" // the closed beta: this signed-in email isn't on the invite list (403, every signed-in route)
+  | "code_wrong" // a beta code that isn't right, is used up, or this account used already (403, POST /beta/code)
   | "bad_request"
   | "server_error";
 

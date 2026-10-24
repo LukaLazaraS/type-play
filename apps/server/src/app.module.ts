@@ -5,6 +5,8 @@ import { AndroidController } from "./android/android.controller.js";
 import { AndroidService } from "./android/android.service.js";
 import { AuthGuard } from "./auth/auth.guard.js";
 import { AuthService } from "./auth/auth.service.js";
+import { BetaCodeController } from "./beta/codes.controller.js";
+import { BetaCodeService } from "./beta/codes.js";
 import { InviteService } from "./beta/invites.js";
 import { BillingController } from "./billing/billing.controller.js";
 import { BillingService } from "./billing/billing.service.js";
@@ -29,7 +31,7 @@ import { RunRegistry } from "./runs/registry.js";
 import { RunsService } from "./runs/runs.service.js";
 
 @Module({
-  controllers: [MeController, ProjectsController, PublicController, WebhooksController, BillingController, AndroidController, FeedbackController],
+  controllers: [MeController, ProjectsController, PublicController, WebhooksController, BillingController, AndroidController, FeedbackController, BetaCodeController],
   providers: [
     PrismaService,
     LedgerService,
@@ -39,6 +41,7 @@ import { RunsService } from "./runs/runs.service.js";
     BillingService,
     InviteService,
     AuthService,
+    BetaCodeService,
     CreditsService,
     EventBus,
     RunRegistry,

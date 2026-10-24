@@ -85,7 +85,9 @@ reach only addresses on the account's own domain, so the test receipts come to y
    adjustments and customer portal sessions (write includes read; the API needs nothing else). Shown once.
 2. Same page, **Client-side tokens > New**: name `typeplay-web` (it starts `test_`; public by design).
 3. **Paddle > Events > Notifications > New destination**: description `typeplay api sandbox`; type webhook; URL
-   `https://api.typeplay.app/webhooks/paddle`; API version 1; usage type "Platform and simulation"; these 11 events:
+   `https://api.typeplay.app/webhooks/paddle` for now (a placeholder: the test purchases run on this PC, and when they
+   start Claude gives you the tunnel's address to put here instead; edit the URL, the secret stays the same); API
+   version 1; usage type "Platform and simulation"; these 11 events:
    `transaction.completed`, `transaction.payment_failed`, `subscription.created`, `subscription.updated`,
    `subscription.activated`, `subscription.past_due`, `subscription.paused`, `subscription.resumed`,
    `subscription.canceled`, `adjustment.created`, `adjustment.updated`. Save; it shows the secret key (`pdl_ntfset_…`).
@@ -96,13 +98,16 @@ reach only addresses on the account's own domain, so the test receipts come to y
 ### Where the keys go, unseen
 
 1. If Windows syncs your clipboard to other devices (Settings > System > Clipboard), turn that off first.
-2. Open the root `.env` in Notepad: `notepad C:\Users\lazar\Desktop\master-project\startups\type-play\.env`. Add
-   three lines at the end, pasting each value with Paddle's Copy button and Ctrl+V, one at a time:
+2. Create the root `.env.local` in Notepad (git-ignored; only development on this PC reads it, before everything else,
+   so the sandbox keys never reach the tests or the live server):
+   `notepad C:\Users\lazar\Desktop\master-project\startups\type-play\.env.local`. Put three lines in it, pasting each
+   value with Paddle's Copy button and Ctrl+V, one at a time:
    ```
    PADDLE_ENV=sandbox
    PADDLE_API_KEY=        ← the API key (pdl_sdbx_apikey_…, 69 characters)
    PADDLE_WEBHOOK_SECRET= ← the destination's secret key (pdl_ntfset_…)
    ```
+   Not the root `.env`: that file holds the live values, and the tests read it too.
 3. Create `apps\web\.env.local` in Notepad (git-ignored) with:
    ```
    NEXT_PUBLIC_PADDLE_ENV=sandbox
@@ -111,20 +116,21 @@ reach only addresses on the account's own domain, so the test receipts come to y
 4. Save both, then clear the clipboard: Win+V > Clear all.
 5. Say **"keys in"**. Claude checks them without showing them (it prints only the length and "format OK"):
    ```bash
-   node -e "process.loadEnvFile('.env');const f={PADDLE_API_KEY:/^pdl_sdbx_apikey_[a-z\d]{26}_[a-zA-Z\d]{22}_[a-zA-Z\d]{3}$/,PADDLE_WEBHOOK_SECRET:/^pdl_ntfset_[a-zA-Z\d]{26}_[a-zA-Z\d]{32}$/};for(const k in f){const v=process.env[k]||'';console.log(k,v?v.length+' chars, '+(f[k].test(v)?'format OK':'FORMAT WRONG'):'missing')}"
+   node -e "process.loadEnvFile('.env.local');const f={PADDLE_API_KEY:/^pdl_sdbx_apikey_[a-z\d]{26}_[a-zA-Z\d]{22}_[a-zA-Z\d]{3}$/,PADDLE_WEBHOOK_SECRET:/^pdl_ntfset_[a-zA-Z\d]{26}_[a-zA-Z\d]{32}$/};for(const k in f){const v=process.env[k]||'';console.log(k,v?v.length+' chars, '+(f[k].test(v)?'format OK':'FORMAT WRONG'):'missing')}"
    ```
    then runs `npm run paddle:catalog -w @typeplay/server -- --env sandbox` and adds its five `PADDLE_PRICE_*` lines
-   (price ids, not secret).
+   to `.env.local` (price ids, not secret).
 
 What follows from that:
 
-- **The keys stay on this PC.** The beta's API runs with billing off (`PADDLE_ENV: ""` in `deploy/api/compose.yaml`),
-  so `deploy.mjs api` sends no Paddle key to the server (fixed 10-23: before, a sandbox key in `.env` stopped it).
-- **Test purchases run on staging.** This PC's `npm run dev` has its own database since 10-25 (`docs/environments.md`),
-  but sign-in is still the live Supabase project's; the Paddle sandbox purchase is rehearsed on the staging environment
-  with its own Supabase project, before the paid beta (parked row 21).
-- The API key is shown once and lasts a year (made 10-23: it ends 2027-10-23; Paddle warns 7 days before). Lost
-  before it reached `.env`: delete it in Paddle and make a new one.
+- **The keys stay on this PC, in development only.** `.env.local` is read by `npm run dev` and nothing else: not by
+  the tests (they use Paddle's stub) and not by `deploy.mjs` (the live server reads only the root `.env`, and runs with
+  billing off until Luka says go paid).
+- **Test purchases run on this PC** (HQ, 10-25): real sandbox checkouts with Paddle's test cards against this PC's own
+  database (`typeplay_dev`, `docs/environments.md`); the webhooks come in through a tunnel that reaches only the
+  webhook route (`node apps/server/scripts/webhook-tunnel.mjs`, a second sandbox destination).
+- The API key is shown once and lasts a year (it ends a year after the day it is made; Paddle warns 7 days before).
+  Lost before it reached `.env.local`: delete it in Paddle and make a new one.
 
 ## 3. Later: the payout account (after the IE)
 

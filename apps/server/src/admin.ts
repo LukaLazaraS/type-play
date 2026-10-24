@@ -19,6 +19,8 @@
 //   npm run admin -w @typeplay/server -- invite add <email> [note]          (on the invite list; BETA_INVITE_ONLY lets only these in)
 //   npm run admin -w @typeplay/server -- invite list                        (every invite, its first sign-in, the account's credits)
 //   npm run admin -w @typeplay/server -- invite remove <email>              (off the list: the account stays, the app answers 403 invite_only)
+//   npm run admin -w @typeplay/server -- code add [123456] [--uses 20] [--credits 50] [note]   (a beta code: src/beta/admin-codes.ts)
+//   npm run admin -w @typeplay/server -- code list | code remove <code>     (uses so far and the accounts; a removed code stops working)
 //   npm run admin -w @typeplay/server -- feedback list [--open]             (the testers' notes, newest first)
 //   npm run admin -w @typeplay/server -- feedback show <id>                 (the whole note, the game's build, the message)
 //   npm run admin -w @typeplay/server -- feedback done <id>                 (dealt with: it leaves list --open)
@@ -31,6 +33,7 @@
 // Every command writes a BillingAudit row (actor "admin:<ADMIN_NAME or the OS user>").
 import { userInfo } from "node:os";
 import type { PlanId } from "@typeplay/shared";
+import { CODE_USAGE, codeAdmin } from "./beta/admin-codes.js";
 import { INVITE_USAGE, inviteAdmin } from "./beta/admin-invites.js";
 import { BillingService } from "./billing/billing.service.js";
 import { BillingHandlers } from "./billing/handlers.js";
@@ -227,6 +230,8 @@ async function main() {
     await galleryAdmin(prisma, ledger, args, actor);
   } else if (cmd === "invite") {
     await inviteAdmin(prisma, ledger, args, actor);
+  } else if (cmd === "code") {
+    await codeAdmin(prisma, ledger, args, actor);
   } else if (cmd === "feedback") {
     await feedbackAdmin(prisma, ledger, args, actor);
   } else {
@@ -236,6 +241,7 @@ async function main() {
         "       admin android builds <projectId> | android toolchain\n" +
         `       ${GALLERY_USAGE}\n` +
         `       ${INVITE_USAGE}\n` +
+        `       ${CODE_USAGE}\n` +
         `       ${FEEDBACK_USAGE}`,
     );
     process.exitCode = 2;

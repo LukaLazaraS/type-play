@@ -1,9 +1,10 @@
 # Beta 1: the invitation
 
-For Luka. Send it to each tester **after** `npm run admin:live -w @typeplay/server -- invite add <their Google address> [note]`
-(`docs/beta/runbook.md`, step 9). Before you send: put in their name and the address you invited; keep the Smart and
-Best line only if you moved them to a paid plan with `admin plan` (runbook step 10). The short version for a YouTube
-community post is at the end.
+For Luka. Make a beta code first (`npm run admin:live -w @typeplay/server -- code add --uses 20 --credits 50 "Beta 1"`,
+`docs/beta/runbook.md` step 8) and put its six digits and credits into the text below; one code serves the whole group.
+Or invite someone by address (`invite add <their Google address>`) and use the "by address" line in step 2 instead.
+Before you send: put in their name; keep the Smart and Best line only if you moved them to a paid plan with
+`admin plan`. The short version for a YouTube community post is at the end.
 
 ---
 
@@ -14,16 +15,17 @@ Hi [name],
 I'm building **TypePlay**: you type the game you want in one sentence, and an AI builds it in a few minutes. You play it
 right away in your browser, and you change it just by writing what you want different.
 
-I'd love you to try it in the first closed beta, before it opens to everyone. **It's free**: you start with 20 credits,
-and I add more by hand when you need them. No card, nothing to pay. A new game costs about 2 credits and a change about
-0.3. [Keep only if they're on a paid plan: You can also pick Smart or Best, which make better games and cost more
+I'd love you to try it in the first closed beta, before it opens to everyone. **It's free**: you start with [20 + the
+code's credits, e.g. 70] credits, and I add more by hand when you need them. No card, nothing to pay. A new game costs
+about 2 credits and a change about 0.3. [Keep only if they're on a paid plan: You can also pick Smart or Best, which make better games and cost more
 credits. The cost is shown before you press Build.]
 
 **How to start**
 
 1. Open **https://typeplay.app/create** on a computer or a phone.
-2. Press **Sign in with Google** and use this Google account: **[the address you invited]**. With another account you'll
-   see a "closed beta" page; it has a button to switch accounts.
+2. Press **Sign in with Google** (any Google account), then type your beta code: **[the six digits]**.
+   [By address instead: use this Google account: **[the address you invited]**; with another one you'll see a "closed
+   beta" page, which has a button to switch accounts.]
 3. Type your idea and press **Build my game**. It takes a few minutes; you can leave the page and come back.
 
 **What to try**

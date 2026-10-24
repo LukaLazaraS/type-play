@@ -2,7 +2,8 @@
 // Ultra, Ultra+, Credit pack) and their USD prices, exactly as credits.ts sells them, each price with
 // custom_data { plan, credits } / { pack: true, credits }. Idempotent: lists first, creates what is
 // missing, never changes or archives anything (an old price that no longer matches is reported).
-// Prints the five PADDLE_PRICE_* lines for the root .env. Needs PADDLE_API_KEY (of that environment).
+// Prints the five PADDLE_PRICE_* lines. The key: sandbox, development's PADDLE_API_KEY (the root .env.local); live,
+// PADDLE_LIVE_API_KEY (the root .env, the name deploy.mjs maps for the server; docs/beta/runbook.md "Go paid").
 //   npm run paddle:catalog -w @typeplay/server -- --env sandbox|live [--tax-category saas|standard]
 import { PADDLE_API_URL, PaddleClient, PaddleError } from "../src/billing/paddle.client.js";
 import { expectedPrice, PAID_PLANS, priceProblems, type PaidPlan } from "../src/billing/paddle.service.js";
@@ -25,9 +26,11 @@ if (taxCategory !== "saas" && taxCategory !== "standard") {
   console.error("--tax-category is saas or standard");
   process.exit(2);
 }
-const key = config.paddle.apiKey;
+const key = envName === "live" ? process.env.PADDLE_LIVE_API_KEY : config.paddle.apiKey;
 if (!key) {
-  console.error("PADDLE_API_KEY is not in the root .env (Paddle > My account > Settings > Authentication).");
+  console.error(envName === "live"
+    ? "PADDLE_LIVE_API_KEY is not in the root .env (the live dashboard: Paddle > My account > Settings > Authentication)."
+    : "PADDLE_API_KEY is not in the root .env.local (the sandbox dashboard: Paddle > My account > Settings > Authentication).");
   process.exit(2);
 }
 if (paddleKeyEnv(key) !== envName) {
@@ -90,7 +93,9 @@ async function main() {
     const p = await product(item, products);
     ids[item] = (await price(item, p.id)).id;
   }
-  console.log("\nPut these in the root .env (and api.env goes with the next deploy):");
+  console.log(envName === "live"
+    ? "\nPut these in deploy/api/compose.yaml (public ids; the server uses them once PADDLE_ENV is \"live\"):"
+    : "\nPut these in the root .env.local (development's sandbox catalog):");
   for (const item of ITEMS) console.log(`PADDLE_PRICE_${item.toUpperCase()}=${ids[item]}`);
   console.log(`\nThen check Paddle > Catalog shows tax category "${taxCategory}" on each product; if the dashboard says it needs approval, run again with --tax-category standard (docs/payments-design.md §14(d)).`);
 }

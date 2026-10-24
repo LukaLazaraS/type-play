@@ -14,8 +14,11 @@
   code** (a 6-digit code on the closed-beta page instead of inviting each tester by address, Luka 10-24). **Since 10-25
   development and tests on this PC have their own databases** (`typeplay_dev`, `typeplay_test` on this PC's Postgres:
   `docs/environments.md`), so they run any time; the admin CLI reaches the live beta only as `npm run admin:live`. Sign-in
-  stays on the live Supabase project; a **staging** environment with its own Supabase project comes before the paid beta
-  (~11-06), and the Paddle sandbox purchase runs there (parked row 21).
+  stays on the live Supabase project. **No second Supabase project (HQ, 10-25):** the Paddle sandbox purchases run on this
+  PC against `typeplay_dev` (parked row 21). **Billing stays off on the live server until both: the sandbox tests pass,
+  and Luka has registered the IE + Small Business Status (Mon 10-26; a sale before that is taxed 20%, not 1%); then it
+  goes on and stays on** (`docs/beta/runbook.md` "Go paid"). **Android export goes on** once `ANDROID_KEY_MASTER` is in
+  Luka's password manager and his phone test passes.
 
 - **10-20 batch (no Luka input), done and green** (root check 5/5, public build has no app routes; the
   folder moved to `master-project/startups/type-play`: `npm install` relinked the workspaces):

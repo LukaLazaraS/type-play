@@ -17,7 +17,7 @@ import type { User } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
 import { emailHash, TOKEN_GRACE_MS, TOMBSTONE_DAYS } from "./tombstone.js";
 
-interface Identity {
+export interface Identity {
   id: string;
   email: string;
   name: string | null;
@@ -63,10 +63,15 @@ export class AuthService {
   ) {}
 
   async userFromToken(token: string): Promise<User> {
-    const who = config.devAuth && !config.production && token.startsWith("dev:") ? devIdentity(token.slice(4)) : await this.verify(token);
+    const who = await this.identityFromToken(token);
     // The closed beta: an email that isn't invited stops here, before its user row (and the Free credits) exists.
     await this.invites.check(who.email);
     return this.ensureUser(who);
+  }
+
+  /** Who a token says, verified, before the closed beta's check and without a user row (POST /beta/code). */
+  async identityFromToken(token: string): Promise<Identity> {
+    return config.devAuth && !config.production && token.startsWith("dev:") ? devIdentity(token.slice(4)) : this.verify(token);
   }
 
   /**

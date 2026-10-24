@@ -32,10 +32,16 @@ export class InviteService {
 
   /** Passes when the closed beta is off, for ADMIN_EMAILS, and for an invited email (its first use is noted); else 403. */
   async check(email: string): Promise<void> {
-    if (!config.betaInviteOnly || config.adminEmails.includes(email)) return;
+    if (!(await this.allowed(email))) throw inviteOnly();
+  }
+
+  /** Whether the email gets past the closed beta: it is off, an admin, or invited (an invite's first use is noted). */
+  async allowed(email: string): Promise<boolean> {
+    if (!config.betaInviteOnly || config.adminEmails.includes(email)) return true;
     const match = inviteMatch(email);
     const invite = await this.prisma.invite.findUnique({ where: { match }, select: { usedAt: true } });
-    if (!invite) throw inviteOnly();
+    if (!invite) return false;
     if (!invite.usedAt) await this.prisma.invite.updateMany({ where: { match, usedAt: null }, data: { usedAt: new Date() } });
+    return true;
   }
 }
