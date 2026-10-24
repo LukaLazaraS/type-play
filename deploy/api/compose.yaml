@@ -41,9 +41,9 @@ services:
       # api.env (deploy.mjs android-key). One build at a time, 14 minutes each (the runner's 15 is the
       # backstop). ANDROID_STORE=folder keeps signed files in /data/android (served by the API);
       # r2 = the private typeplay-exports bucket with presigned links, once `api-setup --yes` has made it.
-      # Off for beta 1 (testers are on Free, which has no export). To turn it on: `node deploy/deploy.mjs
-      # android-key`, save the key in the password manager, set "1" here, then `deploy.mjs api`.
-      ANDROID_EXPORT: "0"
+      # On since 10-25 (HQ: once the key is in the password manager, for Luka's phone test; Free has no export, so
+      # beta 1's testers don't see it). Off again: "0" here, then `deploy.mjs api`.
+      ANDROID_EXPORT: "1"
       SIGNER_SOCKET: /run/typeplay-signer/signer.sock
       EXPORTS_DIR: /exports
       MAX_ANDROID_BUILDS: "1"

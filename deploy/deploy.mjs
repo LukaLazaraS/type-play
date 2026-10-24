@@ -9,7 +9,7 @@
 //   node deploy/deploy.mjs api-assets [--dry]   upload the 3D model library the catalogue uses (once, ~1.7 GB)
 //   node deploy/deploy.mjs api [--force]   build the API on its server and switch to it
 //   node deploy/deploy.mjs api-ssh [command]   a shell (or one command) on the API server
-//   node deploy/deploy.mjs android-key   once: ANDROID_KEY_MASTER into the root .env (never printed); Luka copies it to his password manager
+//   node deploy/deploy.mjs android-key [--rotate [--keep-prev]]   ANDROID_KEY_MASTER into the root .env (never printed); Luka copies it to his password manager
 // Keys come from the root .env (deploy/README.md).
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -373,16 +373,31 @@ async function exportsBucket() {
 // ANDROID_KEY_MASTER: 32 random bytes as 64 hex chars, written into the root .env if absent. Never
 // printed (only its length). Losing it means a Play upload-key reset for every game: Luka copies it
 // from .env into his password manager.
+// --rotate: a new key replaces it (one that was seen where it shouldn't be). With --keep-prev the old one moves to
+// ANDROID_KEY_MASTER_PREV, which the API still opens upload keys with (src/android/crypto.ts): needed once keys made
+// under it exist on the server; a key that never reached the server has nothing to keep.
 function androidKey() {
   const file = join(repo, ".env");
-  if (env.ANDROID_KEY_MASTER) {
+  const rotate = rest.includes("--rotate");
+  if (env.ANDROID_KEY_MASTER && !rotate) {
     if (!/^[0-9a-f]{64}$/i.test(env.ANDROID_KEY_MASTER)) throw new Error("ANDROID_KEY_MASTER in .env is not 64 hex chars: fix it by hand (the API refuses it)");
-    return log(`ANDROID_KEY_MASTER is already in .env (${env.ANDROID_KEY_MASTER.length} chars); nothing changed`);
+    return log(`ANDROID_KEY_MASTER is already in .env (${env.ANDROID_KEY_MASTER.length} chars); nothing changed (--rotate replaces it)`);
   }
   const key = randomBytes(32).toString("hex");
   const text = existsSync(file) ? readFileSync(file, "utf8") : "";
-  appendFileSync(file, `${text && !text.endsWith("\n") ? "\n" : ""}ANDROID_KEY_MASTER=${key}\n`);
-  log(`ANDROID_KEY_MASTER written to .env (${key.length} chars). Copy that line into your password manager now: without it every game's Android key is lost.`);
+  if (!env.ANDROID_KEY_MASTER) {
+    appendFileSync(file, `${text && !text.endsWith("\n") ? "\n" : ""}ANDROID_KEY_MASTER=${key}\n`);
+  } else {
+    const eol = text.includes("\r\n") ? "\r\n" : "\n";
+    const lines = text.split(eol).filter((l) => !/^\s*ANDROID_KEY_MASTER(_PREV)?\s*=/.test(l));
+    while (lines.length && lines[lines.length - 1] === "") lines.pop();
+    lines.push(`ANDROID_KEY_MASTER=${key}`);
+    if (rest.includes("--keep-prev")) lines.push(`ANDROID_KEY_MASTER_PREV=${env.ANDROID_KEY_MASTER}`);
+    writeFileSync(file, lines.join(eol) + eol);
+  }
+  log(`ANDROID_KEY_MASTER ${env.ANDROID_KEY_MASTER ? "replaced" : "written"} in .env (${key.length} chars)` +
+    `${env.ANDROID_KEY_MASTER && rest.includes("--keep-prev") ? ", the old one kept as ANDROID_KEY_MASTER_PREV" : ""}. ` +
+    "Copy that line into your password manager now (from Notepad, not an editor with a chat open): without it every game's Android key is lost.");
 }
 
 // The server's secrets file (api.env, mode 600): only API_KEYS, checked before anything is uploaded.
@@ -527,7 +542,7 @@ const commands = {
   "android-key": androidKey,
 };
 if (!commands[command]) {
-  console.log("usage: node deploy/deploy.mjs setup | site | games | status | ssh [command] | api-setup [--yes] | api-assets [--dry] | api [--force] | api-ssh [command] | android-key");
+  console.log("usage: node deploy/deploy.mjs setup | site | games | status | ssh [command] | api-setup [--yes] | api-assets [--dry] | api [--force] | api-ssh [command] | android-key [--rotate [--keep-prev]]");
   process.exit(1);
 }
 try {

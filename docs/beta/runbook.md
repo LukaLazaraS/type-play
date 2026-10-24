@@ -25,10 +25,11 @@ here; plain `npm run admin` works on this PC's development database (`docs/envir
    `ANTHROPIC_API_KEY=…`. Buy $50-100 of credits ($40 or more moves the account to tier 2). The Console's usage and
    cost pages are the real bill (step 10). (10-24: an `sk-ant-usr` key in Luka's Individual Org, which has his Max
    plan's $200 monthly API credit; nothing bought.)
-5. **Android: nothing to do for beta 1.** It is off (`ANDROID_EXPORT: "0"` in `deploy/api/compose.yaml`, since 10-19:
-   testers are on Free, which has no export), and `api` needs no Android key while it is off. To turn it on later:
-   `node deploy/deploy.mjs android-key` [Claude], copy the `ANDROID_KEY_MASTER` line from `.env` into your password
-   manager [Luka], set `"1"` there, then `deploy.mjs api`.
+5. **Android: on since 10-25** (`ANDROID_EXPORT: "1"` in `deploy/api/compose.yaml`; paid plans only, so beta 1's
+   testers on Free don't see it). The master key: `node deploy/deploy.mjs android-key` [Claude] puts it in the root
+   `.env`; Luka copies that line into his password manager, from Notepad, not an editor with a chat open (10-25: a
+   selection in VS Code went into a chat, so the key was rotated with `android-key --rotate` before it reached the
+   server). Off again: `"0"` there, then `deploy.mjs api`.
 6. Optional, recommended: try real Google sign-in on this PC first (parked row 7): `npm run dev`, http://localhost:3000.
 
 ## 2. The API server [Claude, after Luka's yes]
@@ -70,7 +71,7 @@ node deploy/deploy.mjs status               # the site's pages, then https://api
 | `agent` | `"api"` (our key, through the key proxy) | never `"max"` or `"fake"`: `deploy/api/compose.yaml` (AGENT_AUTH, no AGENT_FAKE) |
 | `inviteOnly` | `true` (the closed beta) | `BETA_INVITE_ONLY: "1"` in `deploy/api/compose.yaml`, then `api` |
 | `billing.mode` | `"off"` (beta 1 is free) | `PADDLE_ENV: ""` in the same file |
-| `android` | `enabled: false` for beta 1 (off on purpose) | after turning it on (step 1.5): `enabled: true`, `running: 0`; else the API's log says why at its start |
+| `android` | `enabled: true` since 10-25 (step 1.5), `running`: builds going | off on purpose: `enabled: false`; else the API's log says why at its start |
 | `runs` | a number of builds going (0 now) | |
 
 ## 6. The site with the app [Claude, on Luka's "deploy"]
