@@ -2,6 +2,10 @@
 
 ## Start here (handoff, 2026-10-20 evening)
 
+- **No paid beta (Luka, 10-25, settled):** beta 1 (closed, free: friends and family with the beta code, for feedback),
+  then straight to the **open launch** (everyone can sign up and buy; ads). Package 8 merged into the launch (package 9).
+  Billing still switches on as soon as the sandbox tests pass and the IE + Small Business Status exist (Mon 10-26),
+  even while beta 1 runs.
 - **10-25: beta codes are live** (Luka 10-24): testers sign in with any Google account and type six digits on the
   closed-beta page (`npm run admin:live -w @typeplay/server -- code add | list | remove`, `docs/beta/runbook.md` step 8;
   the first code, 20 uses with 50 credits each, went to Luka 10-25). Invites by address work as before.
@@ -43,7 +47,7 @@
   priced, range 0.2-1.4; Smart ~6× the credits for the same result; EDIT.md rules tightened; the chat no
   longer looks stuck while the model plans: `RESULTS.md` "2026-10-19: chat edits"); **launch docs**
   (`docs/launch/demo-video.md`, `docs/launch/page-copy-proposals.md`). The runner isolation test is dropped
-  (a safety check stopped it twice): parked row 15, an outside review before the paid beta.
+  (a safety check stopped it twice): parked row 15, an outside review before the open launch.
 - **"deploy" (Luka's word, before the Paddle application):** deploy the frozen 10-17 copy of the site
   (the decided pricing, "Your game is yours", the support phone): `node <scratchpad>/site-snapshot/deploy/deploy.mjs site`
   from the session's scratchpad (`C:\Users\lazar\AppData\Local\Temp\claude\c--Users-lazar-Desktop-projects-type-play\4a471dec-4201-431d-b709-7a3aff50a367\scratchpad\site-snapshot`;
@@ -210,8 +214,8 @@ dates are targets at that pace.
 | 5 | Thu 10-22 | **Server + API** | CPU server; one container per project; web export on every edit; previews on a separate domain; API account with credits; key added by a proxy, never inside containers | 8 |
 | 6 | Fri 10-23 | **Closed beta 1** | 5-10 people, free, invite only, credits given by hand | 10 |
 | 7 | ~10-30 | **Genres 3-4, Android, payments** | Racer + tower defence (skills done 10-18: `packages/agent/genres/racer`, `genres/towerdefence`, plus "look finished" rules; test builds in `RESULTS.md` "10-17 night": Haiku TD $0.49, Sonnet TD $1.08, racer $0.38 / $0.78, all close to Opus' layout); APK + AAB on demand (signing key handed to the user; one build per project at a time); Paddle checkout, plans, top-ups, webhooks → credits, free-tier limits | 37 |
-| 8 | ~11-06 | **Beta 2 (paid)** | Paying beta users; cost per user measured; fixes | 10 |
-| 9 | week of 11-09 | **Launch** | Final landing + pricing, demo video (the YouTube channels are the funnel), go live | 10 |
+| 8 | - | **Merged into the launch** (Luka, 10-25: no paid beta) | Its work (paying users, cost per user measured, fixes) is package 9's | - |
+| 9 | week of 11-09 | **Open launch** | Everyone can sign up and buy; ads; final landing + pricing, demo video (the YouTube channels are the funnel), go live; cost per user measured, fixes (was package 8) | 20 |
 | | after | iOS export (cloud Mac), Steam/desktop, Blender tool, text-to-3D, more genres | | |
 
 **Total: about 140 hours, ≈ 3 weeks of work.** The calendar runs to ~5 weeks only because
@@ -233,7 +237,7 @@ Our lane: a real Godot project that goes to the stores, ~$1.33 a game, and the g
 | 5 | package 7 | **Google Play publish wizard**: step by step; explains the 12 testers / 14 days rule; checks the game against store rules before upload; makes store screenshots and icon | Rork | Signing key handed to the user (package 7) |
 | 6 | package 7 | **Sliders for numbers** (speed, gravity, spawn rate): the agent keeps tunable values in one file, the app shows sliders, changes cost no AI and no credits | Astrocade | |
 | 7 | package 7 | **The agent plays its own game before handing it over** (play-test bot) | Summer Engine, Rork, Tesana's Loop | Works (+$0.07, +4 min on Sonnet, `RESULTS.md`); test it on the big game (#0), then decide default on/off |
-| 8 | package 8 | **When credits run out, small Haiku edits still work** with a daily cap | Makko's "unlimited fallback model" | Changes `docs/pricing.md`: decide the cap with beta 1 numbers |
+| 8 | package 9 (was 8) | **When credits run out, small Haiku edits still work** with a daily cap | Makko's "unlimited fallback model" | Changes `docs/pricing.md`: decide the cap with beta 1 numbers |
 | 9 | package 9 | **Public gallery** of games with play counts | Astrocade, Tesana, all feeds | With #4 |
 | 10 | after launch | **App Store wizard** (Apple ID or API key → cloud Mac build → TestFlight) and Steam export | Rork, Vibecode | = the "after" row above; `parked.md` #15 |
 | 11 | after launch | Creator stories (games with players or income), weekly game jams; "TypePlay vs X" SEO pages + `llms.txt`; AI-disclosure text written for the user at Steam/itch export | Rosebud, Astrocade, Summer Engine; Steam requires AI disclosure | |
@@ -242,7 +246,7 @@ Our lane: a real Godot project that goes to the stores, ~$1.33 a game, and the g
 
 - **Name + domain:** TypePlay (decided 2026-10-13): typeplay.app (site) + typeplay.dev (games), bought at Cloudflare. Details in `docs/names.md`.
 - **Individual Entrepreneur registration + Small Business Status:** next (Paddle approved 10-24), before
-  any live sale and the paid beta (package 8) (Luka, 2026-10-23); about a day. Paddle's signup asks no
+  any live sale (billing goes on then, even while beta 1 runs; Luka, 2026-10-23 and 10-25); about a day. Paddle's signup asks no
   IE papers, so the application went in first ("Payments: how to apply" below).
 - **Paddle review:** approved 2026-10-24, the day the application went in.
 - **Anthropic's answer** on the question above: email this week.
@@ -273,7 +277,7 @@ Our lane: a real Godot project that goes to the stores, ~$1.33 a game, and the g
 ## Payments: how to apply
 
 Order (Luka, 2026-10-23): the Paddle application first, the Individual Entrepreneur right after
-Paddle approves and before the first paid sale (the paid beta). Paddle's signup asks no IE papers
+Paddle approves and before the first paid sale. Paddle's signup asks no IE papers
 (`docs/payments.md`, "What signup asks of an individual"); only a live sale waits for IE + Small
 Business Status. The seller is "Luka Lazarashvili" on the Paddle account and in our terms;
 `site.ts` gets `seller.form` once the IE exists.
