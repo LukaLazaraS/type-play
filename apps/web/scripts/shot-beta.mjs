@@ -16,6 +16,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
+import { useDevEnv } from "./dev-env.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
@@ -27,7 +28,7 @@ const GAMES_PORT = 3042;
 const base = `http://localhost:${SITE_PORT}`;
 const apiBase = `http://127.0.0.1:${API_PORT}`;
 mkdirSync(out, { recursive: true });
-process.loadEnvFile(join(root, ".env"));
+await useDevEnv();
 
 const stamp = Date.now().toString(36);
 const outsider = `beta-out-${stamp}@dev.test`;

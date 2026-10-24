@@ -9,8 +9,9 @@ a real Anthropic key), the live app (`NEXT_PUBLIC_APP: "1"`), Google sign-in on 
 stop|start` on the API box (Pause). Tested on this PC: the API's e2e (the closed beta and feedback included), the
 runner in WSL, the R2 upload, the site's screenshot tests on a local stack (`apps/web/README.md`).
 
-The admin CLI (`npm run admin -w @typeplay/server -- …`) runs on this PC and talks to the same Supabase database as the
-live API (root `.env`), so everything below that says `admin` works on the live beta from here.
+The admin CLI runs on this PC. On the live beta it is `npm run admin:live -w @typeplay/server -- …` (it reads the root
+`.env`, the live values, and says "the LIVE database"), so everything below that says `admin` works on the live beta from
+here; plain `npm run admin` works on this PC's development database (`docs/environments.md`).
 
 ## 1. Decisions and keys [Luka]
 
@@ -101,27 +102,27 @@ Keep the API's log open: `node deploy/deploy.mjs api-ssh "cd /opt/typeplay-api &
    the steps; when it's done, press Play.
 3. **On your phone:** sign in at typeplay.app, open the game from Your games, play it.
 4. **Share it:** Share, on; open the link in a private window (signed out): it plays.
-5. **Send feedback** from More on the game page, then here: `npm run admin -w @typeplay/server -- feedback list`, `feedback
+5. **Send feedback** from More on the game page, then here: `npm run admin:live -w @typeplay/server -- feedback list`, `feedback
    show <id>` (the build link plays the version you saw), `feedback done <id>`.
 6. **The closed beta:** sign in with another Google account that isn't invited (a private window): the closed-beta page,
-   no credits, and `npm run admin -w @typeplay/server -- list` doesn't show that account.
-7. `npm run admin -w @typeplay/server -- list` (your account and credits) and `-- audit` (says `ok`).
+   no credits, and `npm run admin:live -w @typeplay/server -- list` doesn't show that account.
+7. `npm run admin:live -w @typeplay/server -- list` (your account and credits) and `-- audit` (says `ok`).
 
 ## 8. Invite the testers [Luka, or Claude with Luka's list]
 
 For each tester, the Google address they will sign in with (for Gmail, dots, capitals and a +tag don't matter):
 
 ```bash
-npm run admin -w @typeplay/server -- invite add friend@gmail.com "Satisfying Sims viewer"
-npm run admin -w @typeplay/server -- invite list      # every invite, its first sign-in, the account's plan and credits
+npm run admin:live -w @typeplay/server -- invite add friend@gmail.com "Satisfying Sims viewer"
+npm run admin:live -w @typeplay/server -- invite list      # every invite, its first sign-in, the account's plan and credits
 ```
 
 Then send `docs/beta/invite.md` (and the 3-line post, if you want more testers). After a tester's first sign-in
 (`invite list` says "first sign-in"), give credits by hand:
 
 ```bash
-npm run admin -w @typeplay/server -- grant friend@gmail.com 50 "Beta 1"
-npm run admin -w @typeplay/server -- plan friend@gmail.com medium    # only if they should have Smart and Best
+npm run admin:live -w @typeplay/server -- grant friend@gmail.com 50 "Beta 1"
+npm run admin:live -w @typeplay/server -- plan friend@gmail.com medium    # only if they should have Smart and Best
 ```
 
 **[Luka] decides how much.** 1 credit is at most $0.06 of AI. On Free (Fast only, at most 5 a day): a new game about
@@ -139,7 +140,7 @@ Send the invitations in the morning, keep the API log open for the first builds,
 
 - **The API log:** `node deploy/deploy.mjs api-ssh "cd /opt/typeplay-api && docker compose logs --since 24h api | grep -E 'ERROR|WARN|feedback|report'"`.
 - **/health:** `node deploy/deploy.mjs status` (`runner: true`, builds going, `inviteOnly: true`).
-- **Feedback:** `npm run admin -w @typeplay/server -- feedback list --open`, then `feedback show <id>` and `feedback done <id>`.
+- **Feedback:** `npm run admin:live -w @typeplay/server -- feedback list --open`, then `feedback show <id>` and `feedback done <id>`.
 - **Who:** `admin list` (plans, credits, games), `admin invite list` (who hasn't signed in yet), `admin gallery reports`
   (only if testers put games in the gallery).
 - **The Free kill switch:** once Free builds have cost $20 of AI in a UTC day, every Free build answers "Free builds are
@@ -167,7 +168,7 @@ Send the invitations in the morning, keep the API log open for the first builds,
    charged, and at the next start each is marked "interrupted" and its game folder reset. The data stays
    (`/opt/typeplay-api/data`, Supabase). Back on: `node deploy/deploy.mjs api-ssh "cd /opt/typeplay-api && docker compose start"`,
    then the site with `"1"` again. Never run on the real box yet.
-3. **One person:** `npm run admin -w @typeplay/server -- invite remove <email>`. There is no switch for "everyone out,
+3. **One person:** `npm run admin:live -w @typeplay/server -- invite remove <email>`. There is no switch for "everyone out,
    API up": stop the API as in 2.
 
 Opening the app to everyone later is the opposite pair of switches: `BETA_INVITE_ONLY: "0"` in `deploy/api/compose.yaml`

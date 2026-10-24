@@ -17,13 +17,19 @@ npm run check -w @typeplay/server             # type-check + lint (root `npm run
 Root `npm run dev` starts it with the site (:3000) and the games origin (:3001). Builds need the
 games origin running to be played: http://127.0.0.1:3001/play.html?g=<buildId>.
 
+On this PC it works on `typeplay_dev`, this PC's Postgres (`docs/environments.md`; `npm run dev` starts the server
+first, `predev`), never the live database: the API, `npm run admin` and the Prisma CLI read the committed
+`.env.development` before the root `.env`, and refuse a database that isn't on this PC. The live beta's database is
+reached only with `npm run admin:live -w @typeplay/server -- <command>`.
+
 On this PC (not in production) the server limits itself at start to 12 of the 16 cores at
 below-normal priority (`packages/agent/tools/cpu.mjs`); the agent, Godot and the hidden browser
 it starts inherit that.
 
 ## Env keys (root `.env`, git-ignored; names only)
 
-- `DATABASE_URL` (transaction pooler, the app), `DIRECT_URL` (session pooler, migrations)
+- `DATABASE_URL` (transaction pooler, the app), `DIRECT_URL` (session pooler, migrations): the live values in `.env`;
+  on this PC `.env.development` / `.env.test` set them to `typeplay_dev` / `typeplay_test` first (`src/env-files.ts`)
 - `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` (sign-in check; `docs/auth.md`)
 - Optional: `PORT` (3002), `HOST` (127.0.0.1), `DATA_DIR` (`<repo>/data`), `GAMES_BUILDS_DIR`
   (`apps/games/builds`), `GODOT_VERSION` (4.7.2), `GODOT_EXE`, `MAX_RUNS` (3), `RUN_TIMEOUT_MIN` (40),
@@ -72,9 +78,13 @@ build runs); `NOPOSTER` writes a picture that isn't a PNG, so the
 build publishes without a poster; a build that works brings three fixed next-step suggestions; with `FAKE_METER=1`, `METER:<n>` makes one Haiku call through the key proxy at the
 start, whose (mock) answer reports `<n>` output tokens. Real git commits, real builds, real ledger entries.
 
+The database tests run on `typeplay_test` (`.env.test`; `test/test-db.mjs` starts this PC's Postgres if needed, brings
+the database up to date and empties it first), so they can run any time, beside the live beta and `npm run dev`.
+
 ```
-DEV_AUTH=1 AGENT_FAKE=1 npm run start -w @typeplay/server
-npm run test:e2e -w @typeplay/server          # 354 checks (2026-10-20); makes and deletes its own test users (API_URL to point it elsewhere); starts
+npm run test:e2e -w @typeplay/server          # 353 checks (2026-10-25); starts its own API on :3023 with DEV_AUTH=1 AGENT_FAKE=1 (API_URL to use yours);
+                                              # makes and deletes its own test users; the Supabase sign-in record check runs only where
+                                              # the database is a Supabase project's (staging); starts
                                               # a second API on :3013 of its own for the run timeout and the interrupted-run recovery,
                                               # one on :3019 with TRUST_PROXY=1 for the gallery (several visitors, fresh limits),
                                               # one on :3021 with BETA_INVITE_ONLY=1 for the closed beta, and one on :3033 (its key
@@ -824,9 +834,8 @@ without sign-in, ownership on every game route, secrets, the site's redirects an
    Android, billing), and a new `@Public()` or a second route of main.ts's own fails it (e2e "the closed beta").
 
 **Not changed** (low while the beta is invite-only; the decisions are in docs/parked.md "For Luka's website review"):
-- Starting an API on this PC (`npm run dev`, every test) marks every `running` message in the shared database as
-  interrupted, the live testers' builds too (they set it right when they finish), and the e2e shows test games in the
-  live gallery for a minute: a second Supabase project for this PC and the tests would end it.
+- (Ended 10-25: `npm run dev` and the tests have their own databases on this PC, `docs/environments.md`; an API started
+  here no longer marks the live testers' builds interrupted, and test games never reach the live gallery.)
 - A Stop or a timeout costs the player nothing ("failures are free") though the AI was paid: Free is capped by the kill
   switch (now counting it), a tester moved to Medium isn't.
 - The share page's game frame has no `sandbox`: a game's code (Godot's JavaScriptBridge) can send the share page itself

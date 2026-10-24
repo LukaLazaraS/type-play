@@ -1,6 +1,6 @@
 // End-to-end test of the Android export's API against an API of its own on :3015 with fake runs and
 // a fake Android job + signer (DEV_AUTH=1 AGENT_FAKE=1 ANDROID_EXPORT=1 ANDROID_FAKE=1): no JDK, no
-// Godot, no network. Run after `npm run build -w @typeplay/server`; needs the dev database (root .env):
+// Godot, no network. Run after `npm run build -w @typeplay/server`; on the tests' database (typeplay_test):
 //   npm run test:android:e2e -w @typeplay/server
 // Free → 403; setup makes the app + key (second setup 409, a taken name 409); a build goes queued →
 // running → signing → done on the event stream with matching rows; the checks list is green; download
@@ -20,10 +20,11 @@ import { existsSync, readdirSync, readFileSync, rmdirSync, rmSync } from "node:f
 import { join, resolve } from "node:path";
 import { crc32, deflateSync, inflateRawSync } from "node:zlib";
 import pg from "pg";
+import { useTestDatabase } from "./test-db.mjs";
 
 const here = resolve(import.meta.dirname, "..");
 const root = resolve(here, "../..");
-process.loadEnvFile(join(root, ".env"));
+await useTestDatabase(); // typeplay_test, emptied first
 const PORT = 3015;
 const API = `http://127.0.0.1:${PORT}`;
 const DATA = resolve(process.env.DATA_DIR || join(root, "data"));

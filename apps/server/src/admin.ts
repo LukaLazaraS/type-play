@@ -37,13 +37,15 @@ import { BillingHandlers } from "./billing/handlers.js";
 import { InboxService } from "./billing/inbox.service.js";
 import { PaddleService } from "./billing/paddle.service.js";
 import { fromTenths, PLANS, toTenths } from "./credits/credits.js";
-import { config } from "./env.js";
+import { config, ENV_MODE } from "./env.js";
 import { LedgerService } from "./credits/ledger.service.js";
 import { FEEDBACK_USAGE, feedbackAdmin } from "./feedback/admin-feedback.js";
 import { GALLERY_USAGE, galleryAdmin } from "./gallery/admin-gallery.js";
 import type { EventStatus } from "./generated/prisma/client.js";
 import { createPrisma } from "./prisma.js";
 
+// Which database this is, before anything is read or written (docs/environments.md).
+if (ENV_MODE === "development" || ENV_MODE === "test") console.error(`admin: this PC's ${ENV_MODE} database (npm run admin:live for the live one)`);
 const prisma = createPrisma();
 const ledger = new LedgerService(prisma);
 const paddle = new PaddleService();

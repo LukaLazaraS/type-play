@@ -1,16 +1,18 @@
 // Payments part 2 end to end (docs/payments-design.md §12): the Paddle webhook, the inbox and its
 // handlers, the billing services and the admin's Paddle commands, against an API of our own on :3014
-// (DEV_AUTH=1 AGENT_FAKE=1, billing in sandbox mode pointed at test/paddle-stub.mjs) and the dev database.
+// (DEV_AUTH=1 AGENT_FAKE=1, billing in sandbox mode pointed at test/paddle-stub.mjs) and the tests' database
+// (typeplay_test, emptied first: test/test-db.mjs).
 //   npm run build -w @typeplay/server && npm run test:billing -w @typeplay/server
 // Makes its own users (dev:bill-<time>-*@test.local), events (evt_bill<time>_*) and payments, and removes them.
 import { spawn, spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import pg from "pg";
 import { PRICE_IDS, startStub } from "./paddle-stub.mjs";
+import { useTestDatabase } from "./test-db.mjs";
 
 const here = resolve(import.meta.dirname, "..");
 const root = resolve(here, "../..");
-process.loadEnvFile(join(root, ".env"));
+await useTestDatabase();
 
 const PORT = 3014;
 const API = `http://127.0.0.1:${PORT}`;

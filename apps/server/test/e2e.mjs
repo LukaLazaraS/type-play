@@ -1,6 +1,6 @@
-// End-to-end test of the API against a running server with DEV_AUTH=1 and AGENT_FAKE=1:
-//   DEV_AUTH=1 AGENT_FAKE=1 npm run start -w @typeplay/server     (after npm run build)
-//   npm run test:e2e -w @typeplay/server                            (API_URL overrides the address)
+// End-to-end test of the API, on the tests' own database (typeplay_test, emptied first: test/test-db.mjs):
+//   npm run test:e2e -w @typeplay/server     (after npm run build) starts its API on :3023 with DEV_AUTH=1 and
+//                                            AGENT_FAKE=1; API_URL runs it against a server of yours instead
 // Uses fresh dev users (dev:e2e-<time>-a@test.local) and deletes them, their games and builds at the end.
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -10,10 +10,14 @@ import { join, resolve } from "node:path";
 import { crc32, inflateRawSync } from "node:zlib";
 import pg from "pg";
 
+import { useTestDatabase } from "./test-db.mjs";
+
 const here = resolve(import.meta.dirname, "..");
 const root = resolve(here, "../..");
-process.loadEnvFile(join(root, ".env"));
-const API = process.env.API_URL || "http://127.0.0.1:3002";
+await useTestDatabase();
+// The API under test: one of our own on the test database (stopped at the end), unless API_URL names one.
+const mainApi = process.env.API_URL ? null : await spawnApi(3023);
+const API = process.env.API_URL || mainApi.url;
 const DATA = resolve(process.env.DATA_DIR || join(root, "data"));
 const BUILDS = resolve(process.env.GAMES_BUILDS_DIR || join(root, "apps/games/builds"));
 const { creditsForUsd, estimate } = await import("../dist/credits/credits.js");
@@ -979,9 +983,11 @@ async function main() {
   ok(dSecond.status === 409 && dSecond.body.error === "busy" && /one game at a time/.test(dSecond.body.message), "D's second at once: 409 busy (Free: one at a time)");
   const eRun = await api(E, "POST", "/projects", { prompt: "E's game", model: "fast" });
   ok(eRun.status === 409 && eRun.body.error === "busy" && /as many games as it can/.test(eRun.body.message), "E, with 3 running in all: 409 busy (MAX_RUNS)");
-  for (const [token, id] of [[B, runs[1]], [B, runs[2]], [D, dRun.body?.id]]) {
-    if (!id) continue;
-    const s = await openEvents(token, id);
+  // All three streams open before waiting: the three fake runs end within the same second, so a stream opened after the
+  // first one ended would only get the snapshot, never its run's end.
+  const streams = [];
+  for (const [token, id] of [[B, runs[1]], [B, runs[2]], [D, dRun.body?.id]]) if (id) streams.push(await openEvents(token, id));
+  for (const s of streams) {
     await s.until(finished);
     s.close();
   }
@@ -1345,7 +1351,12 @@ async function main() {
 
   // The Supabase sign-in record: the API deletes it with this statement (account.service.ts). Real
   // Google users can't sign in here, so try it on a throwaway Supabase user made with the admin API.
-  if (process.env.SUPABASE_SECRET_KEY) {
+  // Only where the database is that Supabase project's (staging, later): typeplay_test on this PC has no auth schema,
+  // and the tests never touch the live project's sign-ins (docs/environments.md).
+  const supabaseDb = (await db.query("SELECT to_regclass('auth.users') AS t")).rows[0].t !== null;
+  if (!supabaseDb) {
+    console.log("  skip  the sign-in record check (the database isn't a Supabase project's: it runs on staging)");
+  } else if (process.env.SUPABASE_SECRET_KEY) {
     const key = process.env.SUPABASE_SECRET_KEY;
     const admin = (method, path, body) =>
       fetch(`${process.env.SUPABASE_URL}/auth/v1/admin${path}`, {
@@ -1409,6 +1420,7 @@ try {
   console.error("  FAIL", e);
 } finally {
   await cleanup();
+  mainApi?.kill();
 }
 console.log(failures ? `\n${failures} FAILED` : "\nall passed");
 process.exit(failures ? 1 : 0);

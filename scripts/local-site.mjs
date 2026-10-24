@@ -7,26 +7,23 @@
 // Open http://localhost:3000 and sign in with Google (Supabase only signs people in; everything else is local). The
 // site runs from a built copy (`next start`, the API from apps/server/dist-site), so edits in this folder reach it only
 // with `update`: work in progress never lands on the open page. Real builds, on this PC's Claude login (as
-// `npm run dev`), charged in credits as on the live site. Its own database: a Postgres 17 of its own on :54329
-// (portable binaries in data/local-site/pg), never the live one. The first start seeds Luka's account (Ultra+, 1,300
-// credits) and the six showcase games (the polished ones) in the gallery.
+// `npm run dev`), charged in credits as on the live site. The development database, typeplay_dev on this PC's Postgres
+// (scripts/local-db.mjs; it stays running when the site stops), never the live one. The first start seeds Luka's
+// account (Ultra+, 1,300 credits) and the six showcase games (the polished ones) in the gallery.
 // Everything runs below normal priority on 12 of the 16 cores (packages/agent/tools/cpu.mjs). Logs: data/local-site/logs.
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
+import { start as startDatabase, urlOf } from "./local-db.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const STATE = join(ROOT, "data", "local-site");
 const LOGS = join(STATE, "logs");
 const CONTROL = join(STATE, "control");
 const PID_FILE = join(STATE, "supervisor.json");
-const PG_PKG = "@embedded-postgres/windows-x64@17.10.0-beta.17";
-const PG_BIN = join(STATE, "pg", "node_modules", "@embedded-postgres", "windows-x64", "native", "bin");
-const PG_DATA = join(STATE, "pgdata");
-const PG_PORT = 54329;
-const DB_URL = `postgres://postgres@127.0.0.1:${PG_PORT}/typeplay?sslmode=disable`;
+const DB_URL = urlOf("typeplay_dev");
 const PORTS = { web: 3000, games: 3001, api: 3002 };
 const OWNER_EMAIL = process.env.LOCAL_SITE_EMAIL ?? "lazarashvili02@gmail.com";
 const node = process.execPath;
@@ -112,30 +109,7 @@ function buildSite() {
   writeFileSync(join(STATE, "built.json"), JSON.stringify({ at: new Date().toISOString() }));
 }
 
-// ---- Postgres -----------------------------------------------------------------------------------------------------
-const pgCtl = (...args) => spawnSync(join(PG_BIN, "pg_ctl.exe"), args, { encoding: "utf8", windowsHide: true });
-function startPostgres() {
-  if (!existsSync(join(PG_BIN, "postgres.exe"))) {
-    mkdirSync(join(STATE, "pg"), { recursive: true });
-    spawnSync(process.platform === "win32" ? "npm.cmd" : "npm", ["install", "--no-audit", "--no-fund", "--no-save", "--prefix", join(STATE, "pg"), PG_PKG], {
-      stdio: "inherit",
-      shell: true,
-      windowsHide: true,
-    });
-  }
-  if (!existsSync(join(PG_DATA, "PG_VERSION"))) {
-    const r = spawnSync(join(PG_BIN, "initdb.exe"), ["-D", PG_DATA, "-U", "postgres", "--auth=trust", "-E", "UTF8", "--locale=C"], { encoding: "utf8", windowsHide: true });
-    if (r.status !== 0) throw new Error(`initdb: ${r.stderr}`);
-  }
-  if (pgCtl("status", "-D", PG_DATA).status !== 0) {
-    // No pipes: postgres inherits pg_ctl's handles, and a captured output would wait for postgres to end.
-    spawnSync(join(PG_BIN, "pg_ctl.exe"), ["start", "-w", "-D", PG_DATA, "-l", join(LOGS, "postgres.log"), "-o", `-p ${PG_PORT} -h 127.0.0.1`], {
-      stdio: "ignore",
-      windowsHide: true,
-    });
-    if (pgCtl("status", "-D", PG_DATA).status !== 0) throw new Error(`postgres did not start (see ${join(LOGS, "postgres.log")})`);
-  }
-}
+// ---- The database (typeplay_dev on scripts/local-db.mjs's Postgres) --------------------------------------------------
 async function sql(text, params = []) {
   const { default: pg } = await import(`file://${mod("pg", "lib", "index.js").replaceAll("\\", "/")}`);
   const c = new pg.Client({ connectionString: DB_URL });
@@ -146,17 +120,8 @@ async function sql(text, params = []) {
     await c.end();
   }
 }
-async function prepareDatabase() {
-  const { default: pg } = await import(`file://${mod("pg", "lib", "index.js").replaceAll("\\", "/")}`);
-  const c = new pg.Client({ connectionString: DB_URL.replace("/typeplay?", "/postgres?") });
-  await c.connect();
-  if (!(await c.query(`SELECT 1 FROM pg_database WHERE datname = 'typeplay'`)).rowCount) await c.query("CREATE DATABASE typeplay");
-  await c.end();
-  step("the database's tables (prisma migrate deploy)", node, [mod("prisma", "build", "index.js"), "migrate", "deploy"], {
-    cwd: join(ROOT, "apps", "server"),
-    env: { DATABASE_URL: DB_URL, DIRECT_URL: DB_URL },
-  });
-}
+/** The server running, both databases there and up to date with this checkout's migrations. */
+const prepareDatabase = () => startDatabase();
 
 // ---- Seed: Luka's account, the showcase games in the gallery (both only once) ---------------------------------------
 const SHOWCASE = [
@@ -290,7 +255,7 @@ async function supervise() {
   const shutdown = () => {
     stopping = true;
     for (const name of Object.keys(children)) stopChild(name);
-    pgCtl("stop", "-D", PG_DATA, "-m", "fast");
+    // The database server stays: it is this PC's, for development and tests too (scripts/local-db.mjs stop).
     phase("stopped");
     note("stopped");
     rmSync(PID_FILE, { force: true });
@@ -301,8 +266,6 @@ async function supervise() {
 
   try {
     phase("starting the database");
-    startPostgres();
-    phase("preparing the database");
     await prepareDatabase();
     phase("seeding Luka's account and the showcase games");
     await seed();
@@ -387,8 +350,7 @@ try {
       writeFileSync(join(CONTROL, "stop"), "");
       for (let i = 0; i < 20 && alive(pid); i++) await sleep(1000);
       if (alive(pid)) killTree(pid);
-      if (existsSync(join(PG_BIN, "pg_ctl.exe"))) pgCtl("stop", "-D", PG_DATA, "-m", "fast");
-      log("Stopped.");
+      log("Stopped (the database keeps running: node scripts/local-db.mjs stop).");
     }
   } else if (cmd === "status") {
     const s = await status();

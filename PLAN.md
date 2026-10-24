@@ -11,9 +11,11 @@
   statement descriptor TYPEPLAY, discount codes and saved cards off, sales tax exclusive, balance USD). Payout details:
   Luka adds his personal USD account, which he says the IE will use too. **Next before any live sale: the IE + Small
   Business Status** (parked rows 2 and 3). Next, in Luka's order: his smoke test (runbook step 7), then the **beta
-  code** (a 6-digit code on the closed-beta page instead of inviting each tester by address, Luka 10-24), then the second
-  Supabase project for this PC with the env split (parked row 21). Until that project exists, tests and `npm run dev` on
-  this PC write to the live database: run them only while `/health` says `runs: 0`.
+  code** (a 6-digit code on the closed-beta page instead of inviting each tester by address, Luka 10-24). **Since 10-25
+  development and tests on this PC have their own databases** (`typeplay_dev`, `typeplay_test` on this PC's Postgres:
+  `docs/environments.md`), so they run any time; the admin CLI reaches the live beta only as `npm run admin:live`. Sign-in
+  stays on the live Supabase project; a **staging** environment with its own Supabase project comes before the paid beta
+  (~11-06), and the Paddle sandbox purchase runs there (parked row 21).
 
 - **10-20 batch (no Luka input), done and green** (root check 5/5, public build has no app routes; the
   folder moved to `master-project/startups/type-play`: `npm install` relinked the workspaces):
@@ -24,8 +26,6 @@
   `badge`); `.godot/` cleared after every reset/restore; **showcase polish by chat** (`show-*-polished`, gallery
   "Showcase: original vs polished") and **the low-effort test** (Fast low saves only ~12%: the first step's
   thinking dominates); `apps/web` `prebuild` clears `.next/dev` (stale dev route types broke the public build).
-  **Before Fri 10-23:** a second Supabase project for this PC (parked row 21): until then no tests or
-  `npm run dev` while testers build (they share the live database).
 
 - **Checkpoints 4 + 5 (night of 10-18 → 10-19), done and green** (root `npm run check` 5/5, the public build
   has no app routes, nothing left running; the PC was shut down afterwards at Luka's request):

@@ -4,6 +4,7 @@
   "type": "module",
   "description": "The TypePlay API (NestJS, port 3002): users, projects, game agent runs, versions, credits",
   "scripts": {
+    "predev": "node ../../scripts/local-db.mjs start",
     "dev": "node scripts/dev.mjs",
     "build": "prisma generate && tsc -p tsconfig.json",
     "start": "node dist/main.js",
@@ -12,6 +13,7 @@
     "migrate": "prisma migrate deploy",
     "migrate:dev": "prisma migrate dev",
     "admin": "tsx src/admin.ts",
+    "admin:live": "tsx src/admin-live.ts",
     "paddle:catalog": "tsx scripts/paddle-catalog.ts",
     "test:e2e": "node test/e2e.mjs",
     "test:ledger": "node test/ledger-math.mjs",

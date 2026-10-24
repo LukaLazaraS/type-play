@@ -120,9 +120,9 @@ What follows from that:
 
 - **The keys stay on this PC.** The beta's API runs with billing off (`PADDLE_ENV: ""` in `deploy/api/compose.yaml`),
   so `deploy.mjs api` sends no Paddle key to the server (fixed 10-23: before, a sandbox key in `.env` stopped it).
-- **Test purchases wait for the second database.** Until this PC has its own Supabase project (parked row 21),
-  `npm run dev` writes to the live beta's database, so a sandbox checkout here would land among the testers' data.
-  The keys can go in tonight; the checkouts of `apps/web/README.md` "Plan and billing" come after that project.
+- **Test purchases run on staging.** This PC's `npm run dev` has its own database since 10-25 (`docs/environments.md`),
+  but sign-in is still the live Supabase project's; the Paddle sandbox purchase is rehearsed on the staging environment
+  with its own Supabase project, before the paid beta (parked row 21).
 - The API key is shown once and lasts a year (made 10-23: it ends 2027-10-23; Paddle warns 7 days before). Lost
   before it reached `.env`: delete it in Paddle and make a new one.
 

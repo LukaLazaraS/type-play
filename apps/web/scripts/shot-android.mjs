@@ -12,6 +12,7 @@ import { deflateSync } from "node:zlib";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
+import { useDevEnv } from "./dev-env.mjs";
 
 /**
  * A square PNG made here, so the test needs no picture file. `rgb` is one colour, or a function of
@@ -86,7 +87,7 @@ export async function androidPart({ browser, base, apiBase, email, check, shot, 
   check("the API under test builds Android apps with the fake (start it with ANDROID_EXPORT=1 ANDROID_FAKE=1 ANDROID_KEY_MASTER=<64 hex>)", health?.android?.enabled === true);
   if (!health?.android?.enabled) return;
   // The one-build-a-minute guard, moved out of the way between builds (this game's rows aged by 2 minutes), as the API's own e2e does.
-  process.loadEnvFile(join(import.meta.dirname, "../../../.env"));
+  await useDevEnv();
   const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
   await db.connect();
   const age = (projectId) => db.query('update "AndroidBuild" set "queuedAt" = now() - interval \'2 minutes\' where "projectId" = $1', [projectId]);

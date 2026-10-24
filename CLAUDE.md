@@ -144,7 +144,8 @@ open the API account just before beta 1.
   `.env`, never printed.
 - Knowledge lives in this repo (`CLAUDE.md`, `PLAN.md`, `docs/`), not in memory. Accounts and keys:
   `docs/cloudflare.md` (domains, R2), `docs/auth.md` (Supabase, Google sign-in), `deploy/README.md` (server).
-  Code: private GitHub repo `LukaLazaraS/type-play`, branch `main`.
+  Environments: `docs/environments.md` (development and tests on this PC's own Postgres, never the live database;
+  real users' data is never copied to this PC). Code: private GitHub repo `LukaLazaraS/type-play`, branch `main`.
 - Browser tasks (Claude in Chrome): only the Edge browser named **"Automation"** (signed in to
   Cloudflare etc.). If it isn't the connected one, run `switch_browser` and ask Luka to click
   Connect there; never fall back to another browser.
