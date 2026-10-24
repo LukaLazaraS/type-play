@@ -20,6 +20,7 @@ deploy/.build/
 deploy/release.tgz
 /data/
 apps/server/dist/
+apps/server/dist-site/
 apps/server/src/generated/
 
 deploy/.build-api/
