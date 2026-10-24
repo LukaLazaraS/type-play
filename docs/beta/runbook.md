@@ -201,7 +201,8 @@ Opening the app to everyone later is the opposite pair of switches: `BETA_INVITE
 
 **Only when both are true** (HQ, 10-25): the Paddle sandbox purchases passed on this PC (`apps/web/README.md` "Plan and
 billing"), and Luka has registered the Individual Entrepreneur with Small Business Status (a sale before that is taxed
-20%, not 1%). Then billing goes on and stays on.
+20%, not 1%). Then billing goes on and stays on, during beta 1 too: there is no paid beta, beta 1 is followed by the
+open launch (Luka, 10-25).
 
 **Ready beforehand** (nothing here changes what users see):
 
