@@ -14,7 +14,8 @@
 //          --events (also print `@@event <json>` lines: started, progress in plain words (also
 //          "Planning your change…" while the model thinks, tools/thinking.mjs), result;
 //          read by the server, apps/server. The result carries costUsd = every attempt, and
-//          chargeUsd = only the attempts in the game the player gets: what they are charged)
+//          chargeUsd = only the attempts in the game the player gets: what they are charged; and
+//          the chat's next-step suggestions, tools/next-steps.mjs, whose cost is never charged)
 // Each game folder is its own git repo: every successful run is a commit, a failed one is
 // rolled back, so a change can never leave the game broken.
 // Auth: no ANTHROPIC_API_KEY → the Claude Code login on this PC (Luka's Max). AGENT_AUTH=api
@@ -25,6 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { thinkingLine } from './tools/thinking.mjs';
+import { nextSteps } from './tools/next-steps.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MODELS = { opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5-5', haiku: 'claude-haiku-5-5' };
@@ -313,15 +315,23 @@ progress('Almost done');
 const builderReply = PLAN && final.ok
   ? attempts.filter((a) => a.ok).map((a) => a.reply).join('\n\n')
   : final.reply;
-const message = await playerMessage(prompt, builderReply, { isNew: !isEdit });
+// Beside it, the chat's next-step chips: only when the game changed, and never charged (kept apart below).
+const [message, next] = await Promise.all([
+  playerMessage(prompt, builderReply, { isNew: !isEdit }),
+  final.ok
+    ? nextSteps({ dir, reply: final.reply, query, options: { ...ISOLATED, model: MODELS.haiku, effort: 'low', tools: [], maxTurns: 1, systemPrompt: 'You suggest the next small change for a game a player is making by chat. Reply with a JSON array of strings only.' } })
+    : { list: [], costUsd: 0 },
+]);
 
 // costUsd is the agent's work only (every attempt, for our own accounting); the player-message
-// rewrite is kept apart (messageCostUsd). chargeUsd is what the player pays: only the attempts
-// that are in the game they receive (a step or a Haiku try that failed the check and was rolled
-// back costs them nothing, as docs/pricing.md promises); 0 when the run failed.
+// rewrite is kept apart (messageCostUsd), and so are the next-step suggestions (suggestionsCostUsd:
+// ours, never the player's). chargeUsd is what the player pays: only the attempts that are in the
+// game they receive (a step or a Haiku try that failed the check and was rolled back costs them
+// nothing, as docs/pricing.md promises); 0 when the run failed.
 const record = {
   date: new Date().toISOString(), game, kind: isEdit ? 'edit' : 'new', prompt, route: modelKey === 'auto' ? `auto→${route}` : route,
   genre, size, steps, playtest, slim, ok: final.ok, playerMessage: message.text, messageCostUsd: +message.costUsd.toFixed(4),
+  suggestions: next.list, suggestionsCostUsd: +next.costUsd.toFixed(4),
   costUsd: +attempts.reduce((s, a) => s + a.costUsd, 0).toFixed(3),
   chargeUsd: final.ok ? +attempts.filter((a) => a.ok).reduce((s, a) => s + a.costUsd, 0).toFixed(3) : 0,
   minutes: +attempts.reduce((s, a) => s + a.minutes, 0).toFixed(1),
@@ -333,6 +343,7 @@ emit({ type: 'result', ...record, refused: !record.ok && attempts.some((a) => a.
 
 console.log(`\n--- agent's own reply ---\n${final.reply || '(none)'}\n`);
 console.log(`--- shown to the player ($${message.costUsd.toFixed(4)}) ---\n${message.text || '(none)'}\n`);
+if (next.list.length) console.log(`--- next steps ($${next.costUsd.toFixed(4)}, not charged) ---\n${next.list.join(' | ')}\n`);
 console.log(`--- ${record.ok ? 'OK' : 'FAILED (rolled back)'}: ${record.minutes} min, ~$${record.costUsd} at API prices (player pays $${record.chargeUsd}), route ${record.route}`);
 for (const a of attempts) console.log(`    ${a.step ? a.step + ' ' : ''}${a.model} ${a.effort}: ${a.ok ? 'ok' : 'failed'}, ${a.minutes} min, ${a.turns} turns, $${a.costUsd}, ${JSON.stringify(a.tokens)}`);
 if (!final.ok) console.log(final.checkOutput);

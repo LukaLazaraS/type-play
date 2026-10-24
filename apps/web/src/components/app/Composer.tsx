@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowUp, Stop } from "@phosphor-icons/react";
 import Link from "next/link";
 import type { CreditBalance, Effort, Estimate, Me, ModelChoice } from "@typeplay/shared";
@@ -31,14 +31,31 @@ type Props = {
   backTo: string;
   onSend: (text: string, model: ModelChoice, effort: Effort, confirm: boolean) => Promise<void>;
   onStop: () => Promise<void>;
+  /** A tapped next-step idea (`n` counts the taps, so each tap lands once): added to the box (withIdea), focused. */
+  prefill?: { text: string; n: number } | null;
 };
+
+/**
+ * A tapped next-step idea added to what the box holds (Luka, 10-24): alone in an empty box, else joined on the way
+ * one would type it ("Add coins to collect, add a double jump"), and never twice.
+ */
+export function withIdea(current: string, idea: string): string {
+  const now = current.trimEnd();
+  if (!now) return idea;
+  if (now.toLocaleLowerCase().includes(idea.toLocaleLowerCase())) return current;
+  if (/[.!?。！？]$/.test(now)) return `${now} ${idea}`;
+  if (/[\u3040-\u30ff\u3400-\u9fff]/.test(idea)) return `${now}、${idea}`; // Japanese and Chinese join with their own comma
+  // "Add" becomes "add" after a comma; "UFO enemies" stays as it is.
+  const joined = /^\p{Lu}\p{Ll}/u.test(idea) ? idea.charAt(0).toLocaleLowerCase() + idea.slice(1) : idea;
+  return `${now}, ${joined}`;
+}
 
 /** The API's answers that mean "no credits for this": each gets its own panel with the way out. */
 type PanelKind = "no_credits" | "daily_limit" | "free_paused" | "billing_hold";
 const PANELS: PanelKind[] = ["no_credits", "daily_limit", "free_paused", "billing_hold"];
 
 /** Say what to change: the box, Fast / Smart / Best and the effort with their cost, Send, or Stop while building. */
-export function Composer({ kind, allowed, estimates, effort, onEffort, running, exporting = false, balance, me, backTo, onSend, onStop }: Props) {
+export function Composer({ kind, allowed, estimates, effort, onEffort, running, exporting = false, balance, me, backTo, onSend, onStop, prefill }: Props) {
   const [text, setText] = useState("");
   const [picked, setPicked] = useState<ModelChoice | null>(null);
   // The tip under the box explains whichever control was touched last.
@@ -52,6 +69,22 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
   const [error, setError] = useState<string | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
   useAutoGrow(box, text, 160);
+
+  // An idea from the chat goes into the box (after what is there: one message, one charge); the caret waits at its
+  // end, ready to send or to change first.
+  const [took, setTook] = useState(0);
+  if (prefill && prefill.n !== took) {
+    setTook(prefill.n);
+    setText(withIdea(text, prefill.text));
+    setError(null);
+    setAsk(null);
+  }
+  useEffect(() => {
+    const el = box.current;
+    if (!el || !took) return;
+    el.focus({ preventScroll: true });
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, [took]);
 
   const send = async (confirm = false) => {
     const t = text.trim();

@@ -40,6 +40,10 @@ export interface AgentResult {
   /** Only the attempts in the game the player gets (0 on failure): what they pay for. Missing from
    * older records, in which case costUsd stands in. */
   chargeUsd?: number;
+  /** Up to 3 next steps for the chat's chips (packages/agent/tools/next-steps.mjs); none on a failed run. */
+  suggestions?: string[];
+  /** What the suggestions call cost: ours, never charged to the player. */
+  suggestionsCostUsd?: number;
   /** The last check exported a step that was then rolled back: export again before publishing. */
   staleExport?: boolean;
   error?: string;
@@ -119,7 +123,22 @@ interface FinalRecord {
   costUsd?: number;
   messageCostUsd?: number;
   chargeUsd?: number;
+  suggestions?: unknown;
+  suggestionsCostUsd?: number;
   attempts?: { ok?: boolean }[];
+}
+
+/** The record's suggestions as the chat may show them: up to 3 short single lines, anything else dropped. */
+export function cleanSuggestions(list: unknown): string[] {
+  if (!Array.isArray(list)) return [];
+  const out: string[] = [];
+  for (const item of list) {
+    if (typeof item !== "string") continue;
+    const s = item.replace(/\s+/g, " ").trim();
+    if (s && s.length <= 60 && !out.includes(s)) out.push(s);
+    if (out.length === 3) break;
+  }
+  return out;
 }
 
 interface Started {
@@ -182,7 +201,15 @@ export function runAgent(job: AgentJob): AgentHandle {
     // refusing the job, e.g. a game folder over its size limit) is a failure whatever the record says.
     // Its costs still count for our accounting; the player pays nothing.
     if (!r || error) {
-      return { ok: false, refused: !!r?.refused, costUsd: Number(r?.costUsd ?? 0), messageCostUsd: Number(r?.messageCostUsd ?? 0), chargeUsd: 0, error: error ?? "the agent stopped without a result" };
+      return {
+        ok: false,
+        refused: !!r?.refused,
+        costUsd: Number(r?.costUsd ?? 0),
+        messageCostUsd: Number(r?.messageCostUsd ?? 0),
+        suggestionsCostUsd: Number(r?.suggestionsCostUsd ?? 0),
+        chargeUsd: 0,
+        error: error ?? "the agent stopped without a result",
+      };
     }
     return {
       ok: !!r.ok,
@@ -191,6 +218,8 @@ export function runAgent(job: AgentJob): AgentHandle {
       costUsd: Number(r.costUsd ?? 0),
       messageCostUsd: Number(r.messageCostUsd ?? 0),
       ...(typeof r.chargeUsd === "number" ? { chargeUsd: r.chargeUsd } : {}),
+      suggestions: r.ok ? cleanSuggestions(r.suggestions) : [],
+      suggestionsCostUsd: Number(r.suggestionsCostUsd ?? 0),
       staleExport: !!r.ok && r.attempts?.at(-1)?.ok === false,
     };
   });

@@ -12,6 +12,7 @@ import { SignIn } from "@/components/app/SignIn";
 import { Stage } from "@/components/app/Stage";
 import { useEstimates } from "@/components/app/useEstimates";
 import { useNow } from "@/components/app/useNow";
+import { forgetWaiting, waitingFor } from "@/components/app/WhileYouWait";
 import { api, ApiFailure, watchProject, type StreamState } from "@/lib/api";
 import { creditsWord } from "@/lib/format";
 import { refreshMe, setCredits, signOut, useSession } from "@/lib/session";
@@ -49,11 +50,13 @@ export function GameClient() {
   const [tab, setTab] = useState<Tab | null>(null);
   const [fresh, setFresh] = useState(false); // a new version the phone's Play tab hasn't shown yet
   const [played, setPlayed] = useState(false);
+  const [prefill, setPrefill] = useState<{ text: string; n: number } | null>(null); // a tapped next-step idea
   // What the stream's handler needs to know, without re-subscribing on every change.
   const current = useRef<Project | null>(null);
   const tabRef = useRef<Tab>("chat");
-  // Phones open on the game when there is one to play, else on the chat; then the player decides.
-  const opened = useCallback((p: Project) => setTab((t) => t ?? (p.buildId ? "play" : "chat")), []);
+  // Phones open on the game when there is one to play (or the first build, with games to play while it runs),
+  // else on the chat; then the player decides.
+  const opened = useCallback((p: Project) => setTab((t) => t ?? (p.buildId || p.status === "running" ? "play" : "chat")), []);
 
   const onEvent = useCallback((e: RunEvent) => {
     switch (e.type) {
@@ -102,6 +105,11 @@ export function GameClient() {
     },
     [id],
   );
+
+  // Back on this game's page: the gallery's way back to it (BuildPill) has done its job.
+  useEffect(() => {
+    if (id && waitingFor() === id) forgetWaiting();
+  }, [id]);
 
   useEffect(() => {
     if (!signedIn || !id) return;
@@ -277,7 +285,14 @@ export function GameClient() {
             </p>
           )
         )}
-        <ChatLog messages={project.messages} live={live} now={now} currentVersion={project.currentVersion} onPlay={() => show("play")} />
+        <ChatLog
+          messages={project.messages}
+          live={live}
+          now={now}
+          currentVersion={project.currentVersion}
+          onPlay={() => show("play")}
+          onSuggest={(text) => setPrefill((p) => ({ text, n: (p?.n ?? 0) + 1 }))}
+        />
         <Composer
           kind={kind}
           allowed={me?.models ?? ["fast"]}
@@ -291,6 +306,7 @@ export function GameClient() {
           backTo={`/games/${id}`}
           onSend={send}
           onStop={stop}
+          prefill={prefill}
         />
       </section>
 

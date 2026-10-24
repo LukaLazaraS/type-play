@@ -390,6 +390,25 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   their panel), a 60-letter Georgian game name, 3,999 and 4,000-letter notes, the day's 10 used (Send off), phones at 390
   and 320 px. It closes its test accounts and removes the invite and its audit rows afterwards.
 
+### Next-step ideas and the first-build wait (Luka's UX batch 1, 2026-10-24)
+
+- **Ideas for your next change** (`components/app/ChatLog.tsx`): under the newest answer, while its version is the one
+  playing, up to three Field pills on the player's side; a tap puts the idea in the box with the caret at its end
+  (`Composer` `prefill`), so the cost shows and the player sends it or changes it first (filling, not sending: a tap
+  never spends credits). Another tap adds its idea to the same message ("Add coins to collect, add flying traps": one
+  build, one charge), never the same one twice (`withIdea`; HQ's call for Luka, 10-24). They come with the answer: `packages/agent/tools/next-steps.mjs` (one Haiku call beside the
+  player-message rewrite, from the game's requests so far and its NOTES.md; ~$0.0006, never charged), stored on the
+  message (`Message.suggestions`, migration `20261025000000_suggestions`), in the contract's `Message.suggestions`.
+- **While the first build runs** (`components/app/WhileYouWait.tsx`): under the build's progress on the stage, "Play one
+  while you wait": three games as app icons (the gallery's most played this week, then the home page's games; one of the
+  kind the first sentence sounds like first, then other kinds) and **More in the gallery**. A tapped game plays in the
+  stage (full screen on a phone) with the build's line above it and Close; when the build is done that line becomes
+  "<name> is ready." with a hot **Play it** (also over the game while it is full screen: `GameFrame` `notice`). Phones
+  open the game page on Play during a first build. **The way back from the gallery** (`components/app/BuildPill.tsx`,
+  mounted from the account slot, put into `<body>`): the gallery button remembers the game for this tab
+  (`sessionStorage`), and every other page shows an ink pill that follows the build ("Building your game 1:23") and turns
+  into "<name> is ready. Play it"; gone once the player is back on the game's page or closes it.
+
 ## Known trap
 
 Turbopack's file watcher on this PC misses edits to `globals.css` (and `app.css`): restart

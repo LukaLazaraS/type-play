@@ -59,8 +59,8 @@ const NO_RESULT: AgentResult = { ok: false, costUsd: 0, messageCostUsd: 0, charg
  * more (live server). A Stop, a timeout or a crash leaves the agent without its record ($0 reported) though the model was
  * paid for, and model calls the agent's shell makes on its own are only in the meter (security review 10-20).
  */
-export const aiSpentUsd = (result: Pick<AgentResult, "costUsd" | "messageCostUsd">, metered: number | null) =>
-  Math.max(result.costUsd + result.messageCostUsd, metered ?? 0);
+export const aiSpentUsd = (result: Pick<AgentResult, "costUsd" | "messageCostUsd" | "suggestionsCostUsd">, metered: number | null) =>
+  Math.max(result.costUsd + result.messageCostUsd + (result.suggestionsCostUsd ?? 0), metered ?? 0);
 /** When the folder can't be reset: wait this long between tries, then give up and mark it dirty. */
 const SETTLE_RETRY_MS = [2_000, 10_000, 30_000];
 
@@ -217,8 +217,10 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     // The player pays for the attempts in the game they get (chargeUsd; older records: everything),
     // or what the key proxy metered when that is more (model calls the agent's shell made itself).
     const agentUsd = (result.chargeUsd ?? result.costUsd) + result.messageCostUsd;
-    const chargeUsd = Math.max(agentUsd, metered ?? 0);
-    const costUsd = result.costUsd + result.messageCostUsd; // every attempt: our accounting
+    // The chat's next-step suggestions are ours, never the player's: out of the meter's figure too.
+    const suggestionsUsd = result.suggestionsCostUsd ?? 0;
+    const chargeUsd = Math.max(agentUsd, (metered ?? 0) - suggestionsUsd);
+    const costUsd = result.costUsd + result.messageCostUsd + suggestionsUsd; // every attempt: our accounting
     const credits = creditsForUsd(chargeUsd);
     const text = result.playerMessage?.trim() || "Your game is ready. Press play!";
     // Fake runs only: a prompt with "SLOW" publishes slowly, so the e2e test can land a Stop here.
@@ -234,7 +236,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
         const version = await tx.version.create({ data: { projectId: run.projectId, n, label: run.prompt, buildId, commit, poster } });
         const message = await tx.message.update({
           where: { id: run.messageId },
-          data: { status: "done", text, credits, costUsd, meteredUsd: metered, versionN: n },
+          data: { status: "done", text, credits, costUsd, meteredUsd: metered, versionN: n, suggestions: result.suggestions ?? [] },
         });
         // The kill switch's number (kept apart from the message: a deleted game's runs still count).
         if (message.plan === "free") await this.ledger.addFreeSpend(tx, aiSpentUsd(result, metered));
@@ -286,7 +288,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
               : FAILED_TEXT.edit;
     const message = await this.prisma.message.update({
       where: { id: run.messageId },
-      data: { status: refused ? "refused" : "failed", text, credits: 0, costUsd: result.costUsd + result.messageCostUsd, meteredUsd: metered },
+      data: { status: refused ? "refused" : "failed", text, credits: 0, costUsd: result.costUsd + result.messageCostUsd + (result.suggestionsCostUsd ?? 0), meteredUsd: metered },
     });
     // Failed runs count towards the Free kill switch too (the AI was paid for): a Stop's or a timeout's metered calls included.
     if (message.plan === "free") await this.ledger.addFreeSpend(this.prisma, aiSpentUsd(result, metered)).catch((e) => this.log.error(`free spend ${run.projectId}: ${e}`));

@@ -193,6 +193,9 @@ export interface Message {
   credits?: number;
   /** The version this message produced, when it produced one. */
   versionN?: number;
+  /** Up to 3 next changes the player might ask for (short lines in the player's language), made with the answer at
+   * no charge; the chat offers them under its newest answer. Missing when there are none. */
+  suggestions?: string[];
   createdAt: string;
 }
 

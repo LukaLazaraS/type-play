@@ -16,6 +16,7 @@ export function ChatLog({
   now,
   currentVersion,
   onPlay,
+  onSuggest,
 }: {
   messages: Message[];
   live: LiveLine;
@@ -24,7 +25,12 @@ export function ChatLog({
   currentVersion: number | null;
   /** Phones: jump to the Play tab from the message that made the current version. */
   onPlay: () => void;
+  /** A next-step idea was tapped: it goes into the box, to send or change first. */
+  onSuggest: (text: string) => void;
 }) {
+  // The newest answer's ideas for the next change, while its version is the one playing (a restore hides them).
+  const last = messages.at(-1);
+  const ideas = last?.role === "agent" && last.status === "done" && last.versionN === currentVersion ? (last.suggestions ?? []) : [];
   const list = useRef<HTMLOListElement>(null);
   const stick = useRef(true); // follow new messages while the reader is at the bottom
 
@@ -62,6 +68,20 @@ export function ChatLog({
         ) : (
           <AgentMessage key={m.id} m={m} live={live?.messageId === m.id ? live.text : null} now={now} current={m.versionN != null && m.versionN === currentVersion} onPlay={onPlay} />
         ),
+      )}
+      {ideas.length > 0 && (
+        <li key={`ideas-${last!.id}`} className="ideas">
+          <p className="ideas__label" id="ideas-label">
+            Ideas for your next change
+          </p>
+          <div className="ideas__list" role="group" aria-labelledby="ideas-label">
+            {ideas.map((idea) => (
+              <button key={idea} type="button" className="idea" onClick={() => onSuggest(idea)}>
+                {idea}
+              </button>
+            ))}
+          </div>
+        </li>
       )}
     </ol>
   );

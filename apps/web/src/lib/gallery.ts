@@ -1,5 +1,5 @@
 // The gallery's calls from the browser, none of them signed in: one play of a shared game, a report, and
-// the gallery's next page (GET /public/* on the API; the first page is fetched on the server, lib/public.ts).
+// the gallery's next page (GET /public/* on the API; /explore's first page is fetched on the server, lib/public.ts).
 import type { ApiError, GalleryPage, GallerySort, ReportBody } from "@typeplay/shared";
 import { app } from "@/content/app";
 
@@ -32,11 +32,11 @@ export async function reportGame(gameId: string, body: ReportBody): Promise<{ al
   throw new Error(error.message ?? SERVER);
 }
 
-/** The gallery's next page, after `cursor` (Show more). */
-export async function moreGames(sort: GallerySort, cursor: string): Promise<GalleryPage> {
+/** The gallery's next page, after `cursor` (Show more); without one, its first page (games to play while a first build runs). */
+export async function moreGames(sort: GallerySort, cursor?: string): Promise<GalleryPage> {
   let res: Response;
   try {
-    res = await fetch(`${app.apiOrigin}/public/gallery?sort=${sort}&cursor=${encodeURIComponent(cursor)}`, { cache: "no-store" });
+    res = await fetch(`${app.apiOrigin}/public/gallery?sort=${sort}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, { cache: "no-store" });
   } catch {
     throw new Error(OFFLINE);
   }

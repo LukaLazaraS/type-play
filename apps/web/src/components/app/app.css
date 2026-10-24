@@ -801,6 +801,74 @@ body:has(.ws) .ground-band {
 .msg__play {
   display: none;
 }
+/* Ideas for the next change, under the newest answer: on the player's side, since each one is something they
+   could say. Field pills (the agent's bubbles have a tail corner, these are round); a tap puts it in the box. */
+.ideas {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+.ideas__label {
+  margin: 0;
+  padding: 0 6px;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--on-paper-muted);
+}
+.ideas__list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: 92%;
+}
+.idea {
+  min-height: 38px;
+  max-width: 100%;
+  padding: 9px 15px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--ink);
+  font: 600 14px/1.25 var(--font-ui);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 160ms var(--ease-out);
+}
+.idea:active {
+  transform: scale(0.97);
+}
+@media (hover: hover) and (pointer: fine) {
+  .idea:hover {
+    background: #e6dff5;
+  }
+}
+@media (pointer: coarse) {
+  .idea {
+    min-height: 44px;
+  }
+}
+/* They arrive with the answer, once per build: the label, then each idea 40 ms apart. */
+@media (prefers-reduced-motion: no-preference) {
+  .ideas__label,
+  .idea {
+    animation: line-in 220ms var(--ease-out) backwards;
+  }
+  .idea:nth-child(1) {
+    animation-delay: 40ms;
+  }
+  .idea:nth-child(2) {
+    animation-delay: 80ms;
+  }
+  .idea:nth-child(3) {
+    animation-delay: 120ms;
+  }
+}
 
 /* Composer */
 .composer {
@@ -996,6 +1064,261 @@ body:has(.ws) .ground-band {
 .stage__note--error {
   color: var(--on-sky);
   font-weight: 600;
+}
+
+/* The first build: its progress, then three games to play meanwhile and the gallery (WhileYouWait). */
+.stage__empty--wait {
+  gap: 12px;
+  max-width: 480px;
+  max-height: 100cqh;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.stage__empty--wait .stage__build {
+  --icon: 104px;
+  margin-bottom: 0;
+}
+/* A short stage (a laptop, a phone): the progress line is enough without the assembling icon. */
+@container (max-height: 560px) {
+  .stage__empty--wait .stage__build {
+    display: none;
+  }
+}
+.wait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  margin-top: 18px;
+}
+.wait__title {
+  margin: 0;
+  font: 700 17px/1.2 var(--font-ui);
+  color: var(--on-sky);
+}
+.wait__games {
+  --icon: 88px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* Names up to 60 letters: two lines at most. */
+.wait__game .app__name {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.wait__slot {
+  display: grid;
+  justify-items: center;
+}
+.wait__slot .app__icon {
+  background: var(--ink-2);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .wait__slot .app__icon {
+    animation: pulse 1.1s var(--ease-in-out) infinite alternate;
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .wait__game:hover .app__icon {
+    transform: scale(1.04);
+  }
+}
+@media (max-width: 480px) {
+  .wait__games {
+    --icon: 76px;
+  }
+}
+
+/* Another game playing while the first build runs: the build's line above it, then "ready" and the way back. */
+.stage__busy.stage__wait {
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+}
+.stage__busy.stage__wait .pulse {
+  margin-top: 0;
+}
+.stage__wait .inkpill--small,
+.stage__wait .button--small {
+  flex: none;
+}
+.stage__wait[data-ready] {
+  color: var(--on-sky);
+  font-size: 15px;
+}
+/* "Spike Cat is ready.": a long name gives way, "is ready." always shows. */
+.readyline {
+  display: flex;
+  min-width: 0;
+  white-space: nowrap;
+}
+.readyline b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+}
+.readyline span {
+  flex: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stage__wait[data-ready] {
+    animation: line-in 220ms var(--ease-out);
+  }
+}
+/* The same "ready" over the game while it is full screen (a phone), where the page can't be seen. */
+.gameframe__notice {
+  position: absolute;
+  z-index: 5;
+  top: calc(var(--safe-t, 0px) + 12px);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 152px);
+  padding: 6px 6px 6px 18px;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 500 15px var(--font-ui);
+  transform: translateX(-50%);
+}
+@media (max-width: 480px) {
+  .gameframe__notice {
+    max-width: calc(100% - 24px);
+    top: calc(var(--safe-t, 0px) + 64px);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .gameframe__notice {
+    animation: notice-in 260ms var(--ease-out);
+  }
+  @keyframes notice-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -16px);
+    }
+  }
+}
+
+/* The way back from the gallery to a first build (BuildPill): an ink pill at the bottom of every other page. */
+.buildpill {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: min(640px, calc(100% - 24px));
+  box-sizing: border-box;
+  padding: 6px 6px 6px 20px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--on-sky);
+  font-size: 15px;
+  line-height: 1.3;
+  transform: translateX(-50%);
+  /* On the page's body, outside the app's main: its own tap settings. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.buildpill__text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.buildpill__text b {
+  font-weight: 700;
+}
+.buildpill__text .figures {
+  color: var(--on-sky-muted);
+}
+.buildpill__line {
+  margin-left: 8px;
+  color: var(--on-sky-muted);
+}
+.buildpill .inkpill--small,
+.buildpill .button--small {
+  flex: none;
+}
+.buildpill__close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--on-sky-muted);
+  cursor: pointer;
+  transition:
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out);
+}
+.buildpill__close:active {
+  background: var(--ink-2);
+}
+@media (hover: hover) and (pointer: fine) {
+  .buildpill__close:hover {
+    background: var(--ink-2);
+    color: var(--on-sky);
+  }
+}
+@media (pointer: coarse) {
+  .buildpill__close {
+    width: 44px;
+    height: 44px;
+  }
+}
+/* A phone: the build's words and "Back to it" don't fit beside "Building your game 1:23": the arrow alone. */
+@media (max-width: 520px) {
+  .buildpill__line {
+    display: none;
+  }
+  .buildpill__back {
+    width: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
+  .buildpill__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .buildpill {
+    animation: pill-in 260ms var(--ease-out);
+  }
+  @keyframes pill-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, 12px);
+    }
+  }
 }
 
 /* Versions: a strip of cards under the game, newest first */

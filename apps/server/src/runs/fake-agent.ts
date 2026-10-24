@@ -1,8 +1,9 @@
 // AGENT_FAKE=1: a simulated run for site development and tests, so nobody burns the agent.
 // A few progress lines over ~5 s, then success with an existing demo build's pack, reported like a
 // two-step build whose second step was rolled back: $0.14 of work in all (costUsd, our accounting),
-// $0.10 in the game the player gets (chargeUsd, what they pay: 1.7 credits). A prompt containing
-// "FAIL" fails. It makes a real git commit, like the agent would.
+// $0.10 in the game the player gets (chargeUsd, what they pay: 1.7 credits), with three next-step
+// suggestions. A prompt containing "FAIL" fails; "LONG" takes ~45 s. It makes a real git commit, like
+// the agent would.
 import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
@@ -128,7 +129,9 @@ export function runFakeAgent(job: AgentJob): AgentHandle {
   // The run ends only once its model call is answered, as a real agent's last call is before it stops.
   const called = fakeModelCall(job);
   const finish = (r: AgentResult) => void called.then(() => resolveDone(r));
-  LINES.forEach((text, i) => timers.push(setTimeout(() => job.onProgress(text), 300 + i * 1000)));
+  // "LONG": ~45 s instead of ~5, like a short real build, so screens shown while a build runs can be tried out.
+  const stretch = job.prompt.includes("LONG") ? 8 : 1;
+  LINES.forEach((text, i) => timers.push(setTimeout(() => job.onProgress(text), (300 + i * 1000) * stretch)));
   timers.push(
     setTimeout(async () => {
       if (killed) return;
@@ -148,11 +151,13 @@ export function runFakeAgent(job: AgentJob): AgentHandle {
           costUsd: 0.14,
           messageCostUsd: 0,
           chargeUsd: 0.1,
+          suggestions: job.kind === "new" ? ["Add a double jump", "Add coins to collect", "Add flying traps"] : ["Add a shield power-up", "Add a boss at 500 m", "Add jump sounds"],
+          suggestionsCostUsd: 0, // the real call costs ~$0.0006; kept at 0 so the tests' cost figures stay exact
         });
       } catch (e) {
         finish({ ok: false, costUsd: 0, messageCostUsd: 0, chargeUsd: 0, error: (e as Error).message });
       }
-    }, 5300),
+    }, 5300 * stretch),
   );
   return {
     done,

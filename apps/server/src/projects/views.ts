@@ -24,6 +24,7 @@ export function toMessage(m: Message): MessageView {
     if (m.status) view.status = m.status;
     if (m.status && m.status !== "running") view.credits = Number(m.credits ?? 0);
     if (m.versionN != null) view.versionN = m.versionN;
+    if (m.suggestions?.length) view.suggestions = m.suggestions;
   }
   return view;
 }

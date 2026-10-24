@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Me, PlanId } from "@typeplay/shared";
 import { credits } from "@/lib/format";
 import { signOut, useSession } from "@/lib/session";
+import { BuildPill } from "./BuildPill";
 import { FeedbackDialog, useFeedbackGame, type FeedbackHandle } from "./Feedback";
 // All of the app's styles ride on this component: it is in app builds only.
 import "./app.css";
@@ -137,6 +138,7 @@ function Account({ me, problem }: { me: Me | null; problem: string | null }) {
         </button>
       </div>
       <FeedbackDialog ref={feedback} email={me?.email ?? null} />
+      <BuildPill />
     </>
   );
 }

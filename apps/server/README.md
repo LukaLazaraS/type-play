@@ -67,8 +67,9 @@ whose second step was rolled back: $0.14 of work in all (`costUsd`, kept for our
 in the game the player gets (`chargeUsd`: 1.7 credits charged). A prompt containing `FAIL` fails
 (charged 0) and, on an edit, leaves the folder as a failed run would (a commit of a half-done change
 and an untracked `junk.txt`, which the reset must take away); `SLOW` publishes slowly (3 s), so a test
-can land a Stop after the agent has finished; `NOPOSTER` writes a picture that isn't a PNG, so the
-build publishes without a poster; with `FAKE_METER=1`, `METER:<n>` makes one Haiku call through the key proxy at the
+can land a Stop after the agent has finished; `LONG` takes ~45 s instead of ~5 (the screens shown while a first
+build runs); `NOPOSTER` writes a picture that isn't a PNG, so the
+build publishes without a poster; a build that works brings three fixed next-step suggestions; with `FAKE_METER=1`, `METER:<n>` makes one Haiku call through the key proxy at the
 start, whose (mock) answer reports `<n>` output tokens. Real git commits, real builds, real ledger entries.
 
 ```

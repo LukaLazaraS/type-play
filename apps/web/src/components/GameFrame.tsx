@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ReactNode,
   type Ref,
   type RefObject,
 } from "react";
@@ -124,6 +125,7 @@ export function GameFrame({
   onReady,
   onEscape,
   returnFocus,
+  notice,
   ref,
 }: {
   slug: string;
@@ -141,6 +143,8 @@ export function GameFrame({
   onEscape?: () => void;
   /** Focused after the close control is used: the parent's Full screen control. */
   returnFocus?: RefObject<HTMLElement | null>;
+  /** Shown over the game while it is full screen, where the page around it can't be seen (the app: "Your game is ready"). */
+  notice?: ReactNode;
   ref?: Ref<GameFrameHandle>;
 }) {
   // Parents pass key={slug}, so a new game mounts a fresh frame.
@@ -371,6 +375,11 @@ export function GameFrame({
           >
             Try again
           </button>
+        </div>
+      )}
+      {immersive && notice && (
+        <div className="gameframe__notice" role="status">
+          {notice}
         </div>
       )}
       {immersive && (

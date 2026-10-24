@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { AndroidLogo, ArrowSquareOut, ArrowsOut, ArrowClockwise } from "@phosphor-icons/react";
+import { AndroidLogo, ArrowSquareOut, ArrowsOut, ArrowClockwise, Play, X } from "@phosphor-icons/react";
 import type { Project } from "@typeplay/shared";
 import { BuildLayers } from "@/components/BuildingIcon";
 import { GameFrame, playUrl, type GameFrameHandle } from "@/components/GameFrame";
@@ -14,6 +14,10 @@ import type { LiveLine } from "./ChatLog";
 import { GameMenu } from "./GameMenu";
 import { ShareMenu } from "./ShareMenu";
 import { Versions } from "./Versions";
+import { useWaitGames, WhileYouWait, type WaitGame } from "./WhileYouWait";
+
+/** Phones and tablets, as GameFrame decides it: a game started there opens full screen. */
+const TOUCH = "(hover: none) and (pointer: coarse)";
 
 /** The game side of the game page: the playable frame, or the build on its way, and the versions. */
 export function Stage({
@@ -51,6 +55,34 @@ export function Stage({
   const runningMessage = running ? [...project.messages].reverse().find((m) => m.role === "agent" && m.status === "running") : undefined;
   const nextN = (project.versions.reduce((n, v) => Math.max(n, v.n), 0) || 0) + 1;
 
+  // While the first build runs: another game playing in the stage, picked from WhileYouWait.
+  const firstBuild = running && !project.buildId;
+  const waitGames = useWaitGames(project.messages.find((m) => m.role === "user")?.text ?? "", firstBuild);
+  const [waiting, setWaiting] = useState<WaitGame | null>(null);
+  const ready = !!waiting && !running && !!project.buildId; // the build finished while they played
+  const [startOwn, setStartOwn] = useState(false); // "Play it": their game starts at once
+  const [goFull, setGoFull] = useState(0);
+  // A phone plays full screen (as GameFrame's own Play does): asked right after the tap that picked the game.
+  useEffect(() => {
+    if (goFull && window.matchMedia(TOUCH).matches) frame.current?.fullscreen();
+  }, [goFull]);
+  const playOwn = () => {
+    setWaiting(null);
+    setStartOwn(true);
+  };
+  const readyLine = (
+    <>
+      <span className="readyline">
+        <b>{project.name}</b>
+        <span>&nbsp;is ready.</span>
+      </span>
+      <button type="button" className="button button--small" onClick={playOwn}>
+        <Play size={16} weight="fill" aria-hidden="true" />
+        Play it
+      </button>
+    </>
+  );
+
   return (
     <section className="stage" aria-label="Your game">
       <header className="stage__bar">
@@ -77,7 +109,7 @@ export function Stage({
               <span className="inkpill__label">{android.pill}</span>
             </Link>
           )}
-          {project.buildId && (
+          {(project.buildId || waiting) && (
             <button ref={full} type="button" className="inkpill" onClick={() => frame.current?.fullscreen()}>
               <ArrowsOut size={18} weight="bold" aria-hidden="true" />
               <span className="inkpill__label">Full screen</span>
@@ -93,8 +125,40 @@ export function Stage({
         </div>
       </header>
 
+      {/* Another game while the first build runs: the build's line, then "ready" with the way to their game. */}
+      {waiting && (
+        <div className="stage__busy stage__wait" role="status" data-ready={ready || undefined}>
+          {running ? (
+            <>
+              <span className="pulse" aria-hidden="true" />
+              <span className="stage__busy-text">
+                Building your game: {live?.text || "getting started"}
+                {runningMessage && (
+                  <span className="figures" aria-hidden="true">
+                    {" "}
+                    {clock(runningMessage.createdAt, now)}
+                  </span>
+                )}
+              </span>
+              <button type="button" className="inkpill inkpill--small" onClick={() => setWaiting(null)}>
+                <X size={16} weight="bold" aria-hidden="true" />
+                Close
+              </button>
+            </>
+          ) : ready ? (
+            readyLine
+          ) : (
+            <>
+              <span className="stage__busy-text">Your game didn&apos;t build. Nothing was charged.</span>
+              <button type="button" className="inkpill inkpill--small" onClick={() => setWaiting(null)}>
+                See what to do
+              </button>
+            </>
+          )}
+        </div>
+      )}
       {/* Always there when a game is, so the frame keeps its size when a build starts or ends. */}
-      {project.buildId && (
+      {project.buildId && !waiting && (
         <p className="stage__busy" role="status">
           {running && (
             <>
@@ -114,7 +178,22 @@ export function Stage({
       )}
 
       <div className="stage__screen">
-        {project.buildId ? (
+        {waiting ? (
+          <div className="stage__frame" data-orientation={waiting.orientation}>
+            <GameFrame
+              ref={frame}
+              key={`wait-${waiting.slug}`}
+              slug={waiting.slug}
+              poster={waiting.poster}
+              name={waiting.name}
+              orientation={waiting.orientation}
+              mode="click"
+              autoStart
+              returnFocus={full}
+              notice={ready ? readyLine : undefined}
+            />
+          </div>
+        ) : project.buildId ? (
           <div className="stage__frame" data-orientation={project.orientation}>
             <GameFrame
               ref={frame}
@@ -124,13 +203,13 @@ export function Stage({
               name={project.name}
               orientation={project.orientation}
               mode="click"
-              autoStart={played}
+              autoStart={played || startOwn}
               onReady={onPlayed}
               returnFocus={full}
             />
           </div>
         ) : running ? (
-          <div className="stage__empty">
+          <div className="stage__empty stage__empty--wait">
             <span className="app__icon build stage__build" aria-hidden="true">
               <BuildLayers />
             </span>
@@ -139,6 +218,14 @@ export function Stage({
               {runningMessage && <span className="figures"> {clock(runningMessage.createdAt, now)}</span>}
             </p>
             <p className="stage__note">This takes a few minutes. You can leave this page: it keeps building.</p>
+            <WhileYouWait
+              projectId={project.id}
+              games={waitGames}
+              onPlay={(g) => {
+                setWaiting(g);
+                setGoFull((n) => n + 1);
+              }}
+            />
           </div>
         ) : (
           <div className="stage__empty">
