@@ -128,6 +128,9 @@ What follows from that:
 
 ## 3. Later: the payout account (after the IE)
 
+10-24: Paddle approved the live account; Luka enters his personal USD account himself (he says the IE uses the same
+account), so what follows is for reference.
+
 Right after Paddle approves: the IE + Small Business Status (parked #2), then the IE's USD business account (TBC or
 BOG app) or Payoneer, entered at **Paddle > Business account > Payouts > Payout settings**: the account name as the
 bank writes it, SWIFT/BIC and account number or IBAN without spaces or symbols. Paddle pays once a month (the

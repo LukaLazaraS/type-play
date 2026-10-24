@@ -2,6 +2,19 @@
 
 ## Start here (handoff, 2026-10-20 evening)
 
+- **Until the beta code is live, only the beta 1 go-live session deploys** (HQ's job `e7b8f573`, Luka 10-24): no other session runs `deploy.mjs` (site, games, api); hand changes to HQ.
+- **10-24, beta 1 is live** (closed beta, invite only): typeplay.app with the app on, `api.typeplay.app` on the CPX32
+  (`/health` as `docs/beta/runbook.md` step 5), the 10-20 game loader on typeplay.dev; commit `3c7bdcc` (the app switch
+  and tonight's doc fixes are not committed yet). Sign-in's redirect fixed the same night (it went to Next's own
+  address, https://0.0.0.0:3000: `publicOrigin` in `apps/web/src/lib/safe-next.ts`). **Paddle's live account was
+  approved 10-24** (checkout on for typeplay.app; HQ set the dashboard: default payment link https://typeplay.app/billing,
+  statement descriptor TYPEPLAY, discount codes and saved cards off, sales tax exclusive, balance USD). Payout details:
+  Luka adds his personal USD account, which he says the IE will use too. **Next before any live sale: the IE + Small
+  Business Status** (parked rows 2 and 3). Next, in Luka's order: his smoke test (runbook step 7), then the **beta
+  code** (a 6-digit code on the closed-beta page instead of inviting each tester by address, Luka 10-24), then the second
+  Supabase project for this PC with the env split (parked row 21). Until that project exists, tests and `npm run dev` on
+  this PC write to the live database: run them only while `/health` says `runs: 0`.
+
 - **10-20 batch (no Luka input), done and green** (root check 5/5, public build has no app routes; the
   folder moved to `master-project/startups/type-play`: `npm install` relinked the workspaces):
   **security review of beta 1's public surface** (the invite gate holds on all 35 signed-in routes; 5 fixes:
@@ -223,10 +236,10 @@ Our lane: a real Godot project that goes to the stores, ~$1.33 a game, and the g
 ## Waits (start them early)
 
 - **Name + domain:** TypePlay (decided 2026-10-13): typeplay.app (site) + typeplay.dev (games), bought at Cloudflare. Details in `docs/names.md`.
-- **Individual Entrepreneur registration + Small Business Status:** right after Paddle approves, before
-  the first paid sale (the paid beta, package 8) (Luka, 2026-10-23); about a day. Paddle's signup asks no
-  IE papers, so the application goes in first ("Payments: how to apply" below).
-- **Paddle review:** ~3-7 business days, can be longer; if rejected → Whop. Apply on day 2.
+- **Individual Entrepreneur registration + Small Business Status:** next (Paddle approved 10-24), before
+  any live sale and the paid beta (package 8) (Luka, 2026-10-23); about a day. Paddle's signup asks no
+  IE papers, so the application went in first ("Payments: how to apply" below).
+- **Paddle review:** approved 2026-10-24, the day the application went in.
 - **Anthropic's answer** on the question above: email this week.
 - **Beta testers** take days to try things and reply: line up 5-10 people by ~10-20.
 - **Google Play:** new personal accounts need a 14-day closed test before production. Luka's
@@ -265,15 +278,17 @@ Business Status. The seller is "Luka Lazarashvili" on the Paddle account and in 
    through Paddle), contact email, HTTPS, no login wall.
 2. **Luka: sign up at paddle.com (Paddle Billing)** as an individual: seller details, submit the
    domain for review, identity check (business documents are skipped for individuals). Field by
-   field: `docs/launch/paddle-signup.md`.
+   field: `docs/launch/paddle-signup.md`. **Approved 2026-10-24** (checkout on for typeplay.app).
 3. **Luka: also open a Paddle sandbox account** (free, instant, no review). Claude builds the
    checkout, plans, credit packs and webhooks against it while the review runs; going live
    is a key swap.
-4. **Luka, right after Paddle approves: register as an Individual Entrepreneur with Small Business
-   Status** (online, about a day; 1% of turnover up to 500,000 GEL/year instead of the 20% default),
-   then the USD business account for Paddle's payouts (Georgian bank by SWIFT, or Payoneer) goes into
-   Paddle's payout settings. Ask a Georgian accountant to confirm this income qualifies. No LLC needed.
-   All before the first paid sale: Small Business Status counts only from the day it is applied for.
+4. **Luka, next (Paddle approved 10-24): register as an Individual Entrepreneur with Small Business
+   Status** (online, about a day; 1% of turnover up to 500,000 GEL/year instead of the 20% default).
+   Payouts: Luka puts his personal USD account into Paddle's payout settings himself; he says the IE
+   uses the same account (check with the bank that it is marked for the IE before the first payout:
+   TBC's personal-account terms forbid business use without the matching status, `docs/payments.md`).
+   Ask a Georgian accountant to confirm this income qualifies. No LLC needed. All before any live
+   sale: Small Business Status counts only from the day it is applied for.
 5. If Paddle rejects or stalls past ~2 weeks: Dodo Payments (merchant of record built for
    countries Stripe doesn't serve; confirm Georgian ID is accepted at signup), then Whop.
 

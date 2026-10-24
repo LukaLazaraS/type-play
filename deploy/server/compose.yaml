@@ -9,7 +9,7 @@ services:
         NEXT_PUBLIC_GAMES_ORIGIN: https://typeplay.dev
         NEXT_PUBLIC_API_ORIGIN: https://api.typeplay.app
         # The signed-in app (/create, /games): "1" the day beta 1 starts (Luka's call), then deploy.mjs site.
-        NEXT_PUBLIC_APP: "0"
+        NEXT_PUBLIC_APP: "1"
         # The closed beta (beta 1): the signed-out /create and /games say so before sign-in. Keep it with the API's
         # BETA_INVITE_ONLY (deploy/api/compose.yaml): "0" for both when the app opens to everyone.
         NEXT_PUBLIC_CLOSED_BETA: "1"

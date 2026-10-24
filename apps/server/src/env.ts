@@ -155,7 +155,7 @@ export const config = {
 const CLAUDE_LOGIN_VARS = ["CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_OAUTH_REFRESH_TOKEN", "ANTHROPIC_AUTH_TOKEN"];
 const claudeLoginFiles = () =>
   [env.CLAUDE_CONFIG_DIR, join(homedir(), ".claude")].filter((d): d is string => !!d).map((d) => join(d, ".credentials.json"));
-/** OAuth tokens from `claude setup-token` start like this; API keys start with sk-ant-api. */
+/** OAuth tokens from `claude setup-token` start like this; Console API keys start sk-ant-api (or sk-ant-usr, the newer kind). */
 const looksLikeOauth = (key: string) => /^sk-ant-oat/i.test(key);
 
 export function assertSafeConfig() {

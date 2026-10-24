@@ -66,7 +66,7 @@ node deploy/deploy.mjs android-key        # once, before the first `api`: ANDROI
 
 **What Luka does:** (1) say yes to the server (`docs/server-proposal.md`: CPX32, $41.99 + $0.60 a month; a
 CX33 for $9.99 if Hetzner has one: `api-setup --type cx33 --yes`); (2) create the API key in the Anthropic
-Console (parked #6) and paste it into the root `.env` as `ANTHROPIC_API_KEY=sk-ant-api…`. Then the three
+Console (parked #6) and paste it into the root `.env` as `ANTHROPIC_API_KEY=…` (`sk-ant-api…` or the newer `sk-ant-usr…`). Then the three
 commands above. `api` stops before uploading anything if the key is missing or is a Claude login token.
 **Beta 1 day:** in `server/compose.yaml` set `NEXT_PUBLIC_APP: "1"`, then `site` (the app screens go live
 and talk to `https://api.typeplay.app`, already set there as `NEXT_PUBLIC_API_ORIGIN`).

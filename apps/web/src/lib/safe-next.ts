@@ -16,3 +16,15 @@ export function safeNext(next: string | null | undefined, fallback = "/create"):
     return fallback;
   }
 }
+
+/**
+ * The origin an absolute redirect from a route handler goes to. Live, Next runs behind Caddy in the container and
+ * `request.nextUrl` carries its own bind address (10-24: sign-in landed on https://0.0.0.0:3000/create), so it comes
+ * from the Host the visitor asked for, which Caddy passes on as it is: localhost or 127.0.0.1 (dev, tests) as asked,
+ * anything else https://<domain>, so a forged Host can't send anyone to another site.
+ */
+export function publicOrigin(host: string | null, protocol: string, domain: string): string {
+  const asked = (host ?? "").trim().toLowerCase();
+  if (/^(localhost|127\.0\.0\.1)(:\d{1,5})?$/.test(asked)) return `${protocol === "https:" ? "https" : "http"}://${asked}`;
+  return `https://${domain}`;
+}

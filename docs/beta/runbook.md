@@ -19,9 +19,11 @@ live API (root `.env`), so everything below that says `admin` works on the live 
 2. **The Anthropic question** (parked #4, `docs/anthropic-question.md`) is still open: decide whether beta 1 waits for it.
 3. **The server:** yes to the CPX32 ($41.99 + $0.60 IPv4 a month, `docs/server-proposal.md`); a CX33 ($9.99) only if
    Hetzner has one in stock (10-23: sold out in fsn1, nbg1 and hel1; the CPX32 is in stock in fsn1).
-4. **The Anthropic API key:** platform.claude.com, API keys, create one (it starts `sk-ant-api`; never a `claude
-   setup-token` one) and paste it into the root `.env` as `ANTHROPIC_API_KEY=…`. Buy $50-100 of credits ($40 or more
-   moves the account to tier 2). The Console's usage and cost pages are the real bill (step 10).
+4. **The Anthropic API key:** platform.claude.com, API keys, create one (an API key: `sk-ant-api…` or the newer
+   `sk-ant-usr…`; never a `claude setup-token` one, `sk-ant-oat…`) and paste it into the root `.env` as
+   `ANTHROPIC_API_KEY=…`. Buy $50-100 of credits ($40 or more moves the account to tier 2). The Console's usage and
+   cost pages are the real bill (step 10). (10-24: an `sk-ant-usr` key in Luka's Individual Org, which has his Max
+   plan's $200 monthly API credit; nothing bought.)
 5. **Android: nothing to do for beta 1.** It is off (`ANDROID_EXPORT: "0"` in `deploy/api/compose.yaml`, since 10-19:
    testers are on Free, which has no export), and `api` needs no Android key while it is off. To turn it on later:
    `node deploy/deploy.mjs android-key` [Claude], copy the `ANDROID_KEY_MASTER` line from `.env` into your password
