@@ -12,10 +12,11 @@
   Luka adds his personal USD account, which he says the IE will use too. **Next before any live sale: the IE + Small
   Business Status** (parked rows 2 and 3). Next, in Luka's order: his smoke test (runbook step 7), then the **beta
   code** (a 6-digit code on the closed-beta page instead of inviting each tester by address, Luka 10-24). **Since 10-25
-  development and tests on this PC have their own databases** (`typeplay_dev`, `typeplay_test` on this PC's Postgres:
-  `docs/environments.md`), so they run any time; the admin CLI reaches the live beta only as `npm run admin:live`. Sign-in
-  stays on the live Supabase project; a **staging** environment with its own Supabase project comes before the paid beta
-  (~11-06), and the Paddle sandbox purchase runs there (parked row 21).
+  dev and the automated tests on this PC have their own databases** (`typeplay_dev`, `typeplay_autotest` on this PC's
+  Postgres: `docs/environments.md`), so they run any time; the admin CLI reaches the live beta only as `npm run
+  admin:live`. Sign-in stays on the live Supabase project. The environments are **dev, test and production** (Luka 10-25,
+  no "staging"): **test** is an online copy for inner testers on a private domain, later, not now; until then the Paddle
+  sandbox purchase runs from this PC, with a tunnel for Paddle's webhooks (parked row 21).
 
 - **10-20 batch (no Luka input), done and green** (root check 5/5, public build has no app routes; the
   folder moved to `master-project/startups/type-play`: `npm install` relinked the workspaces):

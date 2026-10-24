@@ -45,7 +45,7 @@ import type { EventStatus } from "./generated/prisma/client.js";
 import { createPrisma } from "./prisma.js";
 
 // Which database this is, before anything is read or written (docs/environments.md).
-if (ENV_MODE === "development" || ENV_MODE === "test") console.error(`admin: this PC's ${ENV_MODE} database (npm run admin:live for the live one)`);
+if (ENV_MODE === "development" || ENV_MODE === "autotest") console.error(`admin: this PC's ${ENV_MODE} database (npm run admin:live for the live one)`);
 const prisma = createPrisma();
 const ledger = new LedgerService(prisma);
 const paddle = new PaddleService();

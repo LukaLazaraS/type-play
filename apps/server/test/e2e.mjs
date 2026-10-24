@@ -1,4 +1,4 @@
-// End-to-end test of the API, on the tests' own database (typeplay_test, emptied first: test/test-db.mjs):
+// End-to-end test of the API, on the automated tests' own database (typeplay_autotest, emptied first: test/test-db.mjs):
 //   npm run test:e2e -w @typeplay/server     (after npm run build) starts its API on :3023 with DEV_AUTH=1 and
 //                                            AGENT_FAKE=1; API_URL runs it against a server of yours instead
 // Uses fresh dev users (dev:e2e-<time>-a@test.local) and deletes them, their games and builds at the end.
@@ -1351,11 +1351,11 @@ async function main() {
 
   // The Supabase sign-in record: the API deletes it with this statement (account.service.ts). Real
   // Google users can't sign in here, so try it on a throwaway Supabase user made with the admin API.
-  // Only where the database is that Supabase project's (staging, later): typeplay_test on this PC has no auth schema,
-  // and the tests never touch the live project's sign-ins (docs/environments.md).
+  // Only where the database is a Supabase project's (the online test environment, later): typeplay_autotest on this PC
+  // has no auth schema, and the tests never touch the live project's sign-ins (docs/environments.md).
   const supabaseDb = (await db.query("SELECT to_regclass('auth.users') AS t")).rows[0].t !== null;
   if (!supabaseDb) {
-    console.log("  skip  the sign-in record check (the database isn't a Supabase project's: it runs on staging)");
+    console.log("  skip  the sign-in record check (the database isn't a Supabase project's: it runs in the online test environment)");
   } else if (process.env.SUPABASE_SECRET_KEY) {
     const key = process.env.SUPABASE_SECRET_KEY;
     const admin = (method, path, body) =>

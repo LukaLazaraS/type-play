@@ -29,7 +29,7 @@ it starts inherit that.
 ## Env keys (root `.env`, git-ignored; names only)
 
 - `DATABASE_URL` (transaction pooler, the app), `DIRECT_URL` (session pooler, migrations): the live values in `.env`;
-  on this PC `.env.development` / `.env.test` set them to `typeplay_dev` / `typeplay_test` first (`src/env-files.ts`)
+  on this PC `.env.development` / `.env.autotest` set them to `typeplay_dev` / `typeplay_autotest` first (`src/env-files.ts`)
 - `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` (sign-in check; `docs/auth.md`)
 - Optional: `PORT` (3002), `HOST` (127.0.0.1), `DATA_DIR` (`<repo>/data`), `GAMES_BUILDS_DIR`
   (`apps/games/builds`), `GODOT_VERSION` (4.7.2), `GODOT_EXE`, `MAX_RUNS` (3), `RUN_TIMEOUT_MIN` (40),
@@ -75,16 +75,17 @@ in the game the player gets (`chargeUsd`: 1.7 credits charged). A prompt contain
 and an untracked `junk.txt`, which the reset must take away); `SLOW` publishes slowly (3 s), so a test
 can land a Stop after the agent has finished; `LONG` takes ~45 s instead of ~5 (the screens shown while a first
 build runs); `NOPOSTER` writes a picture that isn't a PNG, so the
-build publishes without a poster; a build that works brings three fixed next-step suggestions; with `FAKE_METER=1`, `METER:<n>` makes one Haiku call through the key proxy at the
+build publishes without a poster; a build that works brings nine fixed next-step ideas; with `FAKE_METER=1`, `METER:<n>` makes one Haiku call through the key proxy at the
 start, whose (mock) answer reports `<n>` output tokens. Real git commits, real builds, real ledger entries.
 
-The database tests run on `typeplay_test` (`.env.test`; `test/test-db.mjs` starts this PC's Postgres if needed, brings
-the database up to date and empties it first), so they can run any time, beside the live beta and `npm run dev`.
+The database tests run on `typeplay_autotest` (`.env.autotest`; `test/test-db.mjs` starts this PC's Postgres if needed,
+brings the database up to date and empties it first), so they can run any time, beside the live beta and `npm run dev`;
+nothing else may use that database (a run empties it).
 
 ```
 npm run test:e2e -w @typeplay/server          # 353 checks (2026-10-25); starts its own API on :3023 with DEV_AUTH=1 AGENT_FAKE=1 (API_URL to use yours);
                                               # makes and deletes its own test users; the Supabase sign-in record check runs only where
-                                              # the database is a Supabase project's (staging); starts
+                                              # the database is a Supabase project's (the online test environment, later); starts
                                               # a second API on :3013 of its own for the run timeout and the interrupted-run recovery,
                                               # one on :3019 with TRUST_PROXY=1 for the gallery (several visitors, fresh limits),
                                               # one on :3021 with BETA_INVITE_ONLY=1 for the closed beta, and one on :3033 (its key

@@ -1,5 +1,5 @@
 // Settings, read once at startup. On Luka's PC from the repo's env files (env-files.ts: a local database from the
-// committed .env.development or .env.test, the secrets from the git-ignored root .env), on the live server from the
+// committed .env.development or .env.autotest, the secrets from the git-ignored root .env), on the live server from the
 // container's environment; the variables set in the shell win over the files. Never log the values.
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -9,7 +9,7 @@ import { assertLocalDatabase, envMode, loadEnvFiles } from "./env-files.js";
 /** The repo root (this file lives in apps/server/src or apps/server/dist). */
 export const ROOT = resolve(import.meta.dirname, "../../..");
 
-/** development, test, live (the admin CLI on the live database) or production (the live server). */
+/** development, autotest, live (the admin CLI on the live database) or production (the live server). */
 export const ENV_MODE = envMode();
 /** Key names defined in the env files read: kept out of the game agent's environment (it can run shell commands). */
 export const ENV_FILE_KEYS = loadEnvFiles(ROOT, ENV_MODE);
