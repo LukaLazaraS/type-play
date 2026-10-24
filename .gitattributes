@@ -1,3 +1,10 @@
 # Files shipped to the Linux server keep LF line endings on every checkout.
 deploy/** text eol=lf
 *.sh text eol=lf
+
+# Binary files are stored byte for byte, wherever they are: no line-ending conversion, no text diff or merge. These
+# lines come last so they win over the folder rule above (it cut a byte out of the Android icons' PNG signature).
+*.png binary
+*.jpg binary
+*.ico binary
+*.ttf binary
