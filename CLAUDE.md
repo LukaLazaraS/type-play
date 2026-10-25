@@ -80,8 +80,10 @@ Claude Code runs on his Max 20x plan.
   Business Status) with the same name on the Paddle account and our terms. Apply once the
   landing page is live (review ~3-7 business days); build against Paddle's sandbox meanwhile.
 - **Launch order:** Godot check → landing page + Paddle application → agent core (2 genres)
-  → web app → server → closed beta 1 (free) → genres 3-4, Android export, payments → paid
-  beta → launch. iOS, Steam, Blender, text-to-3D after launch. Details in `PLAN.md`.
+  → web app → server → closed beta 1 (free: friends and family with a beta code) → genres 3-4,
+  Android export, payments → open launch (everyone signs up and buys; ads). **No paid beta**
+  (Luka, 2026-10-25); billing goes on once the sandbox tests pass and the IE exists, during
+  beta 1. iOS, Steam, Blender, text-to-3D after launch. Details in `PLAN.md`.
 - **Black Hole Galaxy on TypePlay is one of our games, made with TypePlay** (Luka, 2026-10-21):
   the site, its cards and launch posts never mention Unity or a port. Its project is
   `games/BlackHoleGalaxy-godot` (the web build comes from there).

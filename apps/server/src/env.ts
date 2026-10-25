@@ -143,6 +143,12 @@ export const config = {
    * On by default in production (BETA_INVITE_ONLY=0 opens the app to everyone), off on this PC unless BETA_INVITE_ONLY=1.
    */
   betaInviteOnly: env.NODE_ENV === "production" ? env.BETA_INVITE_ONLY !== "0" : env.BETA_INVITE_ONLY === "1",
+  /**
+   * Beta codes (src/beta/codes.ts): wrong codes allowed in an hour per signed-in email (Luka, 10-24: 5), and in all,
+   * so six digits can't be guessed from many accounts either (50; then the code box waits for the hour, for everyone).
+   */
+  betaCodeTriesPerHour: num(env.BETA_CODE_TRIES_PER_HOUR, 5),
+  betaCodeTriesPerHourAll: num(env.BETA_CODE_TRIES_PER_HOUR_ALL, 50),
   corsOrigins: [
     "http://localhost:3000",
     "http://127.0.0.1:3000",

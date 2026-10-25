@@ -200,42 +200,39 @@ builds only and talks to the API's `/billing` routes (`apps/server/README.md` "B
   card name, a Free user with 0 credits whose plan lapsed, the upgrade preview with a $12,345.67 charge, and
   the checkout page's turn-aways, at desktop, phone and 320 px.
 
-**Monday, with Luka's sandbox keys** (what the stub can't prove; docs/payments-design.md §12 "Manual", §14):
+**The Paddle sandbox on this PC** (what the stub can't prove; docs/payments-design.md §12 "Manual", §14):
 
-1. Keys: root `.env` gets `PADDLE_ENV=sandbox`, `PADDLE_API_KEY=pdl_sdbx_apikey_…`, the five `PADDLE_PRICE_*`
-   from `npm run paddle:catalog -w @typeplay/server -- --env sandbox`, and `PADDLE_WEBHOOK_SECRET` from the
-   notification destination; `apps/web/.env.local` gets `NEXT_PUBLIC_PADDLE_ENV=sandbox` and
-   `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=test_…`. Restart `npm run dev`; `GET /health` says `billing: { mode:
-   "sandbox", ready: true }`; `/billing` shows the Free card, not "opens here soon".
-2. Paddle > Checkout > Checkout settings: the default payment link (`https://typeplay.app/billing`; the
-   sandbox accepts any domain) is required before any overlay opens.
-3. A real checkout at http://localhost:3000/billing/checkout?item=plan:medium with `4242 4242 4242 4242`
-   (any future expiry, any CVC): **to confirm** that the overlay collects the address for a server-created
-   transaction (the fallback is `Paddle.Checkout.open({ items, customer, customData })`, §5), that
-   `checkout.completed` arrives and the page says "Paid. Adding your credits…", that the credits land (by
-   webhook through a destination on a tunnel to this PC, e.g. `cloudflared tunnel --url
-   http://127.0.0.1:3002` with `<url>/webhooks/paddle` as a second destination and its own secret; without
-   one, by the page's 20 s verify), the done state, and the receipt email (sandbox mail reaches only the
-   account's own domain).
-4. The other test cards: `4000 0038 0000 0446` (a 3DS challenge inside the overlay), `4000 0000 0000 0002`
-   (declined: Paddle's own message in the overlay, nothing charged), `4000 0027 6000 3184` (pays once, then
-   declines: the past-due path on the next renewal; the simulator can fire `subscription.past_due`).
-5. Paddle > Events > Simulations against the destination: the "subscription created" sequence, past due,
-   canceled; `npm run admin -w @typeplay/server -- events` shows them processed; whether simulated webhooks
-   are signed with the destination's secret.
-6. The picker: Upgrade's preview against Paddle's real proration (the amount and `creditsNow`), confirm →
-   the `subscription_update` transaction → the credits; Switch at renewal: Paddle's `do_not_bill` preview
-   must bill nothing now and exactly the new price next (else the API answers 409 "Paddle would bill this
-   change differently"), and whether Paddle's "Subscription Price Changed" email goes out on the PATCH;
-   Keep High. Cancel plan → the strip and the date; Keep my plan. Whether `current_billing_period` advances
-   on `past_due`.
-7. The portal links: Update card, Invoices and receipts (the receipt PDF), the EU "Request withdrawal"
-   button.
-8. A refund: `admin refund <email> last` → the strip "A refund of $… is with Paddle for approval" → the
-   sandbox approves within 10 minutes → `retained_fee` on the adjustment, the credits removed, the payments
-   list says "$… refunded".
-9. A California-address checkout (Paddle's own auto-renew consent box may change the overlay's height), and
-   the overlay on a real phone (Safari).
+1. Keys, development's: the root `.env.local` holds `PADDLE_ENV=sandbox`, `PADDLE_API_KEY=pdl_sdbx_apikey_…`,
+   the five `PADDLE_PRICE_*` (`npm run paddle:catalog -w @typeplay/server -- --env sandbox`) and
+   `PADDLE_WEBHOOK_SECRET` (step 2); `apps/web/.env.local` holds `NEXT_PUBLIC_PADDLE_ENV=sandbox` and
+   `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=test_…`. Paddle > Checkout settings needs the default payment link
+   (`https://typeplay.app/billing`) before any overlay opens.
+2. Webhooks to this PC: `node apps/server/scripts/webhook-tunnel.mjs 3062` (a quick tunnel that forwards only
+   `POST /webhooks/paddle`), then `npm run paddle:destination -w @typeplay/server -- --env sandbox --url
+   <its address>` (makes the destination and writes its secret, or moves it to the new address); `--off`
+   at the end, when the tunnel's address dies.
+3. `npm run build -w @typeplay/server`, then `scripts/paddle-sandbox.mjs` through the CPU limiter: `stack`
+   (the API on :3062 and the site on :3060, on this PC's `typeplay_sandbox` database), `buy` (a real overlay
+   checkout with a test card), `call`, `state`, `page`, `portal` (its header). In Git Bash, set
+   `MSYS_NO_PATHCONV=1` for commands with a `/path` argument.
+
+Proven 2026-10-25: a plan with `4242 4242 4242 4242` (the overlay asks email and country, then the card;
+the credits by webhook within seconds), 3-D Secure `4000 0038 0000 0446` (the bank's page inside the
+overlay, then done), declined `4000 0000 0000 0002` (Paddle's own message, nothing charged), the upgrade
+(the preview's charge is what Paddle bills; 174.9 credits for Medium → High on day 1), switch at renewal
+(nothing now, exactly the new price next) and its undo, cancel and keep back to back, two packs, the portal
+links (overview, cancel, update card), Paddle's simulations (signed with the destination's secret; their
+example ids are parked, nothing granted), refunds (`admin refund <email> last` → the strip "A refund of $…
+is with Paddle for approval", the credits on hold → approved within 5 minutes: the pack's 40 credits gone; a
+plan month refunded in full ends the plan; the payments list says refunded; Paddle keeps its fee, `retained_fee`
+$1.09 on the pack and $1.68 on Medium, 5% + $0.50 of the total with tax).
+
+Still open: the receipt and "Subscription Price Changed" emails (sandbox mail reaches only the account's
+own domain: a purchase as `hello@typeplay.app` sends them to Luka), `4000 0027 6000 3184` (pays, then declines
+the renewal a month later: past due, and whether `current_billing_period` advances), a California-address
+checkout (Paddle's auto-renew box), and the overlay on a real phone (Safari). Found by the run and built the
+same day: a refund of a plan's payment also cancels its subscription at Paddle (Luka: a refund means they don't
+want it any more; before, the plan ended here but Paddle renewed it next month).
 
 ### Export to Android (package 7, 2026-10-18)
 
@@ -357,19 +354,25 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
 
 - **The closed-beta page** (`components/app/ClosedBeta.tsx`): when the API answers 403 `invite_only` (any call, `GET /me`
   included; `lib/api.ts` marks the session, `lib/session.ts` `uninvited`), the app's pages show "TypePlay is in a closed
-  beta." instead of themselves: who it is for and that it opens to everyone soon, the one hot **Play the games** (the
-  home page's games: most people here were never invited), then a Field panel with the address this browser is signed in
-  with and two quiet buttons, **Use another account** (Google's account chooser, `prompt=select_account`; the new sign-in
-  replaces this one) and Sign out, and the idea saved in this browser quoted (cut at three lines) when there is one. No
-  form: nothing new is asked or kept. It fades in where the page was. It works through a `layout.app.tsx` in `create/`,
+  beta." instead of themselves: who it is for and that it opens to everyone soon, then **Have a beta code?**: a six-digit
+  box (digits only, a pasted code replaces the one there, the number keyboard, `one-time-code`) and the one hot **Join
+  the beta** (10-25, Luka's beta codes: `POST /beta/code`). A wrong code: the API's sentence (the tries left; a limit's
+  sentence stays while typing), and the box keeps its focus and the code, selected, so the keyboard stays up. A right
+  one: a fresh `GET /me` (`refreshMe({ fresh: true })`: the one sent on load was answered "not invited"), the page gives
+  way to the app, and one focused line above it says "You're in the beta. We added 50 credits." (if `GET /me` still says
+  not invited: "Your code worked. Reload the page to start."). Then "No code yet?" over a quiet **Play the games** (the
+  home page's games), then a Field panel
+  with the address this browser is signed in with and two quiet buttons, **Use another account** (Google's account
+  chooser, `prompt=select_account`; the new sign-in replaces this one) and Sign out, and the idea saved in this browser
+  quoted (cut at three lines) when there is one. It fades in where the page was. It works through a `layout.app.tsx` in `create/`,
   `games/`, `account/` and `billing/` (the `InviteGate`), so every page under them is covered and the public pages (home,
   pricing, the legal pages, `/explore`, `/play/<id>`) are as before. The answer is kept for the tab (`sessionStorage`), so
   a reload shows the page at once while `GET /me` asks again. The status bar's account place shows only the avatar letter,
   and its menu the address, one line on the closed beta and Sign out (no credits, no My games); on phones the page behind
   the account menu dims (any account). The live updates stop on a 403 instead of retrying.
 - **Before sign-in** (`NEXT_PUBLIC_CLOSED_BETA=1` at build time, set in `deploy/server/compose.yaml` next to
-  `NEXT_PUBLIC_APP`; `content/beta.ts`): the signed-out /create and /games say "A closed beta for now: sign in with the
-  Google account you were invited with." instead of the Free plan's line. Set it to `"0"` together with the API's
+  `NEXT_PUBLIC_APP`; `content/beta.ts`): the signed-out /create and /games say "A closed beta for now: sign in with
+  Google, then type the beta code from your invitation." instead of the Free plan's line. Set it to `"0"` together with the API's
   `BETA_INVITE_ONLY` when the app opens to everyone.
 - **Send feedback** (`components/app/Feedback.tsx`): one quiet entry in the account menu (under Plans and credits) and
   one in the game page's **More** menu. A modal `<dialog>` in the report dialog's box, put straight into `<body>`:

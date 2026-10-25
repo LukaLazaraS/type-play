@@ -13,7 +13,7 @@ import { deflateSync } from "node:zlib";
 import {
   androidPreset, APP_NAME_MAX, defaultPackageName, packageNameProblem, patchProjectGodot, versionNameOf, withAndroidPreset,
 } from "../runner/android-prepare.mjs";
-import { newPassword, newToken, open, parseMasterKey, sameToken, seal } from "../dist/android/crypto.js";
+import { newPassword, newToken, open, openWith, parseMasterKey, sameToken, seal } from "../dist/android/crypto.js";
 import { certMismatch, checksOf, mismatches } from "../dist/android/inspect.js";
 import { phoneLinkUrl, PRESIGN_MAX_SEC, presignSeconds } from "../dist/android/links.js";
 import { iconProblem, pngInfo } from "../dist/android/png.js";
@@ -112,8 +112,15 @@ ok(throws(() => open(keys, "projectB", blob)), "another project's id (the AAD) t
 ok(throws(() => open({ current: { id: 1, key: other }, previous: [] }, "projectA", blob)), "a wrong master key throws");
 const wrongId = Buffer.from(blob);
 wrongId[0] = 7;
-ok(throws(() => open(keys, "projectA", wrongId)), "an unknown key id throws");
+ok(open(keys, "projectA", wrongId).password === password, "an unknown key id: every key is tried, the tag decides (the id is a hint)");
 ok(open({ current: { id: 2, key: other }, previous: [{ id: 1, key: master }] }, "projectA", blob).password === password, "an older key id still opens (rotation)");
+// A rotation as the server wires it (current id 1, previous id 0): the old blob still says 1, now the new key's id.
+const rotated = { current: { id: 1, key: other }, previous: [{ id: 0, key: master }] };
+const viaPrev = openWith(rotated, "projectA", blob);
+ok(viaPrev.material.password === password && viaPrev.current === false, "after --rotate --keep-prev: the old blob (id 1) opens with PREV, not under the current key");
+const resealed = seal(rotated, "projectA", viaPrev.material);
+ok(openWith({ current: { id: 1, key: other }, previous: [] }, "projectA", resealed).current && throws(() => open(keys, "projectA", resealed)), "sealed again (rewrap): it opens with the new master alone, no longer with the old one");
+ok(throws(() => open({ current: { id: 1, key: other }, previous: [] }, "projectA", blob)), "the old blob without PREV opens with nothing (why --keep-prev and the rewrap matter)");
 ok(throws(() => open(keys, "projectA", Buffer.alloc(10))), "a short blob throws");
 const t1 = newToken();
 ok(t1.length >= 40 && sameToken(t1, t1) && !sameToken(t1, newToken()) && !sameToken(t1, t1.slice(1)), "download tokens compare in constant time");

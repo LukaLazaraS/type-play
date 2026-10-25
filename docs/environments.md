@@ -30,11 +30,12 @@ its own, never `typeplay_autotest`: a test run empties it.
 invites, grants and feedback), which reads the root `.env` alone and says so. The live server reads none of these files
 (`NODE_ENV=production`, its container's environment).
 
-**The Paddle sandbox purchase from this PC** (until **test** exists): dev with the sandbox keys, and a tunnel that gives
-Paddle's webhooks a public https address on this PC's API (`cloudflared tunnel --url http://127.0.0.1:3002`, a
-Cloudflare quick tunnel: a new address each start; not installed yet: `winget install Cloudflare.cloudflared`; `<address>/webhooks/paddle` as a sandbox notification destination
-with its own secret). Without the tunnel the checkout page's 20 s verify still adds the credits. The steps:
-`apps/web/README.md`, "Monday, with Luka's sandbox keys".
+**The Paddle sandbox purchase from this PC** (until **test** exists; run 10-25): dev with the sandbox keys (the root
+`.env.local` and `apps/web/.env.local`) on a database of its own, **`typeplay_sandbox`** on the same Postgres
+(`apps/web/scripts/paddle-sandbox.mjs`: the API on :3062, the site on :3060), and a quick tunnel that gives Paddle's
+webhooks a public https address and forwards only `POST /webhooks/paddle` (`node apps/server/scripts/webhook-tunnel.mjs
+3062`). Without the tunnel the checkout page's 20 s verify still adds the credits. The steps: `apps/web/README.md`, "The
+Paddle sandbox on this PC".
 
 **test, later**: an online copy for inner testers on a private domain, with its own Supabase project, run like
 production (`NODE_ENV=production`, its container's environment, not these files). Not now: Luka is the only developer

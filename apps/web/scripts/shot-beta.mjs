@@ -6,7 +6,9 @@
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-beta.mjs [outDir]
 // Shots in .impeccable/review/beta/. Checks: an uninvited sign-in gets the closed-beta screen on /create, /games, /account
 // and /billing (the saved idea, the address, Use another account, Sign out), the account place without credits,
-// no user row; the public pages as before; Sign out; then an invited tester builds a game and sends feedback from the game
+// no user row; the public pages as before; Sign out; the beta code (10-25: the box at 390 and 320 px, digits only, too
+// short, a wrong code with the API's sentence, the right one opens the app with its credits, in a browser of its own);
+// then an invited tester builds a game and sends feedback from the game
 // page's More menu (the tick box on, the game attached, the thanks) and from the account menu (on the game page with the
 // game, on /games without), a draft kept across Escape, Send off while empty; phones at 390 and 320 px; worst cases: a
 // 60-letter Georgian game name, a 4,000-letter note, emoji and Georgian, an unbreakable address, the day's 10 used.
@@ -33,6 +35,9 @@ await useDevEnv();
 const stamp = Date.now().toString(36);
 const outsider = `beta-out-${stamp}@dev.test`;
 const tester = `beta-in-${stamp}@dev.test`;
+/** Gets in with a beta code (the others never do), and a code no earlier run left behind. */
+const coder = `beta-code-${stamp}@dev.test`;
+const BETA_CODE = String(Date.now() % 1_000_000).padStart(6, "0");
 const longOne = `${"unbreakable".repeat(9)}-${stamp}@a-very-long-company-name-for-testing.example`;
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -186,7 +191,7 @@ try {
   await closedTitle(page).waitFor({ timeout: 60_000 });
   await page.getByRole("button", { name: "Sign out" }).click();
   check("Sign out: back to the signed-out /create", await page.getByRole("button", { name: "Sign in with Google" }).waitFor({ timeout: 30_000 }).then(() => true, () => false));
-  check("signed out, the closed beta is said before Google", /closed beta for now: sign in with the Google account you were invited with/.test(await page.locator(".signin .field-hint").innerText()));
+  check("signed out, the closed beta is said before Google", /closed beta for now: sign in with Google, then type the beta code from your invitation/.test(await page.locator(".signin .field-hint").innerText()));
 
   // Phones: 390 and 320, touch.
   for (const [w, h] of [[390, 844], [320, 640]]) {
@@ -221,6 +226,71 @@ try {
   await np.waitForTimeout(300); // the page's 160 ms fade-in
   await shot(np, "closed-worst-address-320", true);
   await narrow.close();
+
+  // ---- A beta code (Luka, 10-24): wrong, then right; the app opens with the code's credits ----------------------------
+  const made = admin("code", "add", BETA_CODE, "--uses", "1", "--credits", "30", "shots");
+  check("admin code add", made.status === 0, made.stdout.trim() || made.stderr.trim());
+  for (const [w, h] of [[390, 844], [320, 640]]) {
+    const phone = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    const p = await phone.newPage();
+    await signIn(p, outsider);
+    await closedTitle(p).waitFor({ timeout: 30_000 });
+    const box = p.locator("#beta-code");
+    check(`the code box at ${w} px: 16 px or more (no zoom), the number keyboard, one-time-code`, await box.evaluate((el) => parseFloat(getComputedStyle(el).fontSize) >= 16 && el.inputMode === "numeric" && el.autocomplete === "one-time-code"));
+    check(`the code row at ${w} px: nothing wider than the screen, Join the beta below the box`, (await fits(p)) && (await p.evaluate(() => {
+      const field = document.querySelector(".closed__field")?.getBoundingClientRect();
+      const join = document.querySelector(".closed__code-row .button")?.getBoundingClientRect();
+      return !!field && !!join && join.top >= field.bottom - 0.5;
+    })));
+    await p.waitForTimeout(300); // the page's 160 ms fade-in
+    await shot(p, `closed-code-${w}`, true);
+    // A short code on a phone: the sentence sits between the box and the button (the open keyboard covers what is below).
+    await box.fill("123");
+    await p.getByRole("button", { name: "Join the beta" }).tap();
+    await p.locator("#beta-code-error").waitFor({ timeout: 5_000 });
+    check(`the error at ${w} px: between the box and Join the beta, the box still focused`, await p.evaluate(() => {
+      const field = document.querySelector(".closed__field")?.getBoundingClientRect();
+      const error = document.querySelector("#beta-code-error")?.getBoundingClientRect();
+      const join = document.querySelector(".closed__code-row .button")?.getBoundingClientRect();
+      return !!field && !!error && !!join && error.top >= field.bottom - 0.5 && error.bottom <= join.top + 0.5 && document.activeElement?.id === "beta-code";
+    }));
+    await shot(p, `closed-code-error-${w}`);
+    await phone.close();
+  }
+  // Its own browser (the dev sign-in lives in the browser's storage): the desktop page above stays signed out.
+  const codeContext = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+  const cp = await codeContext.newPage();
+  cp.on("pageerror", (e) => console.log("page error:", e.message));
+  await signIn(cp, coder);
+  await closedTitle(cp).waitFor({ timeout: 30_000 });
+  await cp.locator("#beta-code").fill("12a34");
+  check("the box keeps digits only", (await cp.locator("#beta-code").inputValue()) === "1234");
+  await cp.getByRole("button", { name: "Join the beta" }).click();
+  check("too short: said before asking the API", /6 digits/.test(await cp.locator("#beta-code-error").innerText()));
+  await cp.locator("#beta-code").fill(BETA_CODE === "000001" ? "000002" : "000001");
+  await cp.getByRole("button", { name: "Join the beta" }).click();
+  await cp.locator("#beta-code-error").filter({ hasText: "isn't right" }).waitFor({ timeout: 15_000 });
+  check("a wrong code: the API's sentence, the tries left", /4 tries left this hour/.test(await cp.locator("#beta-code-error").innerText()));
+  check("the error is announced and tied to the box", (await cp.locator("#beta-code-error").getAttribute("role")) === "alert" && (await cp.locator("#beta-code").getAttribute("aria-describedby")) === "beta-code-error");
+  check("after a wrong code the box keeps the focus and the code, selected", await cp.evaluate(() => {
+    const el = document.activeElement;
+    return el instanceof HTMLInputElement && el.id === "beta-code" && el.selectionStart === 0 && el.selectionEnd === el.value.length && el.value.length === 6;
+  }));
+  check("the placeholder says what to type", (await cp.locator("#beta-code").getAttribute("placeholder")) === "6 digits");
+  await cp.waitForTimeout(200);
+  await shot(cp, "closed-code-wrong-desktop");
+  await cp.locator("#beta-code").fill(`${BETA_CODE.slice(0, 3)} ${BETA_CODE.slice(3)}`);
+  check("typed with a space: six digits", (await cp.locator("#beta-code").inputValue()) === BETA_CODE);
+  await cp.getByRole("button", { name: "Join the beta" }).click();
+  check("the right code: the app opens (Build my game)", await cp.getByRole("button", { name: "Build my game" }).waitFor({ timeout: 30_000 }).then(() => true, () => false));
+  check("... with the Free plan's 20 credits and the code's 30", (await cp.locator(".account__credits b").innerText()) === "50");
+  check("... saying so in one focused line: You're in the beta. We added 30 credits.", await cp.evaluate(() => {
+    const line = document.querySelector(".joined");
+    return line?.textContent === "You're in the beta. We added 30 credits." && document.activeElement === line;
+  }));
+  await cp.waitForTimeout(300);
+  await shot(cp, "closed-code-in-desktop");
+  await codeContext.close();
 
   // ---- Invited: the app, then Send feedback ------------------------------------------------------------
   const add = admin("invite", "add", tester, "shots");
@@ -329,7 +399,7 @@ try {
   // The test accounts: what their builds added to today's FreeSpend goes back out, then the accounts close (notes,
   // games and builds go with them); the invite and the audit rows that name it go too.
   try {
-    for (const email of [tester]) {
+    for (const email of [tester, coder]) {
       const spent = await db.query(
         `SELECT coalesce(sum(m."costUsd"), 0)::float AS usd FROM "Message" m JOIN "Project" p ON p.id = m."projectId" WHERE p."ownerId" = $1 AND m.plan = 'free' AND m."createdAt" >= date_trunc('day', now() AT TIME ZONE 'UTC')`,
         [devId(email)],
@@ -339,11 +409,18 @@ try {
       console.log(`closed ${email}: ${closed.status}`);
     }
     admin("invite", "remove", tester);
+    admin("invite", "remove", coder);
     const { emailHash } = await import("../../server/dist/auth/tombstone.js");
     const { inviteMatch } = await import("../../server/dist/beta/invites.js");
-    await db.query(`DELETE FROM "BillingAudit" WHERE details->>'emailHash' = $1 OR "userId" = $2`, [emailHash(inviteMatch(tester)), devId(tester)]);
-    await db.query(`DELETE FROM "ClosedAccount" WHERE id = $1`, [devId(tester)]);
-    const left = await db.query(`SELECT (SELECT count(*) FROM "User" WHERE id = ANY($1)) AS users, (SELECT count(*) FROM "Feedback" WHERE "userId" = ANY($1)) AS notes`, [[devId(tester), devId(outsider), devId(longOne)]]);
+    for (const email of [tester, coder]) {
+      await db.query(`DELETE FROM "BillingAudit" WHERE details->>'emailHash' = $1 OR "userId" = $2`, [emailHash(inviteMatch(email)), devId(email)]);
+      await db.query(`DELETE FROM "ClosedAccount" WHERE id = $1`, [devId(email)]);
+    }
+    // The code, its use and the wrong tries of this run; the code's own audit rows.
+    await db.query(`DELETE FROM "BetaCode" WHERE code = $1`, [BETA_CODE]);
+    await db.query(`DELETE FROM "BetaCodeTry" WHERE match = ANY($1)`, [[coder, outsider]]);
+    await db.query(`DELETE FROM "BillingAudit" WHERE action IN ('code_add', 'beta_code') AND details->>'code' = $1`, [BETA_CODE]);
+    const left = await db.query(`SELECT (SELECT count(*) FROM "User" WHERE id = ANY($1)) AS users, (SELECT count(*) FROM "Feedback" WHERE "userId" = ANY($1)) AS notes`, [[devId(tester), devId(outsider), devId(longOne), devId(coder)]]);
     check("cleaned up: no test users or notes left", left.rows[0].users === "0" && left.rows[0].notes === "0");
   } catch (e) {
     console.log("cleanup:", e instanceof Error ? e.message : e);

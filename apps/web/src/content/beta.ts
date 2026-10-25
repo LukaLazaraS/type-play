@@ -13,4 +13,7 @@ export const FEEDBACK_PER_DAY = 10;
  * hands over a Google sign-in only to learn the beta is closed.
  */
 export const closedBeta = process.env.NEXT_PUBLIC_CLOSED_BETA === "1";
-export const CLOSED_BETA_NOTE = "A closed beta for now: sign in with the Google account you were invited with.";
+export const CLOSED_BETA_NOTE = "A closed beta for now: sign in with Google, then type the beta code from your invitation.";
+
+/** A beta code (Luka, 10-24): six digits, typed on the closed-beta page after signing in (the API: POST /beta/code). */
+export const BETA_CODE_LENGTH = 6;

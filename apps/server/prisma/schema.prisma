@@ -457,6 +457,12 @@ model Adjustment {
   raw           Json
   createdAt     DateTime @default(now())
   refund        Refund?
+  /// An approved refund of a payment on the user's subscription cancels it at Paddle (a refund means they don't
+  /// want it any more: Luka, 2026-10-25): "immediately" or "next_billing_period"; null = nothing to cancel.
+  cancelSubscription   String?
+  /// The subscription it cancels (the payment's), and when Paddle took the cancel (or said it was cancelled already).
+  cancelSubscriptionId String?
+  canceledAt           DateTime?
 
   @@index([paymentId])
 }
@@ -611,6 +617,55 @@ model Invite {
   invitedAt DateTime  @default(now())
   /// The first sign-in with it.
   usedAt    DateTime?
+  /// The beta code that made this invite (null: `admin invite add`).
+  code      String?
+}
+
+/// A beta code (Luka, 2026-10-24): six digits a tester types on the closed-beta page instead of being invited by
+/// address (src/beta/codes.ts; `admin code add | list | remove`). A right code invites the signed-in email (an `Invite`
+/// with `code`) and adds `credits` to the account once.
+model BetaCode {
+  /// Six digits.
+  code      String        @id
+  /// How many accounts it may let in.
+  uses      Int
+  /// How many it has let in (raised by the statement that checks it against `uses`).
+  used      Int           @default(0)
+  /// Credits each account gets with it: an `admin` bucket (spent last, never expires).
+  credits   Int
+  /// Luka's own words about whom it is for, for `admin code list`.
+  note      String?
+  createdAt DateTime      @default(now())
+  /// `admin code remove`: it stops working; the accounts it let in stay.
+  removedAt DateTime?
+  accounts  BetaCodeUse[]
+}
+
+/// An account a code let in: one per code and email. Its credits are added right after (`grantedAt`); a request that
+/// failed in between is finished by that account's next code check.
+model BetaCodeUse {
+  id        Int       @id @default(autoincrement())
+  code      String
+  betaCode  BetaCode  @relation(fields: [code], references: [code], onDelete: Cascade)
+  /// The email as invites match it (src/beta/invites.ts `inviteMatch`).
+  match     String
+  credits   Int
+  usedAt    DateTime  @default(now())
+  grantedAt DateTime?
+
+  @@unique([code, match])
+  @@index([match])
+}
+
+/// A wrong beta code typed by a signed-in email: the limits count these (BETA_CODE_TRIES_PER_HOUR per email,
+/// BETA_CODE_TRIES_PER_HOUR_ALL in all). Rows older than a day go as new ones come.
+model BetaCodeTry {
+  id    Int      @id @default(autoincrement())
+  match String
+  at    DateTime @default(now())
+
+  @@index([match, at])
+  @@index([at])
 }
 
 /// "Send feedback" from the app (POST /feedback): a tester's note, the page it came from and the browser's User-Agent,

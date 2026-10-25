@@ -64,8 +64,15 @@ export async function accessToken(): Promise<string | null> {
 
 let meLoading: Promise<void> | null = null;
 
-/** Fetch GET /me again (credits change after every message). */
-export function refreshMe(): Promise<void> {
+/** The session as it is now, outside React (after an await: did a refresh change it?). */
+export const sessionNow = (): Session => state;
+
+/**
+ * Fetch GET /me again (credits change after every message). `fresh`: an answer to a request sent from here on, not one
+ * already in flight (after a beta code: the request the page sent on load was answered "not invited").
+ */
+export function refreshMe({ fresh = false }: { fresh?: boolean } = {}): Promise<void> {
+  if (fresh && meLoading) return meLoading.then(() => refreshMe());
   if (state.status !== "in") return Promise.resolve();
   meLoading ??= (async () => {
     // Imported here so this file and api.ts don't import each other at load.

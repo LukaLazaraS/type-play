@@ -37,7 +37,7 @@ export async function inviteAdmin(prisma: PrismaClient, ledger: LedgerService, a
       const u = byMatch.get(i.match);
       const b = u ? await ledger.balance(await prisma.user.findUniqueOrThrow({ where: { id: u.id } })) : null;
       const account = u ? `, ${u.email === i.email ? "" : `signs in as ${u.email}, `}${u.plan}, ${b?.available} credits` : "";
-      console.log(`${i.email.padEnd(36)} invited ${day(i.invitedAt)}, ${i.usedAt ? `first sign-in ${day(i.usedAt)}` : "not signed in yet"}${account}${i.note ? `  "${safe(i.note)}"` : ""}`);
+      console.log(`${i.email.padEnd(36)} ${i.code ? `by code ${i.code}` : "invited"} ${day(i.invitedAt)}, ${i.usedAt ? `first sign-in ${day(i.usedAt)}` : "not signed in yet"}${account}${i.note && !i.code ? `  "${safe(i.note)}"` : ""}`);
     }
     if (invites.length) console.log(`${invites.length} invite${invites.length === 1 ? "" : "s"}, ${invites.filter((i) => i.usedAt).length} signed in`);
     await ledger.audit(prisma, { actor, userId: null, action: "invite_list", details: { invites: invites.length } });

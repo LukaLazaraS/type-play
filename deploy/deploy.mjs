@@ -9,7 +9,7 @@
 //   node deploy/deploy.mjs api-assets [--dry]   upload the 3D model library the catalogue uses (once, ~1.7 GB)
 //   node deploy/deploy.mjs api [--force]   build the API on its server and switch to it
 //   node deploy/deploy.mjs api-ssh [command]   a shell (or one command) on the API server
-//   node deploy/deploy.mjs android-key   once: ANDROID_KEY_MASTER into the root .env (never printed); Luka copies it to his password manager
+//   node deploy/deploy.mjs android-key [--rotate [--keep-prev]]   ANDROID_KEY_MASTER into the root .env (never printed); Luka copies it to his password manager
 // Keys come from the root .env (deploy/README.md).
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -41,10 +41,13 @@ const API_BUILD = join(import.meta.dirname, ".build-api");
 const API_KEYS = ["DATABASE_URL", "DIRECT_URL", "SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY",
   "CLOUDFLARE_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "ANTHROPIC_API_KEY",
   // Android export (package 7): the master key the upload keystores are encrypted under (`android-key` makes it).
-  "ANDROID_KEY_MASTER", "ANDROID_KEY_MASTER_PREV",
-  // Paddle (payments part 2): copied when present; without them the API runs with billing off.
-  "PADDLE_API_KEY", "PADDLE_WEBHOOK_SECRET", "PADDLE_WEBHOOK_SECRET_PREVIOUS"];
-const OPTIONAL_API_KEYS = ["ANDROID_KEY_MASTER_PREV", "PADDLE_API_KEY", "PADDLE_WEBHOOK_SECRET", "PADDLE_WEBHOOK_SECRET_PREVIOUS"];
+  "ANDROID_KEY_MASTER", "ANDROID_KEY_MASTER_PREV"];
+const OPTIONAL_API_KEYS = ["ANDROID_KEY_MASTER_PREV"];
+// Paddle (payments): the server gets these names in api.env, from the root .env's PADDLE_LIVE_* (PADDLE_ENV "live" in
+// api/compose.yaml) or PADDLE_SANDBOX_* ("sandbox": the live site's sandbox, ADMIN_EMAILS only); with "" none goes.
+// Names no code on this PC reads, so development (its own sandbox keys in .env.local) and the tests never get a real key.
+const PADDLE_KEYS = ["PADDLE_API_KEY", "PADDLE_WEBHOOK_SECRET", "PADDLE_WEBHOOK_SECRET_PREVIOUS"];
+const paddleSource = (envName, key) => key.replace(/^PADDLE_/, `PADDLE_${envName.toUpperCase()}_`);
 
 const log = (...a) => console.log("·", ...a);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -370,16 +373,32 @@ async function exportsBucket() {
 // ANDROID_KEY_MASTER: 32 random bytes as 64 hex chars, written into the root .env if absent. Never
 // printed (only its length). Losing it means a Play upload-key reset for every game: Luka copies it
 // from .env into his password manager.
+// --rotate: a new key replaces it (one that was seen where it shouldn't be). With --keep-prev the old one moves to
+// ANDROID_KEY_MASTER_PREV: needed once keys made under it exist on the server (a key that never reached the server has
+// nothing to keep). At its next start the API opens every game's upload key with whichever master fits and seals the
+// old ones again under the new master (AndroidService.rewrap), so the next rotation can replace PREV safely.
 function androidKey() {
   const file = join(repo, ".env");
-  if (env.ANDROID_KEY_MASTER) {
+  const rotate = rest.includes("--rotate");
+  if (env.ANDROID_KEY_MASTER && !rotate) {
     if (!/^[0-9a-f]{64}$/i.test(env.ANDROID_KEY_MASTER)) throw new Error("ANDROID_KEY_MASTER in .env is not 64 hex chars: fix it by hand (the API refuses it)");
-    return log(`ANDROID_KEY_MASTER is already in .env (${env.ANDROID_KEY_MASTER.length} chars); nothing changed`);
+    return log(`ANDROID_KEY_MASTER is already in .env (${env.ANDROID_KEY_MASTER.length} chars); nothing changed (--rotate replaces it)`);
   }
   const key = randomBytes(32).toString("hex");
   const text = existsSync(file) ? readFileSync(file, "utf8") : "";
-  appendFileSync(file, `${text && !text.endsWith("\n") ? "\n" : ""}ANDROID_KEY_MASTER=${key}\n`);
-  log(`ANDROID_KEY_MASTER written to .env (${key.length} chars). Copy that line into your password manager now: without it every game's Android key is lost.`);
+  if (!env.ANDROID_KEY_MASTER) {
+    appendFileSync(file, `${text && !text.endsWith("\n") ? "\n" : ""}ANDROID_KEY_MASTER=${key}\n`);
+  } else {
+    const eol = text.includes("\r\n") ? "\r\n" : "\n";
+    const lines = text.split(eol).filter((l) => !/^\s*ANDROID_KEY_MASTER(_PREV)?\s*=/.test(l));
+    while (lines.length && lines[lines.length - 1] === "") lines.pop();
+    lines.push(`ANDROID_KEY_MASTER=${key}`);
+    if (rest.includes("--keep-prev")) lines.push(`ANDROID_KEY_MASTER_PREV=${env.ANDROID_KEY_MASTER}`);
+    writeFileSync(file, lines.join(eol) + eol);
+  }
+  log(`ANDROID_KEY_MASTER ${env.ANDROID_KEY_MASTER ? "replaced" : "written"} in .env (${key.length} chars)` +
+    `${env.ANDROID_KEY_MASTER && rest.includes("--keep-prev") ? ", the old one kept as ANDROID_KEY_MASTER_PREV (then `api`: its start seals every game's key again under the new one)" : ""}. ` +
+    "Copy that line into your password manager now (from Notepad, not an editor with a chat open): without it every game's Android key is lost.");
 }
 
 // The server's secrets file (api.env, mode 600): only API_KEYS, checked before anything is uploaded.
@@ -401,26 +420,27 @@ function apiEnv() {
   if (/^sk-ant-oat/i.test(env.ANTHROPIC_API_KEY)) {
     throw new Error("ANTHROPIC_API_KEY holds a Claude subscription token (sk-ant-oat…), not an API key: a Claude login never goes on the server.");
   }
-  // Billing off on the server (PADDLE_ENV: "" in api/compose.yaml, beta 1): the Paddle keys in .env are for
-  // the sandbox session on this PC and none of them goes into api.env.
+  // Billing on the server follows PADDLE_ENV in api/compose.yaml: "" (off: no Paddle key goes), "live" or "sandbox"
+  // (that account's key and webhook secret, from PADDLE_LIVE_* / PADDLE_SANDBOX_* in the root .env). A key goes only
+  // with its webhook secret and only when its prefix matches (the API checks the same at start and refuses a mismatch).
   const composeEnv = /PADDLE_ENV: "(\w*)"/.exec(compose)?.[1] || null;
-  const paddleKeys = ["PADDLE_API_KEY", "PADDLE_WEBHOOK_SECRET", "PADDLE_WEBHOOK_SECRET_PREVIOUS"];
-  const sent = composeEnv ? API_KEYS : API_KEYS.filter((k) => !paddleKeys.includes(k));
-  if (!composeEnv && paddleKeys.some((k) => env[k])) log("billing is off on the server (PADDLE_ENV: \"\"): the Paddle keys in .env stay on this PC");
-  // A live Paddle key goes to the server only with its webhook secret, and only with PADDLE_ENV=live in
-  // api/compose.yaml (the API checks the key's prefix against PADDLE_ENV itself and refuses a mismatch).
-  if (composeEnv && env.PADDLE_API_KEY && !env.PADDLE_WEBHOOK_SECRET) {
-    throw new Error("PADDLE_API_KEY is in .env without PADDLE_WEBHOOK_SECRET: add the notification destination's secret (apps/server/README.md 'Billing').");
-  }
-  if (composeEnv && env.PADDLE_API_KEY) {
-    const keyEnv = /^pdl_live_/.test(env.PADDLE_API_KEY) ? "live" : /^pdl_sdbx_/.test(env.PADDLE_API_KEY) ? "sandbox" : null;
+  const paddle = {};
+  if (composeEnv) {
+    for (const k of PADDLE_KEYS) if (env[paddleSource(composeEnv, k)]) paddle[k] = env[paddleSource(composeEnv, k)];
+    const [keyName, secretName] = PADDLE_KEYS.map((k) => paddleSource(composeEnv, k));
+    if (!paddle.PADDLE_API_KEY) throw new Error(`deploy/api/compose.yaml says PADDLE_ENV: "${composeEnv}", but the root .env has no ${keyName} (docs/beta/runbook.md "Go paid").`);
+    if (!paddle.PADDLE_WEBHOOK_SECRET) throw new Error(`${keyName} is in .env without ${secretName}: add the notification destination's secret (apps/server/README.md 'Billing').`);
+    const keyEnv = /^pdl_live_/.test(paddle.PADDLE_API_KEY) ? "live" : /^pdl_sdbx_/.test(paddle.PADDLE_API_KEY) ? "sandbox" : null;
     if (keyEnv !== composeEnv) {
-      throw new Error(`PADDLE_API_KEY in .env is a ${keyEnv ?? "non-Paddle"} key but deploy/api/compose.yaml says PADDLE_ENV: "${composeEnv}": the API would refuse to start.`);
+      throw new Error(`${keyName} in .env is a ${keyEnv ?? "non-Paddle"} key but deploy/api/compose.yaml says PADDLE_ENV: "${composeEnv}": the API would refuse to start.`);
     }
+  } else if (Object.keys(env).some((k) => /^PADDLE_(LIVE|SANDBOX)_/.test(k))) {
+    log("billing is off on the server (PADDLE_ENV: \"\" in deploy/api/compose.yaml): no Paddle key goes to it");
   }
-  return sent.filter((k) => env[k]).map((k) => {
-    if (/['\r\n]/.test(env[k])) throw new Error(`${k} has a quote or a line break: api.env can't hold it`);
-    return `${k}='${env[k]}'`; // single quotes: Docker Compose takes the value literally
+  const lines = [...API_KEYS.filter((k) => env[k]).map((k) => [k, env[k]]), ...Object.entries(paddle)];
+  return lines.map(([k, v]) => {
+    if (/['\r\n]/.test(v)) throw new Error(`${k} has a quote or a line break: api.env can't hold it`);
+    return `${k}='${v}'`; // single quotes: Docker Compose takes the value literally
   }).join("\n") + "\n";
 }
 
@@ -523,7 +543,7 @@ const commands = {
   "android-key": androidKey,
 };
 if (!commands[command]) {
-  console.log("usage: node deploy/deploy.mjs setup | site | games | status | ssh [command] | api-setup [--yes] | api-assets [--dry] | api [--force] | api-ssh [command] | android-key");
+  console.log("usage: node deploy/deploy.mjs setup | site | games | status | ssh [command] | api-setup [--yes] | api-assets [--dry] | api [--force] | api-ssh [command] | android-key [--rotate [--keep-prev]]");
   process.exit(1);
 }
 try {

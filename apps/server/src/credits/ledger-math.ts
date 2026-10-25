@@ -151,8 +151,9 @@ export interface LineItem {
 }
 
 /**
- * Credits for a transaction: Σ over its lines of round_half_up(credits × quantity × rate), negative
- * lines (the old plan's unused share on an upgrade) subtracting. `tenthsOfPrice` maps a Paddle price
+ * Credits for a transaction: Σ over its lines of round_half_up(credits × |quantity| × rate), negative
+ * lines (the old plan's unused share on an upgrade: Paddle sends it as quantity −1 with negative
+ * totals, seen in the sandbox 2026-10-25) subtracting once. `tenthsOfPrice` maps a Paddle price
  * to its credits (tenths), null for a price we don't sell. A net of zero or less, or an unknown price,
  * is parked for a person (`parked` says why) and grants nothing. UPGRADE_CREDITS "full" (credits.ts,
  * the loophole) would ignore the rates and the negative lines.
@@ -162,10 +163,10 @@ export function creditsForLines(lines: LineItem[], tenthsOfPrice: (priceId: stri
   for (const line of lines) {
     const base = tenthsOfPrice(line.priceId);
     if (base === null) return { tenths: 0, parked: `unknown price ${line.priceId}` };
-    const sign = line.subtotalCents < 0 ? -1 : 1;
+    const sign = line.subtotalCents < 0 || line.quantity < 0 ? -1 : 1;
     if (mode === "full" && sign < 0) continue;
     const rate = mode === "full" ? 1 : (line.rate ?? 1);
-    tenths += sign * roundHalfUp(base * line.quantity * rate);
+    tenths += sign * roundHalfUp(base * Math.abs(line.quantity) * rate);
   }
   if (tenths <= 0) return { tenths, parked: lines.length ? `nothing to grant (net ${tenths} tenths)` : "no line items" };
   return { tenths, parked: null };

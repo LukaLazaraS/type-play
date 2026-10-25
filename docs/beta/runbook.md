@@ -25,10 +25,11 @@ here; plain `npm run admin` works on this PC's development database (`docs/envir
    `ANTHROPIC_API_KEY=…`. Buy $50-100 of credits ($40 or more moves the account to tier 2). The Console's usage and
    cost pages are the real bill (step 10). (10-24: an `sk-ant-usr` key in Luka's Individual Org, which has his Max
    plan's $200 monthly API credit; nothing bought.)
-5. **Android: nothing to do for beta 1.** It is off (`ANDROID_EXPORT: "0"` in `deploy/api/compose.yaml`, since 10-19:
-   testers are on Free, which has no export), and `api` needs no Android key while it is off. To turn it on later:
-   `node deploy/deploy.mjs android-key` [Claude], copy the `ANDROID_KEY_MASTER` line from `.env` into your password
-   manager [Luka], set `"1"` there, then `deploy.mjs api`.
+5. **Android: on since 10-25** (`ANDROID_EXPORT: "1"` in `deploy/api/compose.yaml`; paid plans only, so beta 1's
+   testers on Free don't see it). The master key: `node deploy/deploy.mjs android-key` [Claude] puts it in the root
+   `.env`; Luka copies that line into his password manager, from Notepad, not an editor with a chat open (10-25: a
+   selection in VS Code went into a chat, so the key was rotated with `android-key --rotate` before it reached the
+   server). Off again: `"0"` there, then `deploy.mjs api`.
 6. Optional, recommended: try real Google sign-in on this PC first (parked row 7): `npm run dev`, http://localhost:3000.
 
 ## 2. The API server [Claude, after Luka's yes]
@@ -70,7 +71,7 @@ node deploy/deploy.mjs status               # the site's pages, then https://api
 | `agent` | `"api"` (our key, through the key proxy) | never `"max"` or `"fake"`: `deploy/api/compose.yaml` (AGENT_AUTH, no AGENT_FAKE) |
 | `inviteOnly` | `true` (the closed beta) | `BETA_INVITE_ONLY: "1"` in `deploy/api/compose.yaml`, then `api` |
 | `billing.mode` | `"off"` (beta 1 is free) | `PADDLE_ENV: ""` in the same file |
-| `android` | `enabled: false` for beta 1 (off on purpose) | after turning it on (step 1.5): `enabled: true`, `running: 0`; else the API's log says why at its start |
+| `android` | `enabled: true` since 10-25 (step 1.5), `running`: builds going | off on purpose: `enabled: false`; else the API's log says why at its start |
 | `runs` | a number of builds going (0 now) | |
 
 ## 6. The site with the app [Claude, on Luka's "deploy"]
@@ -110,7 +111,20 @@ Keep the API's log open: `node deploy/deploy.mjs api-ssh "cd /opt/typeplay-api &
 
 ## 8. Invite the testers [Luka, or Claude with Luka's list]
 
-For each tester, the Google address they will sign in with (for Gmail, dots, capitals and a +tag don't matter):
+**With a beta code** (Luka, 10-24): one code for a group; each tester signs in with any Google account and types the six
+digits on the closed-beta page. A right code lets the account in with the Free plan's 20 credits plus the code's.
+
+```bash
+npm run admin:live -w @typeplay/server -- code add --uses 20 --credits 50 "Beta 1"   # prints the code (random six digits)
+npm run admin:live -w @typeplay/server -- code list                                 # used of uses, the accounts it let in
+npm run admin:live -w @typeplay/server -- code remove <code>                        # it stops working; the accounts stay
+```
+
+A code is not a secret like a key, but treat it as a ticket: whoever has it gets in while uses are left. Wrong codes: 5
+an hour per account and 50 an hour in all (then the code box waits for the hour; `invite add` still works).
+
+**By address** (as before), for each tester the Google address they will sign in with (for Gmail, dots, capitals and a
++tag don't matter):
 
 ```bash
 npm run admin:live -w @typeplay/server -- invite add friend@gmail.com "Satisfying Sims viewer"
@@ -183,3 +197,72 @@ Opening the app to everyone later is the opposite pair of switches: `BETA_INVITE
   Then `git worktree add ../type-play-rollback <commit>`, copy the root `.env` into it, `npm install` there, and run
   `node deploy/deploy.mjs site` (or `api`) from that folder. The database only moves forward: an older API leaves the
   newer tables (`Invite`, `Feedback`) alone, and nothing removes them. Never tried.
+
+## 13. Go paid [Claude, on Luka's "go paid"]
+
+**Only when both are true** (HQ, 10-25): the Paddle sandbox purchases passed on this PC (done 2026-10-25), and Luka has
+registered the Individual Entrepreneur with Small Business Status (a sale before that is taxed
+20%, not 1%). Then billing goes on and stays on, during beta 1 too: there is no paid beta, beta 1 is followed by the
+open launch (Luka, 10-25).
+
+**Done beforehand (2026-10-25; nothing here changes what users see).** Go paid is now only Luka's Cloudflare click below,
+the switch and the two deploys.
+
+- The sandbox purchases passed (`apps/web/README.md` "The Paddle sandbox on this PC"), and their fixes are on `main`
+  (upgrade credits, plan changes ordered by Paddle's clock, a refund cancels the subscription): the go-paid `api` deploy
+  ships them.
+- The live API key and the live destination's webhook secret are in the root `.env` as `PADDLE_LIVE_API_KEY` and
+  `PADDLE_LIVE_WEBHOOK_SECRET`. Never under the plain names there: the tests read that file (`deploy.mjs api` maps them
+  for the server, `deploy/README.md` "Paddle").
+- The live notification destination `ntfset_01m5racea6q7g4nw5y3q93pxvd`: `https://api.typeplay.app/webhooks/paddle`, API
+  version 1, usage "Platform", the 11 events of `docs/launch/paddle-signup.md` (made by `npm run paddle:destination -w
+  @typeplay/server -- --env live`, its secret written into the root `.env` unseen).
+- The live catalog (`npm run paddle:catalog -w @typeplay/server -- --env live`: five products, tax category saas) and its
+  five ids as the `PADDLE_PRICE_*` lines of `deploy/api/compose.yaml` (unused while `PADDLE_ENV` is `""`).
+- The live client token `live_1f80bbe8fcc5597c2ac2a5af06a` (`typeplay-web`, public by design): it goes in at the switch,
+  line 2 below (not before: the site's build refuses a token without its environment).
+- The API started on Luka's PC with all of it answered `billing: { mode: "live", ready: true }`, "the five prices match
+  credits.ts". An unsigned POST to the webhook path reaches the API through Cloudflare today (503 billing off).
+
+**Left for Luka: the Cloudflare skip rule** (any time before the switch; about 3 minutes). `api.typeplay.app` goes through
+Cloudflare (orange cloud) and Browser Integrity Check is on; Paddle asks for bot checks to be skipped on the webhook path.
+
+1. https://dash.cloudflare.com → the **typeplay.app** domain.
+2. Left menu: **Security → Security rules → Create rule → Custom rules** (an older dashboard says **Security → WAF →
+   Custom rules → Create rule**).
+3. Rule name: `Paddle webhooks`.
+4. Click **Edit expression** and paste:
+   `(http.host eq "api.typeplay.app" and http.request.uri.path eq "/webhooks/paddle")`
+5. Choose action: **Skip**. Under "WAF components to skip" tick **All remaining custom rules**; under "More components to
+   skip" tick **Browser Integrity Check** and **Security Level**. Leave "Log matching requests" on.
+6. Place at: **First**. Click **Deploy**.
+7. Check **Security → Settings** (older: **Security → Bots**): **Bot Fight Mode** must be **off**, because no rule can
+   skip it. Turn it off if it is on.
+8. Tell Claude "rule in": Claude posts to the webhook path again and expects the API's own answer, not a challenge.
+
+**The switch** [Claude, on "go paid" after the IE]: five lines in three files, then two deploys (about 15 minutes).
+
+1. `deploy/api/compose.yaml`: `PADDLE_ENV: "live"` (from `""`).
+2. `deploy/server/compose.yaml`: `NEXT_PUBLIC_PADDLE_ENV: "live"` and
+   `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "live_1f80bbe8fcc5597c2ac2a5af06a"` (both together).
+3. `apps/web/src/content/site.ts`: `seller.form: "Individual Entrepreneur"` and `updated` to that day (the terms and the
+   privacy policy name the seller with it).
+
+```bash
+node deploy/deploy.mjs api      # refuses a missing key or secret, or a key that isn't live; the API checks the 5 prices at start
+node deploy/deploy.mjs site     # the billing pages with live Paddle.js
+```
+
+**Checks after:**
+
+- `node deploy/deploy.mjs status`: `/health` says `billing: { mode: "live", ready: true, problem: null }`.
+- https://typeplay.app/billing for Luka: the plan picker, not "opens here soon".
+- One real purchase: Luka buys Medium with his own card. The checkout completes, 100 credits arrive, and Paddle's receipt
+  comes by email. Paddle > Events > Notifications shows the deliveries answered 200; on the server, `docker compose exec
+  -T api node dist/admin.js events` shows them processed. Then he cancels the plan on /billing, and the refund goes
+  through Paddle (`admin refund <email> last`, run in the api container; once approved it also cancels the
+  subscription at Paddle at once). Paddle keeps its fee (5% + $0.50 of the
+  total with tax: $1.68 on Medium with 18% VAT in the sandbox, 2026-10-25).
+
+**Back off:** the five lines back as they were, then `api` and `site` again. Subscriptions keep running at Paddle; the
+webhooks that come while billing is off get 503, and Paddle retries them for 3 days.

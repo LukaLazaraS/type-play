@@ -190,7 +190,7 @@ export class BillingHandlers {
     const userId = who.userId;
     return this.ledger.withUser(userId, async (tx, user): Promise<HandlerResult> => {
       if (await tx.payment.findUnique({ where: { id: t.id }, select: { id: true } })) return processed(`payment ${t.id} already recorded`, userId);
-      const main = lines.find((l) => l.subtotalCents >= 0) ?? lines[0];
+      const main = lines.find((l) => l.subtotalCents >= 0 && l.quantity > 0) ?? lines[0];
       const price = this.paddle.priceOf(main.priceId)!;
       const kind: PaymentKind =
         t.origin === "subscription_recurring" ? "renewal" : t.origin === "subscription_update" ? "upgrade" : t.origin === "subscription_charge" ? "pack" : price.kind === "pack" ? "pack" : "plan";
@@ -461,20 +461,33 @@ export class BillingHandlers {
           // The month's payment given back in full: the plan ends now (docs/pricing.md: the plan runs to the
           // end of the paid period, and this one is paid for no longer). Only the payment that bought the
           // current period counts (the newest plan or renewal payment); an upgrade's or a pack's refund
-          // takes its credits only. The subscription at Paddle stays as it is: the user cancels it (the
-          // billing page, the portal), or the next renewal buys the plan again.
+          // takes its credits only.
+          const newest = await tx.payment.findFirst({ where: { userId, kind: { in: ["plan", "renewal"] } }, orderBy: { paidAt: "desc" }, select: { id: true } });
+          // A refund means they don't want the plan any more (Luka, 2026-10-25): a payment on the user's
+          // subscription cancels it at Paddle, right away when it paid for the current period (nothing paid
+          // for the period is left), at the period's end for an upgrade's (the month they paid for stays).
+          // Marked here, under the lock; BillingService.refundCancels calls Paddle after it.
+          const paySubscription = str((pay.raw as { subscription_id?: unknown } | null)?.subscription_id);
+          let cancel: "immediately" | "next_billing_period" | null = null;
+          if (pay.kind !== "pack" && paySubscription && paySubscription === user.paddleSubscriptionId && (user.subscriptionStatus === "active" || user.subscriptionStatus === "past_due")) {
+            cancel = newest?.id === pay.id ? "immediately" : user.cancelsAt ? null : "next_billing_period";
+          }
+          if (cancel) await tx.adjustment.update({ where: { id: a.id }, data: { cancelSubscription: cancel, cancelSubscriptionId: paySubscription } });
           let planEnded = false;
           if (whole && (pay.kind === "plan" || pay.kind === "renewal") && user.plan !== "free") {
-            const newest = await tx.payment.findFirst({ where: { userId, kind: { in: ["plan", "renewal"] } }, orderBy: { paidAt: "desc" }, select: { id: true } });
             if (newest?.id === pay.id) {
               const ended = await this.endPlanIn(tx, user, "refunded", ctx, { payment: pay.id, adjustment: a.id });
               await this.ledger.settleIn(tx, ended.user, now);
               planEnded = true;
-              this.log.warn(`refund ${a.id}: ${user.email}'s ${user.plan} month was refunded in full, the plan ended; subscription ${user.paddleSubscriptionId ?? "-"} is still ${user.subscriptionStatus ?? "-"} at Paddle`);
+              this.log.warn(`refund ${a.id}: ${user.email}'s ${user.plan} month was refunded in full, the plan ended`);
             }
           }
-          await audit("refund_approved", { ours: !!ours, subtotalCents: totals.subtotalCents, creditsRemoved: removed / 10, flag, planEnded });
-          return processed(`refund approved: $${(totals.subtotalCents / 100).toFixed(2)}, ${removed / 10} credits removed${planEnded ? ", the plan ended (paid in full no longer)" : ""}${flag ? ` (flag ${flag})` : ""}`, userId);
+          await audit("refund_approved", { ours: !!ours, subtotalCents: totals.subtotalCents, creditsRemoved: removed / 10, flag, planEnded, cancel });
+          return processed(
+            `refund approved: $${(totals.subtotalCents / 100).toFixed(2)}, ${removed / 10} credits removed${planEnded ? ", the plan ended (paid in full no longer)" : ""}` +
+              `${cancel ? `, subscription ${paySubscription} to be cancelled at Paddle ${cancel === "immediately" ? "now" : "at the period's end"}` : ""}${flag ? ` (flag ${flag})` : ""}`,
+            userId,
+          );
         }
         if (status === "rejected") {
           if (ours) {

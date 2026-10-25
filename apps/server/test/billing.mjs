@@ -453,6 +453,15 @@ async function main() {
   const apDagain = await deliver(ev("adjustment.created", { ...stub.state.adjustments.get(refundRowD.adjustmentId), status: "pending_approval" }, { at: Date.now() - 60_000 }));
   ok(/already applied/.test(apDagain.error ?? "") && payD.refundedCents === 1966 && (await db.query(`SELECT count(*)::int AS n FROM "CreditEntry" WHERE "paddleAdjustmentId" = $1`, [refundRowD.adjustmentId])).rows[0].n === 1, "the older adjustment.created arriving after: a no-op (one reversal per adjustment)");
   ok(await auditOk(emailOf(D)), "audit holds after the refund");
+  // A refund means they don't want the plan any more (Luka, 2026-10-25): the month's payment cancels its subscription now.
+  const adjD = (await db.query(`SELECT * FROM "Adjustment" WHERE id = $1`, [refundRowD.adjustmentId])).rows[0];
+  ok(adjD.cancelSubscription === "immediately" && adjD.cancelSubscriptionId === tD.subscription_id && adjD.canceledAt === null && (await userRow(D)).subscriptionStatus === "active", "the approved refund of the month's payment marks its subscription to cancel now (Paddle is called after the lock)");
+  const cancelsD = await billing.refundCancels(undefined, "admin:billtest");
+  const cancelCallD = stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).at(-1);
+  const uD = await userRow(D);
+  ok(cancelsD.length === 1 && cancelCallD?.path === `/subscriptions/${tD.subscription_id}/cancel` && cancelCallD.body.effective_from === "immediately" && uD.subscriptionStatus === "canceled" && uD.plan === "free", `refundCancels: POST /subscriptions/:id/cancel immediately; D canceled, on Free (${cancelsD.join(" | ")})`);
+  ok((await db.query(`SELECT "canceledAt" FROM "Adjustment" WHERE id = $1`, [refundRowD.adjustmentId])).rows[0].canceledAt !== null && (await billing.refundCancels(undefined, "admin:billtest")).length === 0, "done once: canceledAt set, a second pass has nothing to do");
+  ok(await auditOk(emailOf(D)), "audit holds after the cancel");
   // $0: every credit used.
   const E = token("e");
   await api(E, "GET", "/me");
@@ -682,12 +691,15 @@ async function main() {
   const bK = (await buckets(K, `AND source = 'plan'`))[0];
   const uK = await userRow(K);
   ok(fullKRow.status === "processed" && payK.refundedCents === 2000 && payK.status === "refunded" && bK.remainingTenths === 0 && bK.closedWhy === "refunded" && uK.billingFlag === null, `Paddle refunded the untouched $20 in full: 100 credits removed, Payment refunded, no flag (exactly the unused share) (${fullKRow.error})`);
-  ok(uK.plan === "free" && uK.subscriptionStatus === "active" && uK.paddleSubscriptionId === subK.id && (await credits(K)) === 20 && (await api(K, "GET", "/me")).body.models.join() === "fast", "the month was given back, so the plan ended: Free (Fast only), the free 20 stay; the subscription at Paddle is untouched");
+  ok(uK.plan === "free" && uK.paddleSubscriptionId === subK.id && (await credits(K)) === 20 && (await api(K, "GET", "/me")).body.models.join() === "fast", "the month was given back, so the plan ended: Free (Fast only), the free 20 stay");
   ok((await db.query(`SELECT count(*)::int AS n FROM "BillingAudit" WHERE "userId" = $1 AND action = 'plan_ended' AND details->>'why' = 'refunded'`, [devId(K)])).rows[0].n === 1, "BillingAudit: plan_ended (refunded)");
-  const periodK2 = { starts_at: subK.current_billing_period.ends_at, ends_at: monthLater(subK.current_billing_period.ends_at).toISOString() };
-  const rK = stub.makeTransaction({ origin: "subscription_recurring", customerId: tK.customer_id, subscriptionId: subK.id, customData: tK.custom_data, lines: [{ price_id: PRICE_IDS.medium }], billingPeriod: periodK2 });
-  await deliver(ev("transaction.completed", rK));
-  ok((await userRow(K)).plan === "medium" && (await credits(K)) === 120, "the next renewal buys the plan again by money: Medium, +100");
+  // A refund Paddle made itself cancels the subscription too: no renewal buys the plan again next month.
+  const cancelsK = await billing.refundCancels(undefined, "admin:billtest");
+  const uK2 = await userRow(K);
+  ok(
+    cancelsK.length === 1 && stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).at(-1)?.path === `/subscriptions/${subK.id}/cancel` && stub.state.subscriptions.get(subK.id).status === "canceled" && uK2.subscriptionStatus === "canceled" && uK2.plan === "free" && (await credits(K)) === 20,
+    `Paddle's own full refund: the subscription cancelled at Paddle now, K stays on Free with the free 20 (${cancelsK.join(" | ")})`,
+  );
   ok(await auditOk(emailOf(K)), "audit holds for K");
   const L = token("l");
   await api(L, "GET", "/me");
@@ -705,7 +717,77 @@ async function main() {
   const uL = await userRow(L);
   ok((await db.query(`SELECT status FROM "Refund" WHERE id = $1`, [refundRowL.id])).rows[0].status === "approved" && payL.refundedCents === 2000 && payL.status === "refunded" && uL.plan === "free" && uL.billingFlag === null && (await credits(L)) === 0, "approved: Payment refunded in full, the plan ended (Free), no flag, 0 credits to spend");
   ok((await history(L, 1))[0].what === "Refunded" && (await history(L, 1))[0].amount === -100, 'history: "Refunded" -100');
+  const cancelsL = await billing.refundCancels(undefined, "admin:billtest");
+  ok(cancelsL.length === 1 && stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).at(-1)?.body.effective_from === "immediately" && (await userRow(L)).subscriptionStatus === "canceled", `admin refund of the month: the subscription cancelled at Paddle now (${cancelsL.join(" | ")})`);
   ok(await auditOk(emailOf(L)), "audit holds for L");
+
+  console.log("the refund rule (14 days, only the unused share) for a plan and a pack; a pack's refund keeps the plan, an upgrade's ends it with the period");
+  // Most credits used: only the unused share comes back, and the subscription ends now.
+  const O = token("o");
+  await api(O, "GET", "/me");
+  const coO = await billing.createCheckout(await fresh(O), parseItem("plan:medium"), consent());
+  const tO = stub.complete(coO.transactionId);
+  await deliver(ev("transaction.completed", tO));
+  ok((await admin("grant", emailOf(O), "-110", "used the free 20 and 90 plan credits")).status === 0 && (await credits(O)) === 10, "O: Medium, 110 of 120 credits used: 10 plan credits left");
+  const refundO = await admin("refund", emailOf(O), "last", "most used");
+  const postO = stub.callsTo("POST", /^\/adjustments$/).at(-1);
+  ok(refundO.status === 0 && /\$2\.00 before tax for 10 unused credits/.test(refundO.stdout) && postO?.body.type === "partial" && postO.body.items[0].amount === "200", `90 of 100 plan credits used: only the unused share, $20 × 10/100 = $2.00, partial (${JSON.stringify(postO?.body.items)})`);
+  const refundRowO = (await db.query(`SELECT * FROM "Refund" WHERE "userId" = $1`, [devId(O)])).rows[0];
+  stub.settleAdjustment(refundRowO.adjustmentId, "approved");
+  await deliver(ev("adjustment.updated", stub.state.adjustments.get(refundRowO.adjustmentId)));
+  const cancelsO = await billing.refundCancels(undefined, "admin:billtest");
+  const payO = (await db.query(`SELECT * FROM "Payment" WHERE id = $1`, [tO.id])).rows[0];
+  const uO = await userRow(O);
+  ok(payO.refundedCents === 200 && payO.status === "partly_refunded" && cancelsO.length === 1 && uO.subscriptionStatus === "canceled" && uO.plan === "free" && (await credits(O)) === 0, `approved: $2.00 back, the subscription cancelled now, Free with nothing left (no second free 20 this month) (${await credits(O)})`);
+  ok(await auditOk(emailOf(O)), "audit holds for O");
+  // A pack mostly used: the unused share, the plan and its subscription untouched; past 14 days: refused.
+  const P = token("p");
+  await api(P, "GET", "/me");
+  const coP = await billing.createCheckout(await fresh(P), parseItem("plan:medium"), consent());
+  const tP = stub.complete(coP.transactionId);
+  await deliver(ev("transaction.completed", tP));
+  const coPPack = await billing.createCheckout(await fresh(P), parseItem("pack"), consent());
+  const tPPack = stub.complete(coPPack.transactionId);
+  await deliver(ev("transaction.completed", tPPack));
+  ok((await admin("grant", emailOf(P), "-150", "used the free 20, the plan's 100, 30 of the pack")).status === 0 && (await credits(P)) === 10 && (await buckets(P, `AND source = 'pack'`))[0].remainingTenths === 100, "P: Medium and a pack, 150 of 160 used (the pack last): 10 pack credits left");
+  const refundP = await admin("refund", emailOf(P), tPPack.id, "pack mostly used");
+  ok(refundP.status === 0 && /\$2\.50 before tax for 10 unused credits/.test(refundP.stdout) && stub.callsTo("POST", /^\/adjustments$/).at(-1)?.body.items[0].amount === "250", "a pack with 30 of 40 used: only the unused share, $10 × 10/40 = $2.50");
+  const refundRowP = (await db.query(`SELECT * FROM "Refund" WHERE "userId" = $1`, [devId(P)])).rows[0];
+  stub.settleAdjustment(refundRowP.adjustmentId, "approved");
+  await deliver(ev("adjustment.updated", stub.state.adjustments.get(refundRowP.adjustmentId)));
+  const cancelCallsP = stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).length;
+  const cancelsP = await billing.refundCancels(undefined, "admin:billtest");
+  const uP = await userRow(P);
+  ok(
+    cancelsP.length === 0 && stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).length === cancelCallsP && uP.plan === "medium" && uP.subscriptionStatus === "active" && (await db.query(`SELECT "cancelSubscription" FROM "Adjustment" WHERE id = $1`, [refundRowP.adjustmentId])).rows[0].cancelSubscription === null,
+    "a pack's refund takes the pack's credits only: the plan and its subscription stay",
+  );
+  ok(await auditOk(emailOf(P)), "audit holds for P");
+  await db.query(`UPDATE "Payment" SET "paidAt" = now() - interval '15 days', "refundableUntil" = now() - interval '1 day' WHERE id = $1`, [tP.id]);
+  const lateP = await admin("refund", emailOf(P), tP.id);
+  ok(lateP.status === 1 && /the 14 days are over/.test(lateP.stderr), "a payment older than 14 days: the refund is refused");
+  // An upgrade's refund: its credits go, and the subscription ends with the period (the month paid for stays).
+  const Q = token("q");
+  await api(Q, "GET", "/me");
+  const coQ = await billing.createCheckout(await fresh(Q), parseItem("plan:medium"), consent());
+  const tQ = stub.complete(coQ.transactionId);
+  await deliver(ev("transaction.completed", tQ));
+  const subQ = stub.state.subscriptions.get(tQ.subscription_id);
+  await billing.applyPlanChange(await fresh(Q), "high");
+  const upQ = stub.makeTransaction({ origin: "subscription_update", customerId: tQ.customer_id, subscriptionId: subQ.id, customData: tQ.custom_data, lines: [{ price_id: PRICE_IDS.high, rate: 0.5 }, { price_id: PRICE_IDS.medium, rate: 0.5, negative: true }] });
+  await deliver(ev("transaction.completed", upQ));
+  ok((await userRow(Q)).plan === "high" && (await buckets(Q, `AND source = 'upgrade'`))[0]?.remainingTenths === 875, "Q: Medium, then High: 87.5 upgrade credits");
+  const refundQ = await admin("refund", emailOf(Q), upQ.id, "no High after all");
+  const refundRowQ = (await db.query(`SELECT * FROM "Refund" WHERE "userId" = $1`, [devId(Q)])).rows[0];
+  stub.settleAdjustment(refundRowQ.adjustmentId, "approved");
+  await deliver(ev("adjustment.updated", stub.state.adjustments.get(refundRowQ.adjustmentId)));
+  const cancelsQ = await billing.refundCancels(undefined, "admin:billtest");
+  const uQ = await userRow(Q);
+  ok(
+    refundQ.status === 0 && cancelsQ.length === 1 && stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).at(-1)?.body.effective_from === "next_billing_period" && uQ.subscriptionStatus === "active" && uQ.cancelsAt?.toISOString() === subQ.current_billing_period.ends_at && (await buckets(Q, `AND source = 'upgrade'`))[0].remainingTenths === 0 && (await buckets(Q, `AND source = 'plan' AND "closedAt" IS NULL`)).length === 1,
+    `an upgrade's refund: its 87.5 credits gone, the subscription ends at the period's end, the month's plan credits stay (${cancelsQ.join(" | ")})`,
+  );
+  ok(await auditOk(emailOf(Q)), "audit holds for Q");
 
   console.log("a chargeback on a payment whose credits are all used: no 'Removed 0' row");
   const cbE = { id: `adj_cbE_${stamp}`, action: "chargeback", type: "full", status: "approved", transaction_id: tE.id, customer_id: tE.customer_id, currency_code: "USD", items: [{ item_id: tE.details.line_items[0].id, type: "full", amount: null }], totals: { subtotal: "2000", tax: "200", total: "2200", fee: "0", earnings: "-2200", currency_code: "USD" }, payout_totals: { chargeback_fee: "2000" }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
@@ -824,6 +906,19 @@ async function main() {
   const offMe = await fetch(`${offApi.url}/me`, { headers: offHeaders }).then((r) => r.json());
   ok(offMe.billing?.mode === "off" && offMe.plan === "high", "GET /me still works: Me.billing.mode off, the plan as it is");
   offApi.kill();
+
+  // ---- Paddle's clock ahead of ours (this PC ran 32 s slow in the sandbox, 2026-10-25) ------------------------
+  console.log("Paddle's clock ahead of ours: a change applied from Paddle's answer is ordered by Paddle's time");
+  const N = token("n");
+  const coN = await api(N, "POST", "/billing/checkout", { item: "plan:medium", consentVersion: "v1", acceptedTerms: true });
+  const tN = stub.complete(coN.body.transactionId);
+  await api(N, "POST", `/billing/checkout/${coN.body.transactionId}/verify`);
+  stub.state.clockAheadMs = 30_000;
+  const subN = stub.state.subscriptions.get(tN.subscription_id);
+  await deliver(ev("subscription.updated", { ...subN, updated_at: new Date(Date.now() + 30_000).toISOString() }, { at: Date.now() + 30_000 }));
+  const cancelN = await api(N, "POST", "/billing/cancel");
+  stub.state.clockAheadMs = 0;
+  ok(cancelN.status === 200 && cancelN.body.cancelsAt === subN.current_billing_period.ends_at, `a cancel right after a webhook stamped 30 s ahead: applied from Paddle's answer at once, not skipped as older (${JSON.stringify(cancelN.body)})`);
 
   // ---- The start-up guards -----------------------------------------------------------------------------------
   console.log("start-up: a catalog mismatch refuses to start; Paddle down means 503 until it answers");

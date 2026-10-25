@@ -99,6 +99,8 @@ ok(UPGRADE_CREDITS === "prorated", "decided: upgrade credits are prorated");
 ok(creditsForLines([{ priceId: "pri_medium", quantity: 1, rate: null, subtotalCents: 2000 }], price).tenths === 1000, "a new Medium plan: 100 credits");
 const half = creditsForLines([{ priceId: "pri_high", quantity: 1, rate: 0.5, subtotalCents: 2500 }, { priceId: "pri_medium", quantity: 1, rate: 0.5, subtotalCents: -1000 }], price);
 ok(half.tenths === 875 && half.parked === null, "Medium -> High at half a period: 275 × 0.5 − 100 × 0.5 = 87.5 credits");
+const real = creditsForLines([{ priceId: "pri_high", quantity: 1, rate: 0.99993, subtotalCents: 5000 }, { priceId: "pri_medium", quantity: -1, rate: 0.99993, subtotalCents: -2000 }], price);
+ok(real.tenths === 1750 && real.parked === null, "Paddle's own upgrade lines (sandbox 2026-10-25: the old plan as quantity -1, subtotal -2000): 275 − 100 = 175 credits, not 375");
 const full = creditsForLines([{ priceId: "pri_high", quantity: 1, rate: 0.5, subtotalCents: 2500 }, { priceId: "pri_medium", quantity: 1, rate: 0.5, subtotalCents: -1000 }], price, "full");
 ok(full.tenths === 2750, '"full" (the loophole) would grant the whole 275');
 ok(creditsForLines([{ priceId: "pri_pack", quantity: 3, rate: null, subtotalCents: 3000 }], price).tenths === 1200, "3 packs: 120 credits");

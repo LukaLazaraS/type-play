@@ -41,9 +41,9 @@ services:
       # api.env (deploy.mjs android-key). One build at a time, 14 minutes each (the runner's 15 is the
       # backstop). ANDROID_STORE=folder keeps signed files in /data/android (served by the API);
       # r2 = the private typeplay-exports bucket with presigned links, once `api-setup --yes` has made it.
-      # Off for beta 1 (testers are on Free, which has no export). To turn it on: `node deploy/deploy.mjs
-      # android-key`, save the key in the password manager, set "1" here, then `deploy.mjs api`.
-      ANDROID_EXPORT: "0"
+      # On since 10-25 (HQ: once the key is in the password manager, for Luka's phone test; Free has no export, so
+      # beta 1's testers don't see it). Off again: "0" here, then `deploy.mjs api`.
+      ANDROID_EXPORT: "1"
       SIGNER_SOCKET: /run/typeplay-signer/signer.sock
       EXPORTS_DIR: /exports
       MAX_ANDROID_BUILDS: "1"
@@ -53,12 +53,13 @@ services:
       # Paddle (payments part 2, apps/server/README.md "Billing"): the keys come from api.env; these name the
       # environment and the catalog. Empty PADDLE_ENV = billing off (the API refuses a key without it).
       # sandbox: real Paddle sandbox, usable on the live site only by ADMIN_EMAILS; live after Paddle's approval.
+      # The prices: the live catalog's (paddle:catalog --env live, 2026-10-25), unused while PADDLE_ENV is "".
       PADDLE_ENV: ""
-      PADDLE_PRICE_MEDIUM: ""
-      PADDLE_PRICE_HIGH: ""
-      PADDLE_PRICE_ULTRA: ""
-      PADDLE_PRICE_ULTRAPLUS: ""
-      PADDLE_PRICE_PACK: ""
+      PADDLE_PRICE_MEDIUM: "pri_01m5raan7vzf86h1380qw7hdjy"
+      PADDLE_PRICE_HIGH: "pri_01m5raanvkvtv9zrr9t405jghn"
+      PADDLE_PRICE_ULTRA: "pri_01m5raapf6vw3c21rmvecksma5"
+      PADDLE_PRICE_ULTRAPLUS: "pri_01m5raaq1xw4t8sxrs7kc05mn6"
+      PADDLE_PRICE_PACK: "pri_01m5raaqn5cc0kc8kje0dgv9ya"
       ADMIN_EMAILS: "lazarashvili02@gmail.com"
       # The closed beta (beta 1; apps/server/README.md "The closed beta"): only invited emails (`admin invite add`) and
       # ADMIN_EMAILS get past the sign-in. On by default in production; "0" opens the app to everyone (then `api`).
