@@ -200,33 +200,51 @@ Opening the app to everyone later is the opposite pair of switches: `BETA_INVITE
 
 ## 13. Go paid [Claude, on Luka's "go paid"]
 
-**Only when both are true** (HQ, 10-25): the Paddle sandbox purchases passed on this PC (`apps/web/README.md` "Plan and
-billing"), and Luka has registered the Individual Entrepreneur with Small Business Status (a sale before that is taxed
+**Only when both are true** (HQ, 10-25): the Paddle sandbox purchases passed on this PC (done 2026-10-25), and Luka has
+registered the Individual Entrepreneur with Small Business Status (a sale before that is taxed
 20%, not 1%). Then billing goes on and stays on, during beta 1 too: there is no paid beta, beta 1 is followed by the
 open launch (Luka, 10-25).
 
-**Ready beforehand** (nothing here changes what users see; the first three done 2026-10-25, and the API started on
-Luka's PC with them answered `billing: { mode: "live", ready: true }`, "the five prices match credits.ts"):
+**Done beforehand (2026-10-25; nothing here changes what users see).** Go paid is now only Luka's Cloudflare click below,
+the switch and the two deploys.
 
-- The live API key and the live destination's webhook secret in the root `.env` as `PADDLE_LIVE_API_KEY` and
+- The sandbox purchases passed (`apps/web/README.md` "The Paddle sandbox on this PC"), and their fixes are on `main`
+  (upgrade credits, plan changes ordered by Paddle's clock, a refund cancels the subscription): the go-paid `api` deploy
+  ships them.
+- The live API key and the live destination's webhook secret are in the root `.env` as `PADDLE_LIVE_API_KEY` and
   `PADDLE_LIVE_WEBHOOK_SECRET`. Never under the plain names there: the tests read that file (`deploy.mjs api` maps them
   for the server, `deploy/README.md` "Paddle").
-- The live notification destination: `https://api.typeplay.app/webhooks/paddle`, API version 1, usage "Platform", the 11
-  events of `docs/launch/paddle-signup.md` (`npm run paddle:destination -w @typeplay/server -- --env live`: made
-  `ntfset_01m5racea6q7g4nw5y3q93pxvd`, its secret written into the root `.env` unseen).
-- The live catalog (`npm run paddle:catalog -w @typeplay/server -- --env live`) and its five ids as the `PADDLE_PRICE_*`
-  lines of `deploy/api/compose.yaml` (in; unused while `PADDLE_ENV` is `""`).
-- The live client token (`live_…`, public by design) written down for the switch below.
-- Cloudflare: a WAF skip rule for the webhook path (Security > WAF > Custom rules, "Paddle webhooks":
-  `(http.host eq "api.typeplay.app" and http.request.uri.path eq "/webhooks/paddle")` → Skip: the remaining custom rules,
-  Browser Integrity Check and Security Level). Browser Integrity Check is on for typeplay.app, and Paddle asks for bot
-  checks to be skipped on that path. Luka's click, or a token with WAF edit rights.
+- The live notification destination `ntfset_01m5racea6q7g4nw5y3q93pxvd`: `https://api.typeplay.app/webhooks/paddle`, API
+  version 1, usage "Platform", the 11 events of `docs/launch/paddle-signup.md` (made by `npm run paddle:destination -w
+  @typeplay/server -- --env live`, its secret written into the root `.env` unseen).
+- The live catalog (`npm run paddle:catalog -w @typeplay/server -- --env live`: five products, tax category saas) and its
+  five ids as the `PADDLE_PRICE_*` lines of `deploy/api/compose.yaml` (unused while `PADDLE_ENV` is `""`).
+- The live client token `live_1f80bbe8fcc5597c2ac2a5af06a` (`typeplay-web`, public by design): it goes in at the switch,
+  line 2 below (not before: the site's build refuses a token without its environment).
+- The API started on Luka's PC with all of it answered `billing: { mode: "live", ready: true }`, "the five prices match
+  credits.ts". An unsigned POST to the webhook path reaches the API through Cloudflare today (503 billing off).
 
-**The switch:** five lines in three files, then two deploys (about 15 minutes).
+**Left for Luka: the Cloudflare skip rule** (any time before the switch; about 3 minutes). `api.typeplay.app` goes through
+Cloudflare (orange cloud) and Browser Integrity Check is on; Paddle asks for bot checks to be skipped on the webhook path.
+
+1. https://dash.cloudflare.com → the **typeplay.app** domain.
+2. Left menu: **Security → Security rules → Create rule → Custom rules** (an older dashboard says **Security → WAF →
+   Custom rules → Create rule**).
+3. Rule name: `Paddle webhooks`.
+4. Click **Edit expression** and paste:
+   `(http.host eq "api.typeplay.app" and http.request.uri.path eq "/webhooks/paddle")`
+5. Choose action: **Skip**. Under "WAF components to skip" tick **All remaining custom rules**; under "More components to
+   skip" tick **Browser Integrity Check** and **Security Level**. Leave "Log matching requests" on.
+6. Place at: **First**. Click **Deploy**.
+7. Check **Security → Settings** (older: **Security → Bots**): **Bot Fight Mode** must be **off**, because no rule can
+   skip it. Turn it off if it is on.
+8. Tell Claude "rule in": Claude posts to the webhook path again and expects the API's own answer, not a challenge.
+
+**The switch** [Claude, on "go paid" after the IE]: five lines in three files, then two deploys (about 15 minutes).
 
 1. `deploy/api/compose.yaml`: `PADDLE_ENV: "live"` (from `""`).
-2. `deploy/server/compose.yaml`: `NEXT_PUBLIC_PADDLE_ENV: "live"` and `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "live_…"` (both
-   together: the site's build refuses a token without its environment).
+2. `deploy/server/compose.yaml`: `NEXT_PUBLIC_PADDLE_ENV: "live"` and
+   `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "live_1f80bbe8fcc5597c2ac2a5af06a"` (both together).
 3. `apps/web/src/content/site.ts`: `seller.form: "Individual Entrepreneur"` and `updated` to that day (the terms and the
    privacy policy name the seller with it).
 

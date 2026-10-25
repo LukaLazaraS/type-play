@@ -15,6 +15,8 @@ services:
         NEXT_PUBLIC_CLOSED_BETA: "1"
         # Paddle.js (payments part 3): the environment and the client-side token (public by design: test_… / live_…).
         # Empty = the billing page says "opens here soon". Set with the API's PADDLE_ENV (deploy/api/compose.yaml).
+        # Go paid (docs/beta/runbook.md step 13) sets both at once: "live" and live_1f80bbe8fcc5597c2ac2a5af06a (the live
+        # token "typeplay-web", 2026-10-25). Not one without the other: the build refuses a token without its environment.
         NEXT_PUBLIC_PADDLE_ENV: ""
         NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: ""
     init: true
