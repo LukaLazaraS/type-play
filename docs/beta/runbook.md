@@ -205,8 +205,8 @@ registered the Individual Entrepreneur with Small Business Status (a sale before
 20%, not 1%). Then billing goes on and stays on, during beta 1 too: there is no paid beta, beta 1 is followed by the
 open launch (Luka, 10-25).
 
-**Done beforehand (2026-10-25; nothing here changes what users see).** Go paid is now only Luka's Cloudflare click below,
-the switch and the two deploys.
+**Done beforehand (2026-10-25/26; nothing here changes what users see).** Go paid is now only the switch and the two
+deploys.
 
 - The sandbox purchases passed (`apps/web/README.md` "The Paddle sandbox on this PC"), and their fixes are on `main`
   (upgrade credits, plan changes ordered by Paddle's clock, a refund cancels the subscription): the go-paid `api` deploy
@@ -224,7 +224,10 @@ the switch and the two deploys.
 - The API started on Luka's PC with all of it answered `billing: { mode: "live", ready: true }`, "the five prices match
   credits.ts". An unsigned POST to the webhook path reaches the API through Cloudflare today (503 billing off).
 
-**Left for Luka: the Cloudflare skip rule** (any time before the switch; about 3 minutes). `api.typeplay.app` goes through
+**The Cloudflare skip rule: done by Luka 2026-10-26.** `Paddle webhooks` is custom rule 1 of 1, active, Bot Fight Mode
+off; the new dashboard has no "Place at" on the create page (a new rule goes last; drag it to the top if others exist).
+Checked after: an unsigned POST with no User-Agent to the webhook path got the API's own JSON (503 `billing_off`), not a
+challenge. The steps, kept for a rebuild of the zone: `api.typeplay.app` goes through
 Cloudflare (orange cloud) and Browser Integrity Check is on; Paddle asks for bot checks to be skipped on the webhook path.
 
 1. https://dash.cloudflare.com → the **typeplay.app** domain.
