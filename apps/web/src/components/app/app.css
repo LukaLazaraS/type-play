@@ -565,8 +565,10 @@ body:has(.ws) .ground-band {
   background: var(--field);
 }
 .choice:has(input:focus-visible) {
-  outline: 3px solid var(--sun);
-  outline-offset: 2px;
+  z-index: 1; /* the ring over the next row's Field */
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: var(--focus-inner);
 }
 .choice[data-locked] {
   cursor: not-allowed;
@@ -1014,8 +1016,10 @@ body:has(.ws) .ground-band {
   color: #8a80a3;
 }
 .switch__opt:has(input:focus-visible) {
-  outline: 3px solid var(--sun);
-  outline-offset: 1px;
+  z-index: 1; /* the ring over the picked segment's paper */
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: var(--focus-inner);
 }
 /* Disabled (the form is sending): the pick stays, the others mute to the locked colour, no pointer. */
 .segmented:disabled .switch__opt {
@@ -1306,8 +1310,9 @@ body:has(.ws) .ground-band {
   transform: scale(0.98);
 }
 .gamecard:has(.gamecard__link:focus-visible) {
-  outline: 3px solid var(--sun);
+  outline: var(--focus-ring);
   outline-offset: 3px;
+  box-shadow: var(--focus-inner);
 }
 .gamecard__link {
   display: flex;
@@ -1321,6 +1326,7 @@ body:has(.ws) .ground-band {
   text-align: left;
   cursor: pointer;
   outline: none;
+  box-shadow: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
@@ -3357,8 +3363,11 @@ body:has(main.play-gone) > .ground-band {
 .droid__play {
   grid-area: play;
 }
-.droid__build h2:focus-visible {
-  outline-offset: 6px;
+/* The keyboard lands on the heading after setup: its ring stands 3px of paper off the words (the padding, taken back by
+   the margin, so nothing moves). */
+.droid__build h2 {
+  padding: 3px;
+  margin: -3px;
 }
 
 /* The version to build, the two builds, and the one running. */

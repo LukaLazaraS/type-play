@@ -4,6 +4,7 @@ description: A phone home screen on a flat dusk-desert wallpaper, drawn the way 
 colors:
   hot: "#ff5a36"
   hot-deep: "#e0431f"
+  hot-hover: "#e84a26"
   sun: "#ffb347"
   sky-1: "#1c1240"
   sky-2: "#2a1858"
@@ -103,7 +104,7 @@ components:
     rounded: "{rounded.button}"
     padding: "17px 22px"
   button-primary-hover:
-    backgroundColor: "{colors.hot-deep}"
+    backgroundColor: "{colors.hot-hover}"
   button-primary-disabled:
     backgroundColor: "#cfc6e2"
     textColor: "#5a4f78"
@@ -250,10 +251,11 @@ A dusk desert drawn flat: five sky bands, two dunes and sand under everything; p
 
 ### Primary
 - **Hot Orange** (`hot`, #ff5a36): the one action colour. It fills the "Make my game" button, the live "Web / now" dock slot, the visitor's chat bubbles, the lead (Medium) plan and the Smart model tile; it colours the accented word of a display headline ("Play it.", "build."), the text caret, the listing strip's scrollbar and `accent-color`.
-- **Pressed Orange** (`hot-deep`, #e0431f): the primary button on hover, pointer devices only.
+- **Pressed Orange** (`hot-hover`, #e84a26): the primary button on hover, pointer devices only, and the hot ink pill's hover (the Android pill while a build runs). Ink words on it keep 4.76:1 (2026-10-26; it was `hot-deep` at 4.37:1, under the 4.5:1 text needs).
+- **Deep Orange** (`hot-deep`, #e0431f): the device menu's check mark only (an icon: 4.21:1 on paper, 3.63:1 on Field). Never behind words.
 
 ### Secondary
-- **Sun Amber** (`sun`, #ffb347): the drawn sun, the second word of the wordmark ("Play"), every focus ring (3px outline at 3px offset), footer link hover, the "ready" label under the assembling icon, and the text selection highlight (ink on amber). Otherwise never a fill behind text.
+- **Sun Amber** (`sun`, #ffb347): the drawn sun, the second word of the wordmark ("Play"), every focus ring (3px outline at 3px offset with an ink ring inside it; see Buttons, Focus), footer link hover, the "ready" label under the assembling icon, and the text selection highlight (ink on amber). Otherwise never a fill behind text.
 
 ### Tertiary
 The wallpaper and the ground, used only inside the `Wallpaper`, `Ground` and `BuildingIcon` drawings, plus two surface uses: `sky-2` backs the launcher frame and the assembling icon, `sky-4` fills the Best model tile.
@@ -325,7 +327,7 @@ The page is a stack of sections over one fixed wallpaper (`position: fixed; inse
 
 ## Elevation & Depth
 
-Flat by construction. There is no `box-shadow`, `filter`, `backdrop-filter` or gradient anywhere in the stylesheet; the wallpaper is hard-edged bands. Depth is conveyed by overlap and by two surface tones: paper widgets lie on the sky, the ink dock lies on the dunes, the notice lies over the grid, and the launcher covers everything with opaque ink. Within a surface, a recessed area is one step toward the sky: Field (#f1ecfa) on paper, Ink Recess (#251948) on ink. The only line in the system is the 1px Field divider between settings rows.
+Flat by construction. There is no shadow, `filter`, `backdrop-filter` or gradient anywhere in the stylesheet (the one `box-shadow` is the focus ring's ink ring: a hard spread, no blur, a line rather than depth); the wallpaper is hard-edged bands. Depth is conveyed by overlap and by two surface tones: paper widgets lie on the sky, the ink dock lies on the dunes, the notice lies over the grid, and the launcher covers everything with opaque ink. Within a surface, a recessed area is one step toward the sky: Field (#f1ecfa) on paper, Ink Recess (#251948) on ink. The only line in the system is the 1px Field divider between settings rows.
 
 ### Named Rules
 **The Overlap Rule.** Depth is one flat surface over another. No shadow, blur, glass or gradient, including on hover.
@@ -353,7 +355,7 @@ The content surface: paper with On Paper text, 40px radius, no border or shadow.
 - **Primary:** hot orange with ink text; hover (pointer only) Pressed Orange; press scales to 0.97 over 160ms ease-out; disabled is #cfc6e2 with #5a4f78 text and `cursor: not-allowed`.
 - **Quiet:** Field with ink text; hover #e6dff5. Always beside a primary (See pricing, See the games, the Free and Studio plan buttons).
 - **On hot orange** (the lead plan): the primary inverts to ink with white text.
-- **Focus:** the global ring, 3px Sun Amber outline at 3px offset.
+- **Focus:** the global ring, two-tone (2026-10-26): a 3px Sun Amber outline at 3px offset (`--focus-ring`) with a 3px ink ring filling the gap inside it (`--focus-inner`, a box-shadow spread). Amber alone is 1.78:1 on paper and 1.74:1 on the hot lead plan, under the 3:1 WCAG 2.1 asks of a focus ring; the ink is 18.4:1 on paper and 5.93:1 on hot, and the amber keeps 9.75:1 on the darkest sky (5.23:1 on the lightest band) and 10.3:1 on ink. One darker amber can't pass on both (#c27300: 3.65:1 on paper, 2.55:1 on the sky). Every ring uses the two tokens at a 3px offset: the global `:focus-visible`, the Field box (focus-within; the input inside it takes neither), the model rows and the segmented control (raised over their neighbours while focused), and the game cards. The Android Build heading (the keyboard lands there after setup) stands its ring 3px off its words: padding taken back by its margin.
 
 ### App icon (`.app`, `.app__icon`, `.app__name`, `.app__stat`)
 A game as an app: a `--icon`-sized rounded square (25% radius, Ink Recess backing, picture at cover) over a 600/14px name and a figures line ("Smart · 1.6 min", or a custom stat such as "+8 edits by chat"). The whole thing is a button labelled "Open {name}"; the picture scales to 0.95 on press. Tapping opens the launcher: the icon's Motion `layoutId` (`game-{slug}`) zooms into the launcher frame over 320ms ease-out.
@@ -386,7 +388,7 @@ Free, Medium and High as three widgets in a 1fr 1.25fr 1fr grid with 18px gaps; 
 A game opened full-screen: a fixed ink overlay at z-index 50 (`role="dialog"`), fading in over 240ms and out over 180ms. It is the game's page: nothing loads until Play. A top bar of three columns: an Ink Recess "Home" pill (bold 18px arrow), the game's name as a 20px title centred, and two Ink Recess pills, **Full screen** (bold arrows-out) and **New tab**; all pills are at least 44px tall. Under 600px it becomes an app bar: the pills show only their icons (44px circles; labels stay for screen readers) and the name sits beside the back arrow, truncating with an ellipsis. A stage holding the 1128:556 frame (24px radius, `sky-2` backdrop) that the icon zooms into, never taller than the screen under the bar (a landscape phone scrolls to the rest); below it the prompt as a quote (clamp(17px, 1.6vw, 22px)), a figures line ("Built on Smart in 1.6 min, then 8 edits by chat"), a 15px muted line on how to play ("Play with keys or touch. On a phone it opens full screen.") and a primary **Make my own** button that puts the sentence into the prompt box. On upright screens (aspect at most 1:1) the page stacks from the top instead of centring the frame. Full screen sits in the bar, outside the game, because games put their own buttons in the frame's corners (Fruit Match Night's Restart is bottom right). Escape closes (from inside the game too: `play.html` passes it up); focus returns to the icon that opened it; body scroll is locked while open.
 
 ### Prompt field (`.prompt`, `.prompt__field`)
-The live prompt: a 600/15px label, then a Field box at 20px radius (8px 8px 8px 22px padding) holding a borderless auto-growing textarea (17px/1.35, 46px to 160px tall, hot caret, muted placeholder) with the primary button at the bottom right; focus-within draws the Sun Amber ring at 2px offset. A 13px muted hint below doubles as the error line (`role="alert"`). On phones the field stacks and the button goes full width.
+The live prompt: a 600/15px label, then a Field box at 20px radius (8px 8px 8px 22px padding) holding a borderless auto-growing textarea (17px/1.35, 46px to 160px tall, hot caret, muted placeholder) with the primary button at the bottom right; focus-within draws the focus ring (ink inside amber, 3px offset). A 13px muted hint below doubles as the error line (`role="alert"`). On phones the field stacks and the button goes full width.
 
 ### Footer (`.footer`)
 The dock again: an ink bar at 34px radius, 28px 32px padding, 14px muted text, the wordmark at 18px with a tagline, and legal links (white, Sun Amber on hover) that wrap.

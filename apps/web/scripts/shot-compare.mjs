@@ -675,6 +675,45 @@ add({ name: "closed-menu", ...closed, act: async (p) => {
   await p.getByText("TypePlay is in a closed beta for now.").first().waitFor();
 } });
 
+// The keyboard's focus ring on each kind of surface, and the hot button under a pointer (the contrast fix, 10-26).
+/** The keyboard on `pick(page)` as after a Tab: a key press first, so the browser draws the ring (`:focus-visible`). */
+const keyFocus = (pick) => async (p, vp) => {
+  const el = pick(p, vp);
+  await p.keyboard.press("Shift");
+  await el.focus();
+  if (!(await el.evaluate((n) => n.matches(":focus-visible")))) throw new Error("no focus ring");
+};
+/** The pointer over `pick(page)`, checked: the page settled first, so nothing moves out from under it. */
+const pointAt = (pick) => async (p) => {
+  const el = pick(p);
+  await p.evaluate(() => document.fonts.ready);
+  await p.waitForTimeout(800);
+  await el.hover();
+  if (!(await el.evaluate((n) => n.matches(":hover")))) throw new Error("not under the pointer");
+};
+add({ name: "focus-home-prompt", path: "/", ready: heading(/Type it/), act: keyFocus((p) => p.locator("#prompt")) });
+add({ name: "focus-home-button", path: "/", ready: heading(/Type it/), act: keyFocus((p) => p.getByRole("button", { name: "Make my game" })) });
+add({ name: "focus-home-icon", path: "/", ready: heading(/Type it/), act: keyFocus((p) => p.getByRole("button", { name: /^Open / }).first()) });
+add({ name: "focus-pricing-quiet", path: "/pricing", ready: heading(/Pay for what/), act: keyFocus((p) => p.locator(".plan a").first()) });
+add({ name: "focus-pricing-lead", path: "/pricing", ready: heading(/Pay for what/), act: keyFocus((p) => p.locator(".plan a.button--ink").first()) });
+add({ name: "focus-footer", path: "/pricing", ready: heading(/Pay for what/), act: keyFocus((p) => p.locator("footer a").last()) });
+add({ name: "focus-create-idea", who: "maker", path: "/create", ready: button("Build my game"), act: keyFocus((p) => p.locator("#idea")) });
+add({ name: "focus-create-model", who: "maker", path: "/create", ready: button("Build my game"), act: keyFocus((p) => p.locator(".choice input:checked").last()) });
+add({ name: "focus-create-build", who: "maker", path: "/create", ...draft(IDEA), ready: button("Build my game"), act: keyFocus((p) => p.getByRole("button", { name: "Build my game" })) });
+add({ name: "hover-create-build", who: "maker", path: "/create", ...draft(IDEA), vps: ["desktop"], ready: button("Build my game"), act: pointAt((p) => p.getByRole("button", { name: "Build my game" })) });
+add({ name: "hover-home-button", path: "/", vps: ["desktop"], ready: heading(/Type it/), act: pointAt((p) => p.getByRole("button", { name: "Make my game" })) });
+add({ name: "focus-explore-card", path: "/explore", ready: heading("More to play."), act: keyFocus((p) => p.locator(".gamecard__link").first()) });
+add({ name: "focus-game-segment", ...runner, act: async (p, vp) => {
+  await chatTab(p, vp);
+  await keyFocus((pg) => pg.locator(".composer .switch__opt input:checked").first())(p, vp);
+} });
+add({ name: "focus-game-pill", ...runner, act: async (p, vp) => {
+  if (vp === "phone") await p.getByRole("tab", { name: /^Play/ }).click();
+  await keyFocus((pg) => pg.locator(".stage .inkpill:visible").first())(p, vp);
+} });
+add({ name: "focus-checkout-box", who: "maker", path: "/billing/checkout?item=plan:medium", patch: [asMe(meFree)], ready: button("Continue to payment"), act: keyFocus((p) => p.getByRole("checkbox")) });
+add({ name: "focus-android-heading", ...hub, full: false, patch: [editJson("/projects/*/android", () => androidHub())], act: keyFocus((p) => p.locator("#droid-build")) });
+
 // ---- Shooting and comparing -----------------------------------------------------------------------------------------
 const VIEWPORTS = {
   desktop: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 },

@@ -19,6 +19,7 @@
   --field: #f1ecfa;
   --hot: #ff5a36;
   --hot-deep: #e0431f;
+  --hot-hover: #e84a26; /* hot under a pointer, behind ink words: 4.76:1 (hot-deep is 4.37) */
   --on-paper: #170d33;
   --on-paper-muted: #53476f;
   --on-sky: #ffffff;
@@ -29,6 +30,12 @@
   --r-dock: 34px;
   --r-button: 15px;
   --r-field: 20px;
+
+  /* The focus ring, two-tone: a 3px ink ring inside the 3px amber outline (at a 3px offset, so the ink fills the gap).
+     Amber alone fades on paper (1.78:1); the ink reads there (18.4:1) and the amber on the sky (9.75:1). The ink ring is
+     the stylesheet's one box-shadow: a hard spread, no blur. */
+  --focus-ring: 3px solid var(--sun);
+  --focus-inner: 0 0 0 3px var(--ink);
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
@@ -74,8 +81,9 @@ body {
 }
 
 :focus-visible {
-  outline: 3px solid var(--sun);
+  outline: var(--focus-ring);
   outline-offset: 3px;
+  box-shadow: var(--focus-inner);
   border-radius: 6px;
 }
 
@@ -216,7 +224,7 @@ a {
 }
 @media (hover: hover) and (pointer: fine) {
   .button:not(:disabled, [aria-disabled="true"]):hover {
-    background: var(--hot-deep);
+    background: var(--hot-hover);
   }
 }
 .button--quiet {
@@ -296,7 +304,7 @@ a {
 }
 @media (hover: hover) and (pointer: fine) {
   .inkpill[data-on]:not(:disabled):hover {
-    background: var(--hot-deep); /* the ink pill's hover would put ink words on dark */
+    background: var(--hot-hover); /* the ink pill's hover would put ink words on dark */
   }
 }
 
@@ -525,8 +533,9 @@ q {
   padding: 6px 20px;
 }
 .field:focus-within {
-  outline: 3px solid var(--sun);
-  outline-offset: 2px;
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: var(--focus-inner);
 }
 .field textarea {
   display: block;
@@ -541,6 +550,7 @@ q {
   padding: 10px 0;
   min-height: 48px;
   outline: none;
+  box-shadow: none; /* the Field box wears the ring */
   caret-color: var(--hot);
 }
 .field textarea::placeholder {
@@ -559,6 +569,7 @@ q {
   color: var(--on-paper);
   padding: 10px 0;
   outline: none;
+  box-shadow: none;
   caret-color: var(--hot);
 }
 .field select {
@@ -573,6 +584,7 @@ q {
   color: var(--on-paper);
   padding: 10px 0;
   outline: none;
+  box-shadow: none;
   color-scheme: light;
 }
 .field--line {
