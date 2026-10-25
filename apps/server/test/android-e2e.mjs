@@ -8,7 +8,8 @@
 // README with the password) and its counter; a tampered export fails as mismatch; a game failure
 // fails as game; chat during a build → 409 busy; cancel; the package lock after an AAB; user B → 404;
 // /me/export lists Android without the key; delete removes rows and files; an interrupted build is
-// marked failed at the next start. Also the app's icon (GET …/android/icon: the uploaded PNG, else the
+// marked failed at the next start; a master key rotation (the old master as PREV: the key opens, is
+// sealed again at the start, then opens with the new master alone; a second rotation back). Also the app's icon (GET …/android/icon: the uploaded PNG, else the
 // start screen; 404 for another user, before setup; 401 signed out), and the R2 store with a fake bucket
 // (ANDROID_FAKE=1 ANDROID_STORE=r2: a folder stands in for R2, nothing leaves this PC): the phone link is
 // the same short API link, opening it answers a 302 to a freshly presigned URL (checked against an
@@ -405,6 +406,26 @@ try {
   server = await spawnApi();
   const after = (await db.query('select status, "failCode" from "AndroidBuild" where id = $1', [c.body.id])).rows[0];
   ok(after.status === "failed" && after.failCode === "interrupted", "running at start → failed, interrupted");
+
+  console.log("a master key rotation (deploy.mjs android-key --rotate --keep-prev): the game's key opens through it");
+  const jks = `${SLUG}-upload-key.jks`;
+  // The keystore and its password (the README's package name changed since: the AAB section renamed the app).
+  const passwordOf = (text) => /Password \(keystore and key\): ([A-Za-z0-9]{32})/.exec(text ?? "")?.[1];
+  const sameKey = (r) => r.status === 200 && !!passwordOf(readme) && passwordOf(unzip(r.buf).get("README.txt")?.toString("utf8")) === passwordOf(readme) && unzip(r.buf).get(jks)?.equals(files.get(jks)) === true;
+  const said = () => server.output().split("\n").filter((l) => /upload keys|master key|keystore/i.test(l)).slice(-2).join(" / ") || "nothing on the keys";
+  const NEW_MASTER = randomBytes(32).toString("hex");
+  await server.kill();
+  server = await spawnApi({ ANDROID_KEY_MASTER: NEW_MASTER, ANDROID_KEY_MASTER_PREV: MASTER });
+  const rot1 = await raw(A, `/projects/${p.id}/android/key`);
+  ok(sameKey(rot1) && /1 sealed again under the current master key/.test(server.output()), `a new master with the old one as PREV: sealed again at the start, the same keystore and password (${rot1.status}; ${said()})`);
+  await server.kill();
+  server = await spawnApi({ ANDROID_KEY_MASTER: NEW_MASTER });
+  const rot2 = await raw(A, `/projects/${p.id}/android/key`);
+  ok(sameKey(rot2), `then the new master alone (PREV gone): the key still opens (${rot2.status})`);
+  await server.kill();
+  server = await spawnApi({ ANDROID_KEY_MASTER: MASTER, ANDROID_KEY_MASTER_PREV: NEW_MASTER });
+  const rot3 = await raw(A, `/projects/${p.id}/android/key`);
+  ok(sameKey(rot3) && /1 sealed again under the current master key/.test(server.output()), `a second rotation (back to the first master) works the same way (${rot3.status}; ${said()})`);
 
   console.log("R2 store, a folder standing in for the bucket: the short phone link redirects to a freshly presigned URL");
   const FAKE_R2 = { ANDROID_STORE: "r2", ANDROID_LINK_SECONDS: "4", R2_EXPORTS_BUCKET: "typeplay-exports", CLOUDFLARE_ACCOUNT_ID: "fakeaccount", R2_ACCESS_KEY_ID: "FAKEKEYID", R2_SECRET_ACCESS_KEY: "fakesecret" };

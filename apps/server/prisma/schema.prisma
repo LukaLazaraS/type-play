@@ -444,6 +444,12 @@ model Adjustment {
   raw           Json
   createdAt     DateTime @default(now())
   refund        Refund?
+  /// An approved refund of a payment on the user's subscription cancels it at Paddle (a refund means they don't
+  /// want it any more: Luka, 2026-10-25): "immediately" or "next_billing_period"; null = nothing to cancel.
+  cancelSubscription   String?
+  /// The subscription it cancels (the payment's), and when Paddle took the cancel (or said it was cancelled already).
+  cancelSubscriptionId String?
+  canceledAt           DateTime?
 
   @@index([paymentId])
 }

@@ -31,7 +31,7 @@ import { PrismaService } from "../prisma.js";
 import { ProjectViews } from "../projects/views.js";
 import { RunRegistry } from "../runs/registry.js";
 import { projectDir } from "../runs/runs.service.js";
-import { newPassword, newToken, open, parseMasterKey, sameToken, seal, type MasterKeys } from "./crypto.js";
+import { newPassword, newToken, open, openWith, parseMasterKey, sameToken, seal, type MasterKeys } from "./crypto.js";
 import { checksOf, type Expected, type Inspect } from "./inspect.js";
 import { startAndroidJob, type AndroidJobHandle } from "./job.js";
 import { phoneLinkUrl, presignSeconds } from "./links.js";
@@ -151,6 +151,7 @@ export class AndroidService implements OnModuleInit, OnApplicationShutdown {
   }
 
   async onModuleInit() {
+    if (this.keys?.previous.length) await this.rewrap().catch((e) => this.log.error(`rewrap: ${e}`));
     if (!config.android.on) return this.log.log("Android export off (ANDROID_EXPORT unset)");
     if (!this.enabled) return this.log.warn("Android export on but not usable here: no JDK/SDK/bundletool (JAVA_HOME, ANDROID_HOME, BUNDLETOOL_JAR) and no signer socket; features.android is false");
     this.log.log(`Android export: ${this.signer!.how} signer, store ${config.android.store}, toolchain ${this.toolchain}`);
@@ -165,6 +166,34 @@ export class AndroidService implements OnModuleInit, OnApplicationShutdown {
     this.sweepTimer.unref();
     void this.sweep().catch((e) => this.log.error(`sweep: ${e}`));
     this.tick();
+  }
+
+  /**
+   * After a rotation (ANDROID_KEY_MASTER_PREV set, `deploy.mjs android-key --rotate --keep-prev`), at the start: every
+   * upload key still sealed under an older master is sealed again under the current one, so the next rotation can
+   * drop the old master without losing a game's key. Before any request (Nest starts listening after this).
+   */
+  async rewrap(): Promise<{ resealed: number; unreadable: string[] }> {
+    if (!this.keys) return { resealed: 0, unreadable: [] };
+    const rows = await this.prisma.androidKey.findMany({ select: { projectId: true, blob: true } });
+    let resealed = 0;
+    const unreadable: string[] = [];
+    for (const row of rows) {
+      let opened: ReturnType<typeof openWith>;
+      try {
+        opened = openWith(this.keys, row.projectId, Buffer.from(row.blob));
+      } catch {
+        unreadable.push(row.projectId);
+        continue;
+      }
+      if (opened.current) continue;
+      const blob = seal(this.keys, row.projectId, opened.material);
+      await this.prisma.androidKey.update({ where: { projectId: row.projectId }, data: { blob: new Uint8Array(blob), keyId: this.keys.current.id } });
+      resealed++;
+    }
+    const lost = unreadable.length ? `; ${unreadable.length} open with none of this server's keys (${unreadable.join(", ")})` : "";
+    this.log[unreadable.length ? "error" : "log"](`Android upload keys: ${resealed} sealed again under the current master key, of ${rows.length}${lost}`);
+    return { resealed, unreadable };
   }
 
   onApplicationShutdown() {

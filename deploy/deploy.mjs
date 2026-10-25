@@ -374,8 +374,9 @@ async function exportsBucket() {
 // printed (only its length). Losing it means a Play upload-key reset for every game: Luka copies it
 // from .env into his password manager.
 // --rotate: a new key replaces it (one that was seen where it shouldn't be). With --keep-prev the old one moves to
-// ANDROID_KEY_MASTER_PREV, which the API still opens upload keys with (src/android/crypto.ts): needed once keys made
-// under it exist on the server; a key that never reached the server has nothing to keep.
+// ANDROID_KEY_MASTER_PREV: needed once keys made under it exist on the server (a key that never reached the server has
+// nothing to keep). At its next start the API opens every game's upload key with whichever master fits and seals the
+// old ones again under the new master (AndroidService.rewrap), so the next rotation can replace PREV safely.
 function androidKey() {
   const file = join(repo, ".env");
   const rotate = rest.includes("--rotate");
@@ -396,7 +397,7 @@ function androidKey() {
     writeFileSync(file, lines.join(eol) + eol);
   }
   log(`ANDROID_KEY_MASTER ${env.ANDROID_KEY_MASTER ? "replaced" : "written"} in .env (${key.length} chars)` +
-    `${env.ANDROID_KEY_MASTER && rest.includes("--keep-prev") ? ", the old one kept as ANDROID_KEY_MASTER_PREV" : ""}. ` +
+    `${env.ANDROID_KEY_MASTER && rest.includes("--keep-prev") ? ", the old one kept as ANDROID_KEY_MASTER_PREV (then `api`: its start seals every game's key again under the new one)" : ""}. ` +
     "Copy that line into your password manager now (from Notepad, not an editor with a chat open): without it every game's Android key is lost.");
 }
 

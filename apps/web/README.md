@@ -226,9 +226,9 @@ $1.09 on the pack and $1.68 on Medium, 5% + $0.50 of the total with tax).
 Still open: the receipt and "Subscription Price Changed" emails (sandbox mail reaches only the account's
 own domain: a purchase as `hello@typeplay.app` sends them to Luka), `4000 0027 6000 3184` (pays, then declines
 the renewal a month later: past due, and whether `current_billing_period` advances), a California-address
-checkout (Paddle's auto-renew box), the overlay on a real phone (Safari), and Luka's call on a plan month
-refunded in full: the plan ends here, but the subscription stays on at Paddle and renews next month, while
-/billing shows Free with no way to cancel (cancel it with the refund, or show it on the page).
+checkout (Paddle's auto-renew box), and the overlay on a real phone (Safari). Found by the run and built the
+same day: a refund of a plan's payment also cancels its subscription at Paddle (Luka: a refund means they don't
+want it any more; before, the plan ended here but Paddle renewed it next month).
 
 ### Export to Android (package 7, 2026-10-18)
 

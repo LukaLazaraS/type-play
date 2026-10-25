@@ -62,7 +62,7 @@ node deploy/deploy.mjs api-assets        # once: the 3D model library the catalo
 node deploy/deploy.mjs api               # pack, upload, build on the server, switch, check /health (first time: a few minutes)
 node deploy/deploy.mjs api-ssh "cd /opt/typeplay-api && docker compose ps && docker compose logs --tail 50 api runner signer"
 node deploy/deploy.mjs android-key        # once, before the first `api`: ANDROID_KEY_MASTER into the root .env (never printed)
-node deploy/deploy.mjs android-key --rotate [--keep-prev]   # a new key for one that was seen; --keep-prev once upload keys made under the old one exist
+node deploy/deploy.mjs android-key --rotate [--keep-prev]   # a new key for one that was seen; --keep-prev once upload keys made under the old one exist (then `api`: its start seals them again under the new key)
 ```
 
 **What Luka does:** (1) say yes to the server (`docs/server-proposal.md`: CPX32, $41.99 + $0.60 a month; a
