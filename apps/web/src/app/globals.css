@@ -202,9 +202,11 @@ a {
   white-space: nowrap;
   transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out);
 }
-/* Disabled; or busy: aria-disabled, so it keeps the keyboard focus, with the progress cursor. */
+/* Disabled: grey. Busy (aria-busy with aria-disabled, so it keeps the keyboard focus): its own colour, its words say
+   what it's doing ("Saving…", "Checking…": DESIGN.md, the closed beta's Join stays hot), no hover or press, the
+   progress cursor. */
 .button:disabled,
-.button[aria-disabled="true"] {
+.button[aria-disabled="true"]:not([aria-busy="true"]) {
   background: #cfc6e2;
   color: #5a4f78;
   cursor: not-allowed;

@@ -3,9 +3,10 @@
 // (`next dev` with its own NEXT_DIST_DIR, .next/platform; tsconfig.json is put back afterwards). Build the API first
 // (npm run build -w @typeplay/server), then, through the CPU limiter:
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-platform.mjs [outDir]
-// Shots in .impeccable/review/platform/. Checks: /create's Made for (Phone / Computer / Any screen) preselected to the
-// device (Computer on a computer, Phone on a phone), its line per pick with the measured cost of Any screen, the pick
-// sent with the build; the game page's preview opening on the game's device (iPhone for a phone game, Laptop for a
+// Shots in .impeccable/review/platform/. Checks: /create's Made for (Best fit / Phone / Computer / Any screen) starting
+// on Best fit (Luka, 10-26: the agent picks the shape) on a computer and on a phone, its line per pick with the measured
+// cost of Any screen, the pick sent with the build (Best fit: none, and the game records the shape the agent picked);
+// the game page's preview opening on the game's device (iPhone for a phone game, Laptop for a
 // computer game, Fill the window for one that fills every screen), the "Made for phones." hint on a computer-sized
 // preview and none on the phone, its one tap putting the request in the chat (on a phone: the Chat tab), the hint gone
 // once a change made the game fill every screen; a fill game played full screen on an upright phone with no turn hint
@@ -112,8 +113,11 @@ try {
     await page.locator(".make__balance b").waitFor({ timeout: 60_000 });
   }
   const picked = (page) => page.locator(".made .switch__opt[data-on]").innerText().then((t) => t.trim(), () => "");
-  const line = (page) => page.locator(".made .field-hint").innerText().then((t) => t.trim(), () => "");
-  /** Builds the idea in the box for `name` (Phone / Computer / Any screen), and waits for version 1. */
+  const line = (page) => page.locator(".made .field-hint[data-on]").innerText().then((t) => t.trim(), () => "");
+  /** Where Choose the AI starts: a new pick must not move it (the line under Made for keeps the longest line's room). */
+  const aiTop = (page) => page.locator(".choices").first().evaluate((el) => Math.round(el.getBoundingClientRect().top + window.scrollY));
+  /** Builds the idea in the box for `name` (Best fit / Phone / Computer / Any screen; none: the default), and waits for
+   * version 1. */
   async function build(page, name) {
     if (name) await page.locator(".made .switch__opt", { hasText: name }).click();
     await page.getByRole("button", { name: "Build my game" }).click();
@@ -141,9 +145,14 @@ try {
   check("admin plan medium (room for the builds)", admin("plan", maker, "medium").status === 0);
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.locator(".made").waitFor({ timeout: 60_000 });
-  check("/create: Made for with Phone, Computer, Any screen", (await page.locator(".made .switch__opt").allInnerTexts()).map((t) => t.trim()).join("|") === "Phone|Computer|Any screen");
-  check("on a computer it starts on Computer", (await picked(page)) === "Computer", await picked(page));
+  check("/create: Made for with Best fit, Phone, Computer, Any screen", (await page.locator(".made .switch__opt").allInnerTexts()).map((t) => t.trim()).join("|") === "Best fit|Phone|Computer|Any screen");
+  check("on a computer it starts on Best fit", (await picked(page)) === "Best fit", await picked(page));
+  check("Best fit's line: the AI picks, and the trade-off", /^The AI picks/.test(await line(page)) && /bars, or turned sideways/.test(await line(page)), await line(page));
+  await shot(page, "create-best-fit-desktop");
+  const aiBefore = await aiTop(page);
+  await page.locator(".made .switch__opt", { hasText: "Computer" }).click();
   check("Computer's line", /^Wide/.test(await line(page)), await line(page));
+  check("a new pick doesn't move Choose the AI", (await aiTop(page)) === aiBefore, `${aiBefore} px, then ${await aiTop(page)} px`);
   await shot(page, "create-computer-desktop");
   await page.locator(".made .switch__opt", { hasText: "Any screen" }).click();
   check("Any screen's line: side-view games small on an upright phone, and the measured cost", /side-view games come out small/.test(await line(page)) && /7% more credits and a minute longer/.test(await line(page)), await line(page));
@@ -199,6 +208,20 @@ try {
   await page.waitForTimeout(300);
   check("the iPhone turned upright: 'Made for computers.' and the one tap", /^Made for computers\. Ask to make it fit phones$/.test(await hintText(page)), await hintText(page));
   await shot(page, "game-computer-on-iphone-desktop");
+  // Best fit, the default: no pick sent; the game records the shape the agent picked (the fake agent keeps the template's
+  // upright shape, as the real one does for most games: phone), so the preview and the hint follow it.
+  await page.goto(`${base}/create?prompt=${encodeURIComponent("Make a game where a frog hops across a river")}`, { waitUntil: "domcontentloaded" });
+  await page.locator(".made").waitFor({ timeout: 60_000 });
+  check("the next new game starts on Best fit again", (await picked(page)) === "Best fit", await picked(page));
+  const sent = page.waitForRequest((r) => r.method() === "POST" && new URL(r.url()).pathname === "/projects", { timeout: 30_000 });
+  const bestGame = await build(page);
+  check("Best fit sends no pick (the agent picks)", (await sent).postDataJSON()?.platform === undefined, (await sent).postData());
+  const bestRow = (await db.query(`SELECT platform::text AS platform, orientation::text AS orientation FROM "Project" WHERE id = $1`, [bestGame])).rows[0];
+  check("a Best fit game records the shape the agent picked (upright: phone)", bestRow?.platform === "phone" && bestRow?.orientation === "portrait", JSON.stringify(bestRow));
+  check("its preview opens on the iPhone", (await devicePill(page)) === "Preview size: iPhone", await devicePill(page));
+  await pickDevice(page, "Laptop");
+  check("on the Laptop: 'Made for phones.', as for a game picked for phones", /^Made for phones. Ask to make it fit computers$/.test(await hintText(page)), await hintText(page));
+  await shot(page, "game-best-fit-on-laptop-desktop");
   // A game that fills every screen from the start: the preview on Fill the window, no hint anywhere.
   await page.goto(`${base}/create?prompt=${encodeURIComponent("Make a puzzle for every screen")}`, { waitUntil: "domcontentloaded" });
   await page.locator(".made").waitFor({ timeout: 60_000 });
@@ -237,18 +260,18 @@ try {
   }
   await desk.close();
 
-  // ---- Phones: Phone preselected, the switch at 390 and 320, the hint on a computer game, a fill game full screen -------
+  // ---- Phones: Best fit first, the switch at 390 and 320, the hint on a computer game, a fill game full screen ------
   for (const [w, h] of [[390, 844], [320, 640]]) {
     const phone = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
     const p = await phone.newPage();
     p.on("pageerror", (e) => console.log("page error:", e.message));
     await signIn(p);
     await p.locator(".made").waitFor({ timeout: 60_000 });
-    check(`on a phone (${w} px) it starts on Phone`, (await picked(p)) === "Phone", await picked(p));
+    check(`on a phone (${w} px) it starts on Best fit`, (await picked(p)) === "Best fit", await picked(p));
     check(`/create at ${w} px: nothing wider than the screen`, await fits(p));
     const box = await p.locator(".made__switch").boundingBox();
     const opts = await p.locator(".made .switch__opt").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
-    check(`the three segments at ${w} px: inside the widget, each a finger tall`, !!box && box.x >= 0 && box.x + box.width <= w && opts.every((hh) => hh >= 44), opts.map(Math.round).join(","));
+    check(`the four segments at ${w} px: two rows of two inside the widget, each a finger tall`, !!box && box.x >= 0 && box.x + box.width <= w && opts.length === 4 && opts.every((hh) => hh >= 44), opts.map(Math.round).join(","));
     await p.locator(".made").scrollIntoViewIfNeeded();
     await p.locator(".made .switch__opt", { hasText: "Any screen" }).tap();
     await p.waitForTimeout(250);

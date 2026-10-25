@@ -426,8 +426,12 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   Fill the window (the stage as before, the default). The game runs at that size in CSS pixels, drawn smaller by a scale
   when the stage is smaller, in a flat bezel; phones and tablets open the game's own way up, with Turn beside the pill.
   The same frame is resized, so the game keeps running. Hidden on phones and tablets and in windows under 700 px; a bar
-  under 620 px wide drops its version line so the name keeps room. Not built yet: the "Made for phones" hint (a game
-  doesn't record what it's made for until the platform choice exists).
+  under 620 px wide drops its version line so the name keeps room. It opens on the device the game is made for.
+- **Made for** (the platform choice, 10-25; `components/app/PlatformSwitch.tsx`, words in `content/app.ts` `platforms`):
+  **Best fit** (first and picked, Luka 10-26: nothing is sent, the agent picks one shape under its base rules and the
+  game records it after the first build), Phone, Computer or Any screen. The game page opens the preview on the
+  recorded shape and says "Made for phones." (or computers) on a screen it isn't made for, with one tap to ask for it
+  in the chat. Walk-through: `scripts/shot-platform.mjs`.
 - **While the first build runs** (`components/app/WhileYouWait.tsx`): under the build's progress on the stage, "Play one
   while you wait": three games as cards, the gallery's listings in small (the start screen at 3:4 with a Play chip, the
   name under it, no kind line: most games have no genre; batch 4.2), the gallery's most played this week, then the home

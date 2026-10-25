@@ -51,11 +51,22 @@ export const efforts: { id: Effort; name: string; line: string }[] = [
   { id: "high", name: "High", line: "High effort: thinks longer about hard changes. Slower, and almost twice the credits." },
 ];
 
-/** The screens a new game is made for (Luka, 10-25): one tap, preselected to the device it is made on. Any screen's
- * extra is measured: on 6 games it cost 7% more credits and about a minute more than one shape, and side-view games came
- * out small on an upright phone (packages/agent/RESULTS.md, "2026-10-25: platforms"). Not "Every screen": the home page
- * says that of every game (it plays on the web, Android and more). */
-export const platforms: { id: Platform; name: string; line: string }[] = [
+/** /create's pick of screens: Best fit (`auto`: nothing is sent, the agent picks one shape under its base rules, and
+ * the game records the shape it chose), or a shape the player names. */
+export type PlatformChoice = "auto" | Platform;
+
+/** The screens a new game is made for (Luka, 10-25), one tap. Best fit is the first choice and the default (Luka,
+ * 10-26): the agent's own pick was the one setup measured to work on iPhone, iPad and laptop in 6 of 6 games. Its line
+ * names the trade-off as Phone's and Computer's do and claims no saving: Phone and Computer were not measured on their
+ * own, and its 7% under Any screen is within one build's noise. Any screen's extra is measured too: on 6 games it cost 7% more credits and about a minute more than
+ * one shape, and side-view games came out small on an upright phone (packages/agent/RESULTS.md, "2026-10-25:
+ * platforms"). Not "Every screen": the home page says that of every game (it plays on the web, Android and more). */
+export const platforms: { id: PlatformChoice; name: string; line: string }[] = [
+  {
+    id: "auto",
+    name: "Best fit",
+    line: "The AI picks: upright for most games, wide for side-view ones. Other screens show it with bars, or turned sideways.",
+  },
   { id: "phone", name: "Phone", line: "Upright, the way most phone games are. Computers show it with bars at the sides." },
   { id: "computer", name: "Computer", line: "Wide, like a computer screen. Phones play it turned sideways." },
   {

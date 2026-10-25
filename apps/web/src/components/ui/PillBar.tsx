@@ -7,7 +7,7 @@ import { cx } from "./cx";
 /**
  * Two or three choices in an ink pill bar on the sky (DESIGN.md: the game page's phone tabs, the gallery's order): the
  * current one paper with ink words, the others muted, white under a pointer, Ink Recess and a press scale when pressed;
- * each 44px tall.
+ * each 44px tall. As tabs: only the current tab is in the Tab order, the arrow keys move between them.
  */
 export function Tabs<T extends string>({
   label,
@@ -41,7 +41,17 @@ export function Tabs<T extends string>({
     >
       {before}
       {tabs.map((t) => (
-        <button key={t.id} type="button" role="tab" id={t.tabId} aria-selected={value === t.id} aria-controls={t.panelId} className="pillbar__item" onClick={() => onChange(t.id)}>
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          id={t.tabId}
+          aria-selected={value === t.id}
+          aria-controls={t.panelId}
+          tabIndex={value === t.id ? 0 : -1}
+          className="pillbar__item"
+          onClick={() => onChange(t.id)}
+        >
           {t.label}
         </button>
       ))}

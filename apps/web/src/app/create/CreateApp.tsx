@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Effort, ModelChoice, Platform } from "@typeplay/shared";
+import type { Effort, ModelChoice } from "@typeplay/shared";
 import { EffortSwitch, effortLine, ModelRows } from "@/components/app/ModelPicker";
-import { PlatformSwitch, useDevicePlatform } from "@/components/app/PlatformSwitch";
+import { PlatformSwitch } from "@/components/app/PlatformSwitch";
 import { SignIn } from "@/components/app/SignIn";
 import { useEstimates } from "@/components/app/useEstimates";
 import { AppIcon } from "@/components/ui/AppIcon";
@@ -14,7 +14,7 @@ import { ButtonLink } from "@/components/ui/ButtonLink";
 import { ErrorLine } from "@/components/ui/ErrorLine";
 import { TextArea } from "@/components/ui/Field";
 import { PageWidget } from "@/components/ui/PageWidget";
-import { DRAFT_KEY, MAX_TEXT, starters, type Starter } from "@/content/app";
+import { DRAFT_KEY, MAX_TEXT, starters, type PlatformChoice, type Starter } from "@/content/app";
 import { CLOSED_BETA_NOTE, closedBeta } from "@/content/beta";
 import { checkoutHref, planIdOf } from "@/content/billing";
 import { api, ApiFailure } from "@/lib/api";
@@ -58,10 +58,8 @@ export function CreateApp() {
   const [picked, setPicked] = useState<ModelChoice | null>(null);
   const model: ModelChoice = picked && allowed.includes(picked) ? picked : allowed.includes("smart") ? "smart" : "fast";
   const [effort, setEffort] = useState<Effort>("medium");
-  // The screens it is made for: the device it is made on until the player taps another (Luka, 10-25).
-  const devicePlatform = useDevicePlatform();
-  const [pickedPlatform, setPlatform] = useState<Platform | null>(null);
-  const platform = pickedPlatform ?? devicePlatform;
+  // The screens it is made for: Best fit (the agent picks the shape) until the player taps another (Luka, 10-26).
+  const [platform, setPlatform] = useState<PlatformChoice>("auto");
   const estimates = useEstimates("new", me?.plan ?? null, effort);
   const est = estimates[model];
 
@@ -116,7 +114,7 @@ export function CreateApp() {
     setError(null);
     setAsk(null);
     try {
-      const project = await api.create({ prompt, model, effort, confirm: confirm || undefined, platform: platform ?? undefined });
+      const project = await api.create({ prompt, model, effort, confirm: confirm || undefined, platform: platform === "auto" ? undefined : platform });
       save("");
       void refreshMe();
       router.push(`/games/${project.id}`);

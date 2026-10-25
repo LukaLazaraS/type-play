@@ -405,7 +405,6 @@ body:has(.ws) .ground-band {
 .devsignin__row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: 8px;
 }
 .devsignin__box {
@@ -1017,6 +1016,13 @@ body:has(.ws) .ground-band {
 .switch__opt:has(input:focus-visible) {
   outline: 3px solid var(--sun);
   outline-offset: 1px;
+}
+/* Disabled (the form is sending): the pick stays, the others mute to the locked colour, no pointer. */
+.segmented:disabled .switch__opt {
+  cursor: default;
+}
+.segmented:disabled .switch__opt:not([data-on]) {
+  color: #8a80a3;
 }
 
 /* The game: bar, the building line, the frame, the versions */
@@ -1952,8 +1958,8 @@ body:has(.ws) {
   flex-direction: column;
   gap: 8px;
 }
-/* Made for: Phone / Computer / Every screen (the platform choice, 10-25): the segmented control with an icon per
-   screen, the picked one's line under it. */
+/* Made for: Best fit / Phone / Computer / Any screen (the platform choice, 10-25; Best fit first, 10-26): the segmented
+   control with an icon per choice, the picked one's line under it. */
 .made {
   display: flex;
   flex-direction: column;
@@ -1976,25 +1982,34 @@ body:has(.ws) {
 .made .switch__opt svg {
   flex: none;
 }
-/* A narrow phone: three equal segments across the widget, a long name on two lines. */
-@media (max-width: 420px) {
+/* The four lines in one cell, only the picked one shown: the box keeps the longest line's height, so a new pick never
+   moves the AI rows under it. */
+.made__lines {
+  display: grid;
+}
+.made__lines > p {
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+.made__lines > p[data-on] {
+  visibility: visible;
+}
+/* Too narrow for the four in a row (about 410px of track; the widget's inside is narrower below ~540px): two rows of
+   two across the widget, each icon beside its name, each a finger tall. */
+@media (max-width: 540px) {
   .made__switch {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-self: stretch;
   }
   .made .switch__opt {
     justify-content: center;
-    text-align: center;
-    white-space: normal;
-    line-height: 1.2;
+    min-height: 44px;
+    padding-inline: 4px;
   }
-}
-/* Small phones (375px and less): the icon over its name, so "Computer" keeps its own segment. */
-@media (max-width: 380px) {
-  .made .switch__opt {
-    flex-direction: column;
-    gap: 3px;
+  /* Tall enough already: the touch hit area stays inside its own cell, not over the row beside it. */
+  .made .switch__opt::after {
+    inset: 0;
   }
 }
 
