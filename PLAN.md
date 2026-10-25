@@ -6,6 +6,13 @@
   then straight to the **open launch** (everyone can sign up and buy; ads). Package 8 merged into the launch (package 9).
   Billing still switches on as soon as the sandbox tests pass and the IE + Small Business Status exist (Mon 10-26),
   even while beta 1 runs.
+- **10-25: the Paddle sandbox passed on this PC** (a plan, 3-D Secure, a declined card, the upgrade, switch at renewal,
+  cancel and keep, packs, the portal, simulations, refunds: `apps/web/README.md` "The Paddle sandbox on this PC"; two
+  bugs fixed on the way), and a refund now also cancels the subscription (Luka 10-25). **Live is prepared, billing
+  off:** the live catalog with its five price ids in `deploy/api/compose.yaml`, the live destination
+  (`https://api.typeplay.app/webhooks/paddle`), `PADDLE_LIVE_API_KEY` and `PADDLE_LIVE_WEBHOOK_SECRET` in the root
+  `.env`; the API accepts them (started on this PC: the five prices match). Left for the switch (`docs/beta/runbook.md`
+  step 13): the live client token (HQ), the Cloudflare WAF skip rule (Luka's click), the IE (Mon 10-26).
 - **10-25: beta codes are live** (Luka 10-24): testers sign in with any Google account and type six digits on the
   closed-beta page (`npm run admin:live -w @typeplay/server -- code add | list | remove`, `docs/beta/runbook.md` step 8;
   the first code, 20 uses with 50 credits each, went to Luka 10-25). Invites by address work as before.
@@ -21,7 +28,7 @@
   development and tests on this PC have their own databases** (`typeplay_dev`, `typeplay_test` on this PC's Postgres:
   `docs/environments.md`), so they run any time; the admin CLI reaches the live beta only as `npm run admin:live`. Sign-in
   stays on the live Supabase project. **No second Supabase project (HQ, 10-25):** the Paddle sandbox purchases run on this
-  PC against `typeplay_dev` (parked row 21). **Billing stays off on the live server until both: the sandbox tests pass,
+  PC against a database of their own, `typeplay_sandbox` (parked row 21). **Billing stays off on the live server until both: the sandbox tests pass,
   and Luka has registered the IE + Small Business Status (Mon 10-26; a sale before that is taxed 20%, not 1%); then it
   goes on and stays on** (`docs/beta/runbook.md` "Go paid"). **Android export goes on** once `ANDROID_KEY_MASTER` is in
   Luka's password manager and his phone test passes.

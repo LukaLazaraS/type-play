@@ -205,15 +205,17 @@ billing"), and Luka has registered the Individual Entrepreneur with Small Busine
 20%, not 1%). Then billing goes on and stays on, during beta 1 too: there is no paid beta, beta 1 is followed by the
 open launch (Luka, 10-25).
 
-**Ready beforehand** (nothing here changes what users see):
+**Ready beforehand** (nothing here changes what users see; the first three done 2026-10-25, and the API started on
+Luka's PC with them answered `billing: { mode: "live", ready: true }`, "the five prices match credits.ts"):
 
 - The live API key and the live destination's webhook secret in the root `.env` as `PADDLE_LIVE_API_KEY` and
   `PADDLE_LIVE_WEBHOOK_SECRET`. Never under the plain names there: the tests read that file (`deploy.mjs api` maps them
   for the server, `deploy/README.md` "Paddle").
 - The live notification destination: `https://api.typeplay.app/webhooks/paddle`, API version 1, usage "Platform", the 11
-  events of `docs/launch/paddle-signup.md`.
+  events of `docs/launch/paddle-signup.md` (`npm run paddle:destination -w @typeplay/server -- --env live`: made
+  `ntfset_01m5racea6q7g4nw5y3q93pxvd`, its secret written into the root `.env` unseen).
 - The live catalog (`npm run paddle:catalog -w @typeplay/server -- --env live`) and its five ids as the `PADDLE_PRICE_*`
-  lines of `deploy/api/compose.yaml`.
+  lines of `deploy/api/compose.yaml` (in; unused while `PADDLE_ENV` is `""`).
 - The live client token (`live_…`, public by design) written down for the switch below.
 - Cloudflare: a WAF skip rule for the webhook path (Security > WAF > Custom rules, "Paddle webhooks":
   `(http.host eq "api.typeplay.app" and http.request.uri.path eq "/webhooks/paddle")` → Skip: the remaining custom rules,
