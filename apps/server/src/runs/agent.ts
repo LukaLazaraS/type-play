@@ -6,7 +6,7 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createWriteStream, mkdirSync } from "node:fs";
 import { basename, dirname } from "node:path";
-import type { Effort, ModelChoice } from "@typeplay/shared";
+import type { Effort, ModelChoice, Platform } from "@typeplay/shared";
 import { config, ENV_FILE_KEYS } from "../env.js";
 import type { ModelFamily } from "./key-proxy.js";
 import { readLines } from "./lines.js";
@@ -24,6 +24,8 @@ export interface AgentJob {
   kind: "new" | "edit";
   model: ModelChoice;
   effort: Effort;
+  /** A first build's screens (run.mjs --platform); null: the agent picks one shape. Edits use the game's own. */
+  platform?: Platform | null;
   logFile: string;
   onProgress: (text: string) => void;
   auth?: AgentAuth;
@@ -176,6 +178,7 @@ function startInRunner(job: AgentJob, args: string[], onLine: (l: string) => voi
 export function runAgent(job: AgentJob): AgentHandle {
   const args = ["--prompt", job.prompt, "--model", MODEL_FLAG[job.model], "--effort", job.effort, "--events"];
   if (job.kind === "edit") args.push("--edit");
+  else if (job.platform) args.push("--platform", job.platform);
   // 0700: run logs carry the prompt and the agent's narration; on the live server the runner's
   // throwaway users can traverse /data and must not read them (runner.mjs sets the same).
   mkdirSync(dirname(job.logFile), { recursive: true, mode: 0o700 });

@@ -409,7 +409,7 @@ async function galleryChecks(db) {
     const pagedNew = await gallery("new", 1);
     ok(mine(pagedNew.games) === [g4, g3, g2, g1].join() && pagedNew.games.length === neu.games.length, "New one at a time: the same order, every game once");
     const card = pop.games.find((g) => g.id === g1);
-    ok(Object.keys(card ?? {}).sort().join() === "buildId,genre,id,listedAt,name,orientation,plays,playsWeek,poster", "a card carries the game and its figures, nothing about its maker");
+    ok(Object.keys(card ?? {}).sort().join() === "buildId,genre,id,listedAt,name,orientation,platform,plays,playsWeek,poster", "a card carries the game and its figures, nothing about its maker");
     writeFileSync(join(DATA, "projects", g1, "GENRE"), "runner\n");
     writeFileSync(join(DATA, "projects", g3, "GENRE"), "<b>runner</b>\n");
     const genres = (await gallery("new")).games;
@@ -778,6 +778,53 @@ async function badgeChecks() {
   }
 }
 
+/**
+ * The screens a game is made for (the platform choice, 2026-10-25): the new-game request's pick reaches the agent, the
+ * project records what the game's folder says after each build (the agent's own pick resolved to a shape, a change
+ * that makes it fill every screen), and a restore puts the older version's back.
+ */
+async function platformChecks() {
+  console.log("the platform: phone, computer, every screen; a change that makes it fill; a restore");
+  const P = `dev:e2e-${stamp}-platform@test.local`;
+  await api(P, "GET", "/me");
+  ok(admin("plan", emailOf(P), "medium").status === 0, "a maker on Medium (six builds in a row)");
+  ok((await api(P, "POST", "/projects", { prompt: "A cat on a tablet", model: "fast", platform: "tablet" })).body?.error === "bad_request", "platform tablet: bad_request");
+  const s = { stream: null };
+  const build = async (body) => {
+    const made = await api(P, "POST", "/projects", { model: "fast", ...body });
+    if (!made.body?.id) return null;
+    projects.push(made.body.id);
+    s.stream = await openEvents(P, made.body.id);
+    const end = await s.stream.until(finished);
+    s.stream.close();
+    return { id: made.body.id, made: made.body, end };
+  };
+  const word = (id) => readFileSync(join(DATA, "projects", id, "PLATFORM"), "utf8").trim();
+  const phone = await build({ prompt: "A frog that hops over logs", platform: "phone" });
+  ok(phone?.made.platform === "phone", "the pick is on the project at once (the preview opens on it)");
+  ok(phone?.end.type === "done" && phone.end.project.platform === "phone" && phone.end.project.orientation === "portrait" && word(phone.id) === "phone", "phone: recorded, portrait, the folder says phone");
+  const computer = await build({ prompt: "A car that races on a wide road", platform: "computer" });
+  ok(computer?.end.type === "done" && computer.end.project.platform === "computer" && computer.end.project.orientation === "landscape", "computer: recorded, landscape");
+  const fill = await build({ prompt: "A puzzle for every screen", platform: "fill" });
+  ok(fill?.end.type === "done" && fill.end.project.platform === "fill" && word(fill.id) === "fill", "every screen: recorded as fill");
+  const auto = await build({ prompt: "A game with no pick" });
+  ok(auto?.made.platform === null && auto?.end.type === "done" && auto.end.project.platform === "phone" && word(auto.id) === "auto", "no pick: the agent's own shape (the template's portrait), recorded as phone");
+  if (!phone) return;
+  const list = (await api(P, "GET", "/projects")).body;
+  ok(Array.isArray(list) && list.find((g) => g.id === phone.id)?.platform === "phone", "the games list carries it");
+  // The "Made for phones" hint's request: the fake agent fills on a change with FILL, as the agent switches on "fit here too".
+  const ev = await openEvents(P, phone.id);
+  try {
+    await api(P, "POST", `/projects/${phone.id}/messages`, { text: "Make it fit computer screens too FILL", model: "fast" });
+    const v2 = await ev.until((e) => (e.type === "done" && e.version?.n === 2) || e.type === "failed");
+    ok(v2.type === "done" && v2.project.platform === "fill", "a change that makes it fill every screen: the project says fill");
+    const back = await api(P, "POST", `/projects/${phone.id}/restore`, { n: 1 });
+    ok(back.status === 200 && back.body.platform === "phone", "restore version 1: phone again");
+  } finally {
+    ev.close();
+  }
+}
+
 async function main() {
   console.log(`e2e against ${API}`);
   // Never against a real server: a run would burn the agent, and cleanup deletes users under it.
@@ -1083,7 +1130,7 @@ async function main() {
   ok(shared.status === 200 && shared.body.shared === true, "share: shared true");
   const pub = await api(null, "GET", `/public/games/${p.id}`);
   ok(pub.status === 200 && pub.body.name === "My Cat Game" && pub.body.buildId === `${p.id}-v4` && pub.body.poster === true, "public page: name, build, poster, no sign-in");
-  ok(Object.keys(pub.body).sort().join() === "buildId,id,name,orientation,plays,poster,updatedAt", "public page shows nothing else (no prompts, no owner)");
+  ok(Object.keys(pub.body).sort().join() === "buildId,id,name,orientation,platform,plays,poster,updatedAt", "public page shows nothing else (no prompts, no owner)");
   ok((await api(B, "GET", `/projects/${p.id}`)).status === 404, "sharing doesn't open the project itself to others");
   ok((await api(null, "GET", "/public/games/../me")).status === 404 && (await api(null, "GET", "/public/games/NOPE!")).status === 404, "odd ids: 404");
   const sharedAt = async () => (await dbMain.query(`SELECT "sharedAt" FROM "Project" WHERE id = $1`, [p.id])).rows[0]?.sharedAt ?? null;
@@ -1347,6 +1394,7 @@ async function main() {
   await feedbackChecks(db, p.id);
   await inviteChecks(db);
   await badgeChecks();
+  await platformChecks();
   await securityChecks();
 
   // The Supabase sign-in record: the API deletes it with this statement (account.service.ts). Real

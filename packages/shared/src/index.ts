@@ -12,6 +12,9 @@ export type ModelChoice = "fast" | "smart" | "best";
 export type Effort = "low" | "medium" | "high";
 export type PlanId = "free" | "medium" | "high" | "ultra" | "ultraplus";
 export type Orientation = "portrait" | "landscape";
+/** The screens a game is made for (the new-game screen's choice, 2026-10-25): phone (upright) or computer (wide), one
+ * shape scaled to fit any screen with bars; fill: the layout adapts to every shape. null: made before the choice. */
+export type Platform = "phone" | "computer" | "fill";
 
 /** Credits are numbers with one decimal (a message costs at least 0.1). */
 export interface CreditBalance {
@@ -160,6 +163,8 @@ export interface ProjectSummary {
   id: string;
   name: string;
   orientation: Orientation;
+  /** Added 2026-10-25. The player's pick, then what the game says after each build (a change can make it fill). */
+  platform: Platform | null;
   /** Games origin build id of the current version, e.g. "k3x9p2m7qd-v4"; null until the first build passes. */
   buildId: string | null;
   status: RunStatus;
@@ -257,6 +262,8 @@ export interface PublicGame {
   id: string;
   name: string;
   orientation: Orientation;
+  /** A game that fills every screen never asks to turn the phone. Added 2026-10-25. */
+  platform: Platform | null;
   buildId: string;
   /** <games origin>/builds/<buildId>/poster.png exists. */
   poster: boolean;
@@ -421,6 +428,8 @@ export interface GalleryGame {
   id: string;
   name: string;
   orientation: Orientation;
+  /** As PublicGame.platform. Added 2026-10-25. */
+  platform: Platform | null;
   buildId: string;
   /** <games origin>/builds/<buildId>/poster.png exists. */
   poster: boolean;
@@ -458,6 +467,8 @@ export interface CreateProjectBody {
   model: ModelChoice;
   effort?: Effort;
   confirm?: boolean;
+  /** The screens to make it for. Left out: the agent picks one shape (portrait first). Added 2026-10-25. */
+  platform?: Platform;
 }
 
 /** POST /projects/:id/messages: ask for a change. 409 while a run is active on this project. */

@@ -1,0 +1,8 @@
+{
+  "runner": "runner",
+  "flappy": "runner",
+  "match3": "puzzle",
+  "action": "none",
+  "platformer": "none",
+  "moba": "none"
+}

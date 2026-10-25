@@ -2,11 +2,12 @@
 // A few progress lines over ~5 s, then success with an existing demo build's pack, reported like a
 // two-step build whose second step was rolled back: $0.14 of work in all (costUsd, our accounting),
 // $0.10 in the game the player gets (chargeUsd, what they pay: 1.7 credits), with 9 next-step
-// ideas. A prompt containing "FAIL" fails; "LONG" takes ~45 s. It makes a real git commit, like
-// the agent would.
-import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+// ideas. A prompt containing "FAIL" fails; "LONG" takes ~45 s; a change with "FILL" makes the game fill every screen.
+// It makes a real git commit, like the agent would.
+import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
+import type { Platform } from "@typeplay/shared";
 import { config, ROOT } from "../env.js";
 import { git } from "../games/git.js";
 import type { AgentHandle, AgentJob, AgentResult } from "./agent.js";
@@ -69,6 +70,20 @@ export function fakePoster(): Buffer {
   ]);
 }
 
+/** The game folder's screens as packages/agent/run.mjs sets them: the PLATFORM word and project.godot's window. */
+function setPlatform(dir: string, platform: Platform | "auto") {
+  const display: Record<string, string> =
+    platform === "computer"
+      ? { "size/viewport_width": "1152", "size/viewport_height": "648", "handheld/orientation": "0" }
+      : platform === "fill"
+        ? { "size/viewport_width": "720", "size/viewport_height": "720", "stretch/aspect": '"expand"', "handheld/orientation": "6" }
+        : {};
+  let text = readFileSync(join(dir, "project.godot"), "utf8");
+  for (const [key, value] of Object.entries(display)) text = text.replace(new RegExp(`^window/${key}=.*$`, "m"), `window/${key}=${value}`);
+  writeFileSync(join(dir, "project.godot"), text);
+  writeFileSync(join(dir, "PLATFORM"), `${platform}\n`);
+}
+
 async function fakeWork(job: AgentJob) {
   const commitAll = async (msg: string) => {
     await git(job.dir, "add", "-A");
@@ -77,8 +92,11 @@ async function fakeWork(job: AgentJob) {
   if (job.kind === "new") {
     cpSync(join(ROOT, "packages/agent/templates/blank"), job.dir, { recursive: true });
     appendFileSync(join(job.dir, ".gitignore"), ".godot/\nexport/\n.agent-log.jsonl\n");
+    setPlatform(job.dir, job.platform ?? "auto");
     await git(job.dir, "init", "-q");
     await commitAll("template");
+  } else if (job.prompt.includes("FILL")) {
+    setPlatform(job.dir, "fill"); // as the agent does when asked to make a game fit other screens too
   }
   appendFileSync(join(job.dir, "FAKE.md"), `- ${job.kind}: ${job.prompt}\n`);
   await commitAll(`${job.kind}: ${job.prompt}`);

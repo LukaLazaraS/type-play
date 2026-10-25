@@ -4,7 +4,7 @@
 import { closeSync, lstatSync, openSync, readSync } from "node:fs";
 import { join } from "node:path";
 import { Injectable, Logger } from "@nestjs/common";
-import type { GalleryGame, GalleryPage, GallerySort, Genre, Orientation, ReportReason } from "@typeplay/shared";
+import type { GalleryGame, GalleryPage, GallerySort, Genre, Orientation, Platform, ReportReason } from "@typeplay/shared";
 import { ApiException, badRequest, notFound } from "../common/api-error.js";
 import { config } from "../env.js";
 import { Prisma } from "../generated/prisma/client.js";
@@ -66,7 +66,7 @@ function decodeCursor(raw: unknown, sort: GallerySort): Cursor {
   }
 }
 
-type Row = { id: string; name: string; orientation: string; listedAt: Date; buildId: string; poster: boolean; week: number };
+type Row = { id: string; name: string; orientation: string; platform: string | null; listedAt: Date; buildId: string; poster: boolean; week: number };
 
 @Injectable()
 export class GalleryService {
@@ -98,7 +98,7 @@ export class GalleryService {
     const order = sort === "new" ? Prisma.sql`p."listedAt" DESC, p.id DESC` : Prisma.sql`${week} DESC, p."listedAt" DESC, p.id DESC`;
     // The playing version is the newest one (currentVersion); a restore makes a new version that reuses an old build.
     const rows = await this.prisma.$queryRaw<Row[]>`
-      SELECT p.id, p.name, p.orientation::text AS orientation, p."listedAt", v."buildId", v.poster, ${week}::int AS week
+      SELECT p.id, p.name, p.orientation::text AS orientation, p.platform::text AS platform, p."listedAt", v."buildId", v.poster, ${week}::int AS week
       FROM "Project" p
       JOIN "Version" v ON v."projectId" = p.id AND v.n = p."currentVersion"
       LEFT JOIN (
@@ -114,6 +114,7 @@ export class GalleryService {
       id: r.id,
       name: r.name,
       orientation: r.orientation as Orientation,
+      platform: r.platform as Platform | null,
       buildId: r.buildId,
       poster: r.poster,
       plays: totals.get(r.id) ?? 0,

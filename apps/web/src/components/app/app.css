@@ -1366,6 +1366,61 @@ body:has(.ws) .ground-band {
   color: var(--on-sky);
   font-size: 15px;
 }
+/* The line above the game: what a build or an export is doing, read out (.stage__live); with nothing going on, on a
+   screen the game isn't made for, "Made for phones." and the one tap that puts the request in the chat (the platform
+   choice, 10-25; the button sits outside the live line). That line keeps the hint's room while a build runs, so the frame
+   doesn't jump when it starts or ends. */
+.stage__live {
+  display: flex;
+  align-items: inherit;
+  justify-content: inherit;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+.stage__busy[data-hint] {
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  min-height: 36px;
+}
+.fithint {
+  color: var(--on-sky);
+  font-size: 14px;
+  font-weight: 600;
+}
+.fithint__ask {
+  flex: none;
+}
+@media (pointer: coarse) {
+  .stage__busy[data-hint] {
+    min-height: 44px;
+  }
+}
+/* A phone: the sentence over its button. */
+@media (max-width: 599px) {
+  .stage__busy[data-hint] {
+    align-content: flex-start;
+    min-height: 70px;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fithint,
+  .fithint__ask {
+    animation: line-in 220ms var(--ease-out);
+  }
+}
+/* Reduced motion: no rise, only the fade, so the line still doesn't blink in. */
+@media (prefers-reduced-motion: reduce) {
+  .fithint,
+  .fithint__ask {
+    animation: fithint-fade 160ms var(--ease-out);
+  }
+  @keyframes fithint-fade {
+    from {
+      opacity: 0;
+    }
+  }
+}
 /* "Spike Cat is ready.": a long name gives way, "is ready." always shows. */
 .readyline {
   display: flex;
@@ -1900,6 +1955,51 @@ body:has(.ws) {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+/* Made for: Phone / Computer / Every screen (the platform choice, 10-25): the segmented control with an icon per
+   screen, the picked one's line under it. */
+.made {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.made legend {
+  margin-bottom: 10px;
+}
+.made__switch {
+  align-self: flex-start;
+  max-width: 100%;
+}
+.made .switch__opt {
+  gap: 6px;
+}
+.made .switch__opt svg {
+  flex: none;
+}
+/* A narrow phone: three equal segments across the widget, a long name on two lines. */
+@media (max-width: 420px) {
+  .made__switch {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-self: stretch;
+  }
+  .made .switch__opt {
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.2;
+  }
+}
+/* Small phones (375px and less): the icon over its name, so "Computer" keeps its own segment. */
+@media (max-width: 380px) {
+  .made .switch__opt {
+    flex-direction: column;
+    gap: 3px;
+  }
 }
 
 /* A panel that opens under its button (Share, More): a popover in the top layer, placed by
@@ -3187,7 +3287,22 @@ body:has(main.play-gone) > .ground-band {
   }
 }
 /* Between the phone's tab layout and a wide desktop, the stage bar's five pills keep their icons only
-   (the words stay for screen readers), as they do under 600px, so the game's name keeps its room. */
+   (the words stay for screen readers), as they do under 600px, so the game's name keeps its room. The same when
+   the bar itself is too narrow for their words: a 1280-1366px laptop with the device pill and Turn in it (10-25). */
+@container (max-width: 880px) {
+  .stage__bar .inkpill:not(.inkpill--small) {
+    width: 44px;
+    padding: 0;
+  }
+  .stage__bar .inkpill__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
 @media (min-width: 960px) and (max-width: 1200px) {
   .stage .inkpill:not(.inkpill--small) {
     width: 44px;

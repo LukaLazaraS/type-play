@@ -1397,3 +1397,64 @@
 {"date":"2026-10-23T00:45:57.713Z","game":"BlackHoleGalaxy-godot","error":"[import] ERROR: Error copying library: C:/Users/lazar/Desktop/master-project/games/BlackHoleGalaxy-godot/addons/GameAnalytics/bin/windows/libGodotGameAnalytics.dll (at: open_dynamic_library (platform/windows/os_windows.cpp:502))"}
 {"date":"2026-10-23T00:45:57.713Z","game":"BlackHoleGalaxy-godot","error":"[import] ERROR: Can't open GDExtension dynamic library: 'res://addons/GameAnalytics/GameAnalytics.gdextension'. (at: open_library (core/extension/gdextension.cpp:811))"}
 {"date":"2026-10-23T00:45:57.714Z","game":"BlackHoleGalaxy-godot","error":"[import] ERROR: Error loading extension: 'res://addons/GameAnalytics/GameAnalytics.gdextension'. (at: load_extensions (core/extension/gdextension_manager.cpp:333))"}
+{"date":"2026-10-24T22:55:42.459Z","game":"plat-runner-c","error":"[test core_test.tscn] FAIL: timed jump clears a cactus"}
+{"date":"2026-10-24T22:57:14.088Z","game":"plat-runner-b","error":"[test core_test.tscn] FAIL: cleared cactus with a jump"}
+{"date":"2026-10-24T22:57:25.743Z","game":"plat-runner-c","error":"[test core_test.tscn] FAIL: timed jump clears a cactus"}
+{"date":"2026-10-24T22:59:14.591Z","game":"plat-runner-c","error":"[test core_test.tscn] FAIL: hitting a cactus is game over"}
+{"date":"2026-10-24T23:14:12.551Z","game":"plat-match3-c","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"off\" variable because the value doesn't have a set type. (at: GDScript::reload (res://fruit.gd:102))"}
+{"date":"2026-10-24T23:14:12.552Z","game":"plat-match3-c","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://piece.gd:0))"}
+{"date":"2026-10-24T23:14:12.553Z","game":"plat-match3-c","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-24T23:14:12.553Z","game":"plat-match3-c","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-24T23:14:12.553Z","game":"plat-match3-c","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'star_pts' in base 'GDScript'. (at: StarBar._draw (res://starbar.gd:16))"}
+{"date":"2026-10-24T23:14:12.554Z","game":"plat-match3-c","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'draw' in base 'GDScript'. (at: Piece._draw (res://piece.gd:7))"}
+{"date":"2026-10-24T23:14:12.554Z","game":"plat-match3-c","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"off\" variable because the value doesn't have a set type. (at: GDScript::reload (res://fruit.gd:102))"}
+{"date":"2026-10-24T23:14:12.555Z","game":"plat-match3-c","error":"[test core_test.tscn] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://piece.gd:0))"}
+{"date":"2026-10-24T23:14:12.555Z","game":"plat-match3-c","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-24T23:14:12.555Z","game":"plat-match3-c","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'star_pts' in base 'GDScript'. (at: StarBar._draw (res://starbar.gd:16))"}
+{"date":"2026-10-24T23:14:12.556Z","game":"plat-match3-c","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'draw' in base 'GDScript'. (at: Piece._draw (res://piece.gd:7))"}
+{"date":"2026-10-24T23:23:05.532Z","game":"plat-action-c","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"click\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:160))"}
+{"date":"2026-10-24T23:23:05.532Z","game":"plat-action-c","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-24T23:24:28.382Z","game":"plat-action-c","error":"[run] ERROR: Invalid polygon data, triangulation failed. (at: canvas_item_add_polygon (servers/rendering/renderer_canvas_cull.cpp:1770))"}
+{"date":"2026-10-24T23:24:40.026Z","game":"plat-action-b","error":"[import] SCRIPT ERROR: Parse Error: The function signature doesn't match the parent. Parent signature is \"_set(StringName, Variant) -> bool\". (at: GDScript::reload (res://touch.gd:85))"}
+{"date":"2026-10-24T23:24:40.027Z","game":"plat-action-b","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://hud.gd:0))"}
+{"date":"2026-10-24T23:24:40.027Z","game":"plat-action-b","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-24T23:24:40.027Z","game":"plat-action-b","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-24T23:24:40.028Z","game":"plat-action-b","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://hud.gd:29))"}
+{"date":"2026-10-24T23:24:40.028Z","game":"plat-action-b","error":"[run] SCRIPT ERROR: Invalid assignment of property or key 'text' with value of type 'String' on a base object of type 'Nil'. (at: show_title (res://hud.gd:168))"}
+{"date":"2026-10-24T23:24:40.028Z","game":"plat-action-b","error":"[run] SCRIPT ERROR: Invalid assignment of property or key 'max_value' with value of type 'float' on a base object of type 'Nil'. (at: refresh (res://hud.gd:194))"}
+{"date":"2026-10-24T23:24:40.028Z","game":"plat-action-b","error":"[test spells_test.tscn] SCRIPT ERROR: Parse Error: The function signature doesn't match the parent. Parent signature is \"_set(StringName, Variant) -> bool\". (at: GDScript::reload (res://touch.gd:85))"}
+{"date":"2026-10-24T23:24:40.029Z","game":"plat-action-b","error":"[test spells_test.tscn] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://hud.gd:0))"}
+{"date":"2026-10-24T23:24:40.029Z","game":"plat-action-b","error":"[test spells_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-24T23:24:40.029Z","game":"plat-action-b","error":"[test spells_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://hud.gd:29))"}
+{"date":"2026-10-24T23:24:40.030Z","game":"plat-action-b","error":"[test spells_test.tscn] SCRIPT ERROR: Invalid assignment of property or key 'text' with value of type 'String' on a base object of type 'Nil'. (at: show_title (res://hud.gd:168))"}
+{"date":"2026-10-24T23:24:40.030Z","game":"plat-action-b","error":"[test spells_test.tscn] SCRIPT ERROR: Invalid assignment of property or key 'max_value' with value of type 'float' on a base object of type 'Nil'. (at: refresh (res://hud.gd:194))"}
+{"date":"2026-10-24T23:24:40.030Z","game":"plat-action-b","error":"[test spells_test.tscn] SCRIPT ERROR: Cannot call method 'hide' on a null value. (at: show_play (res://hud.gd:179))"}
+{"date":"2026-10-24T23:24:40.030Z","game":"plat-action-b","error":"[test spells_test.tscn] SCRIPT ERROR: Invalid access to property or key 'dead' on a base object of type 'previously freed'. (at: _ready (res://test/spells_test.gd:15))"}
+{"date":"2026-10-24T23:24:40.031Z","game":"plat-action-b","error":"[test spells_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'set_playing' in base 'Nil'. (at: show_over (res://hud.gd:184))"}
+{"date":"2026-10-24T23:26:28.195Z","game":"plat-action-b","error":"[test spells_test.tscn] SCRIPT ERROR: Invalid access to property or key 'dead' on a base object of type 'previously freed'. (at: _ready (res://test/spells_test.gd:15))"}
+{"date":"2026-10-24T23:26:39.756Z","game":"plat-action-c","error":"[run] ERROR: Invalid polygon data, triangulation failed. (at: canvas_item_add_polygon (servers/rendering/renderer_canvas_cull.cpp:1770))"}
+{"date":"2026-10-24T23:37:27.763Z","game":"plat-platformer-c","error":"[import] SCRIPT ERROR: Parse Error: The function signature doesn't match the parent. Parent signature is \"_set(StringName, Variant) -> bool\". (at: GDScript::reload (res://touch.gd:89))"}
+{"date":"2026-10-24T23:37:27.764Z","game":"plat-platformer-c","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://hud.gd:0))"}
+{"date":"2026-10-24T23:37:27.764Z","game":"plat-platformer-c","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-24T23:37:27.765Z","game":"plat-platformer-c","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-24T23:37:27.766Z","game":"plat-platformer-c","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: @implicit_new (res://hud.gd:17))"}
+{"date":"2026-10-24T23:37:27.766Z","game":"plat-platformer-c","error":"[run] ERROR: Required object \"rp_child\" is null. (at: add_child (scene/main/node.cpp:1715))"}
+{"date":"2026-10-24T23:37:27.767Z","game":"plat-platformer-c","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'set_shown' in base 'Nil'. (at: set_playing (res://hud.gd:69))"}
+{"date":"2026-10-24T23:37:27.767Z","game":"plat-platformer-c","error":"[test cat_test.tscn] SCRIPT ERROR: Parse Error: The function signature doesn't match the parent. Parent signature is \"_set(StringName, Variant) -> bool\". (at: GDScript::reload (res://touch.gd:89))"}
+{"date":"2026-10-24T23:37:27.768Z","game":"plat-platformer-c","error":"[test cat_test.tscn] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://hud.gd:0))"}
+{"date":"2026-10-24T23:37:27.768Z","game":"plat-platformer-c","error":"[test cat_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-24T23:37:27.769Z","game":"plat-platformer-c","error":"[test cat_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: @implicit_new (res://hud.gd:17))"}
+{"date":"2026-10-24T23:37:27.769Z","game":"plat-platformer-c","error":"[test cat_test.tscn] ERROR: Required object \"rp_child\" is null. (at: add_child (scene/main/node.cpp:1715))"}
+{"date":"2026-10-24T23:37:27.770Z","game":"plat-platformer-c","error":"[test cat_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'set_shown' in base 'Nil'. (at: set_playing (res://hud.gd:69))"}
+{"date":"2026-10-24T23:37:27.771Z","game":"plat-platformer-c","error":"[test cat_test.tscn] FAIL: Space/Enter starts"}
+{"date":"2026-10-24T23:37:27.771Z","game":"plat-platformer-c","error":"[test cat_test.tscn] FAIL: cat stands on the ground"}
+{"date":"2026-10-24T23:37:27.772Z","game":"plat-platformer-c","error":"[test cat_test.tscn] FAIL: cat runs right"}
+{"date":"2026-10-24T23:37:27.772Z","game":"plat-platformer-c","error":"[test cat_test.tscn] FAIL: wall jump pushes away"}
+{"date":"2026-10-24T23:38:44.715Z","game":"plat-platformer-c","error":"[test cat_test.tscn] FAIL: Space/Enter starts"}
+{"date":"2026-10-24T23:38:44.716Z","game":"plat-platformer-c","error":"[test cat_test.tscn] FAIL: cat stands on the ground"}
+{"date":"2026-10-24T23:38:44.717Z","game":"plat-platformer-c","error":"[test cat_test.tscn] FAIL: cat runs right"}
+{"date":"2026-10-24T23:38:44.717Z","game":"plat-platformer-c","error":"[test cat_test.tscn] FAIL: wall jump pushes away"}
+{"date":"2026-10-24T23:40:19.173Z","game":"plat-platformer-c","error":"[test cat_test.tscn] FAIL: wall jump pushes away"}
+{"date":"2026-10-24T23:49:02.861Z","game":"plat-moba-c","error":"[test moba_test.tscn] SCRIPT ERROR: Invalid access to property or key 'hp' on a base object of type 'previously freed'. (at: _draw (res://hud.gd:66))"}
+{"date":"2026-10-24T23:49:14.073Z","game":"plat-moba-b","error":"[test moba_test.tscn] FAIL: a wave spawned"}
+{"date":"2026-10-24T23:49:14.073Z","game":"plat-moba-b","error":"[test moba_test.tscn] FAIL: enemy minions exist"}

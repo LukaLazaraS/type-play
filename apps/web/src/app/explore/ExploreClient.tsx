@@ -176,6 +176,7 @@ function Featured({ game, sort, onReport }: { game: GalleryGame; sort: GallerySo
           poster={game.poster ? posterUrl(game.buildId) : undefined}
           name={game.name}
           orientation={game.orientation}
+          fits={game.platform === "fill"}
           mode="click"
           onReady={onReady}
           returnFocus={full}

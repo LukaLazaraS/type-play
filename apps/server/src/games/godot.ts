@@ -2,7 +2,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, rmSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
-import type { Orientation } from "@typeplay/shared";
+import type { Orientation, Platform } from "@typeplay/shared";
 import { config } from "../env.js";
 import { startRunnerJob } from "../runs/runner-client.js";
 
@@ -24,6 +24,14 @@ export function orientationOf(projectGodot: string): Orientation {
   const w = Number(value("size/viewport_width") ?? 1152); // Godot's defaults
   const h = Number(value("size/viewport_height") ?? 648);
   return w >= h ? "landscape" : "portrait";
+}
+
+/** What the game is made for, from its folder's PLATFORM word (files.ts `readPlatformWord`): the player's pick, or for
+ * the agent's own pick (auto) the shape it chose; null for a game from before the choice. */
+export function platformOf(word: string, orientation: Orientation): Platform | null {
+  if (word === "phone" || word === "computer" || word === "fill") return word;
+  if (word === "auto") return orientation === "portrait" ? "phone" : "computer";
+  return null;
 }
 
 /** The game's name if the agent set one (the blank template's "Game" doesn't count). */

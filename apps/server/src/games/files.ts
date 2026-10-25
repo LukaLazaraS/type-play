@@ -31,5 +31,14 @@ export function readGameFile(dir: string, rel: string, maxBytes: number): Buffer
 /** project.godot as text (it is small; 1 MB is plenty). */
 export const readProjectGodot = (dir: string) => readGameFile(dir, "project.godot", 1 << 20).toString("utf8");
 
+/** The word in the folder's PLATFORM file (the game agent writes it since 2026-10-25); "" when there is none. */
+export function readPlatformWord(dir: string): string {
+  try {
+    return readGameFile(dir, "PLATFORM", 64).toString("utf8").trim();
+  } catch {
+    return "";
+  }
+}
+
 /** The web export's pack. Our games are 12-40 KB (2D) to a few MB (3D models); 64 MB is a sanity cap. */
 export const readWebPack = (dir: string) => readGameFile(dir, "export/web/index.pck", 64 << 20);

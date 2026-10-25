@@ -57,6 +57,7 @@ export default async function Play({ params }: Props) {
         buildId={game.buildId}
         name={game.name}
         orientation={game.orientation}
+        fits={game.platform === "fill"}
         poster={game.poster ? posterUrl(game.buildId) : undefined}
         plays={game.plays ?? 0}
       />

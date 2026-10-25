@@ -20,6 +20,8 @@ export type WaitGame = {
   slug: string;
   name: string;
   orientation: Orientation;
+  /** It fills every screen (a gallery game made that way): no turn-your-phone hint. */
+  fits?: boolean;
   /** Its start screen: the card's picture (none: GameTile draws one) and the frame's until the game runs. */
   poster?: string;
   /** Its genre skill, for the order only (most games have none: only four genres have a skill). */
@@ -77,6 +79,7 @@ export function useWaitGames(prompt: string, on: boolean): WaitGame[] | null {
             slug: g.buildId,
             name: g.name,
             orientation: g.orientation,
+            fits: g.platform === "fill",
             poster: g.poster ? posterUrl(g.buildId) : undefined,
             genre: g.genre ?? null,
           })),

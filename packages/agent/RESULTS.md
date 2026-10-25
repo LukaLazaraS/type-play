@@ -613,3 +613,59 @@ the Unity save import, the AAB in WSL and the iOS export. Builder time, not agen
 
 **Takeaway for TypePlay:** Opus high does a 2-3 h "port this big game" job reliably when it is split into ~40-min jobs, each with its
 own check. One long session ran out of turns or hit the usage limit twice.
+
+## 2026-10-25: platforms (one shape, or every screen)
+
+**Question (Luka, 10-25):** shared games are opened mostly on phones, many makers build on a computer. Base rules for every
+game (touch, mouse and keys; a real phone layout for complex games; one shape scaled to fit any screen with bars), and if
+filling every screen costs little more, maybe no choice at all. Six prompts, three simple (runner, flappy-style, match-3)
+and three complex (top-down action with 4 spells, a platformer with 6 moves, a small MOBA lane), each built three ways:
+**(a)** today's agent (a frozen copy of `0e80a22`: the window stretches to any shape), **(b)** the base rules
+(`--platform auto`), **(c)** fills every screen (`--platform fill`). Sonnet medium (Smart, the default for a new game), one
+build each, three at a time (one prompt's three ways together), this PC's Max login, 10-25 02:52-03:54. Tooling:
+`tests/platform-eval/` (`builds.mjs`, `devices.mjs`, `try.mjs`, `table.mjs`, `verdicts.json`); games in `output/plat-*`.
+
+**How "works" was judged:** each game opened as the site serves it, an iPhone (393×852) and an iPad (820×1180) as touch
+screens (a wide one-shape game with the device turned, as the site's hint asks), a laptop (1366×768) with keys and mouse;
+9-13 inputs with a screenshot after each (`devices.mjs`), and exact taps where the generic ones missed (`try.mjs`: Play
+buttons, swipes until fruit swapped, the joystick held while a spell fires). ✓ works, ~ works with the flaw noted.
+
+| Game | Way | Credits | Min | iPhone | iPad | Laptop | Note |
+|---|---|--:|--:|:-:|:-:|:-:|---|
+| runner | (a) | 11.9 | 7.1 | ✓ | ✓ | ✓ | wide; stretches to each shape |
+| runner | (b) | 8.8 | 8.1 | ✓ | ✓ | ✓ | wide, bars on a turned phone; Tap on touch, Space on the laptop |
+| runner | (c) | 8.1 | 9.1 | ~ | ✓ | ✓ | upright phone: robot small, the lower half empty ground |
+| flappy | (a) | 7.3 | 5.2 | ✓ | ✓ | ✓ | spread thin across the laptop |
+| flappy | (b) | 7.1 | 5.9 | ✓ | ✓ | ✓ | upright; a column with bars on the laptop |
+| flappy | (c) | 9.8 | 6.1 | ~ | ✓ | ✓ | upright phone: bee small; the best laptop view |
+| match-3 | (a) | 13.9 | 8.5 | ✓ | ✓ | ✓ | swipes swap |
+| match-3 | (b) | 9.0 | 6.4 | ✓ | ✓ | ✓ | starts only from Play; swipes swap |
+| match-3 | (c) | 11.8 | 9.6 | ✓ | ✓ | ✓ | the board fills each shape |
+| action | (a) | 14.8 | 8.6 | ✓ | ✓ | ✓ | drag to move + a 4-spell bar, also on the laptop |
+| action | (b) | 14.7 | 12.6 | ✓ | ✓ | ✓ | joystick + 4-spell arc, both thumbs at once; starts only from Play |
+| action | (c) | 13.6 | 12.8 | ✓ | ✓ | ✓ | joystick + arc on touch, a J K L spell bar on the laptop |
+| platformer | (a) | 17.7 | 11.0 | ✓ | ✓ | ~ | touch buttons cover the level on the laptop |
+| platformer | (b) | 12.7 | 9.6 | ✓ | ✓ | ✓ | arrows + jump / dash / slide (double and wall jump on Jump) |
+| platformer | (c) | 15.3 | 12.2 | ~ | ✓ | ✓ | upright phone: cat small, little of the level ahead |
+| MOBA | (a) | 17.3 | 9.7 | ✓ | ✓ | ✓ | tap to move + 3 skills |
+| MOBA | (b) | 15.2 | 10.8 | ✓ | ✓ | ✓ | joystick + attack / dash / stun / blast arc; starts only from Play |
+| MOBA | (c) | 13.4 | 9.9 | ~ | ✓ | ✓ | upright phone: the lane a thin sideways band; the best laptop view |
+
+| Way | Credits, simple | Complex | All 6 | Minutes | Works on all three | Output / thinking tokens |
+|---|--:|--:|--:|--:|--:|--:|
+| (a) today | 33.1 | 49.8 | 82.9 | 50.1 | 5 of 6 | 310K / 127K |
+| (b) base rules | 24.9 | 42.6 | 67.5 | 53.4 | 6 of 6 | 246K / 85K |
+| (c) every screen | 29.7 | 42.3 | 72.0 | 59.7 | 2 of 6 | 261K / 110K |
+
+**Findings:**
+- **Every screen costs little: +7% credits, +12% time over one shape** (about +0.75 credits and +1 minute a game; simple
+  games +19%, complex −1%). One build per cell, and a prompt's Sonnet builds vary 2-5× run to run (`runs.jsonl`), so read
+  under ~25% as noise.
+- **But it does not work as well where shared games are opened, an upright phone:** a side-view or lane game that fills a
+  tall screen keeps its view ahead, so everything shrinks (4 of 6 fill games). On a laptop fill is the better view. So the
+  platform choice was built (Phone / Computer / Every screen, `apps/web` /create), with Every screen's measured cost said.
+- **The touch layout for hard games costs nothing extra** ((b) is 19% under (a), within noise): all three complex (b)
+  games got a joystick under the left thumb and an arc of buttons under the right that work with both thumbs at once.
+- 3 of 6 (b) titles started only from their Play button; `BASE.md` now says a tap anywhere but on other buttons starts.
+- The check's touch phone page shows the agent its own touch controls (`DisplayServer.is_touchscreen_available()` is true
+  under the browser's touch emulation; a tap there arrives as a touch and a click, hence "handle it once").

@@ -1,0 +1,20 @@
+{
+  "runner-a": { "iphone": "ok", "ipad": "ok", "laptop": "ok", "note": "wide; stretches to each shape; score captions tiny" },
+  "runner-b": { "iphone": "ok", "ipad": "ok", "laptop": "ok", "note": "wide: phone and tablet turned, bars at the sides; says Tap on touch, Space on the laptop" },
+  "runner-c": { "iphone": "part", "ipad": "ok", "laptop": "ok", "note": "upright phone: robot and score small, the lower half empty ground" },
+  "flappy-a": { "iphone": "ok", "ipad": "ok", "laptop": "ok", "note": "first tap on the title ignored; spread thin across the laptop" },
+  "flappy-b": { "iphone": "ok", "ipad": "ok", "laptop": "ok", "note": "upright; the laptop shows a column with bars" },
+  "flappy-c": { "iphone": "part", "ipad": "ok", "laptop": "ok", "note": "upright phone: bee small, a third of the screen ground; the best laptop view" },
+  "match3-a": { "iphone": "ok", "ipad": "ok", "laptop": "ok", "note": "swipes swap (20 to 17 moves); arrows move a cursor" },
+  "match3-b": { "iphone": "ok", "ipad": "ok", "laptop": "ok", "note": "starts only from its Play button; swipes swap (20 to 15 moves); laptop column" },
+  "match3-c": { "iphone": "ok", "ipad": "ok", "laptop": "ok", "note": "board fills each shape (20 to 14 moves by swipes); small HUD captions on the phone" },
+  "action-a": { "iphone": "ok", "ipad": "ok", "laptop": "ok", "note": "drag to move + a 4-spell bar, the bar also on the laptop" },
+  "action-b": { "iphone": "ok", "ipad": "ok", "laptop": "ok", "note": "joystick + 4-spell arc, both thumbs at once; starts only from Play; laptop: keys, no touch buttons" },
+  "action-c": { "iphone": "ok", "ipad": "ok", "laptop": "ok", "note": "joystick + arc on touch, a J K L I spell bar on the laptop" },
+  "platformer-a": { "iphone": "ok", "ipad": "ok", "laptop": "part", "note": "small touch buttons; on the laptop they sit over the level" },
+  "platformer-b": { "iphone": "ok", "ipad": "ok", "laptop": "ok", "note": "arrows + jump / dash / slide, double and wall jump on Jump; the left arrow sits over the cat at the start" },
+  "platformer-c": { "iphone": "part", "ipad": "ok", "laptop": "ok", "note": "upright phone: cat small, little of the level ahead" },
+  "moba-a": { "iphone": "ok", "ipad": "ok", "laptop": "ok", "note": "tap to move + 3 skill buttons (also on the laptop); tiny HUD on the laptop" },
+  "moba-b": { "iphone": "ok", "ipad": "ok", "laptop": "ok", "note": "joystick + attack / dash / stun / blast arc; starts only from Play" },
+  "moba-c": { "iphone": "part", "ipad": "ok", "laptop": "ok", "note": "upright phone: the lane runs sideways in a thin band; the best laptop view" }
+}

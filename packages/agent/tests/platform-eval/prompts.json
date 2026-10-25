@@ -1,0 +1,8 @@
+[
+  { "id": "runner", "kind": "simple", "prompt": "Make an endless runner where a little robot jumps over cactuses and it gets faster over time." },
+  { "id": "flappy", "kind": "simple", "prompt": "Make a game like Flappy Bird where a little bee flaps through gaps between tall flower stems." },
+  { "id": "match3", "kind": "simple", "prompt": "Make a match-3 puzzle game with cute fruit." },
+  { "id": "action", "kind": "complex", "prompt": "Make a top-down action game where a wizard fights waves of slimes and skeletons with four spells: a fireball, a frost nova that slows enemies, a dash, and a healing circle, each with its own cooldown." },
+  { "id": "platformer", "kind": "complex", "prompt": "Make a platformer where a ninja cat can run, jump, double jump, wall jump, dash and slide through 3 short levels to reach a flag." },
+  { "id": "moba", "kind": "complex", "prompt": "Make a small MOBA-style game: you control a hero in one lane against waves of enemy minions and an enemy tower. The hero has a basic attack and three skills (a dash, a stun and an area blast), levels up from kills, and wins by destroying the enemy tower." }
+]

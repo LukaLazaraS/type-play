@@ -51,7 +51,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Opens `url` in a hidden browser. Returns { console, shot(path), click(x, y), key(code), close() }.
 // `viewport` ({ width, height }) sets the page size exactly (a phone shape: the window itself
-// can't be narrower than ~500 px).
+// can't be narrower than ~500 px). `touch: true` makes it a touch screen, as a phone or tablet
+// is (a game's DisplayServer.is_touchscreen_available() is true there), with tap() and touch().
 //
 // A hidden browser renders the game in software (SwiftShader) and can take every CPU core. On
 // 2026-10-17 several of them ran at once from parallel agents, froze the PC, and kept running
@@ -133,7 +134,7 @@ const WATCHDOG = [
   'kill -9 -- -$$ 2>/dev/null',
 ].join('\n');
 
-export async function openPage(url, { width = 1152, height = 648, viewport } = {}) {
+export async function openPage(url, { width = 1152, height = 648, viewport, touch = false } = {}) {
   limitThisProcess(); // the browser and its renderers inherit the core limit and low priority
   sweepOrphans();
   await takeLock();
@@ -237,7 +238,10 @@ export async function openPage(url, { width = 1152, height = 648, viewport } = {
   // browser then pauses animation frames, so the game stops between screenshots ("10 s later"
   // showed the same frame for every game) and the frame count reads 0.
   await page('Emulation.setFocusEmulationEnabled', { enabled: true });
-  if (viewport) await page('Emulation.setDeviceMetricsOverride', { ...viewport, deviceScaleFactor: 1, mobile: false });
+  // Before the page loads: pages (Godot's too) look for a touch screen once, at start.
+  if (touch) await page('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  const metrics = (v) => page('Emulation.setDeviceMetricsOverride', { ...v, deviceScaleFactor: 1, mobile: touch });
+  if (viewport) await metrics(viewport);
   await page('Page.navigate', { url });
 
   return {
@@ -261,15 +265,33 @@ export async function openPage(url, { width = 1152, height = 648, viewport } = {
       const r = await page('Runtime.evaluate', { expression, returnByValue: true }, timeoutMs);
       return r.timedOut ? r : { value: r?.result?.value };
     },
-    async key(code = 'Space', key = ' ', keyCode = 32) {
-      await page('Input.dispatchKeyEvent', { type: 'keyDown', code, key, windowsVirtualKeyCode: keyCode }, 5000);
-      await sleep(80);
-      await page('Input.dispatchKeyEvent', { type: 'keyUp', code, key, windowsVirtualKeyCode: keyCode }, 5000);
+    async key(code = 'Space', key = ' ', keyCode = 32, holdMs = 80) {
+      await this.keyDown(code, key, keyCode);
+      await sleep(holdMs);
+      await this.keyUp(code, key, keyCode);
     },
+    async keyDown(code, key, keyCode) { await page('Input.dispatchKeyEvent', { type: 'keyDown', code, key, windowsVirtualKeyCode: keyCode }, 5000); },
+    async keyUp(code, key, keyCode) { await page('Input.dispatchKeyEvent', { type: 'keyUp', code, key, windowsVirtualKeyCode: keyCode }, 5000); },
+    // Fingers on a touch page: every finger still down, as [x, y, id] (id: its place in the list if left out).
+    // A finger missing from the next call is lifted; none ends the touch.
+    async touch(points) {
+      const touchPoints = points.map(([x, y, id], i) => ({ x, y, id: id ?? i }));
+      await page('Input.dispatchTouchEvent', { type: points.length ? (this.fingers ? 'touchMove' : 'touchStart') : 'touchEnd', touchPoints }, 5000);
+      this.fingers = points.length;
+    },
+    fingers: 0,
+    async tap(x, y, holdMs = 60) {
+      await this.touch([[x, y]]);
+      await sleep(holdMs);
+      await this.touch([]);
+    },
+    // A new screen size for the same page (a phone turned, a tablet): the game fits itself to it.
+    async resize(size) { await metrics(size); },
     async close() {
       clearTimeout(lifetime);
-      kill();
       process.off('exit', kill);
+      if (killed) return; // closed already
+      kill();
       await sleep(500);
       await rm(profile, { recursive: true, force: true }).catch(() => {});
     },

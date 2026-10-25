@@ -27,6 +27,14 @@ enum Orientation {
   landscape
 }
 
+/// The screens a game is made for (the new-game screen's choice, 2026-10-25): phone (upright) or computer (wide), one
+/// shape scaled to fit any screen with bars; fill: the layout adapts to every shape.
+enum Platform {
+  phone
+  computer
+  fill
+}
+
 enum Role {
   user
   agent
@@ -196,6 +204,9 @@ model Project {
   owner          User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name           String
   orientation    Orientation @default(portrait)
+  /// What the player picked; after each build what the game's folder says (a change can make it fill every screen).
+  /// null: made before the choice, or picked by the agent and not built yet.
+  platform       Platform?
   /// n of the version playing now (the newest); null before the first build passes.
   currentVersion Int?
   /// The player renamed it: later builds keep this name instead of the game agent's.

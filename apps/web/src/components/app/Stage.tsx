@@ -2,23 +2,27 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import Link from "next/link";
-import { AndroidLogo, ArrowSquareOut, ArrowsOut, ArrowClockwise, DeviceRotate, Play, X } from "@phosphor-icons/react";
+import { AndroidLogo, ArrowSquareOut, ArrowsOut, ArrowClockwise, ChatCircleText, DeviceRotate, Play, X } from "@phosphor-icons/react";
 import type { Project } from "@typeplay/shared";
 import { BuildLayers } from "@/components/BuildingIcon";
 import { GameFrame, playUrl, type GameFrameHandle } from "@/components/GameFrame";
 import { android } from "@/content/android";
+import { fitHint } from "@/content/app";
 import { posterUrl } from "@/lib/urls";
 import { api } from "@/lib/api";
 import { clock, playsWord } from "@/lib/format";
 import type { LiveLine } from "./ChatLog";
-import { DeviceMenu, FILL, type Device } from "./DeviceMenu";
+import { DeviceMenu, deviceFor, FILL, type Device } from "./DeviceMenu";
 import { GameMenu } from "./GameMenu";
+import { TOUCH, useMedia } from "./PlatformSwitch";
 import { ShareMenu } from "./ShareMenu";
 import { Versions } from "./Versions";
 import { useWaitGames, WhileYouWait, type WaitGame } from "./WhileYouWait";
 
-/** Phones and tablets, as GameFrame decides it: a game started there opens full screen. */
-const TOUCH = "(hover: none) and (pointer: coarse)";
+/** Where app.css hides the device menu: a phone or tablet is already the real thing, a narrow window has no room. */
+const NO_MENU = `${TOUCH}, (max-width: 700px)`;
+/** A phone (not a tablet): touch, and the screen's short side under 600px. */
+const PHONE = `${TOUCH} and (max-width: 599px), ${TOUCH} and (max-height: 599px)`;
 
 /** Room kept around a device's drawn bezel (the widest, a tablet's, is 16 px). */
 const BEZEL = 16;
@@ -33,6 +37,7 @@ export function Stage({
   onRestore,
   onRetry,
   onChange,
+  onAsk,
   android: androidOn,
 }: {
   project: Project;
@@ -46,6 +51,8 @@ export function Stage({
   onRetry: (() => Promise<void>) | null;
   /** A rename or a share changed the project. */
   onChange: (p: Project) => void;
+  /** Puts a request in the chat's box (the "Made for phones" hint's one tap); the player still sends it. */
+  onAsk: (text: string) => void;
   /** This server builds Android apps (Me.features.android): the Android pill shows. */
   android: boolean;
 }) {
@@ -78,10 +85,29 @@ export function Stage({
   // the stage (as before, the default). It is the same frame, resized: the game keeps running and fits itself to the
   // new size, as it would on that screen.
   const screen = useRef<HTMLDivElement>(null);
-  const [device, setDevice] = useState<Device>(FILL);
+  // It opens on the device the game is made for (Luka, 10-25) until the player picks one; where the menu is hidden
+  // (a phone, a tablet, a narrow window) the game fills the stage as before.
+  const menu = useMedia(NO_MENU) === false;
+  const [picked, setDevice] = useState<Device | null>(null);
+  const device = !menu ? FILL : (picked ?? deviceFor(waiting ? null : project.platform));
   const [turned, setTurned] = useState<boolean | null>(null); // null: the game's own way up
   const turns = device.kind !== "computer"; // phones and tablets
-  const sideways = turns && (turned ?? (waiting?.orientation ?? project.orientation) === "landscape");
+  const fits = waiting ? !!waiting.fits : project.platform === "fill"; // either way up: a phone holds it upright
+  const sideways = turns && (turned ?? (!fits && (waiting?.orientation ?? project.orientation) === "landscape"));
+  // "Made for phones" (Luka, 10-24): the game on a screen it isn't made for, with one tap to ask for it in the chat.
+  // Where the menu shows, the previewed device: a phone game on a computer, a computer game on an upright phone (held
+  // sideways it fits). Elsewhere the real screen: only an upright phone, for a computer game. Never a tablet (both
+  // shapes fit) or a narrow computer window (the game fits it).
+  const phone = useMedia(PHONE) === true;
+  const upright = useMedia("(orientation: portrait)") === true;
+  const madeFor = project.platform === "phone" || project.platform === "computer" ? project.platform : null;
+  const mismatch =
+    !!madeFor && !!project.buildId && !waiting &&
+    (menu
+      ? (madeFor === "phone" && device.kind === "computer") || (madeFor === "computer" && device.kind === "phone" && !sideways)
+      : madeFor === "computer" && phone && upright);
+  // Hidden while a build or an export says what it's doing; its line keeps the room meanwhile (no jump in the frame).
+  const hint = mismatch && !running && project.status !== "exporting" ? fitHint[madeFor!] : null;
   const [room, setRoom] = useState<{ w: number; h: number } | null>(null);
   useEffect(() => {
     const el = screen.current;
@@ -207,22 +233,32 @@ export function Stage({
       )}
       {/* Always there when a game is, so the frame keeps its size when a build starts or ends. */}
       {project.buildId && !waiting && (
-        <p className="stage__busy" role="status">
-          {running && (
-            <>
-              <span className="pulse" aria-hidden="true" />
-              <span className="stage__busy-text">
-                Making version {nextN}: {live?.text || "getting started"}
-              </span>
-            </>
+        <div className="stage__busy" data-hint={mismatch || undefined}>
+          {/* What it's doing (or what it's made for) is read out; the hint's button is outside the live line. */}
+          <p className="stage__live" role="status">
+            {running && (
+              <>
+                <span className="pulse" aria-hidden="true" />
+                <span className="stage__busy-text">
+                  Making version {nextN}: {live?.text || "getting started"}
+                </span>
+              </>
+            )}
+            {project.status === "exporting" && (
+              <>
+                <span className="pulse" aria-hidden="true" />
+                <span className="stage__busy-text">{android.exporting.stage}</span>
+              </>
+            )}
+            {hint && <span className="fithint">{hint.made}</span>}
+          </p>
+          {hint && (
+            <button type="button" className="inkpill inkpill--small fithint__ask" onClick={() => onAsk(hint.ask)}>
+              <ChatCircleText size={16} weight="bold" aria-hidden="true" />
+              {hint.button}
+            </button>
           )}
-          {project.status === "exporting" && (
-            <>
-              <span className="pulse" aria-hidden="true" />
-              <span className="stage__busy-text">{android.exporting.stage}</span>
-            </>
-          )}
-        </p>
+        </div>
       )}
 
       <div ref={screen} className="stage__screen">
@@ -236,6 +272,7 @@ export function Stage({
                 poster={waiting.poster}
                 name={waiting.name}
                 orientation={waiting.orientation}
+                fits={!!waiting.fits}
                 mode="click"
                 autoStart
                 returnFocus={full}
@@ -253,6 +290,7 @@ export function Stage({
                 poster={project.poster ? posterUrl(project.buildId) : undefined}
                 name={project.name}
                 orientation={project.orientation}
+                fits={project.platform === "fill"}
                 mode="click"
                 autoStart={played || startOwn}
                 onReady={onPlayed}

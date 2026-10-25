@@ -5,16 +5,9 @@ developer. Never ask them questions: make sensible choices yourself and finish t
 
 ## The project
 
-- The current folder is a Godot 4.7 project (Compatibility renderer, viewport that stretches
-  to fit). The game starts at `res://main.tscn`.
-- **Portrait first**: most players hold their phone upright, so the project starts portrait
-  (720×1280, `window/handheld/orientation=1`). Keep it for puzzles, match-3, vertical runners
-  and jumpers, top-down racers, tower defence, shooters that scroll up, and anything else that
-  fits a tall screen: HUD along the top, big touch buttons along the bottom. Only a game that
-  needs width (side-scrollers such as side-view runners and platformers, wide 3D racing)
-  switches to landscape: in `project.godot` set `window/size/viewport_width=1152`,
-  `window/size/viewport_height=648` and `window/handheld/orientation=0`. Decide when you build
-  the game; later changes keep it unless the player asks.
+- The current folder is a Godot 4.7 project (Compatibility renderer). The game starts at
+  `res://main.tscn`.
+{SCREEN}
 - **2D art is drawn in code**, never from image files: `_draw()`, Polygon2D, ColorRect,
   Line2D, Label, CPUParticles2D, simple shaders. Make it look good: one coherent palette,
   outlines or shadows, and some juice (tweens, particles, screen shake, squash and stretch).
@@ -26,8 +19,8 @@ developer. Never ask them questions: make sensible choices yourself and finish t
 - Split the game into small scripts by job (player, obstacles or level, HUD, main), none over
   ~300 lines, so later changes touch only a small file. Build nodes in code rather than long
   `.tscn` files; any `.tscn` you write must be valid Godot 4 text (`[gd_scene format=3]`).
-- Apart from the orientation, don't touch `project.godot` display/renderer settings,
-  `export_presets.cfg`, or git.
+- Apart from what the screen rules above say, don't touch `project.godot` display/renderer
+  settings, `export_presets.cfg`, or git.
 
 ## Godot 4 only, never Godot 3
 
@@ -39,13 +32,47 @@ developer. Never ask them questions: make sensible choices yourself and finish t
   with shadows, a `WorldEnvironment` with a `ProceduralSkyMaterial`, a smooth follow
   `Camera3D`; `CharacterBody3D` / `RigidBody3D` / `Area3D`. A few hundred meshes at most
   (the web build is WebGL 2); reuse meshes and materials. HUD on a `CanvasLayer`.
-- Input: built-in `ui_*` actions or your own via `InputMap` at startup. Every game works with
-  keyboard AND mouse/touch (a tap does the main action): players are also on phones.
+- Input: built-in `ui_*` actions or your own via `InputMap` at startup (see "Controls").
 - The web build is single-threaded: no threads.
+
+## Controls: phone, tablet and computer
+
+The same game is played on phones and tablets (touch) and on computers (mouse and keyboard),
+so every game works with all of them:
+
+- **A tap is a click.** Godot sends a mouse click for every touch, so handle taps and clicks
+  once, as `InputEventMouseButton` (or a button's `pressed`), never also as
+  `InputEventScreenTouch`: that counts every tap twice. Nothing may need hover (phones have none).
+- **Every action has keys**, through `InputMap` actions made at startup: arrows and WASD to
+  move, Space for the main action, Enter to start, Escape or P to pause, other skills on J K L
+  (and 1 2 3). On-screen controls press the same actions (`Input.action_press(action,
+  strength)` / `Input.action_release(action)`), so the game reads one input path.
+- **On-screen controls only on touch screens**: the joystick, arrows and action buttons (what
+  the keys replace) sit under one `touch_controls` node, visible when
+  `DisplayServer.is_touchscreen_available()` (phones, tablets) or after the first
+  `InputEventScreenTouch`, hidden on a computer. Buttons everyone needs (Play, Restart, levels,
+  towers or cards to pick) always show. The title's controls line says the keys on a computer
+  ("Arrows to move, Space to jump") and the touches on a touch screen ("Tap to jump").
+- **Simple games** (one or two actions): a tap anywhere for the main action, swipes, or the
+  left and right halves of the screen; at most 2-3 big buttons (≥ 120 px) in the bottom corners.
+- **Complex games** (many skills, moves or modes): a real phone layout, as phone action and
+  MOBA games do it, never one button per key. Left thumb: a virtual joystick that appears where
+  the thumb lands in the left half (base ~220 px, knob ~90 px), pressing the move actions with
+  their strength, so `Input.get_vector()` reads it like the keys. Right thumb: at most 4 round
+  buttons in an arc in the bottom-right corner, the main action biggest (~160 px), skills smaller
+  (~110 px), each with its drawn icon and its cooldown as a dark sweep; skills aim where the hero
+  faces or at the nearest enemy. Everything else is context-sensitive (one button that changes
+  with what is near: pick up, open, talk) or in the pause menu. Both thumbs work at once: read
+  `InputEventScreenTouch` / `InputEventScreenDrag` by `event.index` (or use `TouchScreenButton`
+  with its `action`); `Button` nodes and mouse clicks see one finger only. What a mouse click
+  does in play on a computer (aim, attack where clicked) skips clicks made from touches
+  (`event.device == InputEvent.DEVICE_ID_EMULATION`), or a thumb on the joystick also attacks
+  there. Keep the HUD along the top: the bottom corners belong to the thumbs.
 
 ## Every game has
 
-- A title overlay (name + one-line controls); the first tap/click/Space starts.
+- A title overlay (name + one-line controls); the first tap/click/Space starts: a tap anywhere
+  but on the title's other buttons (levels), not only on Play (its panel must not swallow it).
 - A short title (2-3 words), the same on screen and as `config/name` in `project.godot`.
 - A score or goal; a game-over (or win) state; restart with tap/click/Space.
 - Playable by a first-timer within 5 seconds; difficulty rises over time.
@@ -81,19 +108,24 @@ Run `node "{CHECK}"` from the project folder after building and after every fix.
 its source: just run it. It imports the project, runs it headless, exports it to web and
 runs every feature test in `test/`, opens it in a hidden browser, taking three screenshots: after loading, 3 s after a tap +
 Space, and 10 s later with no input (in most games the player has lost by then, so you see
-the game-over screen). Fix every error it reports, then open the screenshots with the Read
-tool. If the game is blank, broken, unreadable or ugly, fix it and check again. Finish only
-when it says `CHECK: OK` and the screenshots look like a real game.
+the game-over screen), and more on the other screens the game must work on; it says which
+screen each one shows (a touch screen shows your touch controls, a computer hides them). Fix
+every error it reports, then open the screenshots with the Read tool. If the game is blank,
+broken, unreadable, ugly, or doesn't fit one of the screens, fix it and check again. Finish
+only when it says `CHECK: OK` and the screenshots look like a real game.
 {PLAYTEST}
 ## Feature tests
 
 A test is `test/<name>_test.tscn` (a `Node` with the script) + `test/<name>_test.gd`, and the
 script starts with `extends "res://test/helpers.gd"`, which gives you `load_game()`,
 `await frames(n)`, `await press("action")`, `await tap(position)`, `check(ok, "label")` and
-`finish()`. Do the steps in `_ready()`, one `check()` per thing you verify, then `finish()`.
+`finish()`; for touch controls `await touch(position)` (a finger: like on a phone, it is
+also a click) and `await finger_down(position, finger)` / `finger_move(position, finger)` /
+`finger_up(position, finger)` to hold a joystick with finger 0 while finger 1 presses a
+button. Do the steps in `_ready()`, one `check()` per thing you verify, then `finish()`.
 Prefer calling the game's own functions (`board.try_swap(a, b)`, `player.jump()`); use
-`press()` / `tap()` only to test the controls themselves; `tap()` takes a position in the
-game's coordinates and does the screen scaling itself. Count frames, never clock time.
+`press()` / `tap()` / the fingers only to test the controls themselves; they take positions
+in the game's coordinates and do the screen scaling themselves. Count frames, never clock time.
 Don't change `helpers.gd`. The check runs every test.
 
 ## NOTES.md

@@ -4,7 +4,7 @@ import { randomInt } from "node:crypto";
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { Injectable, Logger } from "@nestjs/common";
-import type { Effort, ModelChoice, PlanId, Project as ProjectView } from "@typeplay/shared";
+import type { Effort, ModelChoice, PlanId, Platform, Project as ProjectView } from "@typeplay/shared";
 import { AndroidService } from "../android/android.service.js";
 import { ApiException, badRequest, notFound } from "../common/api-error.js";
 import { config } from "../env.js";
@@ -13,9 +13,9 @@ import { unpublishBuild } from "../games/publish.js";
 import { MODELS } from "../credits/credits.js";
 import { CreditsService, type CreditHold } from "../credits/credits.service.js";
 import type { User } from "../generated/prisma/client.js";
-import { readProjectGodot } from "../games/files.js";
+import { readPlatformWord, readProjectGodot } from "../games/files.js";
 import { removeFolder, restoreCommit, settleFolder } from "../games/git.js";
-import { orientationOf } from "../games/godot.js";
+import { orientationOf, platformOf } from "../games/godot.js";
 import { PrismaService } from "../prisma.js";
 import { RunRegistry } from "../runs/registry.js";
 import { projectDir, RunsService } from "../runs/runs.service.js";
@@ -40,6 +40,15 @@ export function parseRunBody(body: unknown, textKey: "prompt" | "text"): RunRequ
   if (!MODELS.includes(b.model as ModelChoice)) throw badRequest("Pick Fast, Smart or Best.");
   if (b.effort !== undefined && !EFFORTS.includes(b.effort as Effort)) throw badRequest("Effort is low, medium or high.");
   return { text, model: b.model as ModelChoice, effort: (b.effort as Effort) ?? "medium", confirm: b.confirm === true };
+}
+
+const PLATFORMS: Platform[] = ["phone", "computer", "fill"];
+/** The new-game screen's pick of screens; left out: the agent picks one shape. */
+export function parsePlatform(body: unknown): Platform | null {
+  const p = body && typeof body === "object" ? (body as Record<string, unknown>).platform : undefined;
+  if (p === undefined || p === null) return null;
+  if (!PLATFORMS.includes(p as Platform)) throw badRequest("Pick phone, computer or every screen.");
+  return p as Platform;
 }
 
 /** Who a run is for: the registry caps runs per user by plan. */
@@ -84,6 +93,7 @@ export class ProjectsService {
 
   async create(user: User, body: unknown): Promise<ProjectView> {
     const req = parseRunBody(body, "prompt");
+    const platform = parsePlatform(body);
     const id = newProjectId();
     const release = this.registry.reserve(id, "run", ownerOf(user));
     let hold: CreditHold | null = null; // the run's credits, until the run owns them
@@ -95,6 +105,7 @@ export class ProjectsService {
           id,
           ownerId: user.id,
           name: nameFromPrompt(req.text),
+          platform,
           messages: {
             create: [
               { role: "user", text: req.text, createdAt: new Date(now) },
@@ -105,7 +116,7 @@ export class ProjectsService {
         },
         include: { messages: { where: { role: "agent" } } },
       });
-      this.runs.start({ projectId: id, userId: user.id, messageId: project.messages[0].id, kind: "new", prompt: req.text, model: req.model, effort: req.effort, hold });
+      this.runs.start({ projectId: id, userId: user.id, messageId: project.messages[0].id, kind: "new", prompt: req.text, model: req.model, effort: req.effort, platform, hold });
       hold = null;
     } finally {
       hold?.release();
@@ -128,7 +139,8 @@ export class ProjectsService {
         data: { projectId: id, role: "agent", text: "", model: req.model, effort: req.effort, status: "running", plan: user.plan, createdAt: new Date(now + 1) },
       });
       await this.prisma.project.update({ where: { id }, data: { updatedAt: new Date() } });
-      this.runs.start({ projectId: id, userId: user.id, messageId: agent.id, kind, prompt: req.text, model: req.model, effort: req.effort, hold });
+      // The first build failed and this builds again: for the screens the player picked.
+      this.runs.start({ projectId: id, userId: user.id, messageId: agent.id, kind, prompt: req.text, model: req.model, effort: req.effort, platform: project.platform, hold });
       hold = null;
     } finally {
       hold?.release();
@@ -151,11 +163,12 @@ export class ProjectsService {
       const label = `Restored version ${n}`;
       const commit = await restoreCommit(dir, old.commit, label);
       const orientation = orientationOf(readProjectGodot(dir));
+      const platform = platformOf(readPlatformWord(dir), orientation); // an older version may not fill every screen yet
       const next = (last?.n ?? 0) + 1;
       try {
         await this.prisma.$transaction([
           this.prisma.version.create({ data: { projectId: id, n: next, label, buildId: old.buildId, commit, poster: old.poster } }),
-          this.prisma.project.update({ where: { id }, data: { currentVersion: next, orientation } }),
+          this.prisma.project.update({ where: { id }, data: { currentVersion: next, orientation, platform } }),
         ]);
       } catch (e) {
         await settleFolder(dir, last?.commit ?? null); // keep the folder at the version the database knows

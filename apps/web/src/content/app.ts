@@ -1,5 +1,5 @@
 // The signed-in app (package 4): its switches, where the API is, and the words its screens use.
-import type { Effort, ModelChoice } from "@typeplay/shared";
+import type { Effort, ModelChoice, Platform } from "@typeplay/shared";
 
 export const app = {
   /**
@@ -47,6 +47,27 @@ export const efforts: { id: Effort; name: string; line: string }[] = [
   { id: "medium", name: "Medium", line: "Medium effort: the usual. Right for most messages." },
   { id: "high", name: "High", line: "High effort: thinks longer about hard changes. Slower, and almost twice the credits." },
 ];
+
+/** The screens a new game is made for (Luka, 10-25): one tap, preselected to the device it is made on. Any screen's
+ * extra is measured: on 6 games it cost 7% more credits and about a minute more than one shape, and side-view games came
+ * out small on an upright phone (packages/agent/RESULTS.md, "2026-10-25: platforms"). Not "Every screen": the home page
+ * says that of every game (it plays on the web, Android and more). */
+export const platforms: { id: Platform; name: string; line: string }[] = [
+  { id: "phone", name: "Phone", line: "Upright, the way most phone games are. Computers show it with bars at the sides." },
+  { id: "computer", name: "Computer", line: "Wide, like a computer screen. Phones play it turned sideways." },
+  {
+    id: "fill",
+    name: "Any screen",
+    line: "Fills phones, tablets and computers, upright or sideways; side-view games come out small on an upright phone. About 7% more credits and a minute longer to build.",
+  },
+];
+
+/** The game page's hint on a screen the game isn't made for: what it's made for, the button, and the request its one
+ * tap puts in the chat's box (named screens, not "here": the preview may be a drawn phone on a computer). */
+export const fitHint: Record<"phone" | "computer", { made: string; button: string; ask: string }> = {
+  phone: { made: "Made for phones.", button: "Ask to make it fit computers", ask: "Make it fit computer screens too." },
+  computer: { made: "Made for computers.", button: "Ask to make it fit phones", ask: "Make it fit phone screens too." },
+};
 
 export type Starter = { genre: string; ready: boolean; icon?: string; examples: string[] };
 

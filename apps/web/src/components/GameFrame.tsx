@@ -121,6 +121,7 @@ export function GameFrame({
   mode = "click",
   autoStart = false,
   orientation = "landscape",
+  fits = false,
   fullscreen = mode === "click",
   onReady,
   onEscape,
@@ -136,6 +137,8 @@ export function GameFrame({
   /** Click mode, but already playing: a new version of a game the player has started (the app). */
   autoStart?: boolean;
   orientation?: Orientation;
+  /** The game fills every screen (platform "fill"): played either way up, so no lock and no turn-your-phone hint. */
+  fits?: boolean;
   /** Offer full screen. Off for the demo, whose frame is swapped every few seconds. */
   fullscreen?: boolean;
   onReady?: (slug: string) => void;
@@ -213,7 +216,8 @@ export function GameFrame({
       requestFullscreen(el)
         .then(() => {
           setMode("fullscreen");
-          if (touch) void lockOrientation(orientation).finally(() => setSettled(true));
+          if (touch && !fits) void lockOrientation(orientation).finally(() => setSettled(true));
+          else if (touch) setSettled(true);
           else focusGame();
         })
         .catch(() => {
@@ -225,7 +229,7 @@ export function GameFrame({
           if (!touch) focusGame();
         });
     },
-    [orientation, setMode, focusGame],
+    [orientation, fits, setMode, focusGame],
   );
 
   const play = () => {
@@ -315,7 +319,7 @@ export function GameFrame({
     };
   }, [fullscreen, leave, setMode, returnFocus]);
 
-  const hint = immersive !== null && byTouch && settled && !stay && (orientation === "portrait") !== portrait;
+  const hint = immersive !== null && byTouch && settled && !stay && !fits && (orientation === "portrait") !== portrait;
 
   return (
     <div
@@ -323,7 +327,8 @@ export function GameFrame({
       className="gameframe"
       data-ready={ready || undefined}
       data-immersive={immersive ?? undefined}
-      data-orientation={orientation}
+      // A game that fills every screen takes the whole screen either way up: no letterbox (globals.css).
+      data-orientation={fits ? "any" : orientation}
     >
       <div className="gameframe__screen">
         {poster && !posterGone && (

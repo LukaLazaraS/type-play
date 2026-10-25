@@ -1,7 +1,7 @@
 // Which projects have a run (or a restore, or an Android build) going: one per project, at most
 // MAX_RUNS runs at once, and per user as many as their plan allows (credits.ts `runsAtOnce`).
 import { Injectable } from "@nestjs/common";
-import type { Effort, ModelChoice, PlanId, RunEvent, RunStatus } from "@typeplay/shared";
+import type { Effort, ModelChoice, PlanId, Platform, RunEvent, RunStatus } from "@typeplay/shared";
 import { ApiException } from "../common/api-error.js";
 import { runsAtOnce } from "../credits/credits.js";
 import type { CreditHold } from "../credits/credits.service.js";
@@ -17,6 +17,8 @@ export interface ActiveRun {
   prompt: string;
   model: ModelChoice;
   effort: Effort;
+  /** A first build's screens, as StartRun's. */
+  platform?: Platform | null;
   /** The credits held for this run while it goes (released when its charge or failure is written). */
   hold: CreditHold | null;
   handle: AgentHandle | null;

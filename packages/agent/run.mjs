@@ -6,6 +6,8 @@
 //          --playtest (the agent writes and runs a bot play-test)  --slim (short custom system
 //          prompt instead of Claude Code's)  --genre auto|none|<a folder in genres/> (new games;
 //          auto: one cheap Haiku call picks it; edits reuse the game's GENRE file)
+//          --platform auto|phone|computer|fill (new games: the screens it is made for, rules/SCREEN_*.md; auto,
+//          the default: one shape the agent picks, portrait first; edits reuse the game's PLATFORM file)
 //          --steps 1|2|3 (new games: 2 = core, then polish; 3 = core with one level, then the
 //          content, then polish; each a short fresh session. Default on Haiku: 3 for a big
 //          request, else 2, sized by the same cheap call that picks the genre; else 1)
@@ -59,6 +61,17 @@ const playtest = flag('playtest');
 const slim = flag('slim');
 let modelKey = opt('model', isEdit ? 'auto' : 'sonnet');
 if (!game || !prompt) { console.error('need --game (or --dir) and --prompt'); process.exit(2); }
+// The screens a game is made for (Luka, 10-25). One shape, scaled to fit any screen with bars around it: auto
+// (the agent picks upright or wide, portrait first), phone (upright) or computer (wide), the last two picked by
+// the player; or fill: the layout adapts to every shape. Every game gets the controls for touch, mouse and keys.
+const PLATFORMS = ['auto', 'phone', 'computer', 'fill'];
+if (!isEdit && !PLATFORMS.includes(opt('platform', 'auto'))) { console.error(`--platform: ${PLATFORMS.join(' | ')}`); process.exit(2); }
+// project.godot's window settings per platform, over the template's (portrait 720×1280, stretch aspect "keep").
+// Fill: the short side is always 720 and the long side grows to the screen; it turns with the device.
+const DISPLAY = {
+  computer: { 'size/viewport_width': 1152, 'size/viewport_height': 648, 'handheld/orientation': 0 },
+  fill: { 'size/viewport_width': 720, 'size/viewport_height': 720, 'stretch/aspect': '"expand"', 'handheld/orientation': 6 },
+};
 if (process.env.ANTHROPIC_API_KEY && process.env.AGENT_AUTH !== 'api') {
   console.error('ANTHROPIC_API_KEY is set: unset it to run on Max, or set AGENT_AUTH=api.');
   process.exit(2);
@@ -98,9 +111,22 @@ if (isEdit) {
   mkdirSync(dirname(dir), { recursive: true });
   cpSync(join(HERE, 'templates', 'blank'), dir, { recursive: true });
   appendFileSync(join(dir, '.gitignore'), '.godot/\nexport/\n.agent-log.jsonl\n');
+  // The template is portrait and keeps its shape (stretch aspect "keep"); the folder keeps the platform in
+  // PLATFORM, so every later edit (and the check's screenshots) follows the same screen rules.
+  const display = DISPLAY[opt('platform', 'auto')];
+  if (display) {
+    let text = readFileSync(join(dir, 'project.godot'), 'utf8');
+    for (const [key, value] of Object.entries(display)) text = text.replace(new RegExp(`^window/${key}=.*$`, 'm'), `window/${key}=${value}`);
+    writeFileSync(join(dir, 'project.godot'), text);
+  }
+  writeFileSync(join(dir, 'PLATFORM'), opt('platform', 'auto') + '\n');
   if (opt('seed')) cpSync(resolve(opt('seed')), dir, { recursive: true }); // ports and tests: files the game starts with (Builder only)
   git('init', '-q'); git('add', '-A'); git('commit', '-qm', 'template');
 }
+// Games from before 10-25 have no PLATFORM file: their window stretches to any shape (rules/SCREEN_LEGACY.md).
+const platformFile = join(dir, 'PLATFORM');
+const savedPlatform = existsSync(platformFile) ? readFileSync(platformFile, 'utf8').trim() : '';
+const platform = PLATFORMS.includes(savedPlatform) ? savedPlatform : 'legacy';
 emit({ type: 'started', kind: isEdit ? 'edit' : 'new', model: modelKey, game });
 progress(isEdit ? 'Reading your game' : 'Reading your idea');
 
@@ -150,8 +176,12 @@ cpSync(join(HERE, 'templates', 'blank', 'test', 'helpers.gd'), helpers);
 const checkPath = join(HERE, 'tools', 'check.mjs').replaceAll('\\', '/');
 const assetsPath = join(HERE, 'tools', 'assets.mjs').replaceAll('\\', '/'); // the 3D model library
 const read = (f) => readFileSync(join(HERE, 'rules', f), 'utf8');
+// A change to a one-shape game may be the player asking for it to fit other screens too (the game page's
+// "Made for phones" hint fills that request in): the edit then also gets the way to switch, and the fill rules.
+const screen = read(`SCREEN_${platform.toUpperCase()}.md`).trimEnd()
+  + (isEdit && ['auto', 'phone', 'computer'].includes(platform) ? `\n${read('SCREEN_SWITCH.md').trimEnd()}\n${read('SCREEN_FILL.md').trimEnd()}` : '');
 const rules = [
-  read('BASE.md').replace('{PLAYTEST}', playtest ? read('PLAYTEST.md') : ''),
+  read('BASE.md').replace('{SCREEN}', () => screen).replace('{PLAYTEST}', playtest ? read('PLAYTEST.md') : ''),
   read('GOTCHAS.md'),
   genre !== 'none' && GENRES.includes(genre)
     ? "\n**The player's request always wins over the genre defaults below.** If they ask for something different, or this genre doesn't fit what they asked for, do what they asked.\n"
@@ -172,7 +202,7 @@ async function playerMessage(request, reply, { isNew = false } = {}) {
     : 'what was changed and how to play (controls)';
   try {
     for await (const m of query({
-      prompt: `Player's request: "${request}"\n\nMessage from the game builder:\n${reply}\n\nRewrite the message for the player, who is not a developer: ${what}, in 2-4 short friendly sentences, in the language of the request (never mention the language). Leave out anything about tests, checks, bots, screenshots, files, code, notes, phones or what wasn't verified. If something the player asked for couldn't be done, say so simply. Reply with the message only.`,
+      prompt: `Player's request: "${request}"\n\nMessage from the game builder:\n${reply}\n\nRewrite the message for the player, who is not a developer: ${what}, in 2-4 short friendly sentences, in the language of the request (never mention the language). Leave out anything about tests, checks, bots, screenshots, files, code, notes, or what wasn't verified (on phones or anywhere). If something the player asked for couldn't be done, say so simply. Reply with the message only.`,
       options: { ...ISOLATED, model: MODELS.haiku, effort: 'low', tools: [], maxTurns: 1, systemPrompt: 'You rewrite messages for players of a game-making app. Reply with the rewritten message only.' },
     })) {
       if (m.type === 'result') {
@@ -331,7 +361,7 @@ const [message, next] = await Promise.all([
 // the run failed.
 const record = {
   date: new Date().toISOString(), game, kind: isEdit ? 'edit' : 'new', prompt, route: modelKey === 'auto' ? `auto→${route}` : route,
-  genre, size, steps, playtest, slim, ok: final.ok, playerMessage: message.text, messageCostUsd: +message.costUsd.toFixed(4),
+  genre, size, steps, platform, playtest, slim, ok: final.ok, playerMessage: message.text, messageCostUsd: +message.costUsd.toFixed(4),
   suggestions: next.list, suggestionsCostUsd: +next.costUsd.toFixed(4),
   costUsd: +attempts.reduce((s, a) => s + a.costUsd, 0).toFixed(3),
   chargeUsd: final.ok ? +attempts.filter((a) => a.ok).reduce((s, a) => s + a.costUsd, 0).toFixed(3) : 0,

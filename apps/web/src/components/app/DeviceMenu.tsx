@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ComponentType } from "react";
 import { CaretDown, Check, CornersOut, DeviceMobile, DeviceTablet, Laptop, Monitor, type IconProps } from "@phosphor-icons/react";
+import type { Platform } from "@typeplay/shared";
 import { usePopover } from "./usePopover";
 
 // The game page's preview sizes (Luka, 10-24): the game runs at each device's own screen size in CSS pixels (drawn
@@ -41,6 +42,10 @@ export const DEVICES: { group: string; items: Device[] }[] = [
 const ALL = DEVICES.flatMap((g) => g.items);
 /** Fill the window: the stage as it was before the menu, and the default. */
 export const FILL = ALL.find((d) => !d.size)!;
+/** The device the preview opens on (Luka, 10-25): the one the game is made for; Fill the window for a game that fills
+ * every screen, or one made before the choice. */
+export const deviceFor = (platform: Platform | null): Device =>
+  ALL.find((d) => d.id === (platform === "phone" ? "iphone" : platform === "computer" ? "laptop" : "fill")) ?? FILL;
 
 /** The stage bar's device button: the current device, and the list to pick another. */
 export function DeviceMenu({ id, value, onChange }: { id: string; value: Device; onChange: (d: Device) => void }) {
@@ -88,7 +93,7 @@ export function DeviceMenu({ id, value, onChange }: { id: string; value: Device;
                       {d.size ? (
                         <small className="figures">{`${d.model ? `${d.model} · ` : ""}${d.size.w} × ${d.size.h}`}</small>
                       ) : (
-                        <small>As big as fits, as before</small>
+                        <small>As big as fits here</small>
                       )}
                     </span>
                     {d.id === value.id && <Check size={18} weight="bold" aria-hidden="true" className="devicemenu__check" />}

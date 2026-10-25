@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Effort, ModelChoice } from "@typeplay/shared";
+import type { Effort, ModelChoice, Platform } from "@typeplay/shared";
 import { EffortSwitch, effortLine, ModelRows } from "@/components/app/ModelPicker";
+import { PlatformSwitch, useDevicePlatform } from "@/components/app/PlatformSwitch";
 import { SignIn } from "@/components/app/SignIn";
 import { MAX_TEXT, useAutoGrow } from "@/components/app/useAutoGrow";
 import { useEstimates } from "@/components/app/useEstimates";
@@ -52,6 +53,10 @@ export function CreateApp() {
   const [picked, setPicked] = useState<ModelChoice | null>(null);
   const model: ModelChoice = picked && allowed.includes(picked) ? picked : allowed.includes("smart") ? "smart" : "fast";
   const [effort, setEffort] = useState<Effort>("medium");
+  // The screens it is made for: the device it is made on until the player taps another (Luka, 10-25).
+  const devicePlatform = useDevicePlatform();
+  const [pickedPlatform, setPlatform] = useState<Platform | null>(null);
+  const platform = pickedPlatform ?? devicePlatform;
   const estimates = useEstimates("new", me?.plan ?? null, effort);
   const est = estimates[model];
 
@@ -107,7 +112,7 @@ export function CreateApp() {
     setError(null);
     setAsk(null);
     try {
-      const project = await api.create({ prompt, model, effort, confirm: confirm || undefined });
+      const project = await api.create({ prompt, model, effort, confirm: confirm || undefined, platform: platform ?? undefined });
       save("");
       void refreshMe();
       router.push(`/games/${project.id}`);
@@ -220,6 +225,7 @@ export function CreateApp() {
 
         {signedIn && (
           <>
+            <PlatformSwitch value={platform} onChange={setPlatform} disabled={busy} />
             <ModelRows kind="new" value={model} onChange={setPicked} allowed={allowed} estimates={estimates} disabled={busy} />
             <div className="make__effort">
               <EffortSwitch name="effort-create" value={effort} onChange={setEffort} disabled={busy} />

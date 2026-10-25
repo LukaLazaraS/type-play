@@ -13,6 +13,7 @@ const summaryOf = (p: Project): ProjectSummary => ({
   id: p.id,
   name: p.name,
   orientation: p.orientation,
+  platform: p.platform,
   buildId: p.buildId,
   status: p.status,
   createdAt: p.createdAt,

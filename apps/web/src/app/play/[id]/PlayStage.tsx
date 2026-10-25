@@ -15,6 +15,7 @@ export function PlayStage({
   buildId,
   name,
   orientation,
+  fits,
   poster,
   plays,
 }: {
@@ -22,6 +23,8 @@ export function PlayStage({
   buildId: string;
   name: string;
   orientation: Orientation;
+  /** It fills every screen: no turn-your-phone hint. */
+  fits: boolean;
   poster?: string;
   plays: number;
 }) {
@@ -52,7 +55,7 @@ export function PlayStage({
         </button>
       </header>
       <div className="play__frame" data-orientation={orientation}>
-        <GameFrame ref={frame} slug={buildId} poster={poster} name={name} orientation={orientation} mode="click" onReady={onReady} returnFocus={full} />
+        <GameFrame ref={frame} slug={buildId} poster={poster} name={name} orientation={orientation} fits={fits} mode="click" onReady={onReady} returnFocus={full} />
       </div>
       <div className="play__foot">
         <p className="play__how">Play with keys or touch. On a phone it opens full screen.</p>

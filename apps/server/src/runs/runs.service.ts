@@ -3,15 +3,15 @@ import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from "@nestjs/common";
-import type { Effort, ModelChoice } from "@typeplay/shared";
+import type { Effort, ModelChoice, Platform } from "@typeplay/shared";
 import { creditsForUsd, toTenths } from "../credits/credits.js";
 import { CreditsService, type CreditHold } from "../credits/credits.service.js";
 import { LedgerService, TX_OPTIONS } from "../credits/ledger.service.js";
 import { config } from "../env.js";
 import { EventBus } from "../events/event-bus.js";
 import { headOf, settleFolder } from "../games/git.js";
-import { readProjectGodot } from "../games/files.js";
-import { exportWeb, gameNameOf, orientationOf } from "../games/godot.js";
+import { readPlatformWord, readProjectGodot } from "../games/files.js";
+import { exportWeb, gameNameOf, orientationOf, platformOf } from "../games/godot.js";
 import { publishBuild, trimExport, unpublishBuild } from "../games/publish.js";
 import type { Message, Version } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
@@ -31,6 +31,8 @@ export interface StartRun {
   prompt: string;
   model: ModelChoice;
   effort: Effort;
+  /** A first build: the screens the player picked (null: the agent picks one shape). A change keeps the game's own. */
+  platform?: Platform | null;
   /** The credits held for this run (credits.service `assertCanRun`); released when it ends. */
   hold: CreditHold | null;
 }
@@ -155,6 +157,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       kind: run.kind,
       model: run.model,
       effort: run.effort,
+      platform: run.kind === "new" ? (run.platform ?? null) : null,
       logFile: join(config.dataDir, "logs", `${run.projectId}-${run.messageId}.log`),
       onProgress: (text: string) => {
         const e = { type: "progress" as const, messageId: run.messageId, text, at: new Date().toISOString() };
@@ -208,6 +211,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     const buildId = `${run.projectId}-v${n}`;
     const name = project.renamed ? project.name : (gameNameOf(projectGodot) ?? project.name);
     const orientation = orientationOf(projectGodot);
+    const platform = platformOf(readPlatformWord(dir), orientation);
     if (run.cancelled) throw new CancelledLate();
     // After a rolled-back step the check's pictures are of that step, not of this build: no poster.
     // The Free plan's mark goes by the owner's plan now, as the build is published (game.json `badge`).
@@ -242,7 +246,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
         if (message.plan === "free") await this.ledger.addFreeSpend(tx, aiSpentUsd(result, metered));
         // A rename while this run was going wins over the game agent's name.
         const now = await tx.project.findUniqueOrThrow({ where: { id: run.projectId }, select: { renamed: true } });
-        await tx.project.update({ where: { id: run.projectId }, data: { currentVersion: n, orientation, ...(now.renamed ? {} : { name }) } });
+        await tx.project.update({ where: { id: run.projectId }, data: { currentVersion: n, orientation, platform, ...(now.renamed ? {} : { name }) } });
         await this.ledger.chargeIn(tx, run.userId, toTenths(credits), { messageId: run.messageId, note: `${run.kind} on ${run.model}` });
         return [message, version] as const;
       }, TX_OPTIONS);

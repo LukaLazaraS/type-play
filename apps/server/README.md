@@ -75,7 +75,8 @@ in the game the player gets (`chargeUsd`: 1.7 credits charged). A prompt contain
 and an untracked `junk.txt`, which the reset must take away); `SLOW` publishes slowly (3 s), so a test
 can land a Stop after the agent has finished; `LONG` takes ~45 s instead of ~5 (the screens shown while a first
 build runs); `NOPOSTER` writes a picture that isn't a PNG, so the
-build publishes without a poster; a build that works brings nine fixed next-step ideas; with `FAKE_METER=1`, `METER:<n>` makes one Haiku call through the key proxy at the
+build publishes without a poster; `FILL` on a change makes the game fill every screen (its `PLATFORM` word and window, as
+the agent does when asked to make a game fit other screens too); a first build sets them for the request's platform; a build that works brings nine fixed next-step ideas; with `FAKE_METER=1`, `METER:<n>` makes one Haiku call through the key proxy at the
 start, whose (mock) answer reports `<n>` output tokens. Real git commits, real builds, real ledger entries.
 
 The database tests run on `typeplay_autotest` (`.env.autotest`; `test/test-db.mjs` starts this PC's Postgres if needed,
@@ -83,7 +84,7 @@ brings the database up to date and empties it first), so they can run any time, 
 nothing else may use that database (a run empties it).
 
 ```
-npm run test:e2e -w @typeplay/server          # 353 checks (2026-10-25); starts its own API on :3023 with DEV_AUTH=1 AGENT_FAKE=1 (API_URL to use yours);
+npm run test:e2e -w @typeplay/server          # 363 checks (2026-10-25); starts its own API on :3023 with DEV_AUTH=1 AGENT_FAKE=1 (API_URL to use yours);
                                               # makes and deletes its own test users; the Supabase sign-in record check runs only where
                                               # the database is a Supabase project's (the online test environment, later); starts
                                               # a second API on :3013 of its own for the run timeout and the interrupted-run recovery,
@@ -156,7 +157,7 @@ PLAN.md "Better than the competitors" #9 with #4's share pages. `src/gallery/` (
   build; 24 a page (`limit` 1-48). Popular orders by plays in the last 7 UTC days (today included), then `listedAt`, then
   id; New by `listedAt`, id. Keyset cursors (base64url JSON of the last row's keys), so paging never repeats a game while
   the order holds; Popular can move as people play (the site drops a game it already shows). A `GalleryGame` is id, name,
-  orientation, buildId, poster, plays (all time), playsWeek, genre and listedAt, nothing about the maker. The genre is the
+  orientation, platform, buildId, poster, plays (all time), playsWeek, genre and listedAt, nothing about the maker. The genre is the
   game folder's `GENRE` file (run.mjs writes it) when it names a genre skill, read as untrusted data: a plain file of at
   most 64 bytes, never a link or a pipe.
 - `POST /public/games/:id/play` (no sign-in, no body): the share page's frame said the game started. 204 for anything that
@@ -515,7 +516,8 @@ row as `admin:<ADMIN_NAME or the OS user>`. The last three commands talk to Padd
    run then **holds** its estimate's high (in memory, `CreditsService.heldBy`) until its charge or its
    failure is written, so two messages sent at once can't both spend the same credits.
 2. `node packages/agent/run.mjs --dir data/projects/<id> --model haiku|sonnet|opus --effort … --events
-   [--edit]`; its `@@event` lines become the SSE `progress` events (each line cut at 64 KB, at most
+   [--edit | --platform phone|computer|fill]` (a first build: the screens the player picked on /create, `POST /projects`
+   `platform`; left out, the agent picks one shape, portrait first); its `@@event` lines become the SSE `progress` events (each line cut at 64 KB, at most
    50 MB a run, `src/runs/lines.ts`). Full output: `data/logs/`.
 3. Success: the web export is published as `builds/<id>-v<n>/` (`src/games/publish.ts`, `publishBuild()`:
    `apps/games/builds` on this PC, R2 → typeplay.dev live; its `game.json` says `badge: true` when the owner is
@@ -532,6 +534,12 @@ row as `admin:<ADMIN_NAME or the OS user>`. The last three commands talk to Padd
    (Godot gets 3 + 4 minutes).
 4. Restore = a new commit with the old version's files and a new version reusing its build (so it keeps
    that build's Free mark, or its absence).
+5. The game's platform (2026-10-25): `Project.platform` is the player's pick at once (the preview opens on it), then
+   after every build and restore what the folder's `PLATFORM` word says (run.mjs writes it; read as untrusted data like
+   `GENRE`): `phone`, `computer` or `fill` as written, the agent's own pick (`auto`) as the shape it chose, null for a
+   game from before (no file). A change can make a game fill every screen ("make it fit here too"); a restore can take
+   it back. Views carry it (`ProjectSummary`, `PublicGame`, `GalleryGame`): the site opens the preview on it, says
+   "Made for phones." elsewhere, and never asks to turn the phone for a game that fills every screen.
 
 A server that stops mid-run marks that run failed at the next start and resets the folder. When a
 folder can't be reset (the runner restarting, a file still held), the reset is tried again after 2, 10

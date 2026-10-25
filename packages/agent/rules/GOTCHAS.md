@@ -13,15 +13,9 @@
   `get_node()`, `min()`/`max()` or an untyped function, write the type (`var h: float =
   d["h"]`) or use plain `=`.
 
-- The visible area is NOT always the viewport size in `project.godot`: the window stretches
-  to any screen shape (wide monitors, tall phones), so it can be wider or taller. Size
-  backgrounds, ground and sky from `get_viewport_rect().size` (and redraw on
-  `get_viewport().size_changed`), and anchor the HUD to the screen edges. Drawing to a fixed
-  size leaves a grey strip; the check's page is wider than 16:9 (landscape) or taller than
-  9:16 (portrait) on purpose, so look for it in the screenshots.
 - HUD labels belong in the screen corners: on a `CanvasLayer`, use anchor presets
   (`set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT / PRESET_TOP_RIGHT)`), not fixed
-  positions or vertical centring, or they drift to mid-height on wide screens.
+  positions or vertical centring, or they drift when the screen's shape changes.
 - Things that appear over time (coins, power-ups, enemies, obstacles) must know where the
   others are: spawn them from the same spawner, or relative to each other (a coin arc over a
   cactus group, a row in the gap), never on separate timers that let them overlap.

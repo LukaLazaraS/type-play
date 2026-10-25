@@ -320,6 +320,10 @@ export function GameClient() {
           onRestore={restore}
           onRetry={retry}
           onChange={setProject}
+          onAsk={(text) => {
+            setPrefill((p) => ({ text, n: (p?.n ?? 0) + 1 }));
+            show("chat"); // on a phone the box is on the Chat tab
+          }}
           android={!!me?.features?.android}
         />
       </div>
