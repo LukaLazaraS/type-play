@@ -175,6 +175,9 @@ export const refunds: LegalDoc = {
       paragraphs: [
         `Within ${site.refundDays} days of any payment (a new plan, a monthly renewal or a credit pack) you can ask for a refund, for any reason. We refund the part of that payment you have not used: the full amount if none of its credits were spent, otherwise the price multiplied by the share of its credits still unused. Credits already spent are not refunded, because the AI work has been done.`,
         `For example: the ${example.name} plan is $${example.price} for ${example.credits} credits. With ${exampleUsed} credits used, the refund is $${exampleRefund} for the other ${example.credits - exampleUsed}.`,
+        // Luka, 2026-10-25/26: a refund means they don't want the plan any more (the API cancels the subscription at
+        // Paddle: apps/server/README.md "Billing").
+        "A refund of a plan payment also cancels the subscription, so nothing renews.",
       ],
     },
     {

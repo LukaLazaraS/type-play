@@ -103,8 +103,8 @@ export class BillingService implements OnModuleInit, OnApplicationShutdown {
     this.timer = setInterval(() => {
       void this.refundLookups()
         .catch((e) => this.log.error(`refund lookups: ${e}`))
-        .then(() => this.refundCancels())
-        .catch((e) => this.log.error(`refund cancels: ${e}`));
+        .then(() => this.adjustmentCancels())
+        .catch((e) => this.log.error(`adjustment cancels: ${e}`));
     }, LOOKUP_MS);
     this.timer.unref();
   }
@@ -529,7 +529,7 @@ export class BillingService implements OnModuleInit, OnApplicationShutdown {
   private async applyAdjustment(refund: Refund, adj: PaddleAdjustment, actor: string) {
     const result = await this.handlers.adjustment(adj, new Date(adj.updated_at ?? adj.created_at ?? Date.now()), { eventId: `adj:${adj.id}`, actor });
     await this.prisma.refund.updateMany({ where: { id: refund.id, adjustmentId: null, status: { in: ["requested", "lookup"] } }, data: { status: "pending", adjustmentId: adj.id } });
-    const cancels = await this.refundCancels(refund.userId, actor);
+    const cancels = await this.adjustmentCancels(refund.userId, actor);
     return cancels.length ? { ...result, note: `${result.note}; ${cancels.join("; ")}` } : result;
   }
 
@@ -562,11 +562,13 @@ export class BillingService implements OnModuleInit, OnApplicationShutdown {
   }
 
   /**
-   * The subscriptions approved refunds cancel (the adjustment handler marks them under the user's lock; Paddle is
-   * called here, outside it): right after our own refund's answer, after `admin sync`, and every 5 minutes until
-   * Paddle takes each one. A subscription Paddle has cancelled already counts as done. Returns what happened, in words.
+   * The subscriptions approved refunds and chargebacks cancel (the adjustment handler marks them under the user's lock;
+   * Paddle is called here, outside it): right after our own refund's answer, after `admin sync`, and every 5 minutes
+   * until Paddle takes each one. One our rows show done already (cancelled, or a cancel scheduled for an end-of-period
+   * mark: a chargeback warning and its chargeback mark twice), or one Paddle says is cancelled, counts as done. Returns
+   * what happened, in words.
    */
-  async refundCancels(userId?: string, actor = "job:refund-cancel"): Promise<string[]> {
+  async adjustmentCancels(userId?: string, actor = "job:adjustment-cancel"): Promise<string[]> {
     const due = await this.prisma.adjustment.findMany({ where: { cancelSubscription: { not: null }, canceledAt: null, ...(userId ? { userId } : {}) }, orderBy: { occurredAt: "asc" } });
     if (!due.length) return [];
     const client = await this.paddle.require().catch(() => null);
@@ -575,21 +577,27 @@ export class BillingService implements OnModuleInit, OnApplicationShutdown {
     for (const adj of due) {
       const subscriptionId = adj.cancelSubscriptionId!;
       const when = adj.cancelSubscription === "immediately" ? "immediately" : "next_billing_period";
+      const owner = adj.userId ? await this.prisma.user.findUnique({ where: { id: adj.userId } }) : null;
+      const doneHere = !owner || owner.paddleSubscriptionId !== subscriptionId || owner.subscriptionStatus === "canceled" || (when === "next_billing_period" && !!owner.cancelsAt);
       let said: string;
-      try {
-        const sub = await client.post<PaddleSubscription>(`/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`, { effective_from: when });
-        await this.handlers.subscription(sub, changedAt(sub), { eventId: `sub:${sub.id}`, actor });
-        said = `subscription ${subscriptionId} cancelled at Paddle ${when === "immediately" ? "now" : "at the period's end"} (refund ${adj.id})`;
-      } catch (e) {
-        if (!(e instanceof PaddleError && (e.status === 404 || e.code === "subscription_already_canceled"))) {
-          this.log.warn(`refund ${adj.id}: cancelling ${subscriptionId} at Paddle failed (${(e as Error).message}); tried again in 5 minutes`);
-          out.push(`cancelling subscription ${subscriptionId} failed (${(e as Error).message}): the 5-minute job tries again`);
-          continue;
+      if (doneHere) {
+        said = `subscription ${subscriptionId} needs no cancel any more (${adj.action} ${adj.id})`;
+      } else {
+        try {
+          const sub = await client.post<PaddleSubscription>(`/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`, { effective_from: when });
+          await this.handlers.subscription(sub, changedAt(sub), { eventId: `sub:${sub.id}`, actor });
+          said = `subscription ${subscriptionId} cancelled at Paddle ${when === "immediately" ? "now" : "at the period's end"} (${adj.action} ${adj.id})`;
+        } catch (e) {
+          if (!(e instanceof PaddleError && (e.status === 404 || e.code === "subscription_already_canceled"))) {
+            this.log.warn(`${adj.action} ${adj.id}: cancelling ${subscriptionId} at Paddle failed (${(e as Error).message}); tried again in 5 minutes`);
+            out.push(`cancelling subscription ${subscriptionId} failed (${(e as Error).message}): the 5-minute job tries again`);
+            continue;
+          }
+          said = `subscription ${subscriptionId} was cancelled at Paddle already (${adj.action} ${adj.id})`;
         }
-        said = `subscription ${subscriptionId} was cancelled at Paddle already (refund ${adj.id})`;
       }
       await this.prisma.adjustment.update({ where: { id: adj.id }, data: { canceledAt: new Date() } });
-      if (adj.userId) await this.ledger.audit(this.prisma, { actor, userId: adj.userId, action: "refund_cancel", details: { adjustment: adj.id, subscription: subscriptionId, effectiveFrom: when } });
+      if (adj.userId) await this.ledger.audit(this.prisma, { actor, userId: adj.userId, action: "adjustment_cancel", details: { adjustment: adj.id, action: adj.action, subscription: subscriptionId, effectiveFrom: when, called: !doneHere } });
       this.log.log(said);
       out.push(said);
     }
@@ -621,7 +629,7 @@ export class BillingService implements OnModuleInit, OnApplicationShutdown {
         const r = await this.handlers.adjustment(a, new Date(a.updated_at ?? a.created_at ?? Date.now()), ctx(`adj:${a.id}`));
         out.adjustments.push(`${a.id} ${a.action} ${a.status}: ${r.status} (${r.note})`);
       }
-      out.adjustments.push(...(await this.refundCancels(userId, actor)));
+      out.adjustments.push(...(await this.adjustmentCancels(userId, actor)));
     }
     await this.ledger.audit(this.prisma, { actor, userId, action: "sync", details: { transactions: out.transactions.length, adjustments: out.adjustments.length, subscription: !!out.subscription } });
     return out;

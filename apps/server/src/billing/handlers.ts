@@ -8,7 +8,7 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { PACK_MONTHS, PLAN_CREDITS, PLAN_NAME, toTenths } from "../credits/credits.js";
 import { addMonths, creditsForLines, creditsToRemove, expireNote, monthLater, refundQuoteCents, type LineItem } from "../credits/ledger-math.js";
 import { LedgerService } from "../credits/ledger.service.js";
-import type { PaymentKind, Prisma, PrismaClient, SubStatus, User } from "../generated/prisma/client.js";
+import type { Payment, PaymentKind, Prisma, PrismaClient, SubStatus, User } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
 import { cents, paymentMethodName } from "./paddle.client.js";
 import { PaddleService, type PaidPlan } from "./paddle.service.js";
@@ -402,6 +402,25 @@ export class BillingHandlers {
     return { user: fresh, creditsEnded: ended / 10 };
   }
 
+  /**
+   * What a refund or a chargeback of this payment does to the user's subscription at Paddle, marked on the adjustment
+   * for BillingService.adjustmentCancels, which calls Paddle after this lock. A refund means they don't want the plan
+   * any more (Luka, 2026-10-25): a payment on the subscription cancels it; a pack's cancels nothing. A chargeback, on
+   * any payment, cancels it too (Luka, 2026-10-26): no second charge, no second dispute. Right away when the payment
+   * paid for the current period (the newest plan or renewal payment, on that subscription: nothing paid for the period
+   * is left); otherwise at the period's end, so the month paid for stays (a cancel already scheduled is enough).
+   */
+  private async markCancel(tx: Prisma.TransactionClient, a: PaddleAdjustment, pay: Payment, user: User, newestPlanPayment: string | null, chargeback: boolean) {
+    const none = { when: null, note: "" };
+    if (!user.paddleSubscriptionId || (user.subscriptionStatus !== "active" && user.subscriptionStatus !== "past_due")) return none;
+    const onIt = str((pay.raw as { subscription_id?: unknown } | null)?.subscription_id) === user.paddleSubscriptionId;
+    if (!chargeback && (pay.kind === "pack" || !onIt)) return none;
+    const when = onIt && newestPlanPayment === pay.id ? "immediately" : user.cancelsAt ? null : "next_billing_period";
+    if (!when) return none;
+    await tx.adjustment.update({ where: { id: a.id }, data: { cancelSubscription: when, cancelSubscriptionId: user.paddleSubscriptionId } });
+    return { when, note: `, subscription ${user.paddleSubscriptionId} to be cancelled at Paddle ${when === "immediately" ? "now" : "at the period's end"}` };
+  }
+
   // ---- adjustment.* -------------------------------------------------------------------------
 
   /**
@@ -463,16 +482,7 @@ export class BillingHandlers {
           // current period counts (the newest plan or renewal payment); an upgrade's or a pack's refund
           // takes its credits only.
           const newest = await tx.payment.findFirst({ where: { userId, kind: { in: ["plan", "renewal"] } }, orderBy: { paidAt: "desc" }, select: { id: true } });
-          // A refund means they don't want the plan any more (Luka, 2026-10-25): a payment on the user's
-          // subscription cancels it at Paddle, right away when it paid for the current period (nothing paid
-          // for the period is left), at the period's end for an upgrade's (the month they paid for stays).
-          // Marked here, under the lock; BillingService.refundCancels calls Paddle after it.
-          const paySubscription = str((pay.raw as { subscription_id?: unknown } | null)?.subscription_id);
-          let cancel: "immediately" | "next_billing_period" | null = null;
-          if (pay.kind !== "pack" && paySubscription && paySubscription === user.paddleSubscriptionId && (user.subscriptionStatus === "active" || user.subscriptionStatus === "past_due")) {
-            cancel = newest?.id === pay.id ? "immediately" : user.cancelsAt ? null : "next_billing_period";
-          }
-          if (cancel) await tx.adjustment.update({ where: { id: a.id }, data: { cancelSubscription: cancel, cancelSubscriptionId: paySubscription } });
+          const cancel = await this.markCancel(tx, a, pay, user, newest?.id ?? null, false);
           let planEnded = false;
           if (whole && (pay.kind === "plan" || pay.kind === "renewal") && user.plan !== "free") {
             if (newest?.id === pay.id) {
@@ -482,10 +492,9 @@ export class BillingHandlers {
               this.log.warn(`refund ${a.id}: ${user.email}'s ${user.plan} month was refunded in full, the plan ended`);
             }
           }
-          await audit("refund_approved", { ours: !!ours, subtotalCents: totals.subtotalCents, creditsRemoved: removed / 10, flag, planEnded, cancel });
+          await audit("refund_approved", { ours: !!ours, subtotalCents: totals.subtotalCents, creditsRemoved: removed / 10, flag, planEnded, cancel: cancel.when });
           return processed(
-            `refund approved: $${(totals.subtotalCents / 100).toFixed(2)}, ${removed / 10} credits removed${planEnded ? ", the plan ended (paid in full no longer)" : ""}` +
-              `${cancel ? `, subscription ${paySubscription} to be cancelled at Paddle ${cancel === "immediately" ? "now" : "at the period's end"}` : ""}${flag ? ` (flag ${flag})` : ""}`,
+            `refund approved: $${(totals.subtotalCents / 100).toFixed(2)}, ${removed / 10} credits removed${planEnded ? ", the plan ended (paid in full no longer)" : ""}${cancel.note}${flag ? ` (flag ${flag})` : ""}`,
             userId,
           );
         }
@@ -512,9 +521,11 @@ export class BillingHandlers {
         await tx.payment.update({ where: { id: pay.id }, data: { status: "charged_back" } });
         await tx.user.update({ where: { id: userId }, data: { billingFlag: "chargeback" } });
         if (ours && ours.status !== "approved") await tx.refund.update({ where: { id: ours.id }, data: { status: "rejected", resolvedAt: now } });
-        await audit(a.action, { creditsRemoved: removed / 10, fee: a.payout_totals?.chargeback_fee ?? null });
+        const newest = await tx.payment.findFirst({ where: { userId, kind: { in: ["plan", "renewal"] } }, orderBy: { paidAt: "desc" }, select: { id: true } });
+        const cancel = await this.markCancel(tx, a, pay, user, newest?.id ?? null, true);
+        await audit(a.action, { creditsRemoved: removed / 10, fee: a.payout_totals?.chargeback_fee ?? null, cancel: cancel.when });
         this.log.warn(`${a.action} on ${pay.id} (${user.email}): account on hold`);
-        return processed(`${a.action}: ${removed / 10} credits removed, account on hold`, userId);
+        return processed(`${a.action}: ${removed / 10} credits removed, account on hold${cancel.note}`, userId);
       }
       if (a.action === "chargeback_reverse" || a.action === "chargeback_warning_reverse") {
         await audit(a.action, {});

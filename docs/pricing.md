@@ -119,7 +119,10 @@ Google sign-in only.
 
 **Within 14 days of any payment, for any reason, we refund the credits not yet used** (price ×
 unused share of that payment's credits). After 14 days: billing mistakes and legal duties only.
-Cancel any time; the plan runs to the end of the paid period. Text: `legal.ts` `refunds`.
+Cancel any time; the plan runs to the end of the paid period. A refund of a plan payment also cancels
+the subscription, so nothing renews (Luka, 2026-10-25/26: now for the month's payment, at the period's
+end for an upgrade's, never for a pack's); a chargeback, on any payment, cancels it the same way. Text:
+`legal.ts` `refunds`.
 
 Why not "no refunds" like Lovable, Bolt, Base44 and Rosebud: they sell through Stripe as the
 seller. Paddle, our merchant of record, may refund any buyer within 14 days at its own discretion

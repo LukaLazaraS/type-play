@@ -11,8 +11,13 @@
   bugs fixed on the way), and a refund now also cancels the subscription (Luka 10-25). **Live is prepared, billing
   off:** the live catalog with its five price ids in `deploy/api/compose.yaml`, the live destination
   (`https://api.typeplay.app/webhooks/paddle`), `PADDLE_LIVE_API_KEY` and `PADDLE_LIVE_WEBHOOK_SECRET` in the root
-  `.env`; the API accepts them (started on this PC: the five prices match). Left for the switch (`docs/beta/runbook.md`
-  step 13): the live client token (HQ), the Cloudflare WAF skip rule (Luka's click), the IE (Mon 10-26).
+  `.env`; the API accepts them (started on this PC: the five prices match); the live client token is written into the
+  switch. Left for go paid (`docs/beta/runbook.md` step 13): the Cloudflare skip rule (Luka's own click, the steps are
+  there; Claude doesn't touch Cloudflare), the IE (Mon 10-26), then the switch and the `api` and `site` deploys.
+- **10-26 (Luka):** the public refund page says a refund of a plan payment also cancels the subscription, so nothing
+  renews; a chargeback cancels the subscription too, whatever the payment (no second charge, no second dispute); an
+  upgrade's refund keeps cancelling at the period's end, under the same 14-day unused-share rule (every credit used:
+  no refund). Billing stays off and nothing is deployed: the go-paid deploys ship it.
 - **10-25: beta codes are live** (Luka 10-24): testers sign in with any Google account and type six digits on the
   closed-beta page (`npm run admin:live -w @typeplay/server -- code add | list | remove`, `docs/beta/runbook.md` step 8;
   the first code, 20 uses with 50 credits each, went to Luka 10-25). Invites by address work as before.
