@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import type { GallerySort } from "@typeplay/shared";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { PillNav } from "@/components/ui/PillBar";
 import { sorts } from "@/content/gallery";
 import { galleryFirst, UNAVAILABLE } from "@/lib/public";
 import { ExploreGames, Invite, SortLabel } from "./ExploreClient";
@@ -32,13 +33,11 @@ export default async function Explore({ searchParams }: Props) {
           <p className="explore__lead">Games people made with TypePlay, each one from a typed idea. Play any of them here, free.</p>
         </div>
         {!empty && (
-          <nav className="explore__sort" aria-label="Order of the games">
-            {sorts.map((s) => (
-              <Link key={s.id} href={s.href} aria-current={s.id === sort ? "page" : undefined} prefetch={false}>
-                <SortLabel name={s.name} />
-              </Link>
-            ))}
-          </nav>
+          <PillNav
+            className="explore__sort"
+            label="Order of the games"
+            links={sorts.map((s) => ({ href: s.href, label: <SortLabel name={s.name} />, current: s.id === sort }))}
+          />
         )}
       </header>
 
@@ -46,9 +45,9 @@ export default async function Explore({ searchParams }: Props) {
         <>
           <section className="widget explore__empty" role="alert">
             <p>We can&apos;t load the games right now. Try again in a minute.</p>
-            <Link href={sort === "new" ? "/explore?sort=new" : "/explore"} className="button button--quiet" prefetch={false}>
+            <ButtonLink href={sort === "new" ? "/explore?sort=new" : "/explore"} look="quiet" prefetch={false}>
               Try again
-            </Link>
+            </ButtonLink>
           </section>
           <Invite wide />
         </>
@@ -60,9 +59,7 @@ export default async function Explore({ searchParams }: Props) {
             </h2>
             <p>Make a game, share it from its page, then switch on “Show it in the gallery”. It shows up here.</p>
           </div>
-          <Link href="/create" className="button">
-            Make a game
-          </Link>
+          <ButtonLink href="/create">Make a game</ButtonLink>
         </section>
       ) : (
         <ExploreGames key={sort} sort={sort} first={page} />

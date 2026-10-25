@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import type { Orientation } from "@/content/games";
+import { InkPill } from "@/components/ui/InkPill";
 
 /**
  * Over a full-screen game whose orientation differs from the phone's: a drawn phone turns to the
@@ -44,9 +45,7 @@ export function RotateHint({ to, onStay }: { to: Orientation; onStay: () => void
         </g>
       </svg>
       <p className="rotate__title">{wide ? "Turn your phone sideways" : "Turn your phone upright"}</p>
-      <button type="button" className="rotate__stay" onClick={onStay}>
-        {wide ? "Play upright" : "Play sideways"}
-      </button>
+      <InkPill onClick={onStay}>{wide ? "Play upright" : "Play sideways"}</InkPill>
     </div>
   );
 }

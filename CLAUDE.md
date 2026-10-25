@@ -171,6 +171,11 @@ all UI work in `apps/web/`. The game agent never loads them (`ISOLATED`, `settin
   + `audit` on the changed screens, emil-design-eng on any motion, mobile-native at phone width,
   break-ui with worst-case data, and the findings fixed, before the task is called done. Building
   with the skills loaded is not the same as reviewing with them.
+- **Every UI piece exists once, in `apps/web/src/components/ui/`** (Luka, 2026-10-24, after a fix
+  reached one copy of the share switch and not the other): pages compose the shared pieces, and a
+  missing piece or a new look of one is made there first. `npm run check` fails a copy (the lint
+  rule `typeplay/ui-only`; DESIGN.md "Components"). `apps/web/scripts/shot-compare.mjs` shows what a
+  change did to every page and popup, before and after.
 - Update Impeccable from its repo's `.claude/skills/impeccable` folder: the `skills` CLI copies
   its generic variant, whose script paths point at `.agents/`.
 

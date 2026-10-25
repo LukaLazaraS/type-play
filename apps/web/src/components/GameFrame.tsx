@@ -11,7 +11,10 @@ import {
   type Ref,
   type RefObject,
 } from "react";
-import { Play, X } from "@phosphor-icons/react";
+import { ArrowSquareOut, ArrowsOut, Play, X } from "@phosphor-icons/react";
+import { InkPill, InkPillLink } from "@/components/ui/InkPill";
+import { Pressable } from "@/components/ui/Pressable";
+import { TextButton } from "@/components/ui/TextButton";
 import { site } from "@/content/site";
 import type { Orientation } from "@/content/games";
 import { RotateHint } from "./RotateHint";
@@ -357,29 +360,28 @@ export function GameFrame({
         )}
       </div>
       {!playing && (
-        <button type="button" className="gameframe__play" onClick={play}>
+        <Pressable className="gameframe__play" onClick={play}>
           <Play size={22} weight="fill" aria-hidden="true" />
           {/* In a narrow frame (an upright game on a phone, or in the app's stage) only "Play"
               shows; the name stays for screen readers and sits in the bar above anyway. */}
           <span className="gameframe__label">
             Play<span className="gameframe__name"> {name}</span>
           </span>
-        </button>
+        </Pressable>
       )}
       {hint && <RotateHint to={orientation} onStay={() => setStay(true)} />}
       {playing && !ready && !failed && <div className="gameframe__loading">Loading the game…</div>}
       {failed && (
         <div className="gameframe__loading gameframe__failed" role="alert">
           This game couldn&apos;t load.
-          <button
-            type="button"
+          <TextButton
             onClick={() => {
               setFailed(false);
               setAttempt((a) => a + 1);
             }}
           >
             Try again
-          </button>
+          </TextButton>
         </div>
       )}
       {immersive && notice && (
@@ -388,10 +390,21 @@ export function GameFrame({
         </div>
       )}
       {immersive && (
-        <button type="button" className="gameframe__exit" aria-label="Close full screen" onClick={() => leave("control")}>
+        <Pressable className="gameframe__exit" aria-label="Close full screen" onClick={() => leave("control")}>
           <X size={20} weight="bold" aria-hidden="true" />
-        </button>
+        </Pressable>
       )}
     </div>
   );
+}
+
+/** Full screen, beside the frame and outside the game, so it never covers the game's own buttons (the launcher, the share
+ * page, the gallery's first game, the game page). Its words drop where the bar has no room. */
+export function FullScreenPill({ ref, onClick }: { ref?: Ref<HTMLButtonElement>; onClick: () => void }) {
+  return <InkPill ref={ref} icon={<ArrowsOut size={18} weight="bold" aria-hidden="true" />} label="Full screen" onClick={onClick} />;
+}
+
+/** The game alone in a new tab, on the games origin (the launcher, the game page). */
+export function NewTabPill({ slug, className }: { slug: string; className?: string }) {
+  return <InkPillLink href={playUrl(slug)} newTab icon={<ArrowSquareOut size={18} weight="bold" aria-hidden="true" />} iconAfter label="New tab" className={className} />;
 }

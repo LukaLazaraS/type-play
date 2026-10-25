@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Card, CardTitle } from "@/components/ui/Card";
+import { Segmented } from "@/components/ui/Segmented";
 import { android } from "@/content/android";
 
 type Account = "before" | "after" | "unsure";
@@ -42,14 +45,12 @@ export function PlayChecklist({ packageName }: { packageName: string }) {
   };
 
   return (
-    <section className="widget acct__card droid__play" aria-labelledby="droid-play">
+    <Card className="droid__play" aria-labelledby="droid-play">
       <div className="droid__play-head">
-        <h2 id="droid-play" className="acct__h">
-          {t.title}
-        </h2>
-        <button type="button" className="button button--quiet button--small" aria-expanded={open} aria-controls="droid-play-steps" onClick={toggle}>
+        <CardTitle id="droid-play">{t.title}</CardTitle>
+        <Button look="quiet" size="small" aria-expanded={open} aria-controls="droid-play-steps" onClick={toggle}>
           {open ? t.hide : t.show}
-        </button>
+        </Button>
       </div>
       <p className="acct__note">{t.lead}</p>
       {open && (
@@ -74,25 +75,25 @@ export function PlayChecklist({ packageName }: { packageName: string }) {
                 </ul>
               )}
               {s.account && (
-                <fieldset className="playlist__account">
-                  <legend className="field-hint">{t.account.title}</legend>
-                  <div className="switch switch--small">
-                    {t.account.options.map((o) => (
-                      <label key={o.id} className="switch__opt" data-on={account === o.id || undefined}>
-                        <input type="radio" name="play-account" value={o.id} checked={account === o.id} onChange={() => pick(o.id)} className="sr-only" />
-                        {o.label}
-                      </label>
-                    ))}
-                  </div>
+                <Segmented
+                  name="play-account"
+                  legend={t.account.title}
+                  legendLook="hint"
+                  value={account}
+                  onChange={pick}
+                  options={t.account.options.map((o) => ({ value: o.id, label: o.label }))}
+                  size="small"
+                  className="playlist__account"
+                >
                   <p className="playlist__rule" aria-live="polite">
                     {t.account[account]}
                   </p>
-                </fieldset>
+                </Segmented>
               )}
             </li>
           ))}
         </ol>
       )}
-    </section>
+    </Card>
   );
 }

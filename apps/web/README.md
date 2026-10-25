@@ -7,7 +7,7 @@ public pages (home, pricing, terms, privacy, refunds) and, from package 4 on, th
 npm install
 cp .env.example .env.local   # NEXT_PUBLIC_GAMES_ORIGIN, see below
 npm run dev                  # http://localhost:3000
-npm run check                # tsc + eslint
+npm run check                # tsc + eslint (with typeplay/ui-only, the shared-pieces rule) + that rule's tests
 npm run shots                # screenshots of every page into ../.impeccable/review (Playwright on the installed Edge)
 ```
 
@@ -20,12 +20,22 @@ Run it alongside the site in dev: `cd ../games && npm run build-demo && npm run 
 - `src/content/`: everything that is a fact, not a layout: `site.ts` (name, domains, email,
   seller, plans, platforms, games origin), `games.ts` (the test games on the home page),
   `demo.ts` (the "say what to change" steps), `legal.ts` (terms, privacy, refunds).
-- `src/components/`: the home-screen world's parts (`StatusBar`, `Dock`, `AppIcon`, `Notice`,
+- `src/components/ui/`: every UI piece, once (Luka, 10-24): `Button`, `ButtonLink`, `InkPill`, `TextButton`,
+  `IconButton`, `Chip`, `Pressable`, `TextField` / `TextArea` / `Select`, `Checkbox`, `Toggle`, `Segmented`,
+  `ChoiceRows`, `Popover`, `Menu`, `Dialog`, `Tabs` / `PillNav`, `Card`, `Panel`, `Ask`, `Strip`, `Callout`,
+  `ErrorLine`, `PageWidget`, `AppIcon`, `GameCard`, `Avatar` and the rest. Pages and the parts below compose them;
+  `eslint/ui-only.mjs` fails a raw `<button>`, `<input>`, `<dialog>`, a popover or a piece's class anywhere else
+  (DESIGN.md "Components"). A missing piece, or a new look of one, is made there first.
+- `src/components/`: the home-screen world's parts (`StatusBar`, `Dock`, `GameIcon`, `Notice`,
   `PromptForm`, `BuildingIcon`, `Launcher`, `GameFrame`, `Demo`, `LegalSheet`, `Wallpaper`,
   `Ground`, `Footer`). Client components only where there is state or motion.
-- `src/app/globals.css`: all tokens and component styles; no inline styles in TSX.
+- `src/app/globals.css`: all tokens and the public pieces' styles (the app's in `components/app/app.css`), each
+  under the name of its component; no inline styles in TSX.
 - `public/games/`: screenshots of the test games (JPEG comments carry their origin).
-- `scripts/`: dev tooling only (screenshots, posters); not shipped.
+- `scripts/`: dev tooling only (screenshots, posters); not shipped. `shot-compare.mjs` shoots every page and popup at
+  phone and desktop width on a base commit and on the working tree, with the same fixtures, and lists the pairs that
+  differ (`node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-compare.mjs --base <ref>`, from the repo root;
+  shots and the list in `.impeccable/review/compare/`).
 
 Design authorities: `../../PRODUCT.md` (product record) and `../../DESIGN.md` (the design system).
 
@@ -83,7 +93,7 @@ chat, composer, game stage, versions), `src/app/create/CreateApp.tsx`, `src/app/
   goes to **/billing** ("Plan and billing" below, since 10-20).
 - **Games**: **Manage** on /games turns the icons into rows with Rename, Download (.zip) and Delete
   (asks first). On the game page the bar has **Share** and **More** (Rename, Download the project,
-  Play in a new tab on phones, Delete game); both are popovers placed by `components/app/usePopover.ts`.
+  Play in a new tab on phones, Delete game); both are the shared `Popover` (`components/ui/Popover.tsx`).
   Game icons and the frame before Play show the build's start screen (`poster.png`) when it has one.
 - **Effort** (Low / Medium / High) under the model switch in the chat and on /create, with one honest
   line each (`content/app.ts` `efforts`); the estimate follows it. Default Medium; the Free plan gets
@@ -459,7 +469,7 @@ screenshots work.
   and made it worse (the stylesheet is ~117 KB raw): keep it linked.
 - **Measured 10-17** (local production build, Lighthouse mobile): the home HTML is ~14.0 KB gzipped,
   just under the ~14.6 KB that arrives in the first network round trip; going over cost +0.1-0.15 s
-  FCP (a full next/image srcset on the 8 icons did it, so `AppIcon` trims it). Don't drop the
+  FCP (a full next/image srcset on the 8 icons did it, so `GameIcon` trims it). Don't drop the
   Martian Mono preload: the browser fetches it at the first layout anyway, and without the preload
   FCP went from 0.78 s to 1.07 s. LCP (the headline) sits at 2.4 or 2.95 s depending on whether the
   lazy images start before the first paint; the rest of it is the ~200 KB of JS.

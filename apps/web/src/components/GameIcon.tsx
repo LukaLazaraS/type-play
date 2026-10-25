@@ -1,11 +1,11 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { useReducedMotion } from "motion/react";
 import Image, { getImageProps } from "next/image";
 import type { Game } from "@/content/games";
+import { AppIcon } from "@/components/ui/AppIcon";
+import { Pressable } from "@/components/ui/Pressable";
 import { useLauncher } from "./Launcher";
-
-const ease = [0.23, 1, 0.32, 1] as const;
 
 /**
  * The home icon's picture at the width each screen needs: `sizes` follows `--icon` in globals.css
@@ -33,28 +33,20 @@ function iconImage(src: string) {
   return { ...props, src: largest, srcSet: candidates.join(", ") };
 }
 
-/** A game as an app icon: name, then model and minutes in figures. Tap to open it. */
-export function AppIcon({ game, stat }: { game: Game; stat?: string }) {
+/** A home game as an app icon: name, then model and minutes in figures. Tap to open it; its icon zooms into the launcher. */
+export function GameIcon({ game, stat }: { game: Game; stat?: string }) {
   const { open } = useLauncher();
   const reduce = useReducedMotion();
   return (
-    <button
-      type="button"
-      className="app"
+    <AppIcon
+      // eslint-disable-next-line @next/next/no-img-element -- next/image's props, srcset trimmed
+      picture={<img {...iconImage(game.icon)} alt="" />}
+      name={game.name}
+      stat={stat ?? `${game.tier} · ${game.minutes} min`}
+      layoutId={reduce ? undefined : `game-${game.slug}`}
       onClick={(e) => open(game, e.currentTarget)}
-      aria-label={`Open ${game.name}`}
-    >
-      <motion.span
-        className="app__icon"
-        layoutId={reduce ? undefined : `game-${game.slug}`}
-        transition={{ duration: 0.32, ease }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- next/image's props, srcset trimmed */}
-        <img {...iconImage(game.icon)} alt="" />
-      </motion.span>
-      <span className="app__name">{game.name}</span>
-      <span className="app__stat">{stat ?? `${game.tier} · ${game.minutes} min`}</span>
-    </button>
+      label={`Open ${game.name}`}
+    />
   );
 }
 
@@ -62,12 +54,7 @@ export function AppIcon({ game, stat }: { game: Game; stat?: string }) {
 export function Listing({ game }: { game: Game }) {
   const { open } = useLauncher();
   return (
-    <button
-      type="button"
-      className="listing"
-      onClick={(e) => open(game, e.currentTarget)}
-      aria-label={`Open ${game.name}`}
-    >
+    <Pressable className="listing" onClick={(e) => open(game, e.currentTarget)} aria-label={`Open ${game.name}`}>
       <Image src={game.image} alt="" width={1128} height={556} sizes="(max-width: 640px) 82vw, 420px" />
       <div className="listing__body">
         <div className="listing__meta">
@@ -78,6 +65,6 @@ export function Listing({ game }: { game: Game }) {
         </div>
         <q>{game.prompt}</q>
       </div>
-    </button>
+    </Pressable>
   );
 }

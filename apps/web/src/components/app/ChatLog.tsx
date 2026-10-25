@@ -3,6 +3,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Play, Plus } from "@phosphor-icons/react";
 import type { Message, ModelChoice } from "@typeplay/shared";
+import { Chip } from "@/components/ui/Chip";
+import { Pressable } from "@/components/ui/Pressable";
+import { Pulse } from "@/components/ui/Pulse";
 import { clock, creditsWord } from "@/lib/format";
 
 const modelName: Record<ModelChoice, string> = { fast: "Fast", smart: "Smart", best: "Best" };
@@ -84,30 +87,28 @@ export function ChatLog({
           </p>
           <div className="ideas__list" role="group" aria-labelledby="ideas-label">
             {ideas.map((idea) => (
-              <button key={idea} type="button" className="idea" onClick={() => onSuggest(idea)}>
+              <Chip key={idea} onClick={() => onSuggest(idea)}>
                 {idea}
-              </button>
+              </Chip>
             ))}
             {more && (
-              <button
-                type="button"
-                className="idea idea--more"
+              <Chip
+                icon={<Plus size={15} weight="bold" aria-hidden="true" />}
                 onClick={(e) => {
                   const group = e.currentTarget.parentElement;
                   setOpened(last!.id);
                   // The button goes with the tap: the keyboard moves on to the first new idea, and the chat (not the
                   // page: on a phone that hid the top bar) scrolls to the end so the six new ones are in view.
                   requestAnimationFrame(() => {
-                    group?.querySelectorAll<HTMLElement>(".idea")[IDEAS_SHOWN]?.focus({ preventScroll: true });
+                    group?.querySelectorAll<HTMLElement>(".chip")[IDEAS_SHOWN]?.focus({ preventScroll: true });
                     const el = list.current;
                     const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
                     el?.scrollTo({ top: el.scrollHeight, behavior: still ? "auto" : "smooth" });
                   });
                 }}
               >
-                <Plus size={15} weight="bold" aria-hidden="true" />
                 More ideas
-              </button>
+              </Chip>
             )}
           </div>
         </li>
@@ -123,7 +124,7 @@ function AgentMessage({ m, live, now, current, onPlay }: { m: Message; live: str
     return (
       <li className="msg msg--agent">
         <p className="bubble bubble--agent bubble--live" role="status">
-          <span className="pulse" aria-hidden="true" />
+          <Pulse />
           <span key={live ?? ""} className="bubble__line">
             {live || "Getting started"}
           </span>
@@ -148,10 +149,10 @@ function AgentMessage({ m, live, now, current, onPlay }: { m: Message; live: str
         {cost}
       </span>
       {current && !failed && (
-        <button type="button" className="msg__play" onClick={onPlay}>
+        <Pressable className="msg__play" onClick={onPlay}>
           <Play size={14} weight="fill" aria-hidden="true" />
           Play
-        </button>
+        </Pressable>
       )}
     </li>
   );

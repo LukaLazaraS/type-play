@@ -11,10 +11,12 @@ import {
   type ReactNode,
 } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowLeft, ArrowSquareOut, ArrowsOut } from "@phosphor-icons/react";
-import type { Game } from "@/content/games";
+import { ArrowLeft } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/Button";
+import { InkPill } from "@/components/ui/InkPill";
+import { howToPlay, type Game } from "@/content/games";
 import { DRAFT_EVENT } from "./PromptForm";
-import { GameFrame, playUrl, type GameFrameHandle } from "./GameFrame";
+import { FullScreenPill, GameFrame, NewTabPill, type GameFrameHandle } from "./GameFrame";
 
 type LauncherState = {
   game: Game | null;
@@ -107,26 +109,11 @@ function LauncherOverlay() {
           transition={{ duration: 0.24, ease }}
         >
           <div className="launcher__bar">
-            <button ref={closeRef} className="launcher__close" onClick={close} type="button">
-              <ArrowLeft size={18} weight="bold" aria-hidden="true" />
-              <span className="launcher__label">Home</span>
-            </button>
+            <InkPill ref={closeRef} icon={<ArrowLeft size={18} weight="bold" aria-hidden="true" />} label="Home" onClick={close} />
             <span className="title launcher__title">{game.name}</span>
             <div className="launcher__actions">
-              {/* Outside the game, so it never covers a game's own buttons. */}
-              <button
-                ref={fullRef}
-                className="launcher__close"
-                onClick={() => frameRef.current?.fullscreen()}
-                type="button"
-              >
-                <ArrowsOut size={18} weight="bold" aria-hidden="true" />
-                <span className="launcher__label">Full screen</span>
-              </button>
-              <a className="launcher__close" href={playUrl(game.slug)} target="_blank" rel="noopener">
-                <span className="launcher__label">New tab</span>
-                <ArrowSquareOut size={18} weight="bold" aria-hidden="true" />
-              </a>
+              <FullScreenPill ref={fullRef} onClick={() => frameRef.current?.fullscreen()} />
+              <NewTabPill slug={game.slug} />
             </div>
           </div>
           <div className="launcher__stage">
@@ -156,11 +143,9 @@ function LauncherOverlay() {
                 Built on {game.tier} in {game.minutes} min
                 {game.edits ? `, then ${game.edits.length} edits by chat` : ""}
               </div>
-              <p className="launcher__how">Play with keys or touch. On a phone it opens full screen.</p>
+              <p className="launcher__how">{howToPlay}</p>
             </div>
-            <button className="button" type="button" onClick={makeOwn}>
-              Make my own
-            </button>
+            <Button onClick={makeOwn}>Make my own</Button>
           </div>
         </motion.div>
       )}

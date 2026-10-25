@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check": "tsc --noEmit && eslint",
+    "check": "tsc --noEmit && eslint && node eslint/ui-only.test.mjs",
     "shots": "node scripts/shot.mjs",
     "posters": "node scripts/posters.mjs",
     "test:links": "node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/safe-next-check.mjs"

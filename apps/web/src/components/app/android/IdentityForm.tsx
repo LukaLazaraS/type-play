@@ -3,6 +3,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AndroidLogo } from "@phosphor-icons/react";
 import type { AndroidApp, Project } from "@typeplay/shared";
+import { Ask } from "@/components/ui/Ask";
+import { Button } from "@/components/ui/Button";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { TextField } from "@/components/ui/Field";
+import { FileButton } from "@/components/ui/FileButton";
+import { TextButton } from "@/components/ui/TextButton";
 import { android, APP_NAME_MAX, defaultPackageName, packageNameProblem } from "@/content/android";
 import { posterUrl } from "@/lib/urls";
 
@@ -78,7 +84,6 @@ export function IdentityForm({
   const [icon, setIcon] = useState<Icon>(app ? { kind: "keep" } : { kind: "poster" });
   const [iconProblem, setIconProblem] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
   const handedOver = useRef(false); // the preview went to the card: it stays alive after this form
   const preview = icon.kind === "own" ? icon.preview : null;
   useEffect(
@@ -127,63 +132,47 @@ export function IdentityForm({
   return (
     <form className="ident" onSubmit={(e) => submit(e)} noValidate>
       <div className="ident__field">
-        <label htmlFor="droid-name" className="field-label">
-          {t.appName.label}
-        </label>
-        <div className="field ident__input">
-          <input
-            id="droid-name"
-            value={appName}
-            maxLength={APP_NAME_MAX}
-            autoComplete="off"
-            spellCheck={false}
-            autoFocus={!!app}
-            disabled={busy}
-            onChange={(e) => setAppName(e.target.value)}
-            aria-describedby="droid-name-hint"
-          />
-        </div>
-        <p id="droid-name-hint" className="field-hint">
-          {t.appName.hint}
-        </p>
+        <TextField
+          id="droid-name"
+          label={t.appName.label}
+          hint={t.appName.hint}
+          value={appName}
+          maxLength={APP_NAME_MAX}
+          autoComplete="off"
+          spellCheck={false}
+          autoFocus={!!app}
+          disabled={busy}
+          onChange={(e) => setAppName(e.target.value)}
+        />
       </div>
 
       <div className="ident__field">
-        <label htmlFor="droid-package" className="field-label">
-          {t.packageName.label}
-        </label>
-        <div className="field ident__input" data-readonly={!own || undefined}>
-          <input
-            id="droid-package"
-            className="ident__package"
-            value={own ? packageName : suggested}
-            readOnly={!own}
-            maxLength={80}
-            autoComplete="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            disabled={busy}
-            onChange={(e) => {
-              setPackageName(e.target.value);
-              if (packageProblem) setPackageProblem(null);
-            }}
-            onBlur={() => own && setPackageProblem(packageNameProblem(packageName.trim()))}
-            aria-invalid={packageProblem ? true : undefined}
-            aria-describedby="droid-package-hint"
-          />
-        </div>
-        {packageProblem ? (
-          <p id="droid-package-hint" className="field-hint field-hint--error" role="alert">
-            {packageProblem}
-          </p>
-        ) : (
-          <p id="droid-package-hint" className="field-hint">
-            {app?.packageLocked ? t.packageName.locked : own ? t.packageName.ownHint : t.packageName.hint} {!app?.packageLocked && t.packageName.lock}
-          </p>
-        )}
-        <button
-          type="button"
-          className="link bill__linkbutton ident__link"
+        <TextField
+          id="droid-package"
+          label={t.packageName.label}
+          dim={!own}
+          className="ident__package"
+          value={own ? packageName : suggested}
+          readOnly={!own}
+          maxLength={80}
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          disabled={busy}
+          onChange={(e) => {
+            setPackageName(e.target.value);
+            if (packageProblem) setPackageProblem(null);
+          }}
+          onBlur={() => own && setPackageProblem(packageNameProblem(packageName.trim()))}
+          error={packageProblem}
+          hint={
+            <>
+              {app?.packageLocked ? t.packageName.locked : own ? t.packageName.ownHint : t.packageName.hint} {!app?.packageLocked && t.packageName.lock}
+            </>
+          }
+        />
+        <TextButton
+          look="standalone"
           disabled={busy}
           onClick={() => {
             setPackageProblem(null);
@@ -192,7 +181,7 @@ export function IdentityForm({
           }}
         >
           {own ? t.packageName.suggested : t.packageName.own}
-        </button>
+        </TextButton>
       </div>
 
       <div className="ident__field">
@@ -216,64 +205,45 @@ export function IdentityForm({
               {shows === "own" ? t.icon.own : shows === "poster" ? t.icon.poster : t.icon.placeholder} {t.icon.rules}
             </p>
             <div className="ident__icon-actions">
-              {/* The visible button opens the picker; the input itself stays out of the tab order (it has no visible focus). */}
-              <input
-                ref={fileInput}
-                type="file"
-                accept="image/png,.png"
-                className="sr-only"
-                tabIndex={-1}
-                disabled={busy}
-                aria-hidden="true"
-                onChange={(e) => {
-                  void pick(e.target.files?.[0]);
-                  e.target.value = "";
-                }}
-              />
-              <button type="button" className="button button--quiet button--small" disabled={busy} onClick={() => fileInput.current?.click()}>
+              <FileButton accept="image/png,.png" disabled={busy} onFile={(file) => void pick(file)}>
                 {shows === "own" ? t.icon.replace : t.icon.upload}
-              </button>
+              </FileButton>
               {shows === "own" && (
-                <button type="button" className="link bill__linkbutton ident__link" disabled={busy} onClick={() => setIcon({ kind: "poster" })}>
+                <TextButton look="standalone" disabled={busy} onClick={() => setIcon({ kind: "poster" })}>
                   {t.icon.usePoster}
-                </button>
+                </TextButton>
               )}
             </div>
-            {iconProblem && (
-              <p className="field-hint field-hint--error" role="alert">
-                {iconProblem}
-              </p>
-            )}
+            {iconProblem && <ErrorLine>{iconProblem}</ErrorLine>}
           </div>
         </div>
       </div>
 
       {asking && (
-        <div className="ask ident__ask" role="alert">
-          <p>{t.packageName.ask}</p>
-          <div className="ask__actions">
-            <button type="button" className="button button--ink button--small" disabled={busy} autoFocus onClick={() => submit(undefined, true)}>
-              {t.packageName.confirm}
-            </button>
-            <button type="button" className="button button--quiet button--small" disabled={busy} onClick={() => setAsking(false)}>
-              {t.cancel}
-            </button>
-          </div>
-        </div>
+        <Ask
+          className="ident__ask"
+          text={t.packageName.ask}
+          actions={
+            <>
+              <Button look="ink" size="small" disabled={busy} autoFocus onClick={() => submit(undefined, true)}>
+                {t.packageName.confirm}
+              </Button>
+              <Button look="quiet" size="small" disabled={busy} onClick={() => setAsking(false)}>
+                {t.cancel}
+              </Button>
+            </>
+          }
+        />
       )}
-      {error && (
-        <p className="composer__error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorLine>{error}</ErrorLine>}
       <div className="acct__buttons">
-        <button type="submit" className="button" disabled={busy}>
-          {busy ? busyLabel : submitLabel}
-        </button>
+        <Button type="submit" busy={busy} busyLabel={busyLabel}>
+          {submitLabel}
+        </Button>
         {onCancel && (
-          <button type="button" className="button button--quiet" disabled={busy} onClick={onCancel}>
+          <Button look="quiet" disabled={busy} onClick={onCancel}>
             {t.cancel}
-          </button>
+          </Button>
         )}
       </div>
     </form>

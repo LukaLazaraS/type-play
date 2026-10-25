@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { Devices, DeviceMobile, Laptop, type Icon } from "@phosphor-icons/react";
 import type { Platform } from "@typeplay/shared";
+import { Segmented } from "@/components/ui/Segmented";
 import { platforms } from "@/content/app";
 
 const icons: Record<Platform, Icon> = { phone: DeviceMobile, computer: Laptop, fill: Devices };
@@ -34,28 +35,20 @@ export function useDevicePlatform(): Platform | null {
 export function PlatformSwitch({ value, onChange, disabled }: { value: Platform | null; onChange: (p: Platform) => void; disabled?: boolean }) {
   const line = platforms.find((p) => p.id === value)?.line;
   return (
-    <fieldset className="made" disabled={disabled}>
-      <legend className="field-label">Made for</legend>
-      <div className="switch made__switch">
-        {platforms.map((p) => {
-          const Glyph = icons[p.id];
-          return (
-            <label key={p.id} className="switch__opt" data-on={value === p.id || undefined}>
-              <input
-                type="radio"
-                name="platform"
-                value={p.id}
-                checked={value === p.id}
-                onChange={() => onChange(p.id)}
-                aria-describedby={`made-${p.id}`}
-                className="sr-only"
-              />
-              <Glyph size={16} weight="bold" aria-hidden="true" />
-              {p.name}
-            </label>
-          );
-        })}
-      </div>
+    <Segmented
+      name="platform"
+      legend="Made for"
+      legendLook="label"
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      className="made"
+      trackClassName="made__switch"
+      options={platforms.map((p) => {
+        const Glyph = icons[p.id];
+        return { value: p.id, label: p.name, icon: <Glyph size={16} weight="bold" aria-hidden="true" />, describedBy: `made-${p.id}` };
+      })}
+    >
       {/* Outside the labels, so a line describes its option instead of joining its name. */}
       {platforms.map((p) => (
         <span key={p.id} id={`made-${p.id}`} className="sr-only">
@@ -65,6 +58,6 @@ export function PlatformSwitch({ value, onChange, disabled }: { value: Platform 
       <p className="field-hint" aria-hidden="true">
         {line ?? " "}
       </p>
-    </fieldset>
+    </Segmented>
   );
 }

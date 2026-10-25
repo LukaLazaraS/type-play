@@ -1,11 +1,19 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import Link from "next/link";
 import type { Me, PlanId } from "@typeplay/shared";
-import { Avatar, planName } from "@/components/app/AccountSlot";
+import { planName } from "@/components/app/AccountSlot";
 import { SignIn } from "@/components/app/SignIn";
 import { UsageList } from "@/components/app/UsageList";
+import { Avatar } from "@/components/ui/Avatar";
+import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { Callout } from "@/components/ui/Callout";
+import { Card, CardTitle } from "@/components/ui/Card";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { TextField } from "@/components/ui/Field";
+import { PageWidget } from "@/components/ui/PageWidget";
+import { TextLink } from "@/components/ui/TextLink";
 import { plans, site } from "@/content/site";
 import { api, saveFile } from "@/lib/api";
 import { credits, creditsWord, dayOf, whenParts } from "@/lib/format";
@@ -46,23 +54,22 @@ export function AccountClient() {
 
   if (closed) {
     return (
-      <main className="widget make" data-app>
-        <h1 className="title make__title">Your account is deleted.</h1>
-        <p className="make__lead">Your games, their share pages, your messages and your credit history are gone from TypePlay. Thanks for playing.</p>
-        <Link href="/" className="button acct__home">
+      <PageWidget
+        title="Your account is deleted."
+        lead="Your games, their share pages, your messages and your credit history are gone from TypePlay. Thanks for playing."
+      >
+        <ButtonLink href="/" className="acct__home">
           Back home
-        </Link>
-      </main>
+        </ButtonLink>
+      </PageWidget>
     );
   }
   if (session.status === "loading") return <main className="acct" data-app aria-busy="true" />;
   if (session.status === "out") {
     return (
-      <main className="widget make" data-app>
-        <h1 className="title make__title">Your account.</h1>
-        <p className="make__lead">Sign in to see your plan, your credits and where they went.</p>
+      <PageWidget title="Your account." lead="Sign in to see your plan, your credits and where they went.">
         <SignIn next="/account" />
-      </main>
+      </PageWidget>
     );
   }
 
@@ -71,24 +78,21 @@ export function AccountClient() {
     <main className="acct" data-app>
       <h1 className="title mine__title acct__title">Your account.</h1>
       <div className="acct__grid">
-        <section className="widget acct__card acct__me" aria-label="Signed in as">
+        <Card className="acct__me" aria-label="Signed in as">
           <span className="acct__avatar">
-            <Avatar me={me} />
+            <Avatar src={me?.avatarUrl} name={me?.name || me?.email || "?"} />
           </span>
           <div className="acct__who">
             <b>{me?.name || "Signed in"}</b>
             {me && <span>{me.email}</span>}
             <span className="figures acct__via">{session.via === "dev" ? "Dev sign-in (this PC only)" : "Signed in with Google"}</span>
           </div>
-          <button type="button" className="button button--quiet button--small acct__out" onClick={() => void signOut()}>
+          <Button look="quiet" size="small" className="acct__out" onClick={() => void signOut()}>
             Sign out
-          </button>
-        </section>
+          </Button>
+        </Card>
 
-        <section className="widget acct__card acct__plan" aria-labelledby="acct-plan">
-          <h2 id="acct-plan" className="acct__h">
-            Plan and credits
-          </h2>
+        <Card title="Plan and credits" titleId="acct-plan" className="acct__plan">
           {me ? (
             <>
               <p className="acct__balance">
@@ -112,28 +116,26 @@ export function AccountClient() {
               {endingLine(me.credits.expiring) && <p className="acct__note">{endingLine(me.credits.expiring)}</p>}
               {me.notice && <p className="acct__note">{me.notice}</p>}
               <div className="acct__buttons">
-                <Link href="/billing" className="button button--small">
+                <ButtonLink href="/billing" size="small">
                   Plan and billing
-                </Link>
-                <Link href="/pricing" className="button button--quiet button--small">
+                </ButtonLink>
+                <ButtonLink href="/pricing" look="quiet" size="small">
                   See the plans
-                </Link>
+                </ButtonLink>
               </div>
             </>
           ) : (
             <p className="acct__note">{session.problem ?? "Checking your credits…"}</p>
           )}
-        </section>
+        </Card>
 
-        <section className="widget acct__card acct__usage" aria-labelledby="acct-usage">
+        <Card className="acct__usage" aria-labelledby="acct-usage">
           <div className="acct__usage-head">
-            <h2 id="acct-usage" className="acct__h">
-              Credit history
-            </h2>
+            <CardTitle id="acct-usage">Credit history</CardTitle>
             <p className="acct__note">Every credit added and spent. Builds that didn&apos;t work cost nothing, so they aren&apos;t here.</p>
           </div>
           <UsageList />
-        </section>
+        </Card>
 
         <DataCard />
         <CloseCard credits={me?.credits.available ?? 0} paid={!!me && me.plan !== "free"} activePlan={activePlan(me)} onClosed={() => setClosed(true)} />
@@ -157,27 +159,16 @@ function DataCard() {
     }
   };
   return (
-    <section className="widget acct__card acct__data" aria-labelledby="acct-data">
-      <h2 id="acct-data" className="acct__h">
-        Your data
-      </h2>
+    <Card title="Your data" titleId="acct-data" className="acct__data">
       <p className="acct__note">
         A file with your account, your games&apos; details and every message you sent. Each game&apos;s files (its code and art) download from the
-        game&apos;s page, or from Manage on{" "}
-        <Link href="/games" className="link">
-          Your games
-        </Link>
-        .
+        game&apos;s page, or from Manage on <TextLink href="/games">Your games</TextLink>.
       </p>
-      <button type="button" className="button button--quiet button--small" disabled={busy} onClick={() => void download()}>
-        {busy ? "Preparing…" : "Download my data"}
-      </button>
-      {error && (
-        <p className="composer__error" role="alert">
-          {error}
-        </p>
-      )}
-    </section>
+      <Button look="quiet" size="small" busy={busy} busyLabel="Preparing…" onClick={() => void download()}>
+        Download my data
+      </Button>
+      {error && <ErrorLine>{error}</ErrorLine>}
+    </Card>
   );
 }
 
@@ -204,59 +195,49 @@ function CloseCard({ credits: left, paid, activePlan, onClosed }: { credits: num
   };
 
   return (
-    <section className="widget acct__card acct__close" aria-labelledby="acct-close">
-      <h2 id="acct-close" className="acct__h">
-        Delete your account
-      </h2>
+    <Card title="Delete your account" titleId="acct-close" className="acct__close">
       <p className="acct__note">
         This deletes every game you made, their share pages, your messages and your credit history, and signs you out. It can&apos;t be undone.
       </p>
       {!asking ? (
-        <button type="button" className="button button--quiet button--small" onClick={() => setAsking(true)}>
+        <Button look="quiet" size="small" onClick={() => setAsking(true)}>
           Delete my account
-        </button>
+        </Button>
       ) : (
         <form className="acct__confirm" onSubmit={(e) => void close(e)} noValidate>
-          {activePlan && <p className="acct__warn">Your {activePlan} plan is still active: it is cancelled when the account closes.</p>}
+          {activePlan && <Callout>Your {activePlan} plan is still active: it is cancelled when the account closes.</Callout>}
           {left > 0 && (
-            <p className="acct__warn">
+            <Callout>
               Your {creditsWord(left)} go too.
               {paid && (
                 <>
                   {" "}
-                  Paid in the last {site.refundDays} days?{" "}
-                  <Link href="/refunds" className="link">
-                    Ask for a refund
-                  </Link>{" "}
-                  of the unused ones first.
+                  Paid in the last {site.refundDays} days? <TextLink href="/refunds">Ask for a refund</TextLink> of the unused ones first.
                 </>
               )}
-            </p>
+            </Callout>
           )}
-          <label htmlFor="confirm-delete" className="field-label">
-            Type DELETE to confirm
-          </label>
-          <div className="field acct__field">
-            <input
-              id="confirm-delete"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              autoComplete="off"
-              autoCapitalize="characters"
-              autoCorrect="off"
-              spellCheck={false}
-              enterKeyHint="done"
-              disabled={busy}
-              autoFocus
-            />
-          </div>
+          <TextField
+            id="confirm-delete"
+            label="Type DELETE to confirm"
+            boxClassName="acct__field"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoComplete="off"
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="done"
+            disabled={busy}
+            autoFocus
+          />
           <div className="acct__buttons">
-            <button type="submit" className="button button--ink button--small" disabled={!ready || busy}>
-              {busy ? "Deleting…" : "Delete everything"}
-            </button>
-            <button
-              type="button"
-              className="button button--quiet button--small"
+            <Button type="submit" look="ink" size="small" disabled={!ready} busy={busy} busyLabel="Deleting…">
+              Delete everything
+            </Button>
+            <Button
+              look="quiet"
+              size="small"
               disabled={busy}
               onClick={() => {
                 setAsking(false);
@@ -265,15 +246,11 @@ function CloseCard({ credits: left, paid, activePlan, onClosed }: { credits: num
               }}
             >
               Keep my account
-            </button>
+            </Button>
           </div>
-          {error && (
-            <p className="composer__error" role="alert">
-              {error}
-            </p>
-          )}
+          {error && <ErrorLine>{error}</ErrorLine>}
         </form>
       )}
-    </section>
+    </Card>
   );
 }

@@ -1,13 +1,12 @@
 import Link from "next/link";
+import { Wordmark } from "@/components/ui/Wordmark";
 import { site } from "@/content/site";
 
 export function Footer() {
   return (
     <footer className="footer">
       <div>
-        <span className="wordmark">
-          Type<b>Play</b>
-        </span>
+        <Wordmark />
         <span className="footer__line">Real games from one sentence.</span>
       </div>
       <nav aria-label="Legal">

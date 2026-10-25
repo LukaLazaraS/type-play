@@ -7,8 +7,13 @@ import { ArrowLeft } from "@phosphor-icons/react";
 import type { AndroidState, Project, RunEvent } from "@typeplay/shared";
 import { Hub } from "@/components/app/android/Hub";
 import { Setup } from "@/components/app/android/Setup";
+import { LiveStatus } from "@/components/app/LiveStatus";
 import { SignIn } from "@/components/app/SignIn";
 import { useNow } from "@/components/app/useNow";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { Callout } from "@/components/ui/Callout";
+import { Card } from "@/components/ui/Card";
+import { PageWidget } from "@/components/ui/PageWidget";
 import { android } from "@/content/android";
 import { api, ApiFailure, watchProject, type StreamState } from "@/lib/api";
 import { signOut, useSession } from "@/lib/session";
@@ -108,30 +113,22 @@ export function AndroidClient() {
   if (session.status === "loading") return <main className="droid" data-app aria-busy="true" />;
   if (session.status === "out") {
     return (
-      <main className="widget make" data-app>
-        <h1 className="title make__title">{android.title}</h1>
-        <p className="make__lead">Sign in to put your game on a phone.</p>
+      <PageWidget title={android.title} lead="Sign in to put your game on a phone.">
         <SignIn next={`/games/${id}/android`} />
-      </main>
+      </PageWidget>
     );
   }
   if (fatal && (!project || !state)) {
     return (
-      <main className="widget make" data-app>
-        <h1 className="title make__title">Can&apos;t open this page.</h1>
-        <p className="make__lead" role="alert">
-          {fatal.message}
-        </p>
-        <Link href="/games" className="button">
-          Your games
-        </Link>
-      </main>
+      <PageWidget title="Can't open this page." lead={fatal.message} leadRole="alert">
+        <ButtonLink href="/games">Your games</ButtonLink>
+      </PageWidget>
     );
   }
   if (!project || !state || !me) {
     return (
       <main className="droid" data-app aria-busy="true">
-        <p className="make__lead">Opening…</p>
+        <p className="mine__lead">Opening…</p>
       </main>
     );
   }
@@ -153,12 +150,12 @@ export function AndroidClient() {
       <main className="droid" data-app>
         {title}
         {head}
-        <section className="widget acct__card droid__panel">
+        <Card className="droid__panel">
           <p className="acct__note">{android.off}</p>
-          <Link href={back} className="button button--quiet">
+          <ButtonLink href={back} look="quiet">
             {android.noGame.action}
-          </Link>
-        </section>
+          </ButtonLink>
+        </Card>
       </main>
     );
   }
@@ -167,18 +164,16 @@ export function AndroidClient() {
       <main className="droid" data-app>
         {title}
         {head}
-        <section className="widget acct__card droid__panel" data-panel="plan">
+        <Card className="droid__panel" data-panel="plan">
           <h2 className="title droid__h2">{android.plan.title}</h2>
           <p className="acct__note">{android.plan.text}</p>
           <div className="acct__buttons">
-            <Link href={android.plan.href} className="button">
-              {android.plan.action}
-            </Link>
-            <Link href={back} className="button button--quiet">
+            <ButtonLink href={android.plan.href}>{android.plan.action}</ButtonLink>
+            <ButtonLink href={back} look="quiet">
               {android.noGame.action}
-            </Link>
+            </ButtonLink>
           </div>
-        </section>
+        </Card>
       </main>
     );
   }
@@ -187,12 +182,10 @@ export function AndroidClient() {
       <main className="droid" data-app>
         {title}
         {head}
-        <section className="widget acct__card droid__panel">
+        <Card className="droid__panel">
           <p className="acct__note">{android.noGame.text}</p>
-          <Link href={back} className="button">
-            {android.noGame.action}
-          </Link>
-        </section>
+          <ButtonLink href={back}>{android.noGame.action}</ButtonLink>
+        </Card>
       </main>
     );
   }
@@ -201,42 +194,19 @@ export function AndroidClient() {
     <main className="droid" data-app>
       {title}
       {head}
-      {fatal ? (
-        <p className="droid__offline" role="alert">
-          {fatal.code === "not_found" ? (
-            <>
-              This game was deleted.{" "}
-              <Link href="/games" className="link">
-                Your games
-              </Link>
-            </>
-          ) : (
-            <>
-              Live updates stopped.{" "}
-              <button
-                type="button"
-                className="link ws__retry"
-                onClick={() => {
-                  setFatal(null);
-                  setWatchKey((k) => k + 1);
-                }}
-              >
-                Retry
-              </button>
-            </>
-          )}
-        </p>
-      ) : (
-        stream === "retrying" && (
-          <p className="droid__offline" role="status">
-            Lost the live updates. Reconnecting…
-          </p>
-        )
-      )}
+      <LiveStatus
+        fatal={fatal}
+        stream={stream}
+        onRetry={() => {
+          setFatal(null);
+          setWatchKey((k) => k + 1);
+        }}
+        className="droid__offline"
+      />
       {notice && (
-        <p className="droid__notice" role="alert">
+        <Callout tone="sky" className="droid__notice" role="alert">
           {notice}
-        </p>
+        </Callout>
       )}
       {state.app ? (
         <Hub project={project} state={{ ...state, app: state.app }} now={now} iconPreview={iconPreview} onState={setState} />

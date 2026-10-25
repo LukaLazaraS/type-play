@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import type { Version } from "@typeplay/shared";
+import { Button } from "@/components/ui/Button";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { InkPill } from "@/components/ui/InkPill";
 import { ago } from "@/lib/format";
 
 /** Every version the game has had, newest first. Restoring brings an old one back as a new version. */
@@ -44,9 +47,7 @@ export function Versions({
           Versions
         </h2>
         {error ? (
-          <p className="versions__error" role="alert">
-            {error}
-          </p>
+          <ErrorLine tone="sky">{error}</ErrorLine>
         ) : (
           running && <p className="versions__note">You can go back once this build is done.</p>
         )}
@@ -62,12 +63,12 @@ export function Versions({
                     Play version {v.n} again? It comes back as version {next}, and nothing is lost.
                   </p>
                   <div className="version__actions">
-                    <button type="button" className="button button--small" disabled={busy} onClick={() => void restore(v.n)}>
-                      {busy ? "Restoring…" : "Restore"}
-                    </button>
-                    <button type="button" className="inkpill inkpill--small" disabled={busy} onClick={() => setAsking(null)}>
+                    <Button size="small" busy={busy} busyLabel="Restoring…" onClick={() => void restore(v.n)}>
+                      Restore
+                    </Button>
+                    <InkPill size="small" disabled={busy} onClick={() => setAsking(null)}>
                       Cancel
-                    </button>
+                    </InkPill>
                   </div>
                 </>
               ) : (
@@ -81,9 +82,9 @@ export function Versions({
                   {now ? (
                     <span className="version__now figures">Playing now</span>
                   ) : (
-                    <button
-                      type="button"
-                      className="inkpill inkpill--small version__restore"
+                    <InkPill
+                      size="small"
+                      className="version__restore"
                       disabled={running}
                       onClick={() => {
                         setError(null);
@@ -91,7 +92,7 @@ export function Versions({
                       }}
                     >
                       Restore
-                    </button>
+                    </InkPill>
                   )}
                 </>
               )}

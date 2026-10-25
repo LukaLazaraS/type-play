@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, type ComponentType } from "react";
+import { useRef, type ComponentType } from "react";
 import { CaretDown, Check, CornersOut, DeviceMobile, DeviceTablet, Laptop, Monitor, type IconProps } from "@phosphor-icons/react";
 import type { Platform } from "@typeplay/shared";
-import { usePopover } from "./usePopover";
+import { InkPill } from "@/components/ui/InkPill";
+import { MenuGroup, MenuItem } from "@/components/ui/Menu";
+import { Popover, type PopoverHandle } from "@/components/ui/Popover";
 
 // The game page's preview sizes (Luka, 10-24): the game runs at each device's own screen size in CSS pixels (drawn
 // smaller when the stage is smaller), so a maker sees how it fits there before sending it to anyone.
@@ -47,63 +49,53 @@ export const FILL = ALL.find((d) => !d.size)!;
 export const deviceFor = (platform: Platform | null): Device =>
   ALL.find((d) => d.id === (platform === "phone" ? "iphone" : platform === "computer" ? "laptop" : "fill")) ?? FILL;
 
+// Open, the keyboard goes to the chosen device (arrow-free: Tab moves on, Escape closes even if the game had the keys).
+const focusChosen = (panel: HTMLElement) => panel.querySelector<HTMLElement>('button[aria-pressed="true"]')?.focus({ preventScroll: true });
+
 /** The stage bar's device button: the current device, and the list to pick another. */
 export function DeviceMenu({ id, value, onChange }: { id: string; value: Device; onChange: (d: Device) => void }) {
-  const trigger = useRef<HTMLButtonElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
-  usePopover(trigger, panel);
-  // Open, the keyboard goes to the chosen device (arrow-free: Tab moves on, Escape closes even if the game had the keys).
-  useEffect(() => {
-    const el = panel.current;
-    if (!el) return;
-    const onToggle = (e: Event) => {
-      if ((e as ToggleEvent).newState === "open") el.querySelector<HTMLElement>('button[aria-pressed="true"]')?.focus({ preventScroll: true });
-    };
-    el.addEventListener("toggle", onToggle);
-    return () => el.removeEventListener("toggle", onToggle);
-  }, []);
+  const menu = useRef<PopoverHandle>(null);
   const menuId = `device-menu-${id}`;
   return (
-    <>
-      <button ref={trigger} type="button" className="inkpill devicepick" popoverTarget={menuId} aria-label={`Preview size: ${value.name}`} title="Preview size">
-        <value.Icon size={18} weight="bold" aria-hidden="true" />
-        <span className="inkpill__label">{value.name}</span>
-        <CaretDown size={14} weight="bold" aria-hidden="true" className="devicepick__caret" />
-      </button>
-      <div ref={panel} id={menuId} popover="auto" className="pop menu devicemenu" data-width={280}>
-        {DEVICES.map((g) => (
-          <div key={g.group} role="group" aria-labelledby={`${menuId}-${g.group}`} className="devicemenu__group">
-            <p id={`${menuId}-${g.group}`} className="devicemenu__label">
-              {g.group}
-            </p>
-            <ul className="menu__list">
-              {g.items.map((d) => (
-                <li key={d.id}>
-                  <button
-                    type="button"
-                    aria-pressed={d.id === value.id}
-                    onClick={() => {
-                      onChange(d);
-                      panel.current?.hidePopover();
-                    }}
-                  >
-                    <d.Icon size={18} weight="bold" aria-hidden="true" />
-                    <span>
-                      {d.name}
-                      {d.size ? (
-                        <small className="figures">{`${d.model ? `${d.model} · ` : ""}${d.size.w} × ${d.size.h}`}</small>
-                      ) : (
-                        <small>As big as fits here</small>
-                      )}
-                    </span>
-                    {d.id === value.id && <Check size={18} weight="bold" aria-hidden="true" className="devicemenu__check" />}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </>
+    <Popover
+      id={menuId}
+      ref={menu}
+      menu
+      width={280}
+      className="devicemenu"
+      onOpen={focusChosen}
+      trigger={(t) => (
+        <InkPill
+          {...t}
+          className="devicepick"
+          aria-label={`Preview size: ${value.name}`}
+          title="Preview size"
+          icon={<value.Icon size={18} weight="bold" aria-hidden="true" />}
+          label={value.name}
+        >
+          <CaretDown size={14} weight="bold" aria-hidden="true" className="devicepick__caret" />
+        </InkPill>
+      )}
+    >
+      {DEVICES.map((g) => (
+        <MenuGroup key={g.group} id={`${menuId}-${g.group}`} label={g.group}>
+          {g.items.map((d) => (
+            <MenuItem
+              key={d.id}
+              icon={<d.Icon size={18} weight="bold" aria-hidden="true" />}
+              label={d.name}
+              hint={d.size ? `${d.model ? `${d.model} · ` : ""}${d.size.w} × ${d.size.h}` : "As big as fits here"}
+              figures={!!d.size}
+              pressed={d.id === value.id}
+              end={d.id === value.id && <Check size={18} weight="bold" aria-hidden="true" className="devicemenu__check" />}
+              onClick={() => {
+                onChange(d);
+                menu.current?.close();
+              }}
+            />
+          ))}
+        </MenuGroup>
+      ))}
+    </Popover>
   );
 }

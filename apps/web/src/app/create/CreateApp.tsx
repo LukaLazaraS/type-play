@@ -1,15 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Effort, ModelChoice, Platform } from "@typeplay/shared";
 import { EffortSwitch, effortLine, ModelRows } from "@/components/app/ModelPicker";
 import { PlatformSwitch, useDevicePlatform } from "@/components/app/PlatformSwitch";
 import { SignIn } from "@/components/app/SignIn";
-import { MAX_TEXT, useAutoGrow } from "@/components/app/useAutoGrow";
 import { useEstimates } from "@/components/app/useEstimates";
-import { DRAFT_KEY, starters, type Starter } from "@/content/app";
+import { AppIcon } from "@/components/ui/AppIcon";
+import { Ask } from "@/components/ui/Ask";
+import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { TextArea } from "@/components/ui/Field";
+import { PageWidget } from "@/components/ui/PageWidget";
+import { DRAFT_KEY, MAX_TEXT, starters, type Starter } from "@/content/app";
 import { CLOSED_BETA_NOTE, closedBeta } from "@/content/beta";
 import { checkoutHref, planIdOf } from "@/content/billing";
 import { api, ApiFailure } from "@/lib/api";
@@ -66,7 +71,6 @@ export function CreateApp() {
     params.get("signin") === "failed" ? "Sign-in didn't finish. Please try again." : null,
   );
   const box = useRef<HTMLTextAreaElement>(null);
-  useAutoGrow(box, text, 220);
 
   // The home page hands the sentence over in the address; keep it in this browser (it survives the
   // trip to Google), then drop it from the address so a reload shows the latest edit.
@@ -143,34 +147,29 @@ export function CreateApp() {
   // Get credits is the one thing to press, instead of a send the API would refuse.
   const short = !!est && !!me && (me.credits.available < est.low || (me.credits.todayLeft !== null && me.credits.todayLeft < est.low));
 
-  if (toCheckout && signedIn) return <main className="widget make" data-app aria-busy="true" />;
+  if (toCheckout && signedIn) return <PageWidget busy />;
   return (
-    <main className="widget make" data-app>
-      <h1 className="title make__title">{signedIn ? "Make your game." : "Your game is next."}</h1>
+    <PageWidget title={signedIn ? "Make your game." : "Your game is next."}>
       <form className="make__form" onSubmit={submit} noValidate>
         <div className="make__idea">
-          <label htmlFor="idea" className="field-label">
-            Your idea
-          </label>
-          <div className="field">
-            <textarea
-              id="idea"
-              ref={box}
-              rows={2}
-              value={text}
-              maxLength={MAX_TEXT}
-              enterKeyHint="go"
-              placeholder="Make an endless runner where a little robot jumps over cactuses and it gets faster over time."
-              onChange={(e) => change(e.target.value)}
-              onKeyDown={onKey}
-              aria-describedby="idea-hint"
-            />
-          </div>
-          <p id="idea-hint" className="field-hint">
-            {long
-              ? `${text.length.toLocaleString("en-US")} of ${MAX_TEXT.toLocaleString("en-US")} letters.`
-              : "A sentence or two is enough: what kind of game, and what you do in it."}
-          </p>
+          <TextArea
+            id="idea"
+            ref={box}
+            label="Your idea"
+            hint={
+              long
+                ? `${text.length.toLocaleString("en-US")} of ${MAX_TEXT.toLocaleString("en-US")} letters.`
+                : "A sentence or two is enough: what kind of game, and what you do in it."
+            }
+            grow={220}
+            rows={2}
+            value={text}
+            maxLength={MAX_TEXT}
+            enterKeyHint="go"
+            placeholder="Make an endless runner where a little robot jumps over cactuses and it gets faster over time."
+            onChange={(e) => change(e.target.value)}
+            onKeyDown={onKey}
+          />
         </div>
 
         <div className="starters">
@@ -180,24 +179,22 @@ export function CreateApp() {
           <ul className="starters__row" aria-labelledby="starters-label">
             {starters.map((s) => (
               <li key={s.genre}>
-                <button
-                  type="button"
-                  className="app starter"
+                <AppIcon
+                  className="starter"
                   disabled={!s.ready}
                   onClick={() => fill(s)}
-                  aria-label={s.ready ? `${s.genre}: put an example idea in the box` : `${s.genre}: coming`}
-                >
-                  <span className="app__icon">
-                    {s.icon ? (
+                  label={s.ready ? `${s.genre}: put an example idea in the box` : `${s.genre}: coming`}
+                  picture={
+                    s.icon ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={s.icon} alt="" width={240} height={240} loading="lazy" />
                     ) : (
                       <TowerArt />
-                    )}
-                  </span>
-                  <span className="app__name">{s.genre}</span>
-                  <span className="app__stat">{s.ready ? "an idea" : "coming"}</span>
-                </button>
+                    )
+                  }
+                  name={s.genre}
+                  stat={s.ready ? "an idea" : "coming"}
+                />
               </li>
             ))}
           </ul>
@@ -207,11 +204,7 @@ export function CreateApp() {
 
         {session.status === "out" && (
           <div className="make__signin">
-            {error && (
-              <p className="field-hint field-hint--error" role="alert">
-                {error}
-              </p>
-            )}
+            {error && <ErrorLine>{error}</ErrorLine>}
             <SignIn next={toCheckout ?? "/create"} note={
                 toCheckout
                   ? "Sign in first; the checkout opens right after."
@@ -232,17 +225,19 @@ export function CreateApp() {
               <p className="field-hint">{effortLine(effort)}</p>
             </div>
             {ask && (
-              <div className="ask" role="alert">
-                <p>{ask}</p>
-                <div className="ask__actions">
-                  <button type="button" className="button button--small" onClick={() => void build(true)}>
-                    Build it
-                  </button>
-                  <button type="button" className="button button--quiet button--small" onClick={() => setAsk(null)}>
-                    Not now
-                  </button>
-                </div>
-              </div>
+              <Ask
+                text={ask}
+                actions={
+                  <>
+                    <Button size="small" onClick={() => void build(true)}>
+                      Build it
+                    </Button>
+                    <Button look="quiet" size="small" onClick={() => setAsk(null)}>
+                      Not now
+                    </Button>
+                  </>
+                }
+              />
             )}
             <div className="make__go">
               <p className="make__balance">
@@ -266,25 +261,17 @@ export function CreateApp() {
               </p>
               <div className="make__send">
                 {est && <span className="figures">about {creditsWord(est.typical)}</span>}
-                <button className="button" type="submit" disabled={busy || short}>
-                  {busy ? "Starting…" : "Build my game"}
-                </button>
-                {short && (
-                  <Link href="/billing?change=1" className="button">
-                    Get credits
-                  </Link>
-                )}
+                <Button type="submit" disabled={short} busy={busy} busyLabel="Starting…">
+                  Build my game
+                </Button>
+                {short && <ButtonLink href="/billing?change=1">Get credits</ButtonLink>}
               </div>
             </div>
-            {error && (
-              <p className="field-hint field-hint--error" role="alert">
-                {error}
-              </p>
-            )}
+            {error && <ErrorLine>{error}</ErrorLine>}
           </>
         )}
       </form>
-    </main>
+    </PageWidget>
   );
 }
 

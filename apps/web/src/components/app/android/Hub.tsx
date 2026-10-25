@@ -3,6 +3,12 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { AndroidLogo } from "@phosphor-icons/react";
 import type { AndroidBuild, AndroidFormat, AndroidState, Project } from "@typeplay/shared";
+import { Button } from "@/components/ui/Button";
+import { Card, CardTitle } from "@/components/ui/Card";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { Select } from "@/components/ui/Field";
+import { Panel } from "@/components/ui/Panel";
+import { Pulse } from "@/components/ui/Pulse";
 import { android } from "@/content/android";
 import { api } from "@/lib/api";
 import { ago, clock } from "@/lib/format";
@@ -92,65 +98,56 @@ function BuildCard({
   const since = active?.startedAt ?? active?.queuedAt;
   const stateWord = active ? (active.status === "queued" ? t.queued : active.status === "running" ? t.running : t.signing) + (active.status === "queued" && active.queue && active.queue.position > 0 ? `: ${t.ahead(active.queue.position)}` : "") : "";
   return (
-    <section className="widget acct__card droid__build" aria-labelledby="droid-build">
+    <Card className="droid__build" aria-labelledby="droid-build">
       {/* Focused after setup, so the keyboard lands on the first thing to do. */}
-      <h2 id="droid-build" className="acct__h" tabIndex={-1}>
+      <CardTitle id="droid-build" tabIndex={-1}>
         {t.title}
-      </h2>
+      </CardTitle>
       <div className="ident__field droid__version">
-        <label htmlFor="droid-version" className="field-label">
-          {t.version}
-        </label>
-        <div className="field ident__input">
-          <select id="droid-version" value={version} disabled={locked || busy !== null} onChange={(e) => setPicked(Number(e.target.value))}>
-            {versions.map((v) => (
-              <option key={v.n} value={v.n}>
-                Version {v.n}
-                {v.n === project.currentVersion ? ` (${t.current})` : ` · ${ago(v.createdAt, now)}`}
-              </option>
-            ))}
-          </select>
-        </div>
+        <Select id="droid-version" label={t.version} value={version} disabled={locked || busy !== null} onChange={(e) => setPicked(Number(e.target.value))}>
+          {versions.map((v) => (
+            <option key={v.n} value={v.n}>
+              Version {v.n}
+              {v.n === project.currentVersion ? ` (${t.current})` : ` · ${ago(v.createdAt, now)}`}
+            </option>
+          ))}
+        </Select>
       </div>
       <div className="droid__actions">
         <div className="droid__action">
-          <button type="button" className="button" disabled={locked || busy !== null} onClick={() => void start("apk")}>
-            {busy === "apk" ? "Starting…" : t.apk.action}
-          </button>
+          <Button disabled={locked || (busy !== null && busy !== "apk")} busy={busy === "apk"} busyLabel="Starting…" onClick={() => void start("apk")}>
+            {t.apk.action}
+          </Button>
           <span className="figures">{t.apk.time}</span>
         </div>
         <div className="droid__action">
-          <button type="button" className="button button--quiet" disabled={locked || busy !== null} onClick={() => void start("aab")}>
-            {busy === "aab" ? "Starting…" : t.aab.action}
-          </button>
+          <Button look="quiet" disabled={locked || (busy !== null && busy !== "aab")} busy={busy === "aab"} busyLabel="Starting…" onClick={() => void start("aab")}>
+            {t.aab.action}
+          </Button>
           <span className="figures">{t.aab.time}</span>
         </div>
       </div>
       {active ? (
-        <div className="droid__live" data-status={active.status}>
+        <Panel className="droid__live" data-status={active.status}>
           <p className="droid__live-line">
-            <span className="pulse" aria-hidden="true" />
+            <Pulse />
             {/* Only the state word is announced; the clock beside it changes every second. */}
             <b role="status">{stateWord}</b>
             {since && <span className="figures">{clock(since, tick)}</span>}
             <span className="figures">{active.format === "apk" ? t.apk.time : t.aab.time}</span>
           </p>
           <p className="field-hint">{t.leave}</p>
-          <button type="button" className="button button--quiet button--small" disabled={busy === "stop"} onClick={() => void stop()}>
-            {busy === "stop" ? t.stopping : t.stop}
-          </button>
-        </div>
+          <Button look="quiet" size="small" busy={busy === "stop"} busyLabel={t.stopping} onClick={() => void stop()}>
+            {t.stop}
+          </Button>
+        </Panel>
       ) : gameBuilding ? (
         <p className="field-hint">The game is being built right now; the Android build can start when it&apos;s done.</p>
       ) : (
         noneToday && <p className="field-hint">{noneToday}</p>
       )}
-      {error && (
-        <p className="composer__error" role="alert">
-          {error}
-        </p>
-      )}
-    </section>
+      {error && <ErrorLine>{error}</ErrorLine>}
+    </Card>
   );
 }
 
@@ -195,10 +192,7 @@ function IdentityCard({ project, state, iconPreview: initialPreview, onState }: 
 
   const icon: "own" | "poster" | "placeholder" = app.hasIcon ? "own" : project.poster ? "poster" : "placeholder";
   return (
-    <section className="widget acct__card droid__app" aria-labelledby="droid-app">
-      <h2 id="droid-app" className="acct__h">
-        {t.title}
-      </h2>
+    <Card title={t.title} titleId="droid-app" className="droid__app">
       {editing ? (
         <IdentityForm project={project} app={app} iconPreview={shown} busy={busy} error={error} submitLabel={t.save} busyLabel={t.busy} onSubmit={(v) => void save(v)} onCancel={() => setEditing(false)} />
       ) : (
@@ -232,11 +226,11 @@ function IdentityCard({ project, state, iconPreview: initialPreview, onState }: 
               </dd>
             </div>
           </dl>
-          <button ref={change} type="button" className="button button--quiet button--small" onClick={() => setEditing(true)}>
+          <Button ref={change} look="quiet" size="small" onClick={() => setEditing(true)}>
             {t.edit}
-          </button>
+          </Button>
         </>
       )}
-    </section>
+    </Card>
   );
 }

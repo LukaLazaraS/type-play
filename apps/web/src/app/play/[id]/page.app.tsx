@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { MakeYourOwn } from "@/components/app/MakeYourOwn";
 import { site } from "@/content/site";
 import { publicGame, UNAVAILABLE } from "@/lib/public";
 import { posterUrl } from "@/lib/urls";
@@ -61,25 +61,7 @@ export default async function Play({ params }: Props) {
         poster={game.poster ? posterUrl(game.buildId) : undefined}
         plays={game.plays ?? 0}
       />
-      <section className="widget play__made" aria-labelledby="play-made">
-        <h2 id="play-made" className="title play__made-title">
-          Make your own game.
-        </h2>
-        <p className="play__made-text">
-          Type an idea in a sentence. TypePlay builds a real game you can play in a few minutes, and you change it by chatting.
-        </p>
-        <div className="play__cta">
-          <Link href="/create" className="button">
-            Make your own
-          </Link>
-          <Link href="/#how" className="button button--quiet">
-            How it works
-          </Link>
-        </div>
-        <Link href="/explore" className="link play__more">
-          More games made with TypePlay
-        </Link>
-      </section>
+      <MakeYourOwn id="play-made" more />
     </main>
   );
 }

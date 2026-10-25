@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { ArrowCounterClockwise } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/Button";
 import { demoClosing, demoSteps, demoWork, type DemoStep } from "@/content/demo";
 import { GameFrame } from "./GameFrame";
 
@@ -109,10 +110,10 @@ export function Demo() {
         ))}
         {!started && <div className="bubble bubble--agent">Scroll here to watch a game get built.</div>}
         {done && (
-          <button type="button" className="button button--quiet demo__replay" onClick={() => void run()}>
+          <Button look="quiet" className="demo__replay" onClick={() => void run()}>
             <ArrowCounterClockwise size={18} weight="bold" aria-hidden="true" />
             Play it again
-          </button>
+          </Button>
         )}
       </div>
       <div className="demo__stage">

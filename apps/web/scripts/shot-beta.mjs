@@ -133,7 +133,7 @@ try {
   }
   const closedTitle = (page) => page.getByRole("heading", { name: "TypePlay is in a closed beta." });
   const openMenu = async (page) => {
-    await page.locator(".account__me").click();
+    await page.locator(".avatarbutton").click();
     await page.locator("#account-menu:popover-open").waitFor({ timeout: 5_000 });
     await page.waitForTimeout(220); // the 160 ms entrance
   };
@@ -306,7 +306,7 @@ try {
 
   await openFeedback(page, fromMore(page, gameId));
   const box = page.locator("dialog.feedback[open]");
-  check("More > Send feedback: the dialog, the game's tick box on", (await box.locator(".feedback__attach input").isChecked()) && (await box.locator(".feedback__attach .feedback__game").innerText()).length > 0);
+  check("More > Send feedback: the dialog, the game's tick box on", (await box.locator(".checkbox input").isChecked()) && (await box.locator(".checkbox .checkbox__note").innerText()).length > 0);
   check("Send waits for words", await box.getByRole("button", { name: "Send feedback" }).isDisabled());
   const boxHeight = await box.locator("textarea").first().evaluate((el) => el.getBoundingClientRect().height);
   check("the empty 'What happened?' box is three lines tall", boxHeight >= 88, `${Math.round(boxHeight)} px`);
@@ -320,7 +320,7 @@ try {
   await box.locator("textarea").nth(1).fill("It jumps over every box.");
   await shot(page, "feedback-typed-desktop");
   await box.getByRole("button", { name: "Send feedback" }).click();
-  await box.locator(".report__body[role=status]").waitFor({ timeout: 15_000 });
+  await box.locator(".dialog__body[role=status]").waitFor({ timeout: 15_000 });
   check("sent: the thanks, with the address we'd write to", (await box.innerText()).includes("Thanks for telling us.") && (await box.innerText()).includes(tester));
   await page.waitForTimeout(250);
   await shot(page, "feedback-thanks-desktop");
@@ -329,13 +329,13 @@ try {
   await box.getByRole("button", { name: "Close" }).click();
 
   await openFeedback(page, fromMenu(page));
-  check("account menu on the game page: the same game offered", (await box.locator(".feedback__attach .feedback__game").count()) === 1);
+  check("account menu on the game page: the same game offered", (await box.locator(".checkbox .checkbox__note").count()) === 1);
   await page.keyboard.press("Escape");
   await page.goto(`${base}/games`, { waitUntil: "domcontentloaded", timeout: 120_000 });
-  await page.locator(".account__me").waitFor({ timeout: 60_000 });
+  await page.locator(".avatarbutton").waitFor({ timeout: 60_000 });
   await page.waitForTimeout(800);
   await openFeedback(page, fromMenu(page));
-  check("account menu on /games: no game to attach", (await box.locator(".feedback__attach").count()) === 0);
+  check("account menu on /games: no game to attach", (await box.locator(".checkbox").count()) === 0);
   await shot(page, "feedback-plain-desktop");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
@@ -353,7 +353,7 @@ try {
   if (/[\ud800-\udbff]$/.test(note)) note = `${note.slice(0, -1)}x`;
   await box.locator("textarea").first().fill(note.slice(0, 3999));
   await page.waitForTimeout(200);
-  check("3,999 letters: '1 letter left'", /^1 letter left$/.test((await box.locator(".feedback__count").first().innerText()).trim()));
+  check("3,999 letters: '1 letter left'", /^1 letter left$/.test((await box.locator(".field-count").first().innerText()).trim()));
   await box.locator("textarea").first().fill(note);
   await page.waitForTimeout(200);
   check("4,000 letters: the counter says it's the most a note holds", /most one note holds/.test(await box.locator(".feedback__part .field-hint").first().innerText()));
@@ -361,14 +361,14 @@ try {
   // The day's 10: eight more through the API (one was sent above), then the dialog's own.
   for (let i = 0; i < 8; i++) await api(tester, "POST", "/feedback", { text: `Note ${i + 2}`, page: "/games" });
   await box.getByRole("button", { name: "Send feedback" }).click();
-  await box.locator(".report__body[role=status]").waitFor({ timeout: 15_000 });
+  await box.locator(".dialog__body[role=status]").waitFor({ timeout: 15_000 });
   check("the 10th note (4,000 letters) goes through", true);
   await box.getByRole("button", { name: "Close" }).click();
   await openFeedback(page, fromMore(page, gameId));
   await box.locator("textarea").first().fill("One more thing about the frog.");
   await box.getByRole("button", { name: "Send feedback" }).click();
-  await box.locator(".composer__error").waitFor({ timeout: 15_000 });
-  const limit = await box.locator(".composer__error").innerText();
+  await box.locator(".error-line").waitFor({ timeout: 15_000 });
+  const limit = await box.locator(".error-line").innerText();
   check("the 11th: the API's limit said in the dialog, the words kept", /10 notes today/.test(limit) && (await box.locator("textarea").first().inputValue()).startsWith("One more"), limit);
   check("... and Send stays off after it", await box.getByRole("button", { name: "Send feedback" }).isDisabled());
   await shot(page, "feedback-worst-limit-desktop");

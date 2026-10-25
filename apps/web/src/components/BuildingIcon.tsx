@@ -1,16 +1,22 @@
+import { AppIcon } from "@/components/ui/AppIcon";
+
 /** The empty slot: a game assembling itself from flat layers (sky, dune, sun, robot). */
 export function BuildingIcon() {
   return (
-    <a href="#prompt" className="app" aria-label="Your game: start one in the prompt box">
-      <span className="app__icon build" aria-hidden="true">
-        <BuildLayers />
-      </span>
-      <span className="app__name">Your game</span>
-      <span className="app__stat build__label">
-        <span className="build__building">building…</span>
-        <span className="build__ready">ready</span>
-      </span>
-    </a>
+    <AppIcon
+      href="#prompt"
+      label="Your game: start one in the prompt box"
+      building
+      picture={<BuildLayers />}
+      name="Your game"
+      statClassName="build__label"
+      stat={
+        <>
+          <span className="build__building">building…</span>
+          <span className="build__ready">ready</span>
+        </>
+      }
+    />
   );
 }
 

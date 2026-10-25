@@ -33,6 +33,9 @@ export const supabaseConfig = {
 /** Where the browser keeps the sentence while the visitor signs in (the home page's prompt box too). */
 export const DRAFT_KEY = "typeplay.draft";
 
+/** The longest idea or change a message holds: the API refuses longer ones (apps/server, MAX_PROMPT). */
+export const MAX_TEXT = 4000;
+
 /** The model picker: one honest line each, for a new game and for a change (docs/pricing.md). */
 export const models: { id: ModelChoice; name: string; newGame: string; edit: string }[] = [
   { id: "fast", name: "Fast", newGame: "Quick and cheap. Fine for simple games.", edit: "Quick and cheap. Good for simple changes." },

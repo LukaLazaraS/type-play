@@ -2,6 +2,10 @@
 
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { GoogleLogo } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/Button";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { TextField } from "@/components/ui/Field";
+import { Panel } from "@/components/ui/Panel";
 import { app } from "@/content/app";
 import { devSignIn, signInWithGoogle } from "@/lib/session";
 
@@ -32,13 +36,11 @@ export function SignIn({ next, note }: { next: string; note?: string }) {
 
   return (
     <div className="signin">
-      <button type="button" className="button" onClick={google} disabled={busy}>
+      <Button onClick={google} busy={busy}>
         <GoogleLogo size={20} weight="bold" aria-hidden="true" />
         {busy ? "Opening Google…" : "Sign in with Google"}
-      </button>
-      <p className="field-hint" role={error ? "alert" : undefined}>
-        {error ?? note}
-      </p>
+      </Button>
+      {error ? <ErrorLine>{error}</ErrorLine> : <p className="field-hint">{note}</p>}
       {app.devAuth && <DevSignIn />}
     </div>
   );
@@ -51,13 +53,14 @@ function DevSignIn() {
     if (email.includes("@")) devSignIn(email);
   };
   return (
-    <div className="devsignin" role="group" aria-labelledby="dev-email-label">
-      <label id="dev-email-label" htmlFor="dev-email">
-        Dev sign-in (this PC only)
-      </label>
-      <div>
-        <input
+    <Panel className="devsignin" role="group" aria-labelledby="dev-email-label">
+      <p id="dev-email-label">Dev sign-in (this PC only)</p>
+      <div className="devsignin__row">
+        <TextField
           id="dev-email"
+          tone="paper"
+          boxClassName="devsignin__box"
+          aria-labelledby="dev-email-label"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -72,10 +75,10 @@ function DevSignIn() {
           autoCorrect="off"
           enterKeyHint="go"
         />
-        <button type="button" className="button button--quiet button--small" onClick={go}>
+        <Button look="quiet" size="small" onClick={go}>
           Dev sign-in
-        </button>
+        </Button>
       </div>
-    </div>
+    </Panel>
   );
 }

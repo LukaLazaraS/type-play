@@ -183,8 +183,8 @@ try {
 
   await devSignIn(page, mainEmail);
   check("signed in: the saved sentence is kept", (await page.locator("#idea").inputValue()).includes("cat jumps"));
-  check("free plan: Smart locked", (await page.locator('.model[data-locked] input[value="smart"]').count()) === 1);
-  check("free plan: Best locked", (await page.locator('.model[data-locked] input[value="best"]').count()) === 1);
+  check("free plan: Smart locked", (await page.locator('.choice[data-locked] input[value="smart"]').count()) === 1);
+  check("free plan: Best locked", (await page.locator('.choice[data-locked] input[value="best"]').count()) === 1);
   check("free plan: Fast picked", await page.locator('input[value="fast"]').isChecked());
   const estimate = await page.locator(".make__send .figures").innerText();
   check("estimate next to Build", /about 1\.7 credits/.test(estimate), estimate);
@@ -365,7 +365,7 @@ try {
   check("manage: Keep it keeps the game", (await page.locator(".manage__row").count()) === 1);
 
   // Account menu, then the account page
-  await page.locator(".account__me").click();
+  await page.locator(".avatarbutton").click();
   await page.waitForTimeout(300);
   await shot(page, "account-menu-desktop");
   await page.keyboard.press("Escape");
@@ -437,14 +437,14 @@ try {
     await b.getByRole("link", { name: "Get Medium" }).click();
     await b.waitForURL(/\/billing\/checkout\?item=plan:medium/, { timeout: 60_000 });
     check("pricing's Get Medium: /create?plan=medium sends a signed-in user on to the checkout", true);
-    await b.locator(".consent input").waitFor({ timeout: 60_000 });
+    await b.locator(".checkbox input").waitFor({ timeout: 60_000 });
     const sum = await b.locator(".checkout__sum").innerText();
     check("checkout: the title and the sum", (await b.getByRole("heading", { level: 1 }).innerText()) === "Get Medium." && sum === "$20 a month, plus tax where it applies. Renews every month until you cancel. 100 credits a month; unused ones carry over once, up to 100.", sum);
-    check("checkout: the tick box carries wording v1", (await b.locator(".consent span").innerText()) === "Start now: I ask TypePlay to begin right away. If I withdraw within 14 days, I pay for the credits I've used. Once all credits from this purchase are used, I can no longer withdraw.");
+    check("checkout: the tick box carries wording v1", (await b.locator(".checkbox > span").innerText()) === "Start now: I ask TypePlay to begin right away. If I withdraw within 14 days, I pay for the credits I've used. Once all credits from this purchase are used, I can no longer withdraw.");
     check("checkout: the acceptance line links the terms and the refund policy", (await b.locator(".checkout__accept a").evaluateAll((as) => as.map((a) => a.getAttribute("href")).join("|"))) === "/terms|/refunds");
     const cont = b.getByRole("button", { name: "Continue to payment" });
     check("checkout: Continue waits for the tick", await cont.isDisabled());
-    await b.locator(".consent input").check();
+    await b.locator(".checkbox input").check();
     check("checkout: ticked, Continue is live", await cont.isEnabled());
     await shot(b, "checkout-plan-desktop");
     await cont.click();
@@ -471,9 +471,9 @@ try {
 
     // A closed overlay charges nothing; then the pack, confirmed by a webhook this time.
     await b.goto(`${base}/billing/checkout?item=pack&back=%2Fbilling`, { waitUntil: "domcontentloaded" });
-    await b.locator(".consent input").waitFor({ timeout: 60_000 });
+    await b.locator(".checkbox input").waitFor({ timeout: 60_000 });
     check("the pack's checkout: its sum", (await b.getByRole("heading", { level: 1 }).innerText()) === "Credit pack." && (await b.locator(".checkout__sum").innerText()) === "Add 40 credits. $10 plus tax. Good for 12 months; used after your plan credits.");
-    await b.locator(".consent input").check();
+    await b.locator(".checkbox input").check();
     paddleMode = "close";
     await b.getByRole("button", { name: "Continue to payment" }).click();
     await b.locator(".checkout__note").waitFor({ timeout: 15_000 });
@@ -633,7 +633,7 @@ try {
     await bp.waitForTimeout(400);
     await shot(bp, "billing-phone", true);
     await bp.goto(`${base}/billing/checkout?item=pack&back=%2Fbilling`, { waitUntil: "domcontentloaded" });
-    await bp.locator(".consent input").waitFor({ timeout: 60_000 });
+    await bp.locator(".checkbox input").waitFor({ timeout: 60_000 });
     await bp.waitForTimeout(300);
     await shot(bp, "checkout-phone", true);
     await bp.setViewportSize({ width: 320, height: 640 });
@@ -710,13 +710,13 @@ try {
   await p.goto(gameUrl, { waitUntil: "domcontentloaded" });
   await p.locator(".ws__tabs").waitFor({ timeout: 30_000 });
   await p.waitForTimeout(800);
-  check("phone opens on Play when there is a game", (await p.locator('.ws__tab[aria-selected="true"]').innerText()).startsWith("Play"));
+  check("phone opens on Play when there is a game", (await p.locator('.ws__tabs [role="tab"][aria-selected="true"]').innerText()).startsWith("Play"));
   await shot(p, "game-play-phone");
   await openPop(p, p.getByRole("button", { name: /^(Share this game|Shared: change sharing)$/ }), `#share-${gameId}`);
   await shot(p, "game-share-phone");
   await p.keyboard.press("Escape");
   await openPop(p, p.getByRole("button", { name: /^More: rename/ }), `#game-menu-${gameId}`);
-  check("phone: Play in a new tab moves into the menu", await p.locator(".menu__newtab").isVisible());
+  check("phone: Play in a new tab moves into the menu", await p.locator(".menu__item--phone").isVisible());
   await shot(p, "game-menu-phone");
   await p.keyboard.press("Escape");
   await p.getByRole("tab", { name: "Chat" }).click();

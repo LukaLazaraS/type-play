@@ -151,8 +151,8 @@ export async function androidPart({ browser, base, apiBase, email, check, shot, 
     await page.locator('.ident__tile img[src^="blob:"]').waitFor({ timeout: 10_000 });
     check("an uploaded 512×512 PNG shows in the tile", true);
     await page.setInputFiles('input[type="file"]', { name: "small.png", mimeType: "image/png", buffer: squarePng(300) });
-    await page.locator(".ident__icon .field-hint--error").waitFor({ timeout: 5_000 });
-    check("a 300×300 PNG is refused", /512×512/.test(await page.locator(".ident__icon .field-hint--error").innerText()));
+    await page.locator(".ident__icon .error-line").waitFor({ timeout: 5_000 });
+    check("a 300×300 PNG is refused", /512×512/.test(await page.locator(".ident__icon .error-line").innerText()));
     await page.waitForTimeout(200);
     await shot(page, "android-setup-desktop", true);
     await page.setViewportSize({ width: 390, height: 844 });

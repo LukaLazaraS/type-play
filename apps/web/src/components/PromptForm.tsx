@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/Button";
+import { TextArea } from "@/components/ui/Field";
 
 const example =
   "Make an endless runner where a little robot jumps over cactuses and it gets faster over time.";
@@ -26,13 +28,6 @@ export function PromptForm() {
     return () => window.removeEventListener(DRAFT_EVENT, onDraft);
   }, []);
 
-  useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
-  }, [text]);
-
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
     const sentence = text.trim();
@@ -53,30 +48,25 @@ export function PromptForm() {
 
   return (
     <form className="prompt" onSubmit={submit} noValidate>
-      <label htmlFor="prompt">What do you want to play?</label>
-      <div className="prompt__field">
-        <textarea
-          id="prompt"
-          ref={box}
-          name="prompt"
-          rows={1}
-          value={text}
-          placeholder={example}
-          onChange={(e) => {
-            setText(e.target.value);
-            if (error) setError(null);
-          }}
-          onKeyDown={onKey}
-          aria-describedby="prompt-hint"
-          aria-invalid={error ? true : undefined}
-        />
-        <button className="button" type="submit">
-          Make my game
-        </button>
-      </div>
-      <div id="prompt-hint" className="prompt__hint" role={error ? "alert" : undefined}>
-        {error ?? "Free to start. No code. It plays right here in the browser."}
-      </div>
+      <TextArea
+        id="prompt"
+        ref={box}
+        label="What do you want to play?"
+        boxClassName="prompt__field"
+        grow={160}
+        name="prompt"
+        rows={1}
+        value={text}
+        placeholder={example}
+        onChange={(e) => {
+          setText(e.target.value);
+          if (error) setError(null);
+        }}
+        onKeyDown={onKey}
+        hint="Free to start. No code. It plays right here in the browser."
+        error={error}
+        action={<Button type="submit">Make my game</Button>}
+      />
     </form>
   );
 }

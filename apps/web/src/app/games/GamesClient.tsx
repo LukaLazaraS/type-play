@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import type { ProjectSummary } from "@typeplay/shared";
 import { posterUrl } from "@/lib/urls";
 import { GameTile } from "@/components/app/GameTile";
 import { ManageList } from "@/components/app/ManageList";
 import { planName } from "@/components/app/AccountSlot";
 import { SignIn } from "@/components/app/SignIn";
+import { AppIcon, AppIconSlot } from "@/components/ui/AppIcon";
+import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { PageWidget } from "@/components/ui/PageWidget";
+import { TextLink } from "@/components/ui/TextLink";
 import { CLOSED_BETA_NOTE, closedBeta } from "@/content/beta";
 import { api, ApiFailure } from "@/lib/api";
 import { ago, credits, creditsWord, playsWord } from "@/lib/format";
@@ -48,11 +52,9 @@ export function GamesClient() {
 
   if (session.status === "out") {
     return (
-      <main className="widget make" data-app>
-        <h1 className="title make__title">Your games.</h1>
-        <p className="make__lead">Sign in to see the games you made and keep changing them.</p>
+      <PageWidget title="Your games." lead="Sign in to see the games you made and keep changing them.">
         <SignIn next="/games" note={closedBeta ? CLOSED_BETA_NOTE : "Free: 20 credits a month."} />
-      </main>
+      </PageWidget>
     );
   }
 
@@ -71,10 +73,7 @@ export function GamesClient() {
             {me ? (
               <>
                 <b>{creditsWord(me.credits.available)}</b> left on {planName[me.plan]}
-                {me.credits.todayLeft !== null && <>, {credits(me.credits.todayLeft)} more today</>}.{" "}
-                <Link href="/pricing" className="link">
-                  Plans
-                </Link>
+                {me.credits.todayLeft !== null && <>, {credits(me.credits.todayLeft)} more today</>}. <TextLink href="/pricing">Plans</TextLink>
               </>
             ) : (
               (session.problem ?? "Checking your credits…")
@@ -82,38 +81,30 @@ export function GamesClient() {
           </p>
         </div>
         <div className="mine__actions">
-          <Link href="/explore" className="button button--quiet" prefetch={false}>
+          <ButtonLink href="/explore" look="quiet" prefetch={false}>
             Explore games
-          </Link>
+          </ButtonLink>
           {games.length > 0 && (
-            <button type="button" className="button button--quiet" aria-pressed={editing} onClick={() => setManage(!editing)}>
+            <Button look="quiet" aria-pressed={editing} onClick={() => setManage(!editing)}>
               {editing ? "Done" : "Manage"}
-            </button>
+            </Button>
           )}
           {/* With no games yet, the empty widget's "Make a game" is the one thing to press. */}
-          {!(load.status === "ok" && games.length === 0) && (
-            <Link href="/create" className="button">
-              New game
-            </Link>
-          )}
+          {!(load.status === "ok" && games.length === 0) && <ButtonLink href="/create">New game</ButtonLink>}
         </div>
       </div>
 
       {load.status === "error" && (
         <div className="widget mine__empty">
           <p role="alert">{load.message}</p>
-          <button type="button" className="button" onClick={() => setReload((n) => n + 1)}>
-            Try again
-          </button>
+          <Button onClick={() => setReload((n) => n + 1)}>Try again</Button>
         </div>
       )}
 
       {load.status === "loading" && (
         <ul className="mine__grid" aria-hidden="true">
           {[0, 1, 2].map((i) => (
-            <li key={i} className="app mine__ghost">
-              <span className="app__icon" />
-            </li>
+            <AppIconSlot key={i} className="mine__ghost" />
           ))}
         </ul>
       )}
@@ -121,9 +112,7 @@ export function GamesClient() {
       {load.status === "ok" && games.length === 0 && (
         <div className="widget mine__empty">
           <p>No games yet. Type an idea and play it in a few minutes.</p>
-          <Link href="/create" className="button">
-            Make a game
-          </Link>
+          <ButtonLink href="/create">Make a game</ButtonLink>
         </div>
       )}
 
@@ -141,15 +130,14 @@ export function GamesClient() {
             const building = g.status === "running";
             return (
               <li key={g.id}>
-                <Link href={`/games/${g.id}`} className="app" prefetch={false}>
-                  <span className={`app__icon${building && !g.buildId ? " build" : ""}`}>
-                    <GameTile id={g.id} name={g.name} building={building && !g.buildId} poster={g.buildId && g.poster ? posterUrl(g.buildId) : null} />
-                  </span>
-                  <span className="app__name mine__name">{g.name}</span>
-                  <span className="app__stat">
-                    {building ? "building…" : !g.buildId ? "not built yet" : g.plays > 0 ? playsWord(g.plays) : ago(g.updatedAt)}
-                  </span>
-                </Link>
+                <AppIcon
+                  href={`/games/${g.id}`}
+                  building={building && !g.buildId}
+                  picture={<GameTile id={g.id} name={g.name} building={building && !g.buildId} poster={g.buildId && g.poster ? posterUrl(g.buildId) : null} />}
+                  name={g.name}
+                  nameClassName="mine__name"
+                  stat={building ? "building…" : !g.buildId ? "not built yet" : g.plays > 0 ? playsWord(g.plays) : ago(g.updatedAt)}
+                />
               </li>
             );
           })}

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { UsageEntry } from "@typeplay/shared";
+import { Button } from "@/components/ui/Button";
+import { ErrorLine } from "@/components/ui/ErrorLine";
 import { api } from "@/lib/api";
 import { credits, whenParts } from "@/lib/format";
 
@@ -94,16 +96,16 @@ export function UsageList() {
       )}
       {load.status === "error" && (
         <div className="usage__problem" role="alert">
-          <p className="composer__error">{load.message}</p>
-          <button type="button" className="button button--quiet button--small" onClick={() => void showMore()} disabled={more}>
+          <ErrorLine alert={false}>{load.message}</ErrorLine>
+          <Button look="quiet" size="small" onClick={() => void showMore()} busy={more}>
             Try again
-          </button>
+          </Button>
         </div>
       )}
       {next && load.status === "ok" && (
-        <button type="button" className="button button--quiet button--small usage__more" onClick={() => void showMore()} disabled={more}>
-          {more ? "Loading…" : "Show more"}
-        </button>
+        <Button look="quiet" size="small" className="usage__more" onClick={() => void showMore()} busy={more} busyLabel="Loading…">
+          Show more
+        </Button>
       )}
     </>
   );

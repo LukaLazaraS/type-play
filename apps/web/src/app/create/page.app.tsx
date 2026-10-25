@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { PageWidget } from "@/components/ui/PageWidget";
 import { CreateApp } from "./CreateApp";
 
 export const metadata: Metadata = { title: "Make your game", robots: { index: false } };
@@ -7,7 +8,7 @@ export const metadata: Metadata = { title: "Make your game", robots: { index: fa
 // App builds only (.app.tsx): the real front door. The public build keeps page.site.tsx.
 export default function Create() {
   return (
-    <Suspense fallback={<main className="widget make" data-app aria-busy="true" />}>
+    <Suspense fallback={<PageWidget busy />}>
       <CreateApp />
     </Suspense>
   );

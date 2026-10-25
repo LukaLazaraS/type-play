@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
-import Link from "next/link";
 import { GoogleLogo } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { Callout } from "@/components/ui/Callout";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { FieldLabel, TextField } from "@/components/ui/Field";
+import { PageWidget } from "@/components/ui/PageWidget";
+import { Panel } from "@/components/ui/Panel";
 import { DRAFT_KEY } from "@/content/app";
 import { BETA_CODE_LENGTH } from "@/content/beta";
 import { api, ApiFailure } from "@/lib/api";
@@ -31,9 +37,9 @@ function Joined({ credits }: { credits: number }) {
   const line = useRef<HTMLParagraphElement>(null);
   useEffect(() => line.current?.focus(), []);
   return (
-    <p ref={line} className="droid__notice joined" role="status" tabIndex={-1}>
+    <Callout ref={line} tone="sky" className="joined" role="status" tabIndex={-1}>
       You&apos;re in the beta.{credits > 0 ? ` We added ${credits} credits.` : ""}
-    </p>
+    </Callout>
   );
 }
 
@@ -117,63 +123,54 @@ function ClosedBeta({ email, onJoined }: { email: string | null; onJoined: (cred
   };
 
   return (
-    <main className="widget make closed" data-app>
-      <h1 className="title make__title">TypePlay is in a closed beta.</h1>
-      <p className="make__lead">
-        Right now only invited testers can make games, and they help us fix problems. It opens to everyone soon.
-      </p>
+    <PageWidget
+      className="closed"
+      title="TypePlay is in a closed beta."
+      lead="Right now only invited testers can make games, and they help us fix problems. It opens to everyone soon."
+    >
       <form className="closed__code" onSubmit={(e) => void join(e)} noValidate>
-        <label className="field-label" htmlFor="beta-code">
-          Have a beta code?
-        </label>
+        <FieldLabel htmlFor="beta-code">Have a beta code?</FieldLabel>
         <div className="closed__code-row">
-          <div className="field closed__field">
-            <input
-              ref={box}
-              id="beta-code"
-              name="code"
-              value={code}
-              onChange={(e) => {
-                setCode(e.target.value.replace(/\D+/g, "").slice(0, BETA_CODE_LENGTH));
-                if (!codeError?.sticky) setCodeError(null);
-              }}
-              // A whole code pasted over another replaces it (the filter above would keep the old one's six digits).
-              onPaste={(e) => {
-                const digits = e.clipboardData.getData("text").replace(/\D+/g, "");
-                if (digits.length < BETA_CODE_LENGTH) return;
-                e.preventDefault();
-                setCode(digits.slice(0, BETA_CODE_LENGTH));
-                if (!codeError?.sticky) setCodeError(null);
-              }}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              enterKeyHint="go"
-              placeholder={`${BETA_CODE_LENGTH} digits`}
-              aria-describedby={codeError ? "beta-code-error" : undefined}
-              aria-invalid={codeError ? true : undefined}
-              readOnly={checking}
-            />
-          </div>
-          {codeError && (
-            <p id="beta-code-error" className="field-hint field-hint--error" role="alert">
-              {codeError.text}
-            </p>
-          )}
-          <button type="submit" className="button" aria-disabled={checking || undefined}>
-            {checking ? "Checking…" : "Join the beta"}
-          </button>
+          <TextField
+            ref={box}
+            id="beta-code"
+            boxClassName="closed__field"
+            error={codeError?.text}
+            name="code"
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value.replace(/\D+/g, "").slice(0, BETA_CODE_LENGTH));
+              if (!codeError?.sticky) setCodeError(null);
+            }}
+            // A whole code pasted over another replaces it (the filter above would keep the old one's six digits).
+            onPaste={(e) => {
+              const digits = e.clipboardData.getData("text").replace(/\D+/g, "");
+              if (digits.length < BETA_CODE_LENGTH) return;
+              e.preventDefault();
+              setCode(digits.slice(0, BETA_CODE_LENGTH));
+              if (!codeError?.sticky) setCodeError(null);
+            }}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="go"
+            placeholder={`${BETA_CODE_LENGTH} digits`}
+            readOnly={checking}
+          />
+          <Button type="submit" busy={checking} busyLabel="Checking…">
+            Join the beta
+          </Button>
         </div>
       </form>
       <div className="closed__play">
         <span className="field-label">No code yet?</span>
-        <Link href="/#games" className="button button--quiet">
+        <ButtonLink href="/#games" look="quiet">
           Play the games
-        </Link>
+        </ButtonLink>
       </div>
-      <div className="closed__who">
+      <Panel className="closed__who">
         {email ? (
           <p>
             You&apos;re signed in as <b>{email}</b>
@@ -183,26 +180,22 @@ function ClosedBeta({ email, onJoined }: { email: string | null; onJoined: (cred
         )}
         <p>Invited with another address? Use that Google account.</p>
         <div className="closed__actions">
-          <button type="button" className="button button--quiet button--small" onClick={() => void another()} disabled={busy}>
+          <Button look="quiet" size="small" onClick={() => void another()} busy={busy}>
             <GoogleLogo size={18} weight="bold" aria-hidden="true" />
             {busy ? "Opening Google…" : "Use another account"}
-          </button>
-          <button type="button" className="button button--quiet button--small" onClick={() => void signOut()} disabled={busy}>
+          </Button>
+          <Button look="quiet" size="small" onClick={() => void signOut()} disabled={busy}>
             Sign out
-          </button>
+          </Button>
         </div>
-        {error && (
-          <p className="composer__error" role="alert">
-            {error}
-          </p>
-        )}
-      </div>
+        {error && <ErrorLine>{error}</ErrorLine>}
+      </Panel>
       {idea && (
         <div className="closed__idea">
           <p>Your idea stays saved in this browser:</p>
           <q title={idea.length > 200 ? idea : undefined}>{idea}</q>
         </div>
       )}
-    </main>
+    </PageWidget>
   );
 }

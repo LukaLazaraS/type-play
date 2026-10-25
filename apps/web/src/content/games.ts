@@ -22,6 +22,9 @@ export type Game = {
   edits?: string[];
 };
 
+/** Under a game's frame, wherever one is played on the site (the launcher, the share page, the gallery). */
+export const howToPlay = "Play with keys or touch. On a phone it opens full screen.";
+
 export const games: Game[] = [
   {
     slug: "robot-runner",

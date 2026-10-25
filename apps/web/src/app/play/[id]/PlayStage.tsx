@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import { ArrowsOut, Flag } from "@phosphor-icons/react";
 import type { Orientation } from "@typeplay/shared";
-import { GameFrame, type GameFrameHandle } from "@/components/GameFrame";
+import { FullScreenPill, GameFrame, type GameFrameHandle } from "@/components/GameFrame";
 import { ReportDialog, type ReportHandle } from "@/components/app/ReportDialog";
+import { ReportGameButton } from "@/components/app/ReportGameButton";
+import { howToPlay } from "@/content/games";
 import { playsWord } from "@/lib/format";
 import { countPlay } from "@/lib/gallery";
 
@@ -48,21 +49,14 @@ export function PlayStage({
             Made with TypePlay{plays > 0 && <> · {playsWord(plays)}</>}
           </p>
         </div>
-        {/* Outside the game, so it never covers the game's own buttons. */}
-        <button ref={full} type="button" className="launcher__close" onClick={() => frame.current?.fullscreen()}>
-          <ArrowsOut size={18} weight="bold" aria-hidden="true" />
-          <span className="launcher__label">Full screen</span>
-        </button>
+        <FullScreenPill ref={full} onClick={() => frame.current?.fullscreen()} />
       </header>
       <div className="play__frame" data-orientation={orientation}>
         <GameFrame ref={frame} slug={buildId} poster={poster} name={name} orientation={orientation} fits={fits} mode="click" onReady={onReady} returnFocus={full} />
       </div>
       <div className="play__foot">
-        <p className="play__how">Play with keys or touch. On a phone it opens full screen.</p>
-        <button type="button" className="play__report" onClick={() => report.current?.open({ id, name })}>
-          <Flag size={16} weight="bold" aria-hidden="true" />
-          Report this game
-        </button>
+        <p className="play__how">{howToPlay}</p>
+        <ReportGameButton onClick={() => report.current?.open({ id, name })} />
       </div>
       <ReportDialog ref={report} />
     </section>

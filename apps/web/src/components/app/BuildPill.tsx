@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowRight, Play, X } from "@phosphor-icons/react";
+import { ArrowRight, X } from "@phosphor-icons/react";
+import { IconButton } from "@/components/ui/IconButton";
+import { InkPillLink } from "@/components/ui/InkPill";
+import { Pulse } from "@/components/ui/Pulse";
 import { watchProject } from "@/lib/api";
 import { clock } from "@/lib/format";
+import { ReadyLine } from "./ReadyLine";
 import { useNow } from "./useNow";
 import { forgetWaiting, useWaiting } from "./WhileYouWait";
 
@@ -58,7 +61,7 @@ export function BuildPill() {
     <div className="buildpill" role="status" data-status={seen.status}>
       {seen.status === "running" ? (
         <>
-          <span className="pulse" aria-hidden="true" />
+          <Pulse />
           <span className="buildpill__text">
             <b>Building your game</b>
             {seen.since && (
@@ -69,33 +72,23 @@ export function BuildPill() {
             )}
             {seen.line && <span className="buildpill__line">{seen.line}</span>}
           </span>
-          <Link href={href} className="inkpill inkpill--small buildpill__back">
+          <InkPillLink href={href} size="small" className="buildpill__back" icon={<ArrowRight size={16} weight="bold" aria-hidden="true" />} iconAfter>
             <span className="buildpill__label">Back to it</span>
-            <ArrowRight size={16} weight="bold" aria-hidden="true" />
-          </Link>
+          </InkPillLink>
         </>
       ) : seen.status === "ready" ? (
-        <>
-          <span className="readyline">
-            <b>{seen.name}</b>
-            <span>&nbsp;is ready.</span>
-          </span>
-          <Link href={href} className="button button--small">
-            <Play size={16} weight="fill" aria-hidden="true" />
-            Play it
-          </Link>
-        </>
+        <ReadyLine name={seen.name} href={href} />
       ) : (
         <>
           <span className="buildpill__text">Your game didn&apos;t build. Nothing was charged.</span>
-          <Link href={href} className="inkpill inkpill--small">
+          <InkPillLink href={href} size="small">
             See what to do
-          </Link>
+          </InkPillLink>
         </>
       )}
-      <button type="button" className="buildpill__close" aria-label="Hide this" onClick={forgetWaiting}>
+      <IconButton label="Hide this" className="buildpill__close" onClick={forgetWaiting}>
         <X size={16} weight="bold" aria-hidden="true" />
-      </button>
+      </IconButton>
     </div>,
     document.body,
   );

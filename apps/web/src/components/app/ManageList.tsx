@@ -4,6 +4,10 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { DownloadSimple, PencilSimple, Trash } from "@phosphor-icons/react";
 import type { Project, ProjectSummary } from "@typeplay/shared";
+import { AppTile } from "@/components/ui/AppIcon";
+import { Button } from "@/components/ui/Button";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { TextField } from "@/components/ui/Field";
 import { posterUrl } from "@/lib/urls";
 import { api, saveFile } from "@/lib/api";
 import { ago, playsWord } from "@/lib/format";
@@ -86,44 +90,42 @@ function Row({ game, onChange, onRemoved }: { game: ProjectSummary; onChange: (g
 
   return (
     <li className="manage__row" data-mode={mode}>
-      <span className="app__icon manage__icon" aria-hidden="true">
+      <AppTile className="manage__icon">
         <GameTile id={game.id} name={game.name} building={running && !game.buildId} poster={game.buildId && game.poster ? posterUrl(game.buildId) : null} />
-      </span>
+      </AppTile>
 
       <div className="manage__text">
         {mode === "rename" ? (
           <form className="manage__rename" onSubmit={rename} noValidate>
-            <label htmlFor={`name-${game.id}`} className="sr-only">
-              New name for {game.name}
-            </label>
-            <div className="field manage__field">
-              <input
-                id={`name-${game.id}`}
-                value={name}
-                maxLength={60}
-                autoFocus
-                enterKeyHint="done"
-                autoComplete="off"
-                spellCheck={false}
-                disabled={busy === "rename"}
-                onChange={(e) => setName(e.target.value)}
-                onFocus={(e) => e.currentTarget.select()}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    setName(game.name);
-                    setMode("idle");
-                  }
-                }}
-              />
-            </div>
+            <TextField
+              id={`name-${game.id}`}
+              label={<>New name for {game.name}</>}
+              labelHidden
+              boxClassName="manage__field"
+              value={name}
+              maxLength={60}
+              autoFocus
+              enterKeyHint="done"
+              autoComplete="off"
+              spellCheck={false}
+              disabled={busy === "rename"}
+              onChange={(e) => setName(e.target.value)}
+              onFocus={(e) => e.currentTarget.select()}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setName(game.name);
+                  setMode("idle");
+                }
+              }}
+            />
             <div className="manage__buttons">
-              <button type="submit" className="button button--small" disabled={busy === "rename"}>
-                {busy === "rename" ? "Saving…" : "Save"}
-              </button>
-              <button
-                type="button"
-                className="button button--quiet button--small"
+              <Button type="submit" size="small" busy={busy === "rename"} busyLabel="Saving…">
+                Save
+              </Button>
+              <Button
+                look="quiet"
+                size="small"
                 disabled={busy === "rename"}
                 onClick={() => {
                   setName(game.name);
@@ -132,7 +134,7 @@ function Row({ game, onChange, onRemoved }: { game: ProjectSummary; onChange: (g
                 }}
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
@@ -148,36 +150,33 @@ function Row({ game, onChange, onRemoved }: { game: ProjectSummary; onChange: (g
             Delete it for good? Every version goes, and its share page{running ? ", and the build that is running now" : ""}. You can&apos;t undo this.
           </p>
         )}
-        {error && (
-          <p className="composer__error" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <ErrorLine>{error}</ErrorLine>}
       </div>
 
       {mode === "delete" ? (
         <div className="manage__buttons manage__actions" role="group" aria-labelledby={`ask-${game.id}`}>
-          <button
-            type="button"
-            className="button button--ink button--small"
-            disabled={busy === "delete"}
+          <Button
+            look="ink"
+            size="small"
+            busy={busy === "delete"}
+            busyLabel="Deleting…"
             onClick={() => void run("delete", async () => {
               await api.remove(game.id);
               onRemoved(game.id);
             })}
           >
-            {busy === "delete" ? "Deleting…" : "Delete game"}
-          </button>
-          <button type="button" className="button button--quiet button--small" disabled={busy === "delete"} onClick={() => setMode("idle")}>
+            Delete game
+          </Button>
+          <Button look="quiet" size="small" disabled={busy === "delete"} onClick={() => setMode("idle")}>
             Keep it
-          </button>
+          </Button>
         </div>
       ) : (
         mode === "idle" && (
           <div className="manage__buttons manage__actions">
-            <button
-              type="button"
-              className="button button--quiet button--small"
+            <Button
+              look="quiet"
+              size="small"
               onClick={() => {
                 setName(game.name); // a build may have renamed it since this row was made
                 setError(null);
@@ -187,21 +186,22 @@ function Row({ game, onChange, onRemoved }: { game: ProjectSummary; onChange: (g
             >
               <PencilSimple size={16} weight="bold" aria-hidden="true" />
               Rename
-            </button>
-            <button
-              type="button"
-              className="button button--quiet button--small"
-              disabled={!game.buildId || running || busy === "download"}
+            </Button>
+            <Button
+              look="quiet"
+              size="small"
+              disabled={!game.buildId || running}
+              busy={busy === "download"}
               title={!game.buildId ? "There is nothing to download yet." : running ? "When this build is done." : "A .zip to open in Godot 4.7"}
               onClick={() => void run("download", async () => saveFile(await api.download(game.id)))}
               aria-label={`Download ${game.name}`}
             >
               <DownloadSimple size={16} weight="bold" aria-hidden="true" />
               {busy === "download" ? "Preparing…" : "Download"}
-            </button>
-            <button
-              type="button"
-              className="button button--quiet button--small"
+            </Button>
+            <Button
+              look="quiet"
+              size="small"
               onClick={() => {
                 setError(null);
                 setMode("delete");
@@ -210,7 +210,7 @@ function Row({ game, onChange, onRemoved }: { game: ProjectSummary; onChange: (g
             >
               <Trash size={16} weight="bold" aria-hidden="true" />
               Delete
-            </button>
+            </Button>
           </div>
         )
       )}

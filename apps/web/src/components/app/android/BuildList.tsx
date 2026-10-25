@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import type { AndroidBuild, AndroidFormat, AndroidLink } from "@typeplay/shared";
+import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { Card } from "@/components/ui/Card";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { TextField } from "@/components/ui/Field";
+import { Panel } from "@/components/ui/Panel";
+import { Pulse } from "@/components/ui/Pulse";
 import { android, LINK_MINUTES } from "@/content/android";
 import { api, saveFile } from "@/lib/api";
 import { ago } from "@/lib/format";
@@ -34,10 +40,7 @@ export function BuildList({
 }) {
   const t = android.builds;
   return (
-    <section className="widget acct__card droid__builds" aria-labelledby="droid-builds">
-      <h2 id="droid-builds" className="acct__h">
-        {t.title}
-      </h2>
+    <Card title={t.title} titleId="droid-builds" className="droid__builds">
       {builds.length ? (
         <ol className="builds">
           {builds.map((b) => (
@@ -47,7 +50,7 @@ export function BuildList({
       ) : (
         <p className="acct__note">{t.empty}</p>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -94,7 +97,7 @@ function BuildRow({ projectId, build: b, now, onCancel, onAgain }: { projectId: 
       </span>
       <div className="builds__text">
         <p className="builds__line">
-          {active && <span className="pulse" aria-hidden="true" />}
+          {active && <Pulse />}
           <b>
             <span className="sr-only">{b.format.toUpperCase()}, </span>
             {t.status[b.status]}
@@ -102,67 +105,59 @@ function BuildRow({ projectId, build: b, now, onCancel, onAgain }: { projectId: 
           </b>
         </p>
         <p className="figures builds__meta">{meta}</p>
-        {b.status === "failed" && b.failMessage && (
-          <p className="composer__error" role="alert">
-            {b.failMessage}
-          </p>
-        )}
+        {b.status === "failed" && b.failMessage && <ErrorLine>{b.failMessage}</ErrorLine>}
         {b.status === "expired" && <p className="acct__note">{t.expired}</p>}
       </div>
       <div className="builds__actions">
         {active && (
-          <button type="button" className="button button--quiet button--small" disabled={busy === "cancel"} onClick={() => void run("cancel", () => onCancel(b.id))}>
-            {busy === "cancel" ? android.build.stopping : t.cancel}
-          </button>
+          <Button look="quiet" size="small" busy={busy === "cancel"} busyLabel={android.build.stopping} onClick={() => void run("cancel", () => onCancel(b.id))}>
+            {t.cancel}
+          </Button>
         )}
         {done && (
           <>
-            <button type="button" className="button button--quiet button--small" disabled={busy === "download"} onClick={() => void download()}>
-              {busy === "download" ? t.downloading : t.download}
-            </button>
+            <Button look="quiet" size="small" busy={busy === "download"} busyLabel={t.downloading} onClick={() => void download()}>
+              {t.download}
+            </Button>
             {b.format === "apk" && (
-              <button type="button" className="button button--quiet button--small" aria-expanded={open === "phone"} onClick={() => toggle("phone")}>
+              <Button look="quiet" size="small" aria-expanded={open === "phone"} onClick={() => toggle("phone")}>
                 {t.phone}
-              </button>
+              </Button>
             )}
-            <button type="button" className="button button--quiet button--small" aria-expanded={open === "checks"} onClick={() => toggle("checks")}>
+            <Button look="quiet" size="small" aria-expanded={open === "checks"} onClick={() => toggle("checks")}>
               {t.checks}
-            </button>
+            </Button>
           </>
         )}
         {b.status === "failed" && b.logTail && (
-          <button type="button" className="button button--quiet button--small" aria-expanded={open === "details"} onClick={() => toggle("details")}>
+          <Button look="quiet" size="small" aria-expanded={open === "details"} onClick={() => toggle("details")}>
             {t.details}
-          </button>
+          </Button>
         )}
         {needsChat ? (
-          <Link href={`/games/${projectId}`} className="button button--quiet button--small">
+          <ButtonLink href={`/games/${projectId}`} look="quiet" size="small">
             {t.chat}
-          </Link>
+          </ButtonLink>
         ) : (
           (b.status === "failed" || b.status === "expired" || b.status === "cancelled") && (
-            <button type="button" className="button button--quiet button--small" disabled={busy === "again"} onClick={() => void run("again", () => onAgain(b.format, b.versionN))}>
-              {busy === "again" ? "Starting…" : t.again}
-            </button>
+            <Button look="quiet" size="small" busy={busy === "again"} busyLabel="Starting…" onClick={() => void run("again", () => onAgain(b.format, b.versionN))}>
+              {t.again}
+            </Button>
           )
         )}
       </div>
-      {error && (
-        <p className="composer__error builds__error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorLine className="builds__error">{error}</ErrorLine>}
       {open === "phone" && done && <PhonePanel projectId={projectId} buildId={b.id} />}
       {open === "checks" && done && (
-        <div className="builds__panel">
+        <Panel className="builds__panel">
           <p className="field-hint">{android.checks.lead}</p>
           <Checks checks={b.checks} />
-        </div>
+        </Panel>
       )}
       {open === "details" && b.logTail && (
-        <div className="builds__panel">
+        <Panel className="builds__panel">
           <pre className="builds__log figures">{b.logTail}</pre>
-        </div>
+        </Panel>
       )}
     </li>
   );
@@ -211,11 +206,9 @@ function PhonePanel({ projectId, buildId }: { projectId: string; buildId: string
   };
 
   return (
-    <div className="builds__panel qrpanel" role="group" aria-label={t.title}>
+    <Panel className="builds__panel qrpanel" role="group" aria-label={t.title}>
       {error ? (
-        <p className="composer__error" role="alert">
-          {error}
-        </p>
+        <ErrorLine>{error}</ErrorLine>
       ) : !link ? (
         <p className="acct__note" aria-busy="true">
           Making the link…
@@ -230,14 +223,21 @@ function PhonePanel({ projectId, buildId }: { projectId: string; buildId: string
           <div className="qrpanel__text">
             <h3 className="qrpanel__title">{t.title}</h3>
             <p className="acct__note qrpanel__caption">{code ? t.caption : t.noCode}</p>
-            <div className="field qrpanel__link">
-              <input ref={field} readOnly value={link.url} aria-label="Phone link" spellCheck={false} onFocus={(e) => e.currentTarget.select()} />
-            </div>
+            <TextField
+              ref={field}
+              id={`phone-link-${buildId}`}
+              tone="paper"
+              boxClassName="qrpanel__link"
+              readOnly
+              value={link.url}
+              aria-label="Phone link"
+              spellCheck={false}
+              onFocus={(e) => e.currentTarget.select()}
+            />
             <div className="acct__buttons">
               {expired ? (
-                <button
-                  type="button"
-                  className="button button--small"
+                <Button
+                  size="small"
                   onClick={() => {
                     setLink(null);
                     setError(null);
@@ -245,11 +245,11 @@ function PhonePanel({ projectId, buildId }: { projectId: string; buildId: string
                   }}
                 >
                   {t.again}
-                </button>
+                </Button>
               ) : (
-                <button type="button" className="button button--quiet button--small" onClick={() => void copy()}>
+                <Button look="quiet" size="small" onClick={() => void copy()}>
                   {copied ? t.copied : t.copy}
-                </button>
+                </Button>
               )}
               <span className="figures qrpanel__life">{t.life(minutes)}</span>
             </div>
@@ -261,6 +261,6 @@ function PhonePanel({ projectId, buildId }: { projectId: string; buildId: string
           </div>
         </>
       )}
-    </div>
+    </Panel>
   );
 }

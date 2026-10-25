@@ -1,13 +1,10 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { PageWidget } from "@/components/ui/PageWidget";
 
 export default function NotFound() {
   return (
-    <main className="widget create">
-      <h1 className="title">No such screen.</h1>
-      <p className="create__text">That page does not exist, or it moved.</p>
-      <Link href="/" className="button">
-        Back home
-      </Link>
-    </main>
+    <PageWidget site title="No such screen." lead="That page does not exist, or it moved.">
+      <ButtonLink href="/">Back home</ButtonLink>
+    </PageWidget>
   );
 }

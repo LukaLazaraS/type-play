@@ -2,16 +2,22 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowUp, Stop } from "@phosphor-icons/react";
-import Link from "next/link";
 import type { CreditBalance, Effort, Estimate, Me, ModelChoice } from "@typeplay/shared";
+import { Ask } from "@/components/ui/Ask";
+import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { TextArea } from "@/components/ui/Field";
+import { Strip } from "@/components/ui/Strip";
+import { TextLink } from "@/components/ui/TextLink";
 import { android } from "@/content/android";
+import { MAX_TEXT } from "@/content/app";
 import { checkoutHref, HOLD_LINE, pack, planAbove, planFacts } from "@/content/billing";
 import { credits as siteCredits } from "@/content/site";
 import { ApiFailure } from "@/lib/api";
 import { creditsWord, dayOf, untilUtcMidnight, usd } from "@/lib/format";
 import { planName } from "./AccountSlot";
 import { EffortSwitch, effortLine, ModelSwitch, modelLine } from "./ModelPicker";
-import { MAX_TEXT, useAutoGrow } from "./useAutoGrow";
 
 type Props = {
   /** "new" until the first build has worked: then a message builds the game again. */
@@ -68,7 +74,6 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
   const [panel, setPanel] = useState<PanelKind | null>(null);
   const [error, setError] = useState<string | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
-  useAutoGrow(box, text, 160);
 
   // An idea from the chat goes into the box (after what is there: one message, one charge); the caret waits at its
   // end, ready to send or to change first.
@@ -145,57 +150,58 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
   return (
     <form className="composer" onSubmit={submit} noValidate>
       {pastDue && (
-        <div className="strip strip--composer" role="status" data-strip="past-due">
-          <p>
-            Your {me.billing?.periodEndsAt ? `${dayOf(me.billing.periodEndsAt)} ` : ""}payment for {planName[me.plan]} didn&apos;t go through. Update your card and
-            Paddle will try again for up to 30 days. You keep your credits until a day after your period ends; no new ones until a payment goes
-            through.
-          </p>
-          <Link href="/billing" className="button button--quiet button--small">
-            Update card
-          </Link>
-        </div>
+        <Strip
+          field
+          kind="past-due"
+          role="status"
+          action={
+            <ButtonLink href="/billing" look="quiet" size="small">
+              Update card
+            </ButtonLink>
+          }
+        >
+          Your {me.billing?.periodEndsAt ? `${dayOf(me.billing.periodEndsAt)} ` : ""}payment for {planName[me.plan]} didn&apos;t go through. Update your card and Paddle
+          will try again for up to 30 days. You keep your credits until a day after your period ends; no new ones until a payment goes through.
+        </Strip>
       )}
       {ask && (
-        <div className="ask" role="alert">
-          <p>{ask}</p>
-          <div className="ask__actions">
-            <button type="button" className="button button--small" onClick={() => void send(true)}>
-              Send it
-            </button>
-            <button type="button" className="button button--quiet button--small" onClick={() => setAsk(null)}>
-              Not now
-            </button>
-          </div>
-        </div>
+        <Ask
+          text={ask}
+          actions={
+            <>
+              <Button size="small" onClick={() => void send(true)}>
+                Send it
+              </Button>
+              <Button look="quiet" size="small" onClick={() => setAsk(null)}>
+                Not now
+              </Button>
+            </>
+          }
+        />
       )}
       {panel && <CreditPanel kind={panel} me={me} backTo={backTo} onClose={() => setPanel(null)} />}
-      {error && (
-        <p className="composer__error" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="field composer__field">
-        <label htmlFor="say" className="sr-only">
-          {kind === "new" ? "What should the game be?" : "What should change?"}
-        </label>
-        <textarea
-          id="say"
-          ref={box}
-          rows={1}
-          value={text}
-          maxLength={MAX_TEXT}
-          enterKeyHint="send"
-          placeholder={running || exporting ? "Say your next change" : kind === "new" ? "Say what game to make" : "Say what to change"}
-          onChange={(e) => {
-            setText(e.target.value);
-            if (error) setError(null);
-            if (ask) setAsk(null);
-          }}
-          onKeyDown={onKey}
-          aria-describedby="say-tip"
-        />
-      </div>
+      {error && <ErrorLine>{error}</ErrorLine>}
+      <TextArea
+        id="say"
+        ref={box}
+        label={kind === "new" ? "What should the game be?" : "What should change?"}
+        labelHidden
+        line
+        boxClassName="composer__field"
+        grow={160}
+        rows={1}
+        value={text}
+        maxLength={MAX_TEXT}
+        enterKeyHint="send"
+        placeholder={running || exporting ? "Say your next change" : kind === "new" ? "Say what game to make" : "Say what to change"}
+        onChange={(e) => {
+          setText(e.target.value);
+          if (error) setError(null);
+          if (ask) setAsk(null);
+        }}
+        onKeyDown={onKey}
+        describedBy="say-tip"
+      />
       <div className="composer__row">
         <ModelSwitch
           kind={kind}
@@ -209,15 +215,15 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
           disabled={busy || exporting}
         />
         {running ? (
-          <button type="button" className="button button--quiet button--small" onClick={() => void stop()} disabled={busy}>
+          <Button look="quiet" size="small" onClick={() => void stop()} busy={busy}>
             <Stop size={16} weight="fill" aria-hidden="true" />
             <span className="composer__label">Stop</span>
-          </button>
+          </Button>
         ) : (
-          <button type="submit" className="button button--small" disabled={busy || exporting}>
+          <Button type="submit" size="small" busy={busy} disabled={exporting}>
             <ArrowUp size={16} weight="bold" aria-hidden="true" />
             <span className="composer__label">Send</span>
-          </button>
+          </Button>
         )}
       </div>
       <div className="composer__foot">
@@ -241,9 +247,7 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
         ) : est && balance && balance.available < est.low ? (
           <>
             Not enough credits for {model === "fast" ? "this" : "this on " + model.charAt(0).toUpperCase() + model.slice(1)}.{" "}
-            <Link href="/billing" className="link">
-              Get more
-            </Link>
+            <TextLink href="/billing">Get more</TextLink>
           </>
         ) : est && balance?.todayLeft != null && balance.todayLeft < est.low ? (
           "Today's free credits are used up. More tomorrow."
@@ -266,9 +270,9 @@ function CreditPanel({ kind, me, backTo, onClose }: { kind: PanelKind; me: Me | 
   const billing = me?.billing;
   const medium = planFacts("medium");
   const getMedium = (
-    <Link href={checkoutHref("plan:medium", backTo)} className="button button--small">
+    <ButtonLink href={checkoutHref("plan:medium", backTo)} size="small">
       Get Medium, {usd(medium.price)} a month
-    </Link>
+    </ButtonLink>
   );
   let text: string;
   let actions: ReactNode = null;
@@ -277,9 +281,9 @@ function CreditPanel({ kind, me, backTo, onClose }: { kind: PanelKind; me: Me | 
   } else if (kind === "free_paused") {
     text = `Free builds are paused; they start again ${untilUtcMidnight()}: today's free allowance is used up across TypePlay. Get a plan to keep going.`;
     actions = (
-      <Link href="/billing?change=1" className="button button--small">
+      <ButtonLink href="/billing?change=1" size="small">
         Get a plan
-      </Link>
+      </ButtonLink>
     );
   } else if (kind === "daily_limit") {
     text = `Today's ${siteCredits.freePerDay} free credits are used. More ${untilUtcMidnight()}, or get Medium: no daily cap.`;
@@ -293,26 +297,30 @@ function CreditPanel({ kind, me, backTo, onClose }: { kind: PanelKind; me: Me | 
     text = `You're out of credits${until}. Add ${pack.credits} for ${usd(pack.price)} now${above ? `, or move up to ${planName[above]} (${planFacts(above).credits.toLocaleString("en-US")} a month)` : ""}.`;
     actions = (
       <>
-        <Link href={checkoutHref("pack", backTo)} className="button button--small">
+        <ButtonLink href={checkoutHref("pack", backTo)} size="small">
           Add {pack.credits} credits, {usd(pack.price)}
-        </Link>
+        </ButtonLink>
         {above && (
-          <Link href="/billing?change=1" className="button button--quiet button--small">
+          <ButtonLink href="/billing?change=1" look="quiet" size="small">
             Upgrade
-          </Link>
+          </ButtonLink>
         )}
       </>
     );
   }
   return (
-    <div className="ask ask--credits" role="alert" data-panel={kind}>
-      <p>{text}</p>
-      <div className="ask__actions">
-        {actions}
-        <button type="button" className="button button--quiet button--small" onClick={onClose}>
-          Not now
-        </button>
-      </div>
-    </div>
+    <Ask
+      className="credit-panel"
+      panel={kind}
+      text={text}
+      actions={
+        <>
+          {actions}
+          <Button look="quiet" size="small" onClick={onClose}>
+            Not now
+          </Button>
+        </>
+      }
+    />
   );
 }

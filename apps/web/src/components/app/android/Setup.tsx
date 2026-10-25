@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AndroidState, Project } from "@typeplay/shared";
+import { Card } from "@/components/ui/Card";
 import { android } from "@/content/android";
 import { api } from "@/lib/api";
 import { IdentityForm, type Identity } from "./IdentityForm";
@@ -33,13 +34,13 @@ export function Setup({ project, onDone }: { project: Project; onDone: (state: A
   };
 
   return (
-    <section className="widget acct__card droid__setup" aria-labelledby="droid-setup">
+    <Card className="droid__setup" aria-labelledby="droid-setup">
       <h2 id="droid-setup" className="title droid__h2">
         {android.setup.title}
       </h2>
       <p className="acct__note">{android.setup.lead}</p>
       <p className="acct__note">{android.formats.line}</p>
       <IdentityForm project={project} app={null} busy={busy} error={error} submitLabel={android.setup.go} busyLabel={android.setup.busy} onSubmit={(v) => void setup(v)} />
-    </section>
+    </Card>
   );
 }

@@ -1,8 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import Link from "next/link";
 import type { Me, PlanId } from "@typeplay/shared";
+import { SignInPill } from "@/components/SignInPill";
+import { Avatar, AvatarButton } from "@/components/ui/Avatar";
+import { Button } from "@/components/ui/Button";
+import { Popover, type PopoverHandle } from "@/components/ui/Popover";
+import { Pressable } from "@/components/ui/Pressable";
 import { credits } from "@/lib/format";
 import { signOut, useSession } from "@/lib/session";
 import { BuildPill } from "./BuildPill";
@@ -22,52 +27,50 @@ export const planName: Record<PlanId, string> = {
 export function AccountSlot() {
   const session = useSession();
   if (session.status === "loading") return <span className="account__wait" aria-hidden="true" />;
-  if (session.status === "out") {
-    return (
-      <Link href="/create" className="pill">
-        Sign in
-      </Link>
-    );
-  }
+  if (session.status === "out") return <SignInPill />;
   if (session.uninvited) return <Uninvited email={session.uninvited.email} />;
   return <Account me={session.me} problem={session.problem} />;
 }
 
 /** Signed in, but not invited to the closed beta: no games or credits to show, only who this is and Sign out. */
 function Uninvited({ email }: { email: string | null }) {
-  const menu = useRef<HTMLDivElement>(null);
+  const menu = useRef<PopoverHandle>(null);
   return (
-    <>
-      <button type="button" className="account__me" popoverTarget="account-menu" aria-label={`Account: ${email ?? "signed in"}`}>
-        <span aria-hidden="true">{firstLetter(email || "?")}</span>
-      </button>
-      <div ref={menu} id="account-menu" popover="auto" className="account__menu">
-        <div className="account__who">
-          <b>Signed in</b>
-          {email && <span>{email}</span>}
-        </div>
-        <p className="account__problem">TypePlay is in a closed beta for now. It opens to everyone soon.</p>
-        <button
-          type="button"
-          className="button button--quiet button--small"
-          onClick={() => {
-            menu.current?.hidePopover();
-            void signOut();
-          }}
-        >
-          Sign out
-        </button>
+    <Popover
+      id="account-menu"
+      ref={menu}
+      bar
+      className="account__menu"
+      trigger={(t) => (
+        <AvatarButton {...t} aria-label={`Account: ${email ?? "signed in"}`}>
+          <Avatar name={email || "?"} />
+        </AvatarButton>
+      )}
+    >
+      <div className="account__who">
+        <b>Signed in</b>
+        {email && <span>{email}</span>}
       </div>
-    </>
+      <p className="account__problem">TypePlay is in a closed beta for now. It opens to everyone soon.</p>
+      <Button
+        look="quiet"
+        size="small"
+        onClick={() => {
+          menu.current?.close();
+          void signOut();
+        }}
+      >
+        Sign out
+      </Button>
+    </Popover>
   );
 }
 
 function Account({ me, problem }: { me: Me | null; problem: string | null }) {
-  const menu = useRef<HTMLDivElement>(null);
-  const avatar = useRef<HTMLButtonElement>(null);
+  const menu = useRef<PopoverHandle>(null);
   const feedback = useRef<FeedbackHandle>(null);
   const game = useFeedbackGame();
-  const close = () => menu.current?.hidePopover();
+  const close = () => menu.current?.close();
   const label = me?.name || me?.email || "Your account";
 
   return (
@@ -78,10 +81,17 @@ function Account({ me, problem }: { me: Me | null; problem: string | null }) {
       <span className="account__credits" title={me ? "Credits you can spend" : undefined}>
         <b className="figures">{me ? credits(me.credits.available) : "…"}</b> {me && Math.round(me.credits.available * 10) === 10 ? "credit" : "credits"}
       </span>
-      <button ref={avatar} type="button" className="account__me" popoverTarget="account-menu" aria-label={`Account: ${label}`}>
-        <Avatar me={me} />
-      </button>
-      <div ref={menu} id="account-menu" popover="auto" className="account__menu">
+      <Popover
+        id="account-menu"
+        ref={menu}
+        bar
+        className="account__menu"
+        trigger={(t) => (
+          <AvatarButton {...t} aria-label={`Account: ${label}`}>
+            <Avatar src={me?.avatarUrl} name={me?.name || me?.email || "?"} />
+          </AvatarButton>
+        )}
+      >
         <div className="account__who">
           <b>{me?.name || "Signed in"}</b>
           {me && <span>{me.email}</span>}
@@ -107,63 +117,38 @@ function Account({ me, problem }: { me: Me | null; problem: string | null }) {
           <p className="account__problem">{problem ?? "Loading your credits…"}</p>
         )}
         <div className="account__links">
-          <Link href="/games" onClick={close}>
+          <Link href="/games" className="account__link" onClick={close}>
             Your games
           </Link>
-          <Link href="/account" onClick={close}>
+          <Link href="/account" className="account__link" onClick={close}>
             Your account
           </Link>
-          <Link href="/pricing" onClick={close}>
+          <Link href="/pricing" className="account__link" onClick={close}>
             Plans and credits
           </Link>
-          <button
-            type="button"
+          <Pressable
+            className="account__link"
             onClick={() => {
               close();
-              feedback.current?.open(game, avatar.current);
+              feedback.current?.open(game, menu.current?.trigger);
             }}
           >
             Send feedback
-          </button>
+          </Pressable>
         </div>
-        <button
-          type="button"
-          className="button button--quiet button--small"
+        <Button
+          look="quiet"
+          size="small"
           onClick={() => {
             close();
             void signOut();
           }}
         >
           Sign out
-        </button>
-      </div>
+        </Button>
+      </Popover>
       <FeedbackDialog ref={feedback} email={me?.email ?? null} />
       <BuildPill />
     </>
   );
-}
-
-export function Avatar({ me }: { me: Me | null }) {
-  const [broken, setBroken] = useState<string | null>(null);
-  if (me?.avatarUrl && broken !== me.avatarUrl) {
-    // Google's picture: no referrer, or Google sometimes refuses it. If it fails, the letter.
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={me.avatarUrl}
-        alt=""
-        referrerPolicy="no-referrer"
-        width={40}
-        height={40}
-        onError={() => setBroken(me.avatarUrl)}
-      />
-    );
-  }
-  return <span aria-hidden="true">{firstLetter(me?.name || me?.email || "?")}</span>;
-}
-
-/** The first character as people see it (an emoji or an accented letter is one). */
-function firstLetter(text: string) {
-  const first = new Intl.Segmenter("en", { granularity: "grapheme" }).segment(text.trim())[Symbol.iterator]().next().value;
-  return (first?.segment ?? "?").toLocaleUpperCase();
 }

@@ -168,7 +168,7 @@ a {
   transition: transform 160ms var(--ease-out);
 }
 .pill:active,
-.button:active {
+.button:not([aria-disabled="true"]):active {
   transform: scale(0.97);
 }
 
@@ -183,7 +183,8 @@ a {
   color: var(--on-sky);
 }
 
-/* Text on the hot orange is always ink: white on #ff5a36 is 3.1:1, ink is 5.9:1. */
+/* Buttons (ui/Button.tsx, ui/ButtonLink.tsx): hot, quiet or ink, normal or small.
+   Text on the hot orange is always ink: white on #ff5a36 is 3.1:1, ink is 5.9:1. */
 .button {
   display: inline-flex;
   align-items: center;
@@ -201,13 +202,18 @@ a {
   white-space: nowrap;
   transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out);
 }
-.button:disabled {
+/* Disabled; or busy: aria-disabled, so it keeps the keyboard focus, with the progress cursor. */
+.button:disabled,
+.button[aria-disabled="true"] {
   background: #cfc6e2;
   color: #5a4f78;
   cursor: not-allowed;
 }
+.button[aria-busy="true"] {
+  cursor: progress;
+}
 @media (hover: hover) and (pointer: fine) {
-  .button:not(:disabled):hover {
+  .button:not(:disabled, [aria-disabled="true"]):hover {
     background: var(--hot-deep);
   }
 }
@@ -216,8 +222,107 @@ a {
   color: var(--ink);
 }
 @media (hover: hover) and (pointer: fine) {
-  .button--quiet:not(:disabled):hover {
+  .button--quiet:not(:disabled, [aria-disabled="true"]):hover {
     background: #e6dff5;
+  }
+}
+/* A size down, for the app's dense places (the composer, asks, menus, the account menu). */
+.button--small {
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 15px;
+}
+/* Ink: a final, deliberate step on paper that isn't the page's one hot action (Delete game, Delete everything), and the
+   button on the hot lead plan. Ink with white words. */
+.button--ink {
+  background: var(--ink);
+  color: #fff;
+}
+@media (hover: hover) and (pointer: fine) {
+  .button--ink:not(:disabled, [aria-disabled="true"]):hover {
+    background: var(--ink-2);
+  }
+}
+
+/* The pill on ink (ui/InkPill.tsx): the launcher's, the stage's and the share page's pills, Play upright. Ink Recess,
+   white 600 15px words, #33245f under a pointer, hot while the thing it stands for is live. */
+.inkpill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink-2);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 160ms var(--ease-out);
+}
+.inkpill:active {
+  transform: scale(0.97);
+}
+.inkpill:disabled {
+  color: var(--on-sky-muted);
+  cursor: not-allowed;
+}
+.inkpill--small {
+  min-height: 36px;
+  padding: 8px 14px;
+  font-size: 14px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .inkpill:not(:disabled):hover {
+    background: #33245f;
+  }
+}
+.inkpill[data-on] {
+  background: var(--hot);
+  color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .inkpill[data-on]:not(:disabled):hover {
+    background: var(--hot-deep); /* the ink pill's hover would put ink words on dark */
+  }
+}
+
+/* A button that reads as words (ui/TextButton.tsx): inside a sentence, its words underlined. Fingers get 44px without
+   anything moving (the padding is taken back by the margin). The app's two other looks are in app.css. */
+.textbutton {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.textbutton:disabled {
+  cursor: progress;
+}
+
+/* Fingers, not pointers: the small sizes reach 44px too. */
+@media (pointer: coarse) {
+  .button--small,
+  .inkpill--small {
+    min-height: 44px;
+  }
+  .textbutton {
+    padding: 8px 0;
+    margin: -8px 0;
   }
 }
 
@@ -398,50 +503,149 @@ q {
   }
 }
 
-/* Prompt form inside the widget */
-.prompt {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.prompt label {
+/* The Field box (ui/Field.tsx: TextField, TextArea, Select): its label, Field at the field radius with the amber ring
+   while the keyboard is in it, the hot caret, 17px words (a phone doesn't zoom in), a hint or the error under it. */
+.field-label {
+  display: block;
   font-size: 15px;
   font-weight: 600;
   color: var(--on-paper);
+  padding: 0;
 }
-.prompt__field {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
+.field-optional {
+  margin-left: 6px;
+  font-weight: 400;
+  color: var(--on-paper-muted);
+}
+.field {
   background: var(--field);
   border-radius: var(--r-field);
-  padding: 8px 8px 8px 22px;
+  padding: 6px 20px;
 }
-.prompt__field:focus-within {
+.field:focus-within {
   outline: 3px solid var(--sun);
   outline-offset: 2px;
 }
-.prompt textarea {
-  flex: 1;
+.field textarea {
+  display: block;
+  width: 100%;
   resize: none;
   border: 0;
   background: transparent;
   font: inherit;
   font-size: 17px;
-  line-height: 1.35;
+  line-height: 1.4;
   color: var(--on-paper);
   padding: 10px 0;
-  min-height: 46px;
-  max-height: 160px;
+  min-height: 48px;
   outline: none;
   caret-color: var(--hot);
 }
-.prompt textarea::placeholder {
+.field textarea::placeholder {
   color: var(--on-paper-muted);
 }
-.prompt__hint {
-  font-size: 13px;
+/* A one-line text box (a game's new name, the share link, "Type DELETE"). */
+.field input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.3;
+  color: var(--on-paper);
+  padding: 10px 0;
+  outline: none;
+  caret-color: var(--hot);
+}
+.field select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.3;
+  color: var(--on-paper);
+  padding: 10px 0;
+  outline: none;
+  color-scheme: light;
+}
+.field--line {
+  padding: 2px 16px;
+}
+/* On a Field panel the box is paper: Field on Field has no edge. */
+.field--paper {
+  background: var(--paper);
+}
+/* On ink (the game's name in its bar): Ink Recess, white words, the button radius. */
+.field--ink {
+  padding: 0 14px;
+  border-radius: var(--r-button);
+  background: var(--ink-2);
+}
+.field--ink input {
+  height: 44px;
+  padding: 0;
+  color: #fff;
+}
+.field--dim input {
   color: var(--on-paper-muted);
+}
+.field-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--on-paper-muted);
+}
+.field-count {
+  margin: 0;
+  font-size: 11px;
+  color: var(--on-paper-muted);
+  text-align: right;
+  text-wrap: pretty;
+}
+/* What went wrong (ui/ErrorLine.tsx): ink and heavier, after the hot dot (no red in this world); white on ink. */
+.error-line {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--on-paper);
+}
+.error-line--sky {
+  color: var(--on-sky);
+}
+.error-line::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: var(--hot);
+  vertical-align: 1px;
+}
+
+/* Prompt form inside the widget: the home page's box holds its button. */
+.prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.prompt__field {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 8px 8px 8px 22px;
+}
+.prompt textarea {
+  flex: 1;
+  line-height: 1.35;
+  min-height: 46px;
+  max-height: 160px;
 }
 @media (max-width: 640px) {
   .prompt__field {
@@ -770,16 +974,8 @@ q {
   white-space: nowrap;
 }
 /* The loader could not load the game: the same pill, with a Try again that reads like a link. */
-.gameframe__failed button {
+.gameframe__failed .textbutton {
   margin-left: 8px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
 }
 
 /* Immersive: the game alone on the screen. The browser's full screen where it has one (the
@@ -1004,20 +1200,6 @@ q {
   letter-spacing: -0.025em;
   text-wrap: balance;
 }
-.rotate__stay {
-  min-height: 44px;
-  padding: 0 20px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--ink-2);
-  color: #fff;
-  font: 600 15px var(--font-ui);
-  cursor: pointer;
-  transition: transform 160ms var(--ease-out);
-}
-.rotate__stay:active {
-  transform: scale(0.97);
-}
 
 /* The live demo: chat on the left, the real game on the right */
 .demo {
@@ -1167,22 +1349,28 @@ q {
 .setting + .setting {
   border-top: 1px solid var(--field);
 }
-.setting__icon {
+/* An AI's tile (ui/ModelTile.tsx): 44px at the icon radius in /create's rows; big, 56px at 16px, in this list. */
+.aitile {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-icon);
+  color: #fff;
+}
+.aitile--big {
   width: 56px;
   height: 56px;
   border-radius: 16px;
-  display: grid;
-  place-items: center;
-  color: #fff;
 }
-.setting__icon--fast {
+.aitile--fast {
   background: #2f9e44;
 }
-.setting__icon--smart {
+.aitile--smart {
   background: var(--hot);
   color: var(--ink);
 }
-.setting__icon--best {
+.aitile--best {
   background: var(--sky-4);
 }
 .setting b {
@@ -1384,40 +1572,18 @@ q {
   display: flex;
   gap: 8px;
 }
-.launcher__close {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  background: var(--ink-2);
-  color: #fff;
-  border: 0;
-  border-radius: 999px;
-  padding: 10px 16px;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-  transition: transform 160ms var(--ease-out);
-}
-.launcher__close:active {
-  transform: scale(0.97);
-}
 /* Phones: the pills keep their icons (labels stay for screen readers), so the name has the room. */
 @media (max-width: 600px) {
   .launcher__bar {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
-  .launcher__close {
+  .launcher__bar .inkpill,
+  .play__bar .inkpill {
     width: 44px;
     padding: 0;
   }
-  .launcher__label {
+  .launcher__bar .inkpill__label,
+  .play__bar .inkpill__label {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1644,10 +1810,6 @@ q {
 .plan--lead {
   background: var(--hot);
   color: var(--ink);
-}
-.plan--lead .button {
-  background: var(--ink);
-  color: #fff;
 }
 .plan__name {
   font-size: 24px;

@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { PageWidget } from "@/components/ui/PageWidget";
+import { TextLink } from "@/components/ui/TextLink";
 
 const KEY = "typeplay.draft";
 
@@ -35,33 +38,32 @@ export function CreateClient() {
   }, [fromUrl]);
 
   return (
-    <main className="widget create">
-      <h1 className="title">Your game is next.</h1>
-      {sentence ? (
+    <PageWidget
+      site
+      title="Your game is next."
+      lead={
+        sentence ? undefined : (
+          <>
+            Start on the <TextLink href="/#prompt">home page</TextLink> by typing the game you want.
+          </>
+        )
+      }
+    >
+      {sentence && (
         <div className="saved">
           <q>{sentence}</q>
         </div>
-      ) : (
-        <p className="create__text">
-          Start on the{" "}
-          <Link href="/#prompt" className="link">
-            home page
-          </Link>{" "}
-          by typing the game you want.
-        </p>
       )}
       <p>
         The builder opens with the beta{plan ? ` (you picked the ${plan} plan)` : ""}. Your
         sentence is saved in this browser, so it will be here when you sign in.
       </p>
       <div className="create__actions">
-        <button className="button" type="button" disabled>
-          Sign in with Google
-        </button>
-        <Link href="/#games" className="button button--quiet">
+        <Button disabled>Sign in with Google</Button>
+        <ButtonLink href="/#games" look="quiet">
           See the games
-        </Link>
+        </ButtonLink>
       </div>
-    </main>
+    </PageWidget>
   );
 }

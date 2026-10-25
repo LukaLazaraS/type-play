@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import Link from "next/link";
-import { AndroidLogo, ArrowSquareOut, ArrowsOut, ArrowClockwise, ChatCircleText, DeviceRotate, Play, X } from "@phosphor-icons/react";
+import { AndroidLogo, ArrowClockwise, ChatCircleText, DeviceRotate, X } from "@phosphor-icons/react";
 import type { Project } from "@typeplay/shared";
 import { BuildLayers } from "@/components/BuildingIcon";
-import { GameFrame, playUrl, type GameFrameHandle } from "@/components/GameFrame";
+import { FullScreenPill, GameFrame, NewTabPill, type GameFrameHandle } from "@/components/GameFrame";
+import { AppTile } from "@/components/ui/AppIcon";
+import { Button } from "@/components/ui/Button";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { TextField } from "@/components/ui/Field";
+import { InkPill, InkPillLink } from "@/components/ui/InkPill";
+import { Pulse } from "@/components/ui/Pulse";
 import { android } from "@/content/android";
 import { fitHint } from "@/content/app";
 import { posterUrl } from "@/lib/urls";
@@ -15,6 +20,7 @@ import type { LiveLine } from "./ChatLog";
 import { DeviceMenu, deviceFor, FILL, type Device } from "./DeviceMenu";
 import { GameMenu } from "./GameMenu";
 import { TOUCH, useMedia } from "./PlatformSwitch";
+import { ReadyLine } from "./ReadyLine";
 import { ShareMenu } from "./ShareMenu";
 import { Versions } from "./Versions";
 import { useWaitGames, WhileYouWait, type WaitGame } from "./WhileYouWait";
@@ -132,18 +138,7 @@ export function Stage({
     style: screenAt ? ({ "--w": `${screenAt.w}px`, "--h": `${screenAt.h}px`, "--s": screenAt.scale } as CSSProperties) : undefined,
   });
 
-  const readyLine = (
-    <>
-      <span className="readyline">
-        <b>{project.name}</b>
-        <span>&nbsp;is ready.</span>
-      </span>
-      <button type="button" className="button button--small" onClick={playOwn}>
-        <Play size={16} weight="fill" aria-hidden="true" />
-        Play it
-      </button>
-    </>
-  );
+  const readyLine = <ReadyLine name={project.name} onPlay={playOwn} />;
 
   return (
     <section className="stage" aria-label="Your game">
@@ -166,35 +161,26 @@ export function Stage({
         <div className="stage__actions">
           {(project.buildId || waiting) && <DeviceMenu id={project.id} value={device} onChange={setDevice} />}
           {(project.buildId || waiting) && turns && (
-            <button
-              type="button"
-              className="inkpill devicepick__turn"
+            <InkPill
+              className="devicepick__turn"
               aria-label={sideways ? `Turn the ${device.kind} upright` : `Turn the ${device.kind} sideways`}
               title={sideways ? "Turn upright" : "Turn sideways"}
               onClick={() => setTurned(!sideways)}
-            >
-              <DeviceRotate size={18} weight="bold" aria-hidden="true" />
-            </button>
+              icon={<DeviceRotate size={18} weight="bold" aria-hidden="true" />}
+            />
           )}
           {project.buildId && <ShareMenu project={project} onChange={onChange} />}
           {project.buildId && androidOn && (
-            <Link href={`/games/${project.id}/android`} className="inkpill" data-on={project.status === "exporting" || undefined} aria-label={project.status === "exporting" ? "Android: a build is running" : "Android: put it on a phone"}>
-              <AndroidLogo size={18} weight="bold" aria-hidden="true" />
-              <span className="inkpill__label">{android.pill}</span>
-            </Link>
+            <InkPillLink
+              href={`/games/${project.id}/android`}
+              on={project.status === "exporting"}
+              aria-label={project.status === "exporting" ? "Android: a build is running" : "Android: put it on a phone"}
+              icon={<AndroidLogo size={18} weight="bold" aria-hidden="true" />}
+              label={android.pill}
+            />
           )}
-          {(project.buildId || waiting) && (
-            <button ref={full} type="button" className="inkpill" onClick={() => frame.current?.fullscreen()}>
-              <ArrowsOut size={18} weight="bold" aria-hidden="true" />
-              <span className="inkpill__label">Full screen</span>
-            </button>
-          )}
-          {project.buildId && (
-            <a className="inkpill stage__newtab" href={playUrl(project.buildId)} target="_blank" rel="noopener">
-              <span className="inkpill__label">New tab</span>
-              <ArrowSquareOut size={18} weight="bold" aria-hidden="true" />
-            </a>
-          )}
+          {(project.buildId || waiting) && <FullScreenPill ref={full} onClick={() => frame.current?.fullscreen()} />}
+          {project.buildId && <NewTabPill slug={project.buildId} className="stage__newtab" />}
           <GameMenu project={project} onRename={() => setRenaming(true)} />
         </div>
       </header>
@@ -204,7 +190,7 @@ export function Stage({
         <div className="stage__busy stage__wait" role="status" data-ready={ready || undefined}>
           {running ? (
             <>
-              <span className="pulse" aria-hidden="true" />
+              <Pulse />
               <span className="stage__busy-text">
                 Building your game: {live?.text || "getting started"}
                 {runningMessage && (
@@ -214,19 +200,18 @@ export function Stage({
                   </span>
                 )}
               </span>
-              <button type="button" className="inkpill inkpill--small" onClick={() => setWaiting(null)}>
-                <X size={16} weight="bold" aria-hidden="true" />
+              <InkPill size="small" icon={<X size={16} weight="bold" aria-hidden="true" />} onClick={() => setWaiting(null)}>
                 Close
-              </button>
+              </InkPill>
             </>
           ) : ready ? (
             readyLine
           ) : (
             <>
               <span className="stage__busy-text">Your game didn&apos;t build. Nothing was charged.</span>
-              <button type="button" className="inkpill inkpill--small" onClick={() => setWaiting(null)}>
+              <InkPill size="small" onClick={() => setWaiting(null)}>
                 See what to do
-              </button>
+              </InkPill>
             </>
           )}
         </div>
@@ -238,7 +223,7 @@ export function Stage({
           <p className="stage__live" role="status">
             {running && (
               <>
-                <span className="pulse" aria-hidden="true" />
+                <Pulse />
                 <span className="stage__busy-text">
                   Making version {nextN}: {live?.text || "getting started"}
                 </span>
@@ -246,17 +231,16 @@ export function Stage({
             )}
             {project.status === "exporting" && (
               <>
-                <span className="pulse" aria-hidden="true" />
+                <Pulse />
                 <span className="stage__busy-text">{android.exporting.stage}</span>
               </>
             )}
             {hint && <span className="fithint">{hint.made}</span>}
           </p>
           {hint && (
-            <button type="button" className="inkpill inkpill--small fithint__ask" onClick={() => onAsk(hint.ask)}>
-              <ChatCircleText size={16} weight="bold" aria-hidden="true" />
+            <InkPill size="small" className="fithint__ask" icon={<ChatCircleText size={16} weight="bold" aria-hidden="true" />} onClick={() => onAsk(hint.ask)}>
               {hint.button}
-            </button>
+            </InkPill>
           )}
         </div>
       )}
@@ -300,9 +284,9 @@ export function Stage({
           </div>
         ) : running ? (
           <div className="stage__empty stage__empty--wait">
-            <span className="app__icon build stage__build" aria-hidden="true">
+            <AppTile building className="stage__build">
               <BuildLayers />
-            </span>
+            </AppTile>
             {/* Only the step is announced: the clock ticking inside the live region was read out every second. */}
             <p className="stage__line">
               <span role="status">{live?.text || "Getting started"}</span>
@@ -322,16 +306,10 @@ export function Stage({
           <div className="stage__empty">
             <p className="stage__line">No game yet.</p>
             <p className="stage__note">The first build didn&apos;t work. Nothing was charged. Try again, or say it in other words in the chat.</p>
-            {retryError && retryError.after === project.messages.length && (
-              <p className="stage__note stage__note--error" role="alert">
-                {retryError.text}
-              </p>
-            )}
+            {retryError && retryError.after === project.messages.length && <ErrorLine tone="sky">{retryError.text}</ErrorLine>}
             {onRetry && (
-              <button
-                type="button"
-                className="button"
-                disabled={retrying}
+              <Button
+                busy={retrying}
                 onClick={() => {
                   setRetryError(null);
                   setRetrying(true);
@@ -343,7 +321,7 @@ export function Stage({
               >
                 <ArrowClockwise size={18} weight="bold" aria-hidden="true" />
                 {retrying ? "Starting…" : "Try again"}
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -377,12 +355,12 @@ function RenameForm({ project, onDone, onChange }: { project: Project; onDone: (
 
   return (
     <form className="rename" onSubmit={(e) => void save(e)} noValidate>
-      <label htmlFor="rename" className="sr-only">
-        Name of the game
-      </label>
-      <input
+      <TextField
         id="rename"
-        className="rename__input"
+        label="Name of the game"
+        labelHidden
+        tone="ink"
+        boxClassName="rename__box"
         value={name}
         maxLength={60}
         autoFocus
@@ -398,18 +376,18 @@ function RenameForm({ project, onDone, onChange }: { project: Project; onDone: (
             onDone();
           }
         }}
-        aria-describedby={error ? "rename-error" : undefined}
+        describedBy={error ? "rename-error" : undefined}
       />
-      <button type="submit" className="button button--small" disabled={busy}>
-        {busy ? "Saving…" : "Save"}
-      </button>
-      <button type="button" className="inkpill inkpill--small" disabled={busy} onClick={onDone}>
+      <Button type="submit" size="small" busy={busy} busyLabel="Saving…">
+        Save
+      </Button>
+      <InkPill size="small" disabled={busy} onClick={onDone}>
         Cancel
-      </button>
+      </InkPill>
       {error && (
-        <p id="rename-error" className="rename__error" role="alert">
+        <ErrorLine id="rename-error" tone="sky" className="rename__error">
           {error}
-        </p>
+        </ErrorLine>
       )}
     </form>
   );

@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { Check } from "@phosphor-icons/react/dist/ssr";
+import { TextLink } from "@/components/ui/TextLink";
 import { ownership } from "@/content/site";
 
 /** "Your game is yours": what the terms promise about ownership, on the home and pricing pages. */
@@ -20,9 +20,7 @@ export function Ownership() {
         </ul>
         <p>
           {ownership.note}{" "}
-          <Link href="/terms" className="link">
-            Read the terms
-          </Link>
+          <TextLink href="/terms">Read the terms</TextLink>
         </p>
       </div>
     </section>

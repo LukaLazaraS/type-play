@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { PageWidget } from "@/components/ui/PageWidget";
 import { CheckoutClient } from "./CheckoutClient";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
@@ -8,7 +9,7 @@ export const metadata: Metadata = { title: "Checkout", robots: { index: false } 
 // address in the browser (useSearchParams), so the shell is static and the content waits for it.
 export default function Checkout() {
   return (
-    <Suspense fallback={<main className="widget make" data-app aria-busy="true" />}>
+    <Suspense fallback={<PageWidget busy />}>
       <CheckoutClient />
     </Suspense>
   );

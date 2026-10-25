@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Crown, Lightning, Sparkle } from "@phosphor-icons/react/dist/ssr";
+import type { ModelChoice } from "@typeplay/shared";
 import { JsonLd } from "@/components/JsonLd";
 import { structuredData } from "@/content/seo";
 import { Demo } from "@/components/Demo";
 import { games } from "@/content/games";
 import { plans } from "@/content/site";
-import { AppIcon, Listing } from "@/components/AppIcon";
+import { GameIcon, Listing } from "@/components/GameIcon";
 import { BuildingIcon } from "@/components/BuildingIcon";
 import { Dock, PlatformSlots } from "@/components/Dock";
 import { Ground } from "@/components/Ground";
 import { Notice } from "@/components/Notice";
 import { Ownership } from "@/components/Ownership";
 import { PromptForm } from "@/components/PromptForm";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { ModelTile } from "@/components/ui/ModelTile";
 
 const game = (slug: string) => {
   const g = games.find((x) => x.slug === slug);
@@ -27,6 +28,17 @@ const medium = plans.find((p) => p.id === "medium")!;
 const row1 = [game("robot-runner"), game("fruit-match")];
 const row1Right = [game("town-driver"), game("box-push")];
 const row2 = [night, game("fruit-match-night"), game("little-car"), game("desert-dash")];
+// The AIs as a settings list: what each is for, and what our test builds measured.
+const ais: { id: ModelChoice; name: string; text: string; figures: [string, string] }[] = [
+  {
+    id: "fast",
+    name: "Fast",
+    text: "The cheapest. Good for small edits; describe exactly what you want. New games come out in two short steps.",
+    figures: ["new game 8 to 12 min", "edit 1 to 3 min"],
+  },
+  { id: "smart", name: "Smart", text: "The default for new games. Most of the games on this page are Smart builds.", figures: ["new game 1.6 to 9 min", "more credits than Fast"] },
+  { id: "best", name: "Best", text: "The strongest model, with better character art. Costs the most credits.", figures: ["new game about 8 min", "most credits"] },
+];
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -40,7 +52,7 @@ export default function Home() {
         <Notice game={robot} />
         <div className="home__grid">
           {row1.map((g) => (
-            <AppIcon game={g} key={g.slug} />
+            <GameIcon game={g} key={g.slug} />
           ))}
           <div className="widget home__widget">
             <h1 className="display">
@@ -51,10 +63,10 @@ export default function Home() {
             <PromptForm />
           </div>
           {row1Right.map((g) => (
-            <AppIcon game={g} key={g.slug} />
+            <GameIcon game={g} key={g.slug} />
           ))}
           {row2.map((g) => (
-            <AppIcon game={g} key={g.slug} stat={g.edits ? `+${g.edits.length} edits by chat` : undefined} />
+            <GameIcon game={g} key={g.slug} stat={g.edits ? `+${g.edits.length} edits by chat` : undefined} />
           ))}
           <div className="home__build">
             <BuildingIcon />
@@ -112,51 +124,20 @@ export default function Home() {
           a build runs. Numbers are from our test builds.
         </p>
         <div className="widget settings">
-          <div className="setting">
-            <span className="setting__icon setting__icon--fast">
-              <Lightning size={28} weight="fill" aria-hidden="true" />
-            </span>
-            <div>
-              <b>Fast</b>
-              <p>
-                The cheapest. Good for small edits; describe exactly what you want. New games
-                come out in two short steps.
-              </p>
+          {ais.map((ai) => (
+            <div key={ai.id} className="setting">
+              <ModelTile model={ai.id} big />
+              <div>
+                <b>{ai.name}</b>
+                <p>{ai.text}</p>
+              </div>
+              <span className="figures">
+                {ai.figures[0]}
+                <br />
+                {ai.figures[1]}
+              </span>
             </div>
-            <span className="figures">
-              new game 8 to 12 min
-              <br />
-              edit 1 to 3 min
-            </span>
-          </div>
-          <div className="setting">
-            <span className="setting__icon setting__icon--smart">
-              <Sparkle size={28} weight="fill" aria-hidden="true" />
-            </span>
-            <div>
-              <b>Smart</b>
-              <p>The default for new games. Most of the games on this page are Smart builds.</p>
-            </div>
-            <span className="figures">
-              new game 1.6 to 9 min
-              <br />
-              more credits than Fast
-            </span>
-          </div>
-          <div className="setting">
-            <span className="setting__icon setting__icon--best">
-              <Crown size={28} weight="fill" aria-hidden="true" />
-            </span>
-            <div>
-              <b>Best</b>
-              <p>The strongest model, with better character art. Costs the most credits.</p>
-            </div>
-            <span className="figures">
-              new game about 8 min
-              <br />
-              most credits
-            </span>
-          </div>
+          ))}
         </div>
       </section>
 
@@ -192,12 +173,10 @@ export default function Home() {
             </p>
           </div>
           <div className="cta__actions">
-            <Link href="/pricing" className="button button--quiet">
+            <ButtonLink href="/pricing" look="quiet">
               See pricing
-            </Link>
-            <a href="#prompt" className="button">
-              Make my game
-            </a>
+            </ButtonLink>
+            <ButtonLink href="#prompt">Make my game</ButtonLink>
           </div>
         </div>
       </section>

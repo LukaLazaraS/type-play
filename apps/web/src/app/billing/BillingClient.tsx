@@ -1,12 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { BillingInfo, BillingPayment, CreditPart, Me, PlanChangePreview, PlanId, PortalLinks } from "@typeplay/shared";
 import { planName } from "@/components/app/AccountSlot";
 import { paddleOn } from "@/components/app/Paddle";
 import { SignIn } from "@/components/app/SignIn";
+import { ActionButton } from "@/components/ui/ActionButton";
+import { Ask } from "@/components/ui/Ask";
+import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { Card, CardTitle } from "@/components/ui/Card";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { PageWidget } from "@/components/ui/PageWidget";
+import { Strip } from "@/components/ui/Strip";
+import { TextLink } from "@/components/ui/TextLink";
 import { checkoutHref, HOLD_LINE, PAID_PLANS, pack, planAbove, planFacts, support, type PaidPlan } from "@/content/billing";
 import { credits as siteCredits, site } from "@/content/site";
 import { api } from "@/lib/api";
@@ -56,22 +64,13 @@ export function BillingClient() {
   if (session.status === "loading") return <main className="bill" data-app aria-busy="true" />;
   if (session.status === "out") {
     return (
-      <main className="widget make" data-app>
-        <h1 className="title make__title">Plan and billing.</h1>
-        <p className="make__lead">Sign in to see your plan.</p>
+      <PageWidget title="Plan and billing." lead="Sign in to see your plan.">
         <SignIn next="/billing" />
-      </main>
+      </PageWidget>
     );
   }
   if (!me) {
-    return (
-      <main className="widget make" data-app>
-        <h1 className="title make__title">Plan and billing.</h1>
-        <p className="make__lead" role={session.problem ? "alert" : undefined}>
-          {session.problem ?? "Checking your plan…"}
-        </p>
-      </main>
-    );
+    return <PageWidget title="Plan and billing." lead={session.problem ?? "Checking your plan…"} leadRole={session.problem ? "alert" : undefined} />;
   }
   if (!on) return <Off me={me} />;
   if (load.status === "loading") {
@@ -79,25 +78,22 @@ export function BillingClient() {
       <main className="bill" data-app aria-busy="true">
         <h1 className="title mine__title bill__title">Plan and billing.</h1>
         <div className="bill__grid">
-          <section className="widget bill__card bill__plan bill__ghost" aria-hidden="true" />
-          <section className="widget bill__card bill__pay bill__ghost" aria-hidden="true" />
+          <Card className="bill__plan bill__ghost" aria-hidden="true" />
+          <Card className="bill__pay bill__ghost" aria-hidden="true" />
         </div>
       </main>
     );
   }
   if (load.status === "error") {
     return (
-      <main className="widget make" data-app>
-        <h1 className="title make__title">Plan and billing.</h1>
-        <p className="composer__error" role="alert">
-          {load.message}
-        </p>
+      <PageWidget title="Plan and billing.">
+        <ErrorLine>{load.message}</ErrorLine>
         <div className="acct__buttons">
-          <button type="button" className="button button--quiet" onClick={() => void reload()}>
+          <Button look="quiet" onClick={() => void reload()}>
             Try again
-          </button>
+          </Button>
         </div>
-      </main>
+      </PageWidget>
     );
   }
 
@@ -118,66 +114,29 @@ export function BillingClient() {
 /** No payment keys on this server (or sandbox billing is not for this user): today's beta text. */
 function Off({ me }: { me: Me }) {
   return (
-    <main className="widget make" data-app>
-      <h1 className="title make__title">Plan and billing.</h1>
-      <p className="make__lead">
-        You are on <b>{planName[me.plan]}</b>, with {creditsWord(me.credits.available)} to spend. Paying for a plan or a credit pack opens here
-        soon. During the beta, credits are added by hand: write to{" "}
-        <a className="link" href={`mailto:${site.email}`}>
-          {site.email}
-        </a>
-        .
-      </p>
+    <PageWidget
+      title="Plan and billing."
+      lead={
+        <>
+          You are on <b>{planName[me.plan]}</b>, with {creditsWord(me.credits.available)} to spend. Paying for a plan or a credit pack opens here soon.
+          During the beta, credits are added by hand: write to <TextLink href={`mailto:${site.email}`}>{site.email}</TextLink>.
+        </>
+      }
+    >
       <div className="acct__buttons">
-        <Link href="/pricing" className="button">
-          See the plans
-        </Link>
-        <Link href="/account" className="button button--quiet">
+        <ButtonLink href="/pricing">See the plans</ButtonLink>
+        <ButtonLink href="/account" look="quiet">
           Your account
-        </Link>
+        </ButtonLink>
       </div>
-    </main>
-  );
-}
-
-/** A button that runs one API call, says so while it runs, and shows what went wrong beside it. */
-function Act({ label, busyLabel, run, onDone, kind = "quiet" }: { label: string; busyLabel: string; run: () => Promise<unknown>; onDone: () => Promise<void>; kind?: "quiet" | "ink" | "hot" }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const go = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await run();
-      await onDone();
-    } catch (e) {
-      setError(message(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <span className="act">
-      <button type="button" className={`button button--small${kind === "quiet" ? " button--quiet" : kind === "ink" ? " button--ink" : ""}`} disabled={busy} onClick={() => void go()}>
-        {busy ? busyLabel : label}
-      </button>
-      {error && (
-        <span className="composer__error" role="alert">
-          {error}
-        </span>
-      )}
-    </span>
+    </PageWidget>
   );
 }
 
 /** Opens one of Paddle's portal links in a new tab: the tab opens on the click (popup blockers), the fresh link arrives a moment later. */
 function PortalButton({ which, children, asLink = false }: { which: keyof PortalLinks; children: ReactNode; asLink?: boolean }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const open = async () => {
     const tab = window.open("about:blank", "_blank");
-    setBusy(true);
-    setError(null);
     try {
       const links = await api.portal();
       const url = links[which] ?? links.overview;
@@ -189,23 +148,10 @@ function PortalButton({ which, children, asLink = false }: { which: keyof Portal
       }
     } catch (e) {
       tab?.close();
-      setError(message(e));
-    } finally {
-      setBusy(false);
+      throw e;
     }
   };
-  return (
-    <span className="act">
-      <button type="button" className={asLink ? "link bill__linkbutton" : "button button--quiet button--small"} disabled={busy} onClick={() => void open()}>
-        {busy && !asLink ? "Opening Paddle…" : children}
-      </button>
-      {error && (
-        <span className="composer__error" role="alert">
-          {error}
-        </span>
-      )}
-    </span>
-  );
+  return <ActionButton look={asLink ? "text" : "quiet"} label={children} busyLabel={asLink ? undefined : "Opening Paddle…"} run={open} />;
 }
 
 // ---- Strips: one sentence and one button each, above the cards --------------------------------------
@@ -227,9 +173,9 @@ function Strips({ info, onChanged, onGetPlan }: { info: BillingInfo; onChanged: 
       key: "ended",
       text: `Your ${planName[s.lastPlan ?? "medium"]} plan ended${s.endsAt ? ` on ${dayOf(dayAfter(s.endsAt))}` : ""} because the payment didn't go through. You're on Free.`,
       action: (
-        <button type="button" className="button button--quiet button--small" onClick={onGetPlan}>
+        <Button look="quiet" size="small" onClick={onGetPlan}>
           Get a plan
-        </button>
+        </Button>
       ),
     });
   }
@@ -237,7 +183,7 @@ function Strips({ info, onChanged, onGetPlan }: { info: BillingInfo; onChanged: 
     strips.push({
       key: "cancel",
       text: `Your plan ends on ${dayOf(s.cancelsAt)}. Your credits stay until then; pack credits keep working for their ${pack.months} months.`,
-      action: <Act label="Keep my plan" busyLabel="Keeping it…" run={api.keepPlan} onDone={onChanged} />,
+      action: <ActionButton label="Keep my plan" busyLabel="Keeping it…" run={api.keepPlan} onDone={onChanged} />,
     });
   }
   if (s && paid && s.pendingPlan) {
@@ -245,7 +191,7 @@ function Strips({ info, onChanged, onGetPlan }: { info: BillingInfo; onChanged: 
     strips.push({
       key: "downgrade",
       text: `You move to ${planName[s.pendingPlan]}${when ? ` on ${dayOf(when)}` : " at your renewal"}. Until then ${planName[info.plan]} and all its credits stay.`,
-      action: <Act label={`Keep ${planName[info.plan]}`} busyLabel="Keeping it…" run={api.undoPlanChange} onDone={onChanged} />,
+      action: <ActionButton label={`Keep ${planName[info.plan]}`} busyLabel="Keeping it…" run={api.undoPlanChange} onDone={onChanged} />,
     });
   }
   for (const p of info.payments) {
@@ -257,10 +203,9 @@ function Strips({ info, onChanged, onGetPlan }: { info: BillingInfo; onChanged: 
   return (
     <div className="bill__strips">
       {strips.map((strip) => (
-        <section key={strip.key} className="widget strip" data-strip={strip.key} aria-label={strip.text}>
-          <p>{strip.text}</p>
-          {strip.action}
-        </section>
+        <Strip key={strip.key} kind={strip.key} label={strip.text} action={strip.action}>
+          {strip.text}
+        </Strip>
       ))}
     </div>
   );
@@ -316,10 +261,7 @@ function PlanCard({ me, info, picking, onPick, onChanged }: { me: Me; info: Bill
   const canCancel = paid && s?.status === "active" && !s.cancelsAt;
   const extra = info.credits.parts.filter((p) => p.source !== "free");
   return (
-    <section className="widget bill__card bill__plan" aria-labelledby="bill-plan">
-      <h2 id="bill-plan" className="acct__h">
-        Your plan
-      </h2>
+    <Card title="Your plan" titleId="bill-plan" className="bill__plan">
       <p className="bill__planline">
         <b className="bill__planname">{facts.name}</b>
         {paid && <span>{usd(facts.price)} a month.</span>}
@@ -342,50 +284,55 @@ function PlanCard({ me, info, picking, onPick, onChanged }: { me: Me; info: Bill
         {paid ? (
           <>
             {info.canBuyPack && (
-              <Link href={checkoutHref("pack", "/billing")} className={`button button--small${picking ? " button--quiet" : ""}`}>
+              <ButtonLink href={checkoutHref("pack", "/billing")} look={picking ? "quiet" : "hot"} size="small">
                 Buy a credit pack
-              </Link>
+              </ButtonLink>
             )}
-            <button type="button" className="button button--quiet button--small" aria-expanded={picking} onClick={onPick}>
+            <Button look="quiet" size="small" aria-expanded={picking} onClick={onPick}>
               Change plan
-            </button>
+            </Button>
             {canCancel && !asking && (
-              <button type="button" className="button button--quiet button--small" onClick={() => setAsking(true)}>
+              <Button look="quiet" size="small" onClick={() => setAsking(true)}>
                 Cancel plan
-              </button>
+              </Button>
             )}
           </>
         ) : (
           // Hot until the picker is open: then the picker's lead plan is the one thing to press.
-          <button type="button" className={`button button--small${picking ? " button--quiet" : ""}`} aria-expanded={picking} onClick={onPick}>
+          <Button look={picking ? "quiet" : "hot"} size="small" aria-expanded={picking} onClick={onPick}>
             Get a plan
-          </button>
+          </Button>
         )}
       </div>
       {asking && (
-        <div className="ask bill__ask" role="alert">
-          <p>
-            Cancel at the end of your period? {facts.name} and its credits stay until {s?.endsAt ? dayOf(s.endsAt) : "then"}; pack credits keep
-            working for their {pack.months} months.
-          </p>
-          <div className="ask__actions">
-            <Act
-              label="Cancel plan"
-              busyLabel="Cancelling…"
-              kind="ink"
-              run={api.cancelPlan}
-              onDone={async () => {
-                setAsking(false);
-                await onChanged();
-              }}
-            />
-            <button type="button" className="button button--quiet button--small" onClick={() => setAsking(false)}>
-              Keep it
-            </button>
-          </div>
-        </div>
+        <Ask
+          className="bill__ask"
+          text={
+            <>
+              Cancel at the end of your period? {facts.name} and its credits stay until {s?.endsAt ? dayOf(s.endsAt) : "then"}; pack credits keep working
+              for their {pack.months} months.
+            </>
+          }
+          actions={
+            <>
+              <ActionButton
+                label="Cancel plan"
+                busyLabel="Cancelling…"
+                look="ink"
+                run={api.cancelPlan}
+                onDone={async () => {
+                  setAsking(false);
+                  await onChanged();
+                }}
+              />
+              <Button look="quiet" size="small" onClick={() => setAsking(false)}>
+                Keep it
+              </Button>
+            </>
+          }
+        />
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -397,11 +344,9 @@ function Picker({ info, onClose, onChanged }: { info: BillingInfo; onClose: () =
   // A change goes through the subscription; without one (Free, cancelled, lapsed) a plan is bought at checkout.
   const subscribed = info.plan !== "free" && !!s && (s.status === "active" || s.status === "past_due");
   return (
-    <section className="widget bill__card picker" aria-labelledby="bill-pick">
+    <Card className="picker" aria-labelledby="bill-pick">
       <div className="acct__usage-head">
-        <h2 id="bill-pick" className="acct__h">
-          {subscribed ? "Change plan" : "Pick a plan"}
-        </h2>
+        <CardTitle id="bill-pick">{subscribed ? "Change plan" : "Pick a plan"}</CardTitle>
         <p className="acct__note">Every paid plan has the same Fast, Smart and Best; bigger plans get more credits for each dollar. US dollars, tax added at checkout.</p>
       </div>
       <ul className="picker__rows">
@@ -409,10 +354,10 @@ function Picker({ info, onClose, onChanged }: { info: BillingInfo; onClose: () =
           <PlanRow key={id} id={id} info={info} subscribed={subscribed} open={open === id} onOpen={() => setOpen(id)} onClose={() => setOpen(null)} onChanged={onChanged} />
         ))}
       </ul>
-      <button type="button" className="button button--quiet button--small" onClick={onClose}>
+      <Button look="quiet" size="small" onClick={onClose}>
         Close
-      </button>
-    </section>
+      </Button>
+    </Card>
   );
 }
 
@@ -425,21 +370,20 @@ function PlanRow({ id, info, subscribed, open, onOpen, onClose, onChanged }: { i
   // One hot button in the picker: the lead plan (Medium, as on the pricing page) for someone without a
   // plan, the next plan up for someone on one; the other rows are quiet.
   const lead = subscribed ? planAbove(info.plan) === id : id === "medium";
-  const hot = `button button--small${lead ? "" : " button--quiet"}`;
 
   const action = current ? (
     <span className="picker__now" aria-current="true">
       Your plan
     </span>
   ) : !subscribed ? (
-    <Link href={checkoutHref(`plan:${id}`, "/billing")} className={hot}>
+    <ButtonLink href={checkoutHref(`plan:${id}`, "/billing")} look={lead ? "hot" : "quiet"} size="small">
       Get {facts.name}
-    </Link>
+    </ButtonLink>
   ) : (
     // Quiet while its preview is open: the preview's confirm button is then the one to press.
-    <button type="button" className={open ? "button button--small button--quiet" : hot} aria-expanded={open} onClick={open ? onClose : onOpen}>
+    <Button look={lead && !open ? "hot" : "quiet"} size="small" aria-expanded={open} onClick={open ? onClose : onOpen}>
       {up ? "Upgrade" : "Switch at renewal"}
-    </button>
+    </Button>
   );
 
   return (
@@ -502,9 +446,24 @@ function PreviewBox({ id, info, onClose, onChanged }: { id: PaidPlan; info: Bill
   };
 
   return (
-    <div className="ask picker__preview" role="status">
+    <Ask
+      className="picker__preview"
+      role="status"
+      actions={
+        <>
+          {preview.status === "ok" && (
+            <Button size="small" busy={busy} busyLabel="One moment…" onClick={() => void confirm()}>
+              {preview.preview.direction === "up" ? `Upgrade to ${facts.name}` : `Switch to ${facts.name}`}
+            </Button>
+          )}
+          <Button look="quiet" size="small" disabled={busy} onClick={onClose}>
+            {preview.status === "done" ? "Close" : "Not now"}
+          </Button>
+        </>
+      }
+    >
       {preview.status === "loading" && <p>Asking Paddle what this costs…</p>}
-      {preview.status === "error" && <p className="composer__error">{preview.message}</p>}
+      {preview.status === "error" && <ErrorLine alert={false}>{preview.message}</ErrorLine>}
       {preview.status === "done" && <p>{preview.text}</p>}
       {preview.status === "ok" && (
         <p>
@@ -513,17 +472,7 @@ function PreviewBox({ id, info, onClose, onChanged }: { id: PaidPlan; info: Bill
             : `Nothing now. From ${dayOf(preview.preview.effectiveAt)} you pay ${usd(preview.preview.nextRenewalUsd)} a month and get ${facts.credits.toLocaleString("en-US")} credits a month; ${planName[info.plan]} and all its credits stay until then.`}
         </p>
       )}
-      <div className="ask__actions">
-        {preview.status === "ok" && (
-          <button type="button" className="button button--small" disabled={busy} onClick={() => void confirm()}>
-            {busy ? "One moment…" : preview.preview.direction === "up" ? `Upgrade to ${facts.name}` : `Switch to ${facts.name}`}
-          </button>
-        )}
-        <button type="button" className="button button--quiet button--small" disabled={busy} onClick={onClose}>
-          {preview.status === "done" ? "Close" : "Not now"}
-        </button>
-      </div>
-    </div>
+    </Ask>
   );
 }
 
@@ -542,10 +491,7 @@ function PaymentCard({ info }: { info: BillingInfo }) {
   // Nothing was ever paid: no card to update, no invoices, nothing to withdraw from.
   const customer = !!s || info.payments.length > 0;
   return (
-    <section className="widget bill__card bill__pay" aria-labelledby="bill-pay">
-      <h2 id="bill-pay" className="acct__h">
-        Payment
-      </h2>
+    <Card title="Payment" titleId="bill-pay" className="bill__pay">
       <p className="acct__note">
         {s?.paymentMethod ? `Paying with ${s.paymentMethod}. ` : ""}
         Paddle.com is the merchant of record: it {customer ? "holds" : "will hold"} your card, invoices and receipts
@@ -561,11 +507,7 @@ function PaymentCard({ info }: { info: BillingInfo }) {
             <PortalButton which="overview" asLink>
               Withdraw from contract here
             </PortalButton>{" "}
-            (Paddle&apos;s portal, EU and UK), or write to us; the{" "}
-            <Link href="/refunds" className="link">
-              refund policy
-            </Link>{" "}
-            says what comes back.
+            (Paddle&apos;s portal, EU and UK), or write to us; the <TextLink href="/refunds">refund policy</TextLink> says what comes back.
           </p>
         </>
       )}
@@ -575,17 +517,11 @@ function PaymentCard({ info }: { info: BillingInfo }) {
         </p>
       )}
       <p className="acct__note">
-        Help with a payment:{" "}
-        <a className="link" href={`mailto:${support.email}`}>
-          {support.email}
-        </a>
+        Help with a payment: <TextLink href={`mailto:${support.email}`}>{support.email}</TextLink>
         {support.phone && (
           <>
             {" "}
-            or{" "}
-            <a className="link" href={`tel:${support.phone.replace(/\s+/g, "")}`}>
-              {support.phone}
-            </a>
+            or <TextLink href={`tel:${support.phone.replace(/\s+/g, "")}`}>{support.phone}</TextLink>
           </>
         )}
         .
@@ -617,6 +553,6 @@ function PaymentCard({ info }: { info: BillingInfo }) {
           ))}
         </ol>
       )}
-    </section>
+    </Card>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import Link from "next/link";
-import { ArrowRight, Play } from "@phosphor-icons/react";
+import { ArrowRight } from "@phosphor-icons/react";
 import type { Genre, Orientation } from "@typeplay/shared";
+import { GameCard, GameCardSlot } from "@/components/ui/GameCard";
+import { InkPillLink } from "@/components/ui/InkPill";
 import { games as showcase } from "@/content/games";
 import { moreGames } from "@/lib/gallery";
 import { posterUrl } from "@/lib/urls";
@@ -141,30 +142,30 @@ export function WhileYouWait({ projectId, games, onPlay }: { projectId: string; 
       <ul className="wait__games" aria-busy={games === null || undefined}>
         {(games ?? [null, null, null]).map((g, i) =>
           g ? (
-            <li key={g.key} className="wait__card">
-              <button type="button" className="wait__game" onClick={() => onPlay(g)} aria-label={`Play ${g.name}`}>
-                <span className="wait__pic">
-                  <GameTile id={g.key} name={g.name} building={false} poster={g.poster ?? null} fill />
-                  <span className="wait__play" aria-hidden="true">
-                    <Play size={12} weight="fill" />
-                    Play
-                  </span>
-                </span>
-                <span className="wait__name">{g.name}</span>
-              </button>
-            </li>
+            <GameCard
+              key={g.key}
+              small
+              name={g.name}
+              label={`Play ${g.name}`}
+              picture={<GameTile id={g.key} name={g.name} building={false} poster={g.poster ?? null} fill />}
+              orientation={g.orientation}
+              onClick={() => onPlay(g)}
+            />
           ) : (
-            <li key={i} className="wait__card wait__slot" aria-hidden="true">
-              <span className="wait__pic" />
-              <span className="wait__name">&nbsp;</span>
-            </li>
+            <GameCardSlot key={i} small />
           ),
         )}
       </ul>
-      <Link href="/explore" className="inkpill inkpill--small wait__more" onClick={() => rememberWaiting(projectId)}>
+      <InkPillLink
+        href="/explore"
+        size="small"
+        className="wait__more"
+        icon={<ArrowRight size={16} weight="bold" aria-hidden="true" />}
+        iconAfter
+        onClick={() => rememberWaiting(projectId)}
+      >
         More in the gallery
-        <ArrowRight size={16} weight="bold" aria-hidden="true" />
-      </Link>
+      </InkPillLink>
     </section>
   );
 }

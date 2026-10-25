@@ -2,6 +2,11 @@
 
 import { useImperativeHandle, useId, useRef, useState, type FormEvent, type Ref } from "react";
 import type { ReportReason } from "@typeplay/shared";
+import { Button } from "@/components/ui/Button";
+import { ChoiceRows } from "@/components/ui/ChoiceRows";
+import { Dialog, DialogActions, DialogBody, DialogForm, DialogText, DialogTitle, type DialogHandle } from "@/components/ui/Dialog";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { TextArea } from "@/components/ui/Field";
 import { REPORT_TEXT_MAX, reportReasons } from "@/content/gallery";
 import { reportGame } from "@/lib/gallery";
 
@@ -10,13 +15,13 @@ export type ReportTarget = { id: string; name: string };
 export type ReportHandle = { open: (game: ReportTarget) => void };
 
 /**
- * "Report this game" (the share page and the gallery): what's wrong, from a short list, one optional line,
- * and Send. A modal <dialog>: the form keeps the focus while it is open, Escape, Cancel or a tap beside it
- * close it, and the browser gives the focus back to the button that opened it. The API keeps the game, the
- * reason and the line, nothing about who sent it.
+ * "Report this game" (the share page and the gallery): what's wrong, from a short list, one optional line, and Send.
+ * The shared Dialog: the form keeps the focus while it is open, Escape, Cancel or a tap beside it close it, and the
+ * browser gives the focus back to the button that opened it. The API keeps the game, the reason and the line, nothing
+ * about who sent it.
  */
 export function ReportDialog({ ref }: { ref?: Ref<ReportHandle> }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const dialog = useRef<DialogHandle>(null);
   const [game, setGame] = useState<ReportTarget | null>(null);
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [text, setText] = useState("");
@@ -36,7 +41,7 @@ export function ReportDialog({ ref }: { ref?: Ref<ReportHandle> }) {
         setBusy(false);
         setError(null);
         setThanks(null);
-        dialog.current?.showModal();
+        dialog.current?.open();
       },
     }),
     [],
@@ -60,72 +65,52 @@ export function ReportDialog({ ref }: { ref?: Ref<ReportHandle> }) {
   };
 
   return (
-    <dialog
-      ref={dialog}
-      className="report"
-      aria-labelledby={`${id}-title`}
-      // A tap on the backdrop (the dialog element itself, outside its box) closes it.
-      onClick={(e) => {
-        if (e.target === e.currentTarget) close();
-      }}
-    >
+    <Dialog ref={dialog} labelledBy={`${id}-title`}>
       {game &&
         (thanks ? (
-          <div className="report__body" role="status">
-            <h2 id={`${id}-title`} className="report__title">
-              Thanks for telling us.
-            </h2>
-            <p className="report__text">{thanks}</p>
-            <div className="report__actions">
-              <button type="button" className="button button--quiet button--small" onClick={close} autoFocus>
+          <DialogBody role="status">
+            <DialogTitle id={`${id}-title`}>Thanks for telling us.</DialogTitle>
+            <DialogText>{thanks}</DialogText>
+            <DialogActions>
+              <Button look="quiet" size="small" onClick={close} autoFocus>
                 Close
-              </button>
-            </div>
-          </div>
+              </Button>
+            </DialogActions>
+          </DialogBody>
         ) : (
-          <form className="report__body" onSubmit={(e) => void send(e)} noValidate>
-            <h2 id={`${id}-title`} className="report__title">
-              Report {game.name}
-            </h2>
-            <p className="report__text">What&apos;s wrong with it? We look at every report and keep nothing about who sent it.</p>
-            <fieldset className="report__reasons" disabled={busy}>
-              <legend className="sr-only">What&apos;s wrong with it</legend>
-              {reportReasons.map((r) => (
-                <label key={r.id} className="report__reason" data-on={reason === r.id || undefined}>
-                  <input type="radio" name={`${id}-reason`} value={r.id} checked={reason === r.id} onChange={() => setReason(r.id)} className="sr-only" />
-                  <span>{r.name}</span>
-                </label>
-              ))}
-            </fieldset>
-            <label htmlFor={`${id}-text`} className="field-label report__label">
-              Anything else? <span>Optional</span>
-            </label>
-            <div className="field">
-              <textarea
-                id={`${id}-text`}
-                rows={2}
-                maxLength={REPORT_TEXT_MAX}
-                value={text}
-                disabled={busy}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Where in the game, or what it copies"
-              />
-            </div>
-            {error && (
-              <p className="composer__error" role="alert">
-                {error}
-              </p>
-            )}
-            <div className="report__actions">
-              <button type="submit" className="button button--small" disabled={!reason || busy}>
-                {busy ? "Sending…" : "Send report"}
-              </button>
-              <button type="button" className="button button--quiet button--small" onClick={close} disabled={busy}>
+          <DialogForm onSubmit={(e) => void send(e)} noValidate>
+            <DialogTitle id={`${id}-title`}>Report {game.name}</DialogTitle>
+            <DialogText>What&apos;s wrong with it? We look at every report and keep nothing about who sent it.</DialogText>
+            <ChoiceRows
+              name={`${id}-reason`}
+              legend="What's wrong with it"
+              value={reason}
+              onChange={setReason}
+              choices={reportReasons.map((r) => ({ value: r.id, title: r.name }))}
+              disabled={busy}
+            />
+            <TextArea
+              id={`${id}-text`}
+              label="Anything else?"
+              optional
+              rows={2}
+              maxLength={REPORT_TEXT_MAX}
+              value={text}
+              disabled={busy}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Where in the game, or what it copies"
+            />
+            {error && <ErrorLine>{error}</ErrorLine>}
+            <DialogActions>
+              <Button type="submit" size="small" disabled={!reason} busy={busy} busyLabel="Sending…">
+                Send report
+              </Button>
+              <Button look="quiet" size="small" onClick={close} disabled={busy}>
                 Cancel
-              </button>
-            </div>
-          </form>
+              </Button>
+            </DialogActions>
+          </DialogForm>
         ))}
-    </dialog>
+    </Dialog>
   );
 }

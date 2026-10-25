@@ -8,11 +8,15 @@ import type { Effort, Message, ModelChoice, Project, ProjectSummary, RunEvent, V
 import { ChatLog, type LiveLine } from "@/components/app/ChatLog";
 import { Composer } from "@/components/app/Composer";
 import { setFeedbackGame } from "@/components/app/Feedback";
+import { LiveStatus } from "@/components/app/LiveStatus";
 import { SignIn } from "@/components/app/SignIn";
 import { Stage } from "@/components/app/Stage";
 import { useEstimates } from "@/components/app/useEstimates";
 import { useNow } from "@/components/app/useNow";
 import { forgetWaiting, waitingFor } from "@/components/app/WhileYouWait";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { PageWidget } from "@/components/ui/PageWidget";
+import { Tabs } from "@/components/ui/PillBar";
 import { api, ApiFailure, watchProject, type StreamState } from "@/lib/api";
 import { creditsWord } from "@/lib/format";
 import { refreshMe, setCredits, signOut, useSession } from "@/lib/session";
@@ -180,32 +184,18 @@ export function GameClient() {
   if (session.status === "loading") return <main className="ws" data-app aria-busy="true" />;
   if (session.status === "out") {
     return (
-      <main className="widget make" data-app>
-        <h1 className="title make__title">Sign in to play.</h1>
-        <p className="make__lead">This game is in your account. Sign in to play it and keep changing it.</p>
+      <PageWidget title="Sign in to play." lead="This game is in your account. Sign in to play it and keep changing it.">
         <SignIn next={`/games/${id}`} />
-      </main>
+      </PageWidget>
     );
   }
   if (!project) {
-    return (
-      <main className="widget make" data-app>
-        {fatal ? (
-          <>
-            <h1 className="title make__title">Can&apos;t open this game.</h1>
-            <p className="make__lead" role="alert">
-              {fatal.message}
-            </p>
-            <Link href="/games" className="button">
-              Your games
-            </Link>
-          </>
-        ) : (
-          <p className="make__lead" aria-busy="true">
-            Opening your game…
-          </p>
-        )}
-      </main>
+    return fatal ? (
+      <PageWidget title="Can't open this game." lead={fatal.message} leadRole="alert">
+        <ButtonLink href="/games">Your games</ButtonLink>
+      </PageWidget>
+    ) : (
+      <PageWidget lead="Opening your game…" />
     );
   }
 
@@ -214,34 +204,36 @@ export function GameClient() {
   return (
     <main className="ws" data-app data-tab={shown}>
       <title>{`${project.name} | TypePlay`}</title>
-      <div
+      <Tabs
+        label="Game page"
         className="ws__tabs"
-        role="tablist"
-        aria-label="Game page"
-        onKeyDown={(e) => {
-          // Tabs move with the arrow keys, as a tab list does.
-          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-          const next: Tab = shown === "chat" ? "play" : "chat";
-          show(next);
-          e.currentTarget.querySelector<HTMLElement>(`#ws-tab-${next}`)?.focus();
-        }}
-      >
-        <Link href="/games" className="ws__back" aria-label="Your games">
-          <ArrowLeft size={18} weight="bold" aria-hidden="true" />
-        </Link>
-        <button type="button" role="tab" id="ws-tab-chat" aria-selected={shown === "chat"} aria-controls="ws-chat" className="ws__tab" onClick={() => show("chat")}>
-          Chat
-        </button>
-        <button type="button" role="tab" id="ws-tab-play" aria-selected={shown === "play"} aria-controls="ws-play" className="ws__tab" onClick={() => show("play")}>
-          Play
-          {fresh && (
-            <>
-              <span className="ws__dot" aria-hidden="true" />
-              <span className="sr-only">, new version ready</span>
-            </>
-          )}
-        </button>
-      </div>
+        value={shown}
+        onChange={show}
+        before={
+          <Link href="/games" className="ws__back" aria-label="Your games">
+            <ArrowLeft size={18} weight="bold" aria-hidden="true" />
+          </Link>
+        }
+        tabs={[
+          { id: "chat", label: "Chat", tabId: "ws-tab-chat", panelId: "ws-chat" },
+          {
+            id: "play",
+            label: (
+              <>
+                Play
+                {fresh && (
+                  <>
+                    <span className="ws__dot" aria-hidden="true" />
+                    <span className="sr-only">, new version ready</span>
+                  </>
+                )}
+              </>
+            ),
+            tabId: "ws-tab-play",
+            panelId: "ws-play",
+          },
+        ]}
+      />
 
       <section id="ws-chat" role="tabpanel" aria-labelledby="ws-tab-chat" className="widget ws__chat">
         <header className="ws__head">
@@ -253,38 +245,15 @@ export function GameClient() {
             {creditsWord(spent)} on this game
           </span>
         </header>
-        {fatal ? (
-          <p className="ws__offline" role="alert">
-            {fatal.code === "not_found" ? (
-              <>
-                This game was deleted.{" "}
-                <Link href="/games" className="link">
-                  Your games
-                </Link>
-              </>
-            ) : (
-              <>
-                Live updates stopped.{" "}
-                <button
-                  type="button"
-                  className="link ws__retry"
-                  onClick={() => {
-                    setFatal(null);
-                    setWatchKey((k) => k + 1);
-                  }}
-                >
-                  Retry
-                </button>
-              </>
-            )}
-          </p>
-        ) : (
-          stream === "retrying" && (
-            <p className="ws__offline" role="status">
-              Lost the live updates. Reconnecting…
-            </p>
-          )
-        )}
+        <LiveStatus
+          fatal={fatal}
+          stream={stream}
+          onRetry={() => {
+            setFatal(null);
+            setWatchKey((k) => k + 1);
+          }}
+          className="ws__offline"
+        />
         <ChatLog
           messages={project.messages}
           live={live}

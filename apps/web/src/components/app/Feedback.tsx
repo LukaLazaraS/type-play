@@ -1,10 +1,13 @@
 "use client";
 
 import { useImperativeHandle, useId, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent, type Ref } from "react";
-import { createPortal } from "react-dom";
+import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Checkbox";
+import { Dialog, DialogActions, DialogBody, DialogForm, DialogText, DialogTitle, type DialogHandle } from "@/components/ui/Dialog";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { TextArea } from "@/components/ui/Field";
 import { FEEDBACK_COUNT_FROM, FEEDBACK_TEXT_MAX } from "@/content/beta";
 import { api, ApiFailure } from "@/lib/api";
-import { useAutoGrow } from "./useAutoGrow";
 
 /** The game a note can carry: the game page's, with its newest answer (the build Luka should look at). */
 export type FeedbackGame = { id: string; name: string; messageId: string | null };
@@ -56,40 +59,25 @@ function keepDraft(d: Draft) {
 
 const TEXT_MAX_PX = 240;
 const EXPECTED_MAX_PX = 160;
-/** Measured again once the dialog shows: while it is closed the boxes have no size, so the hook's first measure was 0. */
+/** Measured again once the dialog shows: while it is closed the boxes have no size, so the first measure was 0. */
 function fit(el: HTMLTextAreaElement | null, max: number) {
   if (!el) return;
   el.style.height = "auto";
   el.style.height = `${Math.min(el.scrollHeight, max)}px`;
 }
-/** The counter under a box, once the words get near the limit: letters left in figures; at the end, a sentence. */
-function Counter({ id, n }: { id: string; n: number }) {
-  if (n <= 0) {
-    return (
-      <p id={id} className="field-hint">
-        That&apos;s the most one note holds: send it, then start another.
-      </p>
-    );
-  }
-  return (
-    <p id={id} className="figures feedback__count">
-      {n.toLocaleString("en-US")} {n === 1 ? "letter" : "letters"} left
-    </p>
-  );
-}
+/** Letters left under a box, from 3,600 on; at the limit, a sentence. */
+const count = { from: FEEDBACK_COUNT_FROM, max: FEEDBACK_TEXT_MAX, full: "That's the most one note holds: send it, then start another." };
 
 /**
  * "Send feedback" (beta 1), from the account menu and the game page's More menu: what happened, what they expected
  * (optional), and on a game's page a tick box, on by default, that attaches the game and its newest answer so Luka can
- * play that version. A modal <dialog> in the report dialog's box, put straight in <body> so the status bar's or the
- * stage's styles don't reach it. Words typed and closed without sending wait for the next open (and a reload); a sent
- * note clears them. Ctrl or Cmd + Enter sends.
+ * play that version. The shared Dialog, wide. Words typed and closed without sending wait for the next open (and a
+ * reload); a sent note clears them. Ctrl or Cmd + Enter sends.
  */
 export function FeedbackDialog({ ref, email }: { ref?: Ref<FeedbackHandle>; email: string | null }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const dialog = useRef<DialogHandle>(null);
   const textBox = useRef<HTMLTextAreaElement>(null);
   const expectedBox = useRef<HTMLTextAreaElement>(null);
-  const returnTo = useRef<HTMLElement | null>(null);
   const [game, setGame] = useState<FeedbackGame | null>(null);
   const [attach, setAttach] = useState(true);
   const [text, setText] = useState("");
@@ -100,8 +88,6 @@ export function FeedbackDialog({ ref, email }: { ref?: Ref<FeedbackHandle>; emai
   const [full, setFull] = useState(false);
   const [sent, setSent] = useState<"with-game" | "note" | null>(null);
   const id = useId();
-  useAutoGrow(textBox, text, TEXT_MAX_PX);
-  useAutoGrow(expectedBox, expected, EXPECTED_MAX_PX);
 
   useImperativeHandle(
     ref,
@@ -116,8 +102,7 @@ export function FeedbackDialog({ ref, email }: { ref?: Ref<FeedbackHandle>; emai
         setError(null);
         setFull(false);
         setSent(null);
-        returnTo.current = from ?? null;
-        dialog.current?.showModal();
+        dialog.current?.open(from);
         fit(textBox.current, TEXT_MAX_PX);
         fit(expectedBox.current, EXPECTED_MAX_PX);
       },
@@ -171,29 +156,12 @@ export function FeedbackDialog({ ref, email }: { ref?: Ref<FeedbackHandle>; emai
     }
   };
 
-  if (typeof document === "undefined") return null;
-  const textCount = text.length >= FEEDBACK_COUNT_FROM ? `${id}-text-count` : undefined;
-  const expectedCount = expected.length >= FEEDBACK_COUNT_FROM ? `${id}-expected-count` : undefined;
-  return createPortal(
-    <dialog
-      ref={dialog}
-      className="report feedback"
-      aria-labelledby={`${id}-title`}
-      // A tap on the backdrop (the dialog element itself, outside its box) closes it; the words wait for next time.
-      onClick={(e) => {
-        if (e.target === e.currentTarget) close();
-      }}
-      // The entry that opened it was in a menu, closed by now: the keyboard goes back to that menu's button.
-      onClose={() => {
-        if (returnTo.current?.isConnected) returnTo.current.focus();
-      }}
-    >
+  return (
+    <Dialog ref={dialog} labelledBy={`${id}-title`} wide className="feedback">
       {sent ? (
-        <div className="report__body" role="status">
-          <h2 id={`${id}-title`} className="report__title">
-            Thanks for telling us.
-          </h2>
-          <p className="report__text">
+        <DialogBody role="status">
+          <DialogTitle id={`${id}-title`}>Thanks for telling us.</DialogTitle>
+          <DialogText>
             {sent === "with-game" ? "We have your note and the game." : "We have your note."}
             {email && (
               <>
@@ -201,85 +169,67 @@ export function FeedbackDialog({ ref, email }: { ref?: Ref<FeedbackHandle>; emai
                 If we need to know more, we&apos;ll write to <b className="feedback__email">{email}</b>.
               </>
             )}
-          </p>
-          <div className="report__actions">
-            <button type="button" className="button button--quiet button--small" onClick={close} autoFocus>
+          </DialogText>
+          <DialogActions>
+            <Button look="quiet" size="small" onClick={close} autoFocus>
               Close
-            </button>
-          </div>
-        </div>
+            </Button>
+          </DialogActions>
+        </DialogBody>
       ) : (
-        <form className="report__body" onSubmit={submit} onKeyDown={onKey} noValidate>
-          <h2 id={`${id}-title`} className="report__title">
-            Send feedback
-          </h2>
-          <p className="report__text">Something broke, didn&apos;t make sense, or a game came out wrong? Tell us. We read every note.</p>
+        <DialogForm onSubmit={submit} onKeyDown={onKey} noValidate>
+          <DialogTitle id={`${id}-title`}>Send feedback</DialogTitle>
+          <DialogText>Something broke, didn&apos;t make sense, or a game came out wrong? Tell us. We read every note.</DialogText>
           <div className="feedback__part">
-            <label htmlFor={`${id}-text`} className="field-label">
-              What happened?
-            </label>
-            <div className="field">
-              <textarea
-                ref={textBox}
-                id={`${id}-text`}
-                className="feedback__text"
-                rows={3}
-                maxLength={FEEDBACK_TEXT_MAX}
-                value={text}
-                disabled={busy}
-                aria-describedby={textCount}
-                onChange={(e) => changeText(e.target.value)}
-                placeholder="For example: the game froze after level 2."
-              />
-            </div>
-            {textCount && <Counter id={textCount} n={FEEDBACK_TEXT_MAX - text.length} />}
+            <TextArea
+              ref={textBox}
+              id={`${id}-text`}
+              label="What happened?"
+              className="feedback__text"
+              grow={TEXT_MAX_PX}
+              count={count}
+              rows={3}
+              maxLength={FEEDBACK_TEXT_MAX}
+              value={text}
+              disabled={busy}
+              onChange={(e) => changeText(e.target.value)}
+              placeholder="For example: the game froze after level 2."
+            />
           </div>
           <div className="feedback__part">
-            <label htmlFor={`${id}-expected`} className="field-label report__label">
-              What did you expect? <span>Optional</span>
-            </label>
-            <div className="field">
-              <textarea
-                ref={expectedBox}
-                id={`${id}-expected`}
-                className="feedback__expected"
-                rows={2}
-                maxLength={FEEDBACK_TEXT_MAX}
-                value={expected}
-                disabled={busy}
-                aria-describedby={expectedCount}
-                onChange={(e) => changeExpected(e.target.value)}
-                placeholder="For example: level 3 starts."
-              />
-            </div>
-            {expectedCount && <Counter id={expectedCount} n={FEEDBACK_TEXT_MAX - expected.length} />}
+            <TextArea
+              ref={expectedBox}
+              id={`${id}-expected`}
+              label="What did you expect?"
+              optional
+              className="feedback__expected"
+              grow={EXPECTED_MAX_PX}
+              count={count}
+              rows={2}
+              maxLength={FEEDBACK_TEXT_MAX}
+              value={expected}
+              disabled={busy}
+              onChange={(e) => changeExpected(e.target.value)}
+              placeholder="For example: level 3 starts."
+            />
           </div>
           {game && (
-            <label className="consent feedback__attach">
-              <input type="checkbox" checked={attach} disabled={busy} onChange={(e) => setAttach(e.target.checked)} />
-              <span>
-                Attach this game, so we can play the version you see.
-                <span className="feedback__game">{game.name}</span>
-              </span>
-            </label>
+            <Checkbox checked={attach} disabled={busy} onChange={setAttach} note={game.name}>
+              Attach this game, so we can play the version you see.
+            </Checkbox>
           )}
           <p className="field-hint">We keep your note with your account, the page you&apos;re on, and your browser and device type.</p>
-          {error && (
-            <p className="composer__error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="report__actions">
-            <button type="submit" className="button button--small" disabled={!text.trim() || busy || full}>
-              {busy ? "Sending…" : "Send feedback"}
-            </button>
-            <button type="button" className="button button--quiet button--small" onClick={close} disabled={busy}>
+          {error && <ErrorLine>{error}</ErrorLine>}
+          <DialogActions>
+            <Button type="submit" size="small" disabled={!text.trim() || full} busy={busy} busyLabel="Sending…">
+              Send feedback
+            </Button>
+            <Button look="quiet" size="small" onClick={close} disabled={busy}>
               Cancel
-            </button>
-          </div>
-        </form>
+            </Button>
+          </DialogActions>
+        </DialogForm>
       )}
-    </dialog>,
-    document.body,
+    </Dialog>
   );
 }

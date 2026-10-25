@@ -46,7 +46,7 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
   const openReport = async (p, button) => {
     for (let i = 0; i < 10; i++) {
       await button.click();
-      if (await p.locator("dialog.report[open]").waitFor({ timeout: 1500 }).then(() => true, () => false)) return;
+      if (await p.locator("dialog[open]").waitFor({ timeout: 1500 }).then(() => true, () => false)) return;
     }
     throw new Error("the report dialog didn't open");
   };
@@ -122,7 +122,7 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     if ((await listed()).length === 1) {
       await v.goto(`${base}/explore`, { waitUntil: "domcontentloaded", timeout: 120_000 });
       await v.locator(".feature").waitFor({ timeout: 60_000 });
-      check("one game in the gallery: it is the top game, with no listings under it", (await v.locator(".feature__name").innerText()) === "Fox Log Jumper" && (await v.locator(".glist").count()) === 0);
+      check("one game in the gallery: it is the top game, with no listings under it", (await v.locator(".feature__name").innerText()) === "Fox Log Jumper" && (await v.locator(".gamecard").count()) === 0);
       check("a lone upright game still has its invitation beside it (and none at the end on a wide screen)", await v.evaluate(() => { const f = document.querySelector(".feature")?.getBoundingClientRect(); const m = document.querySelector(".explore__top .play__made")?.getBoundingClientRect(); const end = document.querySelector("main > .explore__made"); return !!f && !!m && m.left >= f.right && !!end && getComputedStyle(end).display === "none"; }));
       await noBadge(v);
       await shot(v, "explore-one-desktop");
@@ -182,8 +182,8 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     check("Popular: the most played this week is on top, in its frame, with this week's plays", (await v.locator(".feature__name").innerText()) === "Fox Log Jumper" && (await text(v.locator(".feature__figures"))) === "2 plays this week · Runner", await text(v.locator(".feature__figures")));
     check("an upright top game sits beside the invitation (as on an upright share page)", await v.evaluate(() => { const f = document.querySelector(".feature")?.getBoundingClientRect(); const m = document.querySelector(".explore__top .play__made")?.getBoundingClientRect(); return !!f && !!m && m.left >= f.right && Math.abs(m.top - f.top) < 2; }));
     check("the top game's frame has its size (an upright game, beside its words)", await v.locator(".feature__frame").evaluate((f) => f.getBoundingClientRect().width > 200 && f.getBoundingClientRect().height > 350));
-    const names = await v.locator(".glist__name").allInnerTexts();
-    check("the others as listings: no plays this week says nothing, then the genre", names.includes("Fruit Pop") && names.includes("Tiny Laps") && (await text(v.locator(".glist", { hasText: "Fruit Pop" }).locator(".glist__meta"))) === "Puzzle");
+    const names = await v.locator(".gamecard__name").allInnerTexts();
+    check("the others as listings: no plays this week says nothing, then the genre", names.includes("Fruit Pop") && names.includes("Tiny Laps") && (await text(v.locator(".gamecard", { hasText: "Fruit Pop" }).locator(".glist__meta"))) === "Puzzle");
     check("the page ends on the invitation as well", (await v.locator("main > .explore__made").count()) === 1);
     check("a listing opens the game's share page", (await v.getByRole("link", { name: "Play Tiny Laps" }).getAttribute("href")) === `/play/${g3}`);
     check("the order bar says Popular is the one shown", (await v.locator('.explore__sort a[aria-current="page"]').innerText()) === "Popular");
@@ -209,18 +209,18 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     await v.unroute(/\/explore\?sort=new/);
     await v.locator('.explore__sort a[aria-current="page"]', { hasText: "New" }).waitFor({ timeout: 30_000 });
     check("New: the latest to join the gallery on top", (await v.locator(".feature__name").innerText()) === "Tiny Laps" && (await text(v.locator(".feature__figures"))) === "Newest in the gallery · Racer", await text(v.locator(".feature__figures")));
-    check("New: the listings say all their plays, over the genre", (await text(v.locator(".glist", { hasText: "Fox Log Jumper" }).locator(".glist__meta"))) === "2 plays\nRunner");
+    check("New: the listings say all their plays, over the genre", (await text(v.locator(".gamecard", { hasText: "Fox Log Jumper" }).locator(".glist__meta"))) === "2 plays\nRunner");
     await noBadge(v);
     await shot(v, "explore-new-desktop");
 
     // ---- Report this game: from a listing, then on the share page ----------------------------------
     await v.goto(`${base}/explore`, { waitUntil: "domcontentloaded" });
-    await v.locator(".glist").first().waitFor({ timeout: 60_000 });
+    await v.locator(".gamecard").first().waitFor({ timeout: 60_000 });
     const flag = v.getByRole("button", { name: "Report Fruit Pop" });
     await openReport(v, flag);
-    const dialog = v.locator("dialog.report[open]");
+    const dialog = v.locator("dialog[open]");
     await v.waitForTimeout(250);
-    check("a listing's flag opens the report for that game", (await dialog.locator(".report__title").innerText()) === "Report Fruit Pop");
+    check("a listing's flag opens the report for that game", (await dialog.locator(".dialog__title").innerText()) === "Report Fruit Pop");
     check("Send waits for a reason", await v.getByRole("button", { name: "Send report" }).isDisabled());
     await shot(v, "report-dialog-desktop");
     await v.keyboard.press("Escape");
@@ -228,31 +228,31 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     check("Escape closes it, and the focus is back on the flag", (await dialog.count()) === 0 && (await v.evaluate(() => document.activeElement?.getAttribute("aria-label"))) === "Report Fruit Pop");
     await v.goto(`${base}/play/${g2}`, { waitUntil: "domcontentloaded" });
     await openReport(v, v.getByRole("button", { name: "Report this game" }));
-    await v.locator(".report__reason", { hasText: "Copies someone else's characters, art or music" }).click();
-    await v.locator("dialog.report textarea").fill("The fruit look like the ones in Fruit Ninja");
+    await v.locator(".choice", { hasText: "Copies someone else's characters, art or music" }).click();
+    await v.locator("dialog[open] textarea").fill("The fruit look like the ones in Fruit Ninja");
     check("a reason picked: Send is ready", await v.getByRole("button", { name: "Send report" }).isEnabled());
     await v.waitForTimeout(200);
     await shot(v, "report-filled-desktop");
     await v.getByRole("button", { name: "Send report" }).click();
     await dialog.locator('[role="status"]').waitFor({ timeout: 15_000 });
-    check("sent: Thanks for telling us", (await dialog.locator(".report__title").innerText()) === "Thanks for telling us.");
+    check("sent: Thanks for telling us", (await dialog.locator(".dialog__title").innerText()) === "Thanks for telling us.");
     await v.waitForTimeout(300); // the thanks' 160 ms fade
     await shot(v, "report-sent-desktop");
     const rows = (await db.query(`SELECT reason, text FROM "GameReport" WHERE "projectId" = $1`, [g2])).rows;
     check("database: the report, its reason and its words, nothing about the sender", rows.length === 1 && rows[0].reason === "copied" && rows[0].text === "The fruit look like the ones in Fruit Ninja");
     await v.getByRole("button", { name: "Close" }).click();
     await openReport(v, v.getByRole("button", { name: "Report this game" }));
-    await v.locator(".report__reason", { hasText: "Something else" }).click();
+    await v.locator(".choice", { hasText: "Something else" }).click();
     await v.getByRole("button", { name: "Send report" }).click();
     await dialog.locator('[role="status"]').waitFor({ timeout: 15_000 });
-    check("the same visitor again: thanked, not stored twice", /already have your report/.test(await dialog.locator(".report__text").innerText()) && (await db.query(`SELECT count(*)::int AS n FROM "GameReport" WHERE "projectId" = $1`, [g2])).rows[0].n === 1);
+    check("the same visitor again: thanked, not stored twice", /already have your report/.test(await dialog.locator(".dialog__text").innerText()) && (await db.query(`SELECT count(*)::int AS n FROM "GameReport" WHERE "projectId" = $1`, [g2])).rows[0].n === 1);
     await v.keyboard.press("Escape");
 
     // ---- An admin takes a game out of the gallery --------------------------------------------------
     check("admin gallery hide", admin("gallery", "hide", g3, "shots").status === 0);
     await v.goto(`${base}/explore`, { waitUntil: "domcontentloaded" });
     await v.locator(".feature").waitFor({ timeout: 60_000 });
-    check("hidden: out of the gallery", !(await v.locator(".glist__name").allInnerTexts()).includes("Tiny Laps") && (await v.locator(".feature__name").innerText()) !== "Tiny Laps");
+    check("hidden: out of the gallery", !(await v.locator(".gamecard__name").allInnerTexts()).includes("Tiny Laps") && (await v.locator(".feature__name").innerText()) !== "Tiny Laps");
     const still = await v.goto(`${base}/play/${g3}`, { waitUntil: "domcontentloaded" });
     check("hidden: its share page still works (200)", still?.status() === 200);
     await page.goto(`${base}/games/${g3}`, { waitUntil: "domcontentloaded" });
@@ -346,24 +346,24 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     check("worst case: the wide game on top with 9,999,999 plays says 10M plays", (await v.locator(".feature").getAttribute("data-orientation")) === "landscape" && (await text(v.locator(".feature__figures"))) === "10M plays this week · Tower defence", await text(v.locator(".feature__figures")));
     // A failed picture is swapped for the drawn tile a moment after it fails: wait for that, don't sample once.
     const noBroken = await v
-      .waitForFunction(() => [...document.querySelectorAll(".glist__pic img")].every((i) => !(i.complete && i.naturalWidth === 0)), null, { timeout: 10_000 })
+      .waitForFunction(() => [...document.querySelectorAll(".gamecard__pic img")].every((i) => !(i.complete && i.naturalWidth === 0)), null, { timeout: 10_000 })
       .then(() => true, () => false);
-    check("worst case: pictures that fail (before or after the page woke up) show the drawn tile, not a broken image", noBroken && (await v.locator(".glist__pic svg").count()) > 0);
+    check("worst case: pictures that fail (before or after the page woke up) show the drawn tile, not a broken image", noBroken && (await v.locator(".gamecard__pic svg").count()) > 0);
     check("worst case: a 60-letter name on top stays inside the stage", await v.evaluate(() => { const n = document.querySelector(".feature__name"); const s = document.querySelector(".feature"); return !!n && !!s && n.getBoundingClientRect().right <= s.getBoundingClientRect().right + 1; }));
     const counts = await Promise.all([/^1\.2K\splays/, /^1M\splays/, /^12\.3K\splays/].map((t) => v.locator(".glist__meta", { hasText: t }).count()));
     check("worst case: big counts read short (1.2K, 1M, 12.3K)", counts.every((c) => c > 0), counts.join());
-    const first = await v.locator(".glist").count();
+    const first = await v.locator(".gamecard").count();
     check("worst case: the first page is the top game and 23 listings", first === 23, String(first));
     await noBadge(v);
     await v.waitForTimeout(800);
     await shot(v, "explore-worst-desktop");
     await v.getByRole("button", { name: "Show more games" }).click();
-    await v.waitForFunction((k) => document.querySelectorAll(".glist").length > k, first, { timeout: 30_000 });
+    await v.waitForFunction((k) => document.querySelectorAll(".gamecard").length > k, first, { timeout: 30_000 });
     await v.getByRole("button", { name: "Show more games" }).click();
-    await v.waitForFunction((k) => document.querySelectorAll(".glist").length > k + 24, first, { timeout: 30_000 });
-    const shown = await v.locator(".glist__link").evaluateAll((as) => as.map((a) => a.getAttribute("href")));
+    await v.waitForFunction((k) => document.querySelectorAll(".gamecard").length > k + 24, first, { timeout: 30_000 });
+    const shown = await v.locator(".gamecard__link").evaluateAll((as) => as.map((a) => a.getAttribute("href")));
     check("Show more twice: 24 more each time, no game twice", shown.length === first + 48 && new Set(shown).size === shown.length, String(shown.length));
-    const clamped = await v.locator(".glist__name").evaluateAll((els) => els.every((e) => e.clientHeight <= Math.ceil(parseFloat(getComputedStyle(e).lineHeight) * 2) + 2));
+    const clamped = await v.locator(".gamecard__name").evaluateAll((els) => els.every((e) => e.clientHeight <= Math.ceil(parseFloat(getComputedStyle(e).lineHeight) * 2) + 2));
     check("long names stop at two lines", clamped);
     await noBadge(v);
     await shot(v, "explore-worst-desktop-full", true);
@@ -383,7 +383,7 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       await shot(s, "explore-worst-320-full", true);
       await openReport(s, s.locator(".glist__report").first());
       await s.waitForTimeout(250);
-      check("320 px: the report dialog fits", await s.evaluate(() => { const d = document.querySelector("dialog.report[open]"); return !!d && d.getBoundingClientRect().width <= 320 && document.documentElement.scrollWidth <= 320; }));
+      check("320 px: the report dialog fits", await s.evaluate(() => { const d = document.querySelector("dialog[open]"); return !!d && d.getBoundingClientRect().width <= 320 && document.documentElement.scrollWidth <= 320; }));
       await shot(s, "report-dialog-320");
     } finally {
       await small.close();

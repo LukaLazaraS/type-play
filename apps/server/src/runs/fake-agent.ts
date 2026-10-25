@@ -2,7 +2,9 @@
 // A few progress lines over ~5 s, then success with an existing demo build's pack, reported like a
 // two-step build whose second step was rolled back: $0.14 of work in all (costUsd, our accounting),
 // $0.10 in the game the player gets (chargeUsd, what they pay: 1.7 credits), with 9 next-step
-// ideas. A prompt containing "FAIL" fails; "LONG" takes ~45 s; a change with "FILL" makes the game fill every screen.
+// ideas. A prompt containing "FAIL" fails; "LONG" takes ~45 s; "HOLD" stays on its first line until stopped (the
+// screens shown while a build runs, photographed the same every time: apps/web/scripts/shot-compare.mjs); a change with
+// "FILL" makes the game fill every screen.
 // It makes a real git commit, like the agent would.
 import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -157,10 +159,11 @@ export function runFakeAgent(job: AgentJob): AgentHandle {
   const finish = (r: AgentResult) => void called.then(() => resolveDone(r));
   // "LONG": ~45 s instead of ~5, like a short real build, so screens shown while a build runs can be tried out.
   const stretch = job.prompt.includes("LONG") ? 8 : 1;
-  LINES.forEach((text, i) => timers.push(setTimeout(() => job.onProgress(text), (300 + i * 1000) * stretch)));
+  const hold = job.prompt.includes("HOLD");
+  LINES.slice(0, hold ? 1 : LINES.length).forEach((text, i) => timers.push(setTimeout(() => job.onProgress(text), (300 + i * 1000) * stretch)));
   timers.push(
     setTimeout(async () => {
-      if (killed) return;
+      if (killed || hold) return;
       started = true;
       if (job.prompt.includes("FAIL")) {
         await fakeMess(job).catch(() => {});

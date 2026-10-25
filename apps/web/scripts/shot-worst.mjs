@@ -352,7 +352,7 @@ try {
   };
 
   await run("create-zero-credits", desk, "/create?prompt=" + encodeURIComponent(longPrompt), {});
-  await run("create-zero-credits-menu", desk, "/create", {}, (p) => p.locator(".account__me").click().then(() => p.waitForTimeout(300)));
+  await run("create-zero-credits-menu", desk, "/create", {}, (p) => p.locator(".avatarbutton").click().then(() => p.waitForTimeout(300)));
   await run("create-ultra", desk, "/create", { who: rich });
   await run("create-ultra-phone", phone, "/create", { who: rich });
   await run("create-320", tiny, "/create?prompt=" + encodeURIComponent(longPrompt), {});
@@ -449,7 +449,7 @@ try {
   await run("billing-cancel-ask-320", tiny, "/billing", { who: me({ ...richBilling, billing: billing() }), bill: { ...billWorst, hold: null, subscription: { ...billWorst.subscription, status: "active", cancelsAt: null, pendingPlan: null, renewsAt: inDays(12) } } }, (p) => p.getByRole("button", { name: "Cancel plan" }).click().then(() => p.waitForTimeout(300)));
   await run("billing-zero-ended", desk, "/billing", { who: zeroBilling, bill: billEnded });
   await run("billing-zero-ended-phone", phone, "/billing", { who: zeroBilling, bill: billEnded });
-  await run("checkout-worst-320", tiny, "/billing/checkout?item=plan:ultraplus&back=%2Fgames%2Fworst00000", { who: zeroBilling, bill: billEnded }, (p) => p.locator(".consent input").check().then(() => p.waitForTimeout(300)));
+  await run("checkout-worst-320", tiny, "/billing/checkout?item=plan:ultraplus&back=%2Fgames%2Fworst00000", { who: zeroBilling, bill: billEnded }, (p) => p.locator(".checkbox input").check().then(() => p.waitForTimeout(300)));
   await run("checkout-worst-phone", phone, "/billing/checkout?item=plan:medium", { who: zeroBilling, bill: billEnded });
   await run("checkout-pack-on-free-phone", phone, "/billing/checkout?item=pack&back=%2Fgames%2Fworst00000", { who: zeroBilling, bill: billEnded });
   await run("checkout-plan-while-subscribed", desk, "/billing/checkout?item=plan:high", { who: richBilling });

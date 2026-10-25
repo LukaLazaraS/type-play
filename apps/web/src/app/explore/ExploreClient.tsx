@@ -3,12 +3,20 @@
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import Link, { useLinkStatus } from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowsOut, Flag, Play, ShareNetwork } from "@phosphor-icons/react";
+import { Flag, ShareNetwork } from "@phosphor-icons/react";
 import type { GalleryGame, GalleryPage, GallerySort } from "@typeplay/shared";
-import { GameFrame, type GameFrameHandle } from "@/components/GameFrame";
+import { FullScreenPill, GameFrame, type GameFrameHandle } from "@/components/GameFrame";
 import { GameTile } from "@/components/app/GameTile";
+import { MakeYourOwn } from "@/components/app/MakeYourOwn";
 import { ReportDialog, type ReportHandle } from "@/components/app/ReportDialog";
+import { ReportGameButton } from "@/components/app/ReportGameButton";
+import { Button } from "@/components/ui/Button";
+import { ErrorLine } from "@/components/ui/ErrorLine";
+import { GameCard } from "@/components/ui/GameCard";
+import { IconButton } from "@/components/ui/IconButton";
+import { InkPill } from "@/components/ui/InkPill";
 import { genreName, NEWEST } from "@/content/gallery";
+import { howToPlay } from "@/content/games";
 import { playsWord } from "@/lib/format";
 import { countPlay, moreGames } from "@/lib/gallery";
 import { posterUrl } from "@/lib/urls";
@@ -41,23 +49,7 @@ export function SortLabel({ name }: { name: string }) {
 /** "Make your own game.": beside an upright top game (as on an upright share page), or at the end (`wide`);
  * `narrowOnly`: at the end only where nothing can sit beside the stage (a lone upright game). */
 export function Invite({ wide = false, narrowOnly = false }: { wide?: boolean; narrowOnly?: boolean }) {
-  const id = useId();
-  return (
-    <section className={`widget play__made${wide ? " explore__made" : ""}`} data-narrow-only={narrowOnly || undefined} aria-labelledby={id}>
-      <h2 id={id} className="title play__made-title">
-        Make your own game.
-      </h2>
-      <p className="play__made-text">Type an idea in a sentence. TypePlay builds a real game you can play in a few minutes, and you change it by chatting.</p>
-      <div className="play__cta">
-        <Link href="/create" className="button">
-          Make your own
-        </Link>
-        <Link href="/#how" className="button button--quiet">
-          How it works
-        </Link>
-      </div>
-    </section>
-  );
+  return <MakeYourOwn id={useId()} wide={wide} narrowOnly={narrowOnly} />;
 }
 
 /** The gallery under its head: the first game in its frame, ready to play, then the rest as listings. */
@@ -111,15 +103,11 @@ export function ExploreGames({ sort, first }: { sort: GallerySort; first: Galler
           </p>
           {(next || error) && (
             <div className="explore__next">
-              {error && (
-                <p className="explore__error" role="alert">
-                  {error}
-                </p>
-              )}
+              {error && <ErrorLine tone="sky">{error}</ErrorLine>}
               {next && (
-                <button type="button" className="button button--quiet" disabled={loading} onClick={() => void more()}>
-                  {loading ? "Loading…" : error ? "Try again" : "Show more games"}
-                </button>
+                <Button look="quiet" busy={loading} busyLabel="Loading…" onClick={() => void more()}>
+                  {error ? "Try again" : "Show more games"}
+                </Button>
               )}
             </div>
           )}
@@ -190,21 +178,14 @@ function Featured({ game, sort, onReport }: { game: GalleryGame; sort: GallerySo
         </h2>
         <p className="figures feature__figures">{figures([sort === "new" ? NEWEST : null, playsOf(game, sort), genreOf(game)])}</p>
         <div className="feature__actions">
-          <button ref={full} type="button" className="inkpill" onClick={() => frame.current?.fullscreen()}>
-            <ArrowsOut size={18} weight="bold" aria-hidden="true" />
-            Full screen
-          </button>
-          <button type="button" className="inkpill" onClick={share}>
-            <ShareNetwork size={18} weight="bold" aria-hidden="true" />
+          <FullScreenPill ref={full} onClick={() => frame.current?.fullscreen()} />
+          <InkPill icon={<ShareNetwork size={18} weight="bold" aria-hidden="true" />} onClick={share}>
             {canShare ? "Share…" : copied ? "Copied" : "Copy link"}
-          </button>
+          </InkPill>
         </div>
         <div className="play__foot feature__foot">
-          <p className="play__how">Play with keys or touch. On a phone it opens full screen.</p>
-          <button type="button" className="play__report" onClick={onReport}>
-            <Flag size={16} weight="bold" aria-hidden="true" />
-            Report this game
-          </button>
+          <p className="play__how">{howToPlay}</p>
+          <ReportGameButton onClick={onReport} />
         </div>
       </div>
     </section>
@@ -214,26 +195,20 @@ function Featured({ game, sort, onReport }: { game: GalleryGame; sort: GallerySo
 /** A game as a store listing: its start screen, its name and its figures; the whole card opens its page. */
 function Listing({ game, sort, onReport }: { game: GalleryGame; sort: GallerySort; onReport: () => void }) {
   return (
-    <li className="glist" data-orientation={game.orientation}>
-      <Link href={`/play/${game.id}`} className="glist__link" prefetch={false} aria-label={`Play ${game.name}`}>
-        <span className="glist__pic">
-          <GameTile id={game.id} name={game.name} building={false} poster={game.poster ? posterUrl(game.buildId) : null} fill />
-          <span className="glist__play" aria-hidden="true">
-            <Play size={13} weight="fill" />
-            Play
-          </span>
-        </span>
-        <span className="glist__name" aria-hidden="true">
-          {game.name}
-        </span>
-      </Link>
+    <GameCard
+      name={game.name}
+      label={`Play ${game.name}`}
+      href={`/play/${game.id}`}
+      orientation={game.orientation}
+      picture={<GameTile id={game.id} name={game.name} building={false} poster={game.poster ? posterUrl(game.buildId) : null} fill />}
+    >
       <p className="figures glist__meta">
         {[cardPlays(playsOf(game, sort)), genreOf(game)].map((part) => part && <span key={part}>{part}</span>)}
       </p>
       {/* In the picture's top corner, above the card's link: the figures below get the card's whole width. */}
-      <button type="button" className="glist__report" aria-label={`Report ${game.name}`} onClick={onReport}>
+      <IconButton look="scrim" label={`Report ${game.name}`} className="glist__report" onClick={onReport}>
         <Flag size={16} weight="bold" aria-hidden="true" />
-      </button>
-    </li>
+      </IconButton>
+    </GameCard>
   );
 }

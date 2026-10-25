@@ -1,11 +1,12 @@
 "use client";
 
-import { Crown, Lightning, LockSimple, Sparkle, type Icon } from "@phosphor-icons/react";
+import { LockSimple } from "@phosphor-icons/react";
 import type { Effort, Estimate, ModelChoice } from "@typeplay/shared";
+import { ChoiceRows } from "@/components/ui/ChoiceRows";
+import { ModelTile } from "@/components/ui/ModelTile";
+import { Segmented } from "@/components/ui/Segmented";
 import { efforts, models } from "@/content/app";
 import { creditsWord } from "@/lib/format";
-
-const icons: Record<ModelChoice, Icon> = { fast: Lightning, smart: Sparkle, best: Crown };
 
 type Props = {
   kind: "new" | "edit";
@@ -20,76 +21,59 @@ type Props = {
 /** /create: the three models as rows, each with its honest line and what it usually costs. */
 export function ModelRows({ kind, value, onChange, allowed, estimates, disabled }: Props) {
   return (
-    <fieldset className="models" disabled={disabled}>
-      <legend className="field-label">Choose the AI</legend>
-      {models.map((m) => {
+    <ChoiceRows
+      name={`model-${kind}`}
+      legend="Choose the AI"
+      legendLook="label"
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      choices={models.map((m) => {
         const locked = !allowed.includes(m.id);
         const est = estimates[m.id];
-        const Glyph = icons[m.id];
-        return (
-          <label key={m.id} className="model" data-on={value === m.id || undefined} data-locked={locked || undefined}>
-            <input
-              type="radio"
-              name={`model-${kind}`}
-              value={m.id}
-              checked={value === m.id}
-              disabled={locked}
-              onChange={() => onChange(m.id)}
-              className="sr-only"
-            />
-            <span className={`model__icon model__icon--${m.id}`} aria-hidden="true">
-              <Glyph size={22} weight="fill" />
-            </span>
-            <span className="model__text">
-              <b>{m.name}</b>
-              <span>{kind === "new" ? m.newGame : m.edit}</span>
-            </span>
-            {locked ? (
-              <span className="model__side model__side--locked">
-                <LockSimple size={14} weight="bold" aria-hidden="true" />
-                On paid plans
-              </span>
-            ) : (
-              <span className="model__side figures">{est ? `about ${creditsWord(est.typical)}` : ""}</span>
-            )}
-          </label>
-        );
+        return {
+          value: m.id,
+          title: m.name,
+          text: kind === "new" ? m.newGame : m.edit,
+          tile: <ModelTile model={m.id} />,
+          locked,
+          side: locked ? (
+            <>
+              <LockSimple size={14} weight="bold" aria-hidden="true" />
+              On paid plans
+            </>
+          ) : est ? (
+            `about ${creditsWord(est.typical)}`
+          ) : (
+            ""
+          ),
+        };
       })}
-    </fieldset>
+    />
   );
 }
 
 /** The chat's composer: Fast / Smart / Best as one segmented control (arrow keys move, like radios). */
 export function ModelSwitch({ kind, value, onChange, allowed, disabled }: Omit<Props, "estimates">) {
   return (
-    <fieldset className="switch" disabled={disabled}>
-      <legend className="sr-only">Choose the AI</legend>
-      {models.map((m) => {
+    <Segmented
+      name={`switch-${kind}`}
+      legend="Choose the AI"
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      options={models.map((m) => {
         const locked = !allowed.includes(m.id);
-        return (
-          <label
-            key={m.id}
-            className="switch__opt"
-            data-on={value === m.id || undefined}
-            data-locked={locked || undefined}
-            title={locked ? `${m.name} is on paid plans` : undefined}
-          >
-            <input
-              type="radio"
-              name={`switch-${kind}`}
-              value={m.id}
-              checked={value === m.id}
-              disabled={locked}
-              onChange={() => onChange(m.id)}
-              className="sr-only"
-            />
-            {locked && <LockSimple size={12} weight="bold" aria-hidden="true" />}
-            {m.name}
-            {locked && <span className="sr-only">, on paid plans</span>}
-          </label>
-        );
+        return {
+          value: m.id,
+          label: m.name,
+          locked,
+          icon: locked ? <LockSimple size={12} weight="bold" aria-hidden="true" /> : undefined,
+          title: locked ? `${m.name} is on paid plans` : undefined,
+          note: locked ? ", on paid plans" : undefined,
+        };
       })}
-    </fieldset>
+    />
   );
 }
 
@@ -107,27 +91,21 @@ export function EffortSwitch({
   name: string;
 }) {
   return (
-    <fieldset className="effort" disabled={disabled}>
-      <legend className="sr-only">Effort</legend>
-      <span className="effort__label" aria-hidden="true">
-        Effort
-      </span>
-      <div className="switch switch--small">
-        {efforts.map((e) => (
-          <label key={e.id} className="switch__opt" data-on={value === e.id || undefined}>
-            <input
-              type="radio"
-              name={name}
-              value={e.id}
-              checked={value === e.id}
-              onChange={() => onChange(e.id)}
-              className="sr-only"
-            />
-            {e.name}
-          </label>
-        ))}
-      </div>
-    </fieldset>
+    <Segmented
+      name={name}
+      legend="Effort"
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      size="small"
+      className="effort"
+      before={
+        <span className="effort__label" aria-hidden="true">
+          Effort
+        </span>
+      }
+      options={efforts.map((e) => ({ value: e.id, label: e.name }))}
+    />
   );
 }
 
