@@ -558,10 +558,13 @@ body:has(.ws) .ground-band {
 .iconchoice legend {
   margin-bottom: 10px;
 }
+/* Four columns of at most 104px from the left edge, as the chips and Made for under it start there (a full-width
+   spread left 97px between the pictures on a computer); a phone's widget is narrower, so there they share its width. */
 .iconchoice__row {
   --icon: clamp(52px, 14vw, 72px);
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 104px));
+  justify-content: start;
   gap: 12px;
 }
 .iconchoice__opt {
@@ -600,7 +603,7 @@ body:has(.ws) .ground-band {
   outline-offset: 3px;
 }
 @media (hover: hover) and (pointer: fine) {
-  .iconchoice__opt:not([data-on]):hover .iconchoice__pic {
+  .iconchoice:not(:disabled) .iconchoice__opt:not([data-on]):hover .iconchoice__pic {
     outline: 3px solid #e6dff5;
     outline-offset: 3px;
   }
@@ -655,6 +658,12 @@ body:has(.ws) .ground-band {
   .iconchoice__check {
     transform: none;
     transition: opacity 160ms var(--ease-out);
+  }
+}
+/* Forced colours draw every outline in the text colour: the pointer's preview ring would look picked, so it goes. */
+@media (forced-colors: active) {
+  .iconchoice__opt:not([data-on]):hover .iconchoice__pic {
+    outline-width: 0;
   }
 }
 
@@ -1050,6 +1059,7 @@ body:has(.ws) .ground-band {
   text-align: left;
   overflow-wrap: anywhere;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent; /* the press scale is the feedback, not the browser's grey flash */
   transition:
     transform 160ms var(--ease-out),
     background-color 160ms var(--ease-out);
@@ -1058,7 +1068,7 @@ body:has(.ws) .ground-band {
   transform: scale(0.97);
 }
 @media (hover: hover) and (pointer: fine) {
-  .chip:hover {
+  .chip:not(:disabled):hover {
     background: #e6dff5;
   }
 }
@@ -1088,7 +1098,7 @@ body:has(.ws) .ground-band {
   color: var(--paper);
 }
 @media (hover: hover) and (pointer: fine) {
-  .chip[aria-pressed="true"]:hover {
+  .chip[aria-pressed="true"]:not(:disabled):hover {
     background: var(--ink-2);
   }
 }
@@ -1098,6 +1108,14 @@ body:has(.ws) .ground-band {
 }
 .chip[aria-pressed="false"]:disabled {
   color: #8a80a3;
+}
+/* Forced colours paint every chip alike: a pressed one takes the system's highlight, as a picked item does. */
+@media (forced-colors: active) {
+  .chip[aria-pressed="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
 }
 /* The ideas arrive with the answer: the label, then each idea 40 ms apart; More ideas' six follow the same way, the
    first three staying put. */

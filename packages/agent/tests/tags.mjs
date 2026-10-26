@@ -21,7 +21,7 @@ assert.deepEqual(words(/export const TAGS: GameTag\[\] = \[([^\]]+)\]/.exec(serv
 for (const g of words(/export type Genre = ([^;]+);/.exec(shared)[1])) assert.ok(existsSync(join(AGENT, 'genres', g, 'GENRE.md')), `genre ${g} has a skill`);
 
 const refused = (tags) => spawnSync(process.execPath, [join(AGENT, 'run.mjs'), '--game', 'tags-test', '--prompt', 'A test game', '--tags', tags], { encoding: 'utf8', cwd: AGENT });
-for (const bad of ['2d,3d', 'sparkly']) {
+for (const bad of ['2d,3d', 'cozy,hard', 'sparkly']) {
   const r = refused(bad);
   assert.equal(r.status, 2, `--tags ${bad} is refused`);
   assert.match(r.stderr, /--tags:/);

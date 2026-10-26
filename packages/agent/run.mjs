@@ -6,8 +6,8 @@
 //          --playtest (the agent writes and runs a bot play-test)  --slim (short custom system
 //          prompt instead of Claude Code's)  --genre auto|none|<a folder in genres/> (new games;
 //          auto: one cheap Haiku call picks it; edits reuse the game's GENRE file)
-//          --tags <name>[,<name>…] (new games: the tags the player picked, a file each in tags/; 2d and 3d not both;
-//          edits reuse the game's TAGS file)
+//          --tags <name>[,<name>…] (new games: the tags the player picked, a file each in tags/; not both 2d and 3d,
+//          nor cozy and hard; edits reuse the game's TAGS file)
 //          --platform auto|phone|computer|fill (new games: the screens it is made for, rules/SCREEN_*.md; auto,
 //          the default: one shape the agent picks, portrait first; edits reuse the game's PLATFORM file)
 //          --steps 1|2|3 (new games: 2 = core, then polish; 3 = core with one level, then the
@@ -72,8 +72,10 @@ if (!isEdit && !PLATFORMS.includes(opt('platform', 'auto'))) { console.error(`--
 // a short rule file, tags/<name>.md, that the agent gets after the genre skill.
 const TAGS = readdirSync(join(HERE, 'tags')).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3));
 const pickedTags = isEdit ? [] : [...new Set(opt('tags', '').split(',').map((t) => t.trim()).filter(Boolean))];
-if (pickedTags.some((t) => !TAGS.includes(t)) || (pickedTags.includes('2d') && pickedTags.includes('3d'))) {
-  console.error(`--tags: any of ${TAGS.join(', ')}, comma-separated; 2d and 3d not both`);
+// Pairs that contradict each other: one of each at most.
+const EITHER = [['2d', '3d'], ['cozy', 'hard']];
+if (pickedTags.some((t) => !TAGS.includes(t)) || EITHER.some((pair) => pair.every((t) => pickedTags.includes(t)))) {
+  console.error(`--tags: any of ${TAGS.join(', ')}, comma-separated; not both of ${EITHER.map((p) => p.join(' and ')).join(', nor ')}`);
   process.exit(2);
 }
 // project.godot's window settings per platform, over the template's (portrait 720×1280, stretch aspect "keep").

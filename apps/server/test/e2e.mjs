@@ -1146,6 +1146,7 @@ async function pickChecks(db) {
     [{ genre: "shooter" }, "a genre with no skill"],
     [{ genre: ["puzzle", "runner"] }, "two genres"],
     [{ tags: ["2d", "3d"] }, "2D and 3D together"],
+    [{ tags: ["cozy", "hard"] }, "Cozy and Hard together"],
     [{ tags: ["sparkly"] }, "a tag that isn't one"],
     [{ tags: "3d" }, "tags that aren't a list"],
     [{ tags: ["3d", "3d"] }, "a tag twice"],
@@ -1170,6 +1171,15 @@ async function pickChecks(db) {
   const puzzle = await build({ prompt: "A puzzle with fruit", genre: "puzzle" });
   ok(puzzle?.made.pickedGenre === "puzzle" && puzzle.made.tags.length === 0, "Puzzle alone: on the project at once (genre puzzle, no tags)");
   ok(puzzle?.end.type === "done" && file(puzzle.id, "GENRE") === "puzzle" && file(puzzle.id, "TAGS") === null, "…and the build got it: GENRE says puzzle, no TAGS file");
+  // The gallery's genre (Project.genre, the folder's GENRE after each build) says the same, so /explore's filter shows it there.
+  if (puzzle) {
+    const genreRow = (await db.query(`SELECT genre::text AS genre FROM "Project" WHERE id = $1`, [puzzle.id])).rows[0];
+    ok(genreRow?.genre === "puzzle", "the gallery's genre for it: puzzle, as picked");
+    await api(K, "PATCH", `/projects/${puzzle.id}`, { shared: true });
+    const listed = await api(K, "PATCH", `/projects/${puzzle.id}`, { listed: true });
+    const inGenre = async (g) => ((await api(null, "GET", `/public/gallery?sort=new&limit=48&genre=${g}`)).body?.games ?? []).some((x) => x.id === puzzle.id);
+    ok(listed.status === 200 && (await inGenre("puzzle")) && !(await inGenre("racer")), "in the gallery: under Puzzle, not under Racer");
+  }
   const racer = await build({ prompt: "A race through a city", genre: "racer", tags: ["3d"] });
   ok(racer?.end.type === "done" && file(racer.id, "GENRE") === "racer" && file(racer.id, "TAGS") === "3d", "Racer + 3D: GENRE racer, TAGS 3d");
   const runner = await build({ prompt: "A robot runs over rooftops", genre: "runner", tags: ["retro", "2d"] });

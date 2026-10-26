@@ -16,7 +16,7 @@ import { TextArea } from "@/components/ui/Field";
 import { HintLines } from "@/components/ui/HintLines";
 import { IconChoice } from "@/components/ui/IconChoice";
 import { PageWidget } from "@/components/ui/PageWidget";
-import { DRAFT_KEY, gameTags, genreAgain, genreNone, genres, MAX_TEXT, PICKS_KEY, tagsNone, type PlatformChoice } from "@/content/app";
+import { DRAFT_KEY, gameTags, genreAbout, genreAgain, genreNone, genres, MAX_TEXT, PICKS_KEY, tagsNone, type PlatformChoice } from "@/content/app";
 import { CLOSED_BETA_NOTE, closedBeta } from "@/content/beta";
 import { checkoutHref, planIdOf } from "@/content/billing";
 import { genreName } from "@/content/gallery";
@@ -51,8 +51,11 @@ function picksFrom(raw: string | null): Picks {
   try {
     const p = JSON.parse(raw ?? "null") as { genre?: unknown; tags?: unknown } | null;
     const kept = Array.isArray(p?.tags) ? (p.tags as unknown[]) : [];
-    const tags = gameTags.map((t) => t.id).filter((t) => kept.includes(t));
-    return { genre: genres.find((g) => g.id === p?.genre)?.id ?? null, tags: tags.includes("3d") ? tags.filter((t) => t !== "2d") : tags };
+    // Ours only, in the list's order; of a pair that can't go together (an older page's, or a hand-made value) the second.
+    const ids = gameTags.map((t) => t.id);
+    const beaten = (t: GameTag) => !!OTHER_SIDE[t] && kept.includes(OTHER_SIDE[t]) && ids.indexOf(t) < ids.indexOf(OTHER_SIDE[t]);
+    const tags = ids.filter((t) => kept.includes(t) && !beaten(t));
+    return { genre: genres.find((g) => g.id === p?.genre)?.id ?? null, tags };
   } catch {
     return NO_PICKS;
   }
@@ -76,10 +79,11 @@ function savePicks(picks: Picks) {
     /* private mode: nothing to keep */
   }
 }
-/** 2D or 3D, never both: picking one unpicks the other. */
-const OTHER_SIDE: Partial<Record<GameTag, GameTag>> = { "2d": "3d", "3d": "2d" };
+/** 2D or 3D, Cozy or Hard: never both of a pair (their rules contradict), so picking one unpicks the other. */
+const OTHER_SIDE: Partial<Record<GameTag, GameTag>> = { "2d": "3d", "3d": "2d", cozy: "hard", hard: "cozy" };
 
 const SHORT = "Say a little more: what kind of game, and what you do in it.";
+const SHORT_PICKED = "Say a little more: what you do in your game.";
 
 /** The app's front door: the sentence, its genre and tags, the screens, the AI and its cost, then Build. */
 export function CreateApp() {
@@ -132,6 +136,9 @@ export function CreateApp() {
   useEffect(() => {
     if (!fromUrl) return;
     save(fromUrl);
+    // A new idea starts with nothing picked: picks left from an idea that was never built don't belong to it (the page
+    // reads the kept picks again as the address changes).
+    savePicks(NO_PICKS);
     router.replace("/create", { scroll: false });
   }, [fromUrl, router]);
 
@@ -153,7 +160,7 @@ export function CreateApp() {
   const build = async (confirm = false) => {
     const prompt = text.trim();
     if (prompt.length < 8) {
-      setError(SHORT);
+      setError(picks.genre ? SHORT_PICKED : SHORT);
       box.current?.focus();
       return;
     }
@@ -233,6 +240,7 @@ export function CreateApp() {
         <IconChoice
           name="genre"
           legend="Genre"
+          about={genreAbout}
           value={picks.genre}
           onChange={(genre) => choose({ ...picks, genre })}
           disabled={busy}
@@ -245,15 +253,11 @@ export function CreateApp() {
             ) : (
               <TowerArt />
             ),
-            describedBy: `genre-${g.id}`,
+            about: g.line,
           }))}
         >
           <HintLines
-            lines={[
-              { id: "genre-none", text: genreNone },
-              // A radio is described by what its genre is; how to undo the pick is for the eyes, once it is picked.
-              ...genres.map((g) => ({ id: `genre-${g.id}`, text: <>{g.line}<span aria-hidden="true"> {genreAgain}</span></> })),
-            ]}
+            lines={[{ id: "genre-none", text: genreNone }, ...genres.map((g) => ({ id: `genre-${g.id}`, text: `${g.line} ${genreAgain}` }))]}
             current={picks.genre ? `genre-${picks.genre}` : "genre-none"}
           />
         </IconChoice>

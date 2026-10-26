@@ -6,12 +6,14 @@
 // Build the API first (npm run build -w @typeplay/server), then, through the CPU limiter:
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-kinds.mjs [outDir]
 // Shots in .impeccable/review/kinds/. Checks: the four genre pictures, none picked at first and the line saying the AI
-// goes by the idea; a tap picks one (the ring, the check, its line), a tap on another moves the pick, a tap on the picked
-// one picks none; the arrow keys and Space; the tags as toggles (aria-pressed), several at once, 2D and 3D never both;
-// the lines under both keep their room, so nothing under them moves; no example idea goes into the box; the picks sent
-// with the build and recorded (the project, the game folder's GENRE and TAGS), then cleared for the next game; picks
-// made signed out kept through the sign-in; phones at 390 and 320 px by touch, nothing wider than the screen, a worst
-// case with every tag picked. Afterwards the test account closes and the database goes.
+// decides from the idea; a tap picks one (the ring, the check, its line), a tap on another moves the pick, a tap on the
+// picked one picks none; the arrow keys and Space; what screen readers are told; the tags as toggles (aria-pressed),
+// several at once, never both 2D and 3D nor Cozy and Hard; a chip's focus ring; the lines under both keep their room, so
+// nothing under them moves; no example idea goes into the box; the picks sent with the build and recorded (the project,
+// the game folder's GENRE and TAGS), then cleared for the next game and for a new idea from the home page; picks made
+// signed out kept through the sign-in. Worst cases: picks an older page kept (unknown ones, both of a pair), the page
+// while the build is sent, 200% zoom, phones at 390, 320 and 280 px by touch with every tag that can go together.
+// Afterwards the test account closes and the database goes.
 import { chromium } from "playwright";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -53,7 +55,12 @@ const api = (email, method, path, body) =>
     body: await r.json().catch(() => null),
   }));
 /** No sideways scrolling on a phone: the page is no wider than the screen. */
-const fits = (page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+/** Genre and Tags inside the screen: every part of both sections within the screen's width (a phone emulated in the browser
+ * widens its window to whatever is wider, so the page's own width can't tell). */
+const fits = (page, w) =>
+  page.evaluate((w) => [...document.querySelectorAll(".iconchoice *, .tags *")].every((e) => { const r = e.getBoundingClientRect(); return r.width === 0 || (r.left >= -0.5 && r.right <= w + 0.5); }), w);
+/** The whole page's width against the screen's (a note, not a check: the header is not this branch's). */
+const pageWidth = (page) => page.evaluate(() => document.documentElement.scrollWidth);
 const file = (id, name) => (existsSync(join(DATA, "projects", id, name)) ? readFileSync(join(DATA, "projects", id, name), "utf8").trim() : null);
 
 // ---- The stack ------------------------------------------------------------------------------------
@@ -196,8 +203,8 @@ try {
   await page.locator(".made").waitFor({ timeout: 60_000 });
   await page.waitForTimeout(400);
   check("cleared picks stay cleared after a reload", (await pickedGenre(page)) === "" && (await pressed(page)) === "");
-  check("none picked: the line says the AI goes by the idea", /^None picked: the AI goes by your idea\.$/.test(await genreLine(page)), await genreLine(page));
-  check("no tags: the line says pick any, 2D or 3D not both", /^Pick any that fit, or none\. 2D or 3D, not both\.$/.test(await tagLine(page)), await tagLine(page));
+  check("none picked: the line says the AI decides from the idea, and that one can be picked", /^None picked: the AI decides from your idea\. Pick one to choose it yourself\.$/.test(await genreLine(page)), await genreLine(page));
+  check("no tags: the line says pick any, and the two pairs", /^Pick any that fit, or none\. 2D or 3D, Cozy or Hard: never both\.$/.test(await tagLine(page)), await tagLine(page));
   await shot(page, "create-none-desktop");
   await shot(page, "create-none-desktop-full", true);
   const at = await tops(page);
@@ -206,7 +213,7 @@ try {
   // Genre: one at most.
   await genre(page, "Puzzle").click();
   check("a tap on Puzzle picks it", (await pickedGenre(page)) === "Puzzle" && (await page.locator("input[name=genre][value=puzzle]").isChecked()));
-  check("Puzzle's line, and how to let the AI pick", /^Match, push or slide pieces on a board\. Tap it again to let the AI pick\.$/.test(await genreLine(page)), await genreLine(page));
+  check("Puzzle's line, and how to let the AI pick", /^Match, push or slide pieces on a board\. Pick it again to let the AI decide\.$/.test(await genreLine(page)), await genreLine(page));
   await page.waitForTimeout(300); // past the check's 160 ms fade
   check("the check over its corner shows", await page.locator(".iconchoice__opt[data-on] .iconchoice__check").evaluate((e) => getComputedStyle(e).opacity === "1"));
   check("no example idea goes into the box", (await page.locator("#idea").inputValue()) === box);
@@ -229,11 +236,12 @@ try {
   const a11y = await page.evaluate(() => ({
     legend: document.querySelector(".iconchoice legend")?.textContent?.trim(),
     radios: [...document.querySelectorAll("input[name=genre]")].map((r) => r.labels?.[0]?.textContent?.trim()).join("|"),
-    described: [...document.querySelectorAll("input[name=genre]")].every((r) => !!document.getElementById(r.getAttribute("aria-describedby") ?? "")),
+    described: [...document.querySelectorAll("input[name=genre]")].every((r) => !/again/.test(document.getElementById(r.getAttribute("aria-describedby") ?? "")?.textContent ?? "again")),
+    optional: document.getElementById(document.querySelector(".iconchoice")?.getAttribute("aria-describedby") ?? "")?.textContent ?? "",
     group: document.querySelector(".tags")?.getAttribute("role") + ":" + document.getElementById(document.querySelector(".tags")?.getAttribute("aria-labelledby") ?? "")?.textContent?.trim(),
     toggles: [...document.querySelectorAll(".tags .chip")].every((b) => b.getAttribute("aria-pressed") === "false" && !!document.getElementById(b.getAttribute("aria-describedby") ?? "")),
   }));
-  check("screen readers: the genre group named Genre, each radio by its name and described by its line", a11y.legend === "Genre" && a11y.radios === "Runner|Puzzle|Racer|Tower defence" && a11y.described, JSON.stringify(a11y));
+  check("screen readers: the genre group named Genre, each radio by its name and described by its line", a11y.legend === "Genre" && a11y.radios === "Runner|Puzzle|Racer|Tower defence" && a11y.described && /^Optional\./.test(a11y.optional), JSON.stringify(a11y));
   check("screen readers: the tags a group named Tags, each a toggle (aria-pressed) described by its line", a11y.group === "group:Tags" && a11y.toggles, JSON.stringify(a11y));
 
   // Tags: several at once; 2D or 3D, never both.
@@ -248,6 +256,18 @@ try {
   await tag(page, "Retro").click();
   check("Retro with 3D: several at once", (await pressed(page)) === "3D|Retro");
   check("Retro's line (the one touched last)", /^Big pixels/.test(await tagLine(page)), await tagLine(page));
+  await tag(page, "Cozy").click();
+  await tag(page, "Hard").click();
+  check("Cozy, then Hard: Hard on, Cozy off (their rules contradict, never both)", (await pressed(page)) === "3D|Retro|Hard");
+  await tag(page, "Cozy").click();
+  check("…and Cozy again: Cozy on, Hard off", (await pressed(page)) === "3D|Retro|Cozy");
+  await tag(page, "Cozy").click();
+  // The keyboard on a chip: its focus ring (Tab from the genre's radio lands on the first chip).
+  await page.locator(".tags .chip").first().focus();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
+  check("a chip takes the keyboard's focus ring", await page.evaluate(() => document.activeElement?.matches(".tags .chip:focus-visible") ?? false));
+  await shot(page, "tags-keyboard-focus-desktop");
   const widths = await page.locator(".tags .chip").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().width)).join(","));
   await tag(page, "Retro").click();
   await tag(page, "Retro").click();
@@ -273,6 +293,14 @@ try {
   await page.locator(".made").waitFor({ timeout: 60_000 });
   await page.waitForTimeout(400);
   check("the next new game starts with none picked", (await pickedGenre(page)) === "" && (await pressed(page)) === "");
+  // Picks made for an idea that was never built, then a new idea from the home page: it starts with none picked.
+  await genre(page, "Runner").click();
+  await tag(page, "Cute").click();
+  await page.goto(`${base}/create?prompt=${encodeURIComponent("A frog that hops across a river")}`, { waitUntil: "domcontentloaded" });
+  await page.waitForURL(/\/create$/, { timeout: 60_000 });
+  await page.locator(".made").waitFor({ timeout: 60_000 });
+  await page.waitForTimeout(400);
+  check("a new idea from the home page starts with none picked (the old picks were for another idea)", (await pickedGenre(page)) === "" && (await pressed(page)) === "" && /frog/.test(await page.locator("#idea").inputValue()));
   // Nothing picked: nothing sent (the AI decides, as before).
   await page.locator("#idea").fill(IDEA);
   const sent2 = page.waitForRequest((r) => r.method() === "POST" && new URL(r.url()).pathname === "/projects", { timeout: 30_000 });
@@ -281,20 +309,68 @@ try {
   check("nothing picked: no genre and no tags sent (the AI decides)", body2 && body2.genre === undefined && body2.tags === undefined, JSON.stringify(body2));
   await page.waitForURL(/\/games\/[a-z0-9]+$/, { timeout: 60_000 });
   await page.locator(".msg__meta", { hasText: "version 1" }).waitFor({ timeout: 90_000 });
+
+  // ---- Worst cases (break-ui): picks kept by another version of the site or tampered with, the page while the build is
+  // being sent, 200% zoom (1440 px at 200% is 720 css px) ------------------------------------------------------------
+  await page.goto(`${base}/create`, { waitUntil: "domcontentloaded" });
+  await page.locator(".made").waitFor({ timeout: 60_000 });
+  await page.evaluate(() => localStorage.setItem("typeplay.picks", JSON.stringify({ genre: "shooter", tags: ["2d", "3d", "cozy", "hard", "sparkly", 1] })));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.locator(".made").waitFor({ timeout: 60_000 });
+  await page.waitForTimeout(400);
+  check("picks kept in the browser that aren't ours: an unknown genre and tag dropped; of each pair the second (3D, Hard)", (await pickedGenre(page)) === "" && (await pressed(page)) === "3D|Hard", `${await pickedGenre(page)} / ${await pressed(page)}`);
+  await page.evaluate(() => localStorage.setItem("typeplay.picks", "{not json"));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.locator(".made").waitFor({ timeout: 60_000 });
+  await page.waitForTimeout(400);
+  check("…and a value that isn't JSON: nothing picked, no error", (await pickedGenre(page)) === "" && (await pressed(page)) === "");
+  // While the build is being sent (the answer held back 4 s): the picks stay, the rest fades, nothing can change.
+  await page.locator("#idea").fill(IDEA);
+  await genre(page, "Puzzle").click();
+  await tag(page, "Cozy").click();
+  await page.route("**/projects", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    await new Promise((r) => setTimeout(r, 4000));
+    await route.continue();
+  });
+  await page.getByRole("button", { name: "Build my game" }).click();
+  await page.waitForTimeout(400);
+  const busy = await page.evaluate(() => ({
+    fieldset: document.querySelector(".iconchoice")?.matches(":disabled"),
+    chips: [...document.querySelectorAll(".tags .chip")].every((b) => b.disabled),
+    picked: document.querySelector(".iconchoice__opt[data-on] .iconchoice__name")?.textContent,
+    faded: getComputedStyle(document.querySelector(".iconchoice__opt:not([data-on])")).opacity,
+  }));
+  check("while the build is sent: genre and tags locked, the picks stay, the others fade", busy.fieldset && busy.chips && busy.picked === "Puzzle" && busy.faded === "0.5", JSON.stringify(busy));
+  await shot(page, "busy-desktop");
+  await page.waitForURL(/\/games\/[a-z0-9]+$/, { timeout: 60_000 });
+  await page.unroute("**/projects");
+  await page.setViewportSize({ width: 720, height: 450 });
+  await page.goto(`${base}/create`, { waitUntil: "domcontentloaded" });
+  await page.locator(".made").waitFor({ timeout: 60_000 });
+  await genre(page, "Tower defence").click();
+  await tag(page, "Retro").click();
+  await page.locator(".iconchoice").scrollIntoViewIfNeeded();
+  check("at 200% zoom (720 css px): nothing wider than the screen, the four pictures in one row", (await fits(page, 720)) && new Set(await page.locator(".iconchoice__opt").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)))).size === 1);
+  await shot(page, "zoom-200");
   await desk.close();
 
-  // ---- Phones by touch: 390 and 320 px -------------------------------------------------------------------------------
-  for (const [w, h] of [[390, 844], [320, 640]]) {
+  // ---- Phones by touch: 390 and 320 px, and 280 (a folded Galaxy Fold) ------------------------------------------------
+  for (const [w, h] of [[390, 844], [320, 640], [280, 653]]) {
     const phone = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
     const p = await phone.newPage();
     p.on("pageerror", (e) => console.log("page error:", e.message));
     await signIn(p);
     await p.locator(".made").waitFor({ timeout: 60_000 });
     await p.locator(".iconchoice").scrollIntoViewIfNeeded();
-    check(`/create at ${w} px: nothing wider than the screen`, await fits(p));
+    check(`/create at ${w} px: Genre and Tags inside the screen`, await fits(p, w));
+    const pw = await pageWidth(p);
+    if (pw > w) console.log(`note: at ${w} px the page itself is ${pw} px wide (the header, not this branch)`);
     const row = await p.locator(".iconchoice__row").boundingBox();
     const tiles = await p.locator(".iconchoice__opt").evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ top: Math.round(r.top), left: r.left, right: r.right })));
     check(`the four pictures at ${w} px: one row inside the widget`, !!row && new Set(tiles.map((t) => t.top)).size === 1 && tiles.every((t) => t.left >= 0 && t.right <= w), JSON.stringify(tiles));
+    const pics = await p.locator(".iconchoice__pic").evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ left: Math.round(r.left), right: Math.round(r.right) })));
+    check(`the pictures at ${w} px: whole, apart from each other (room for the picked ring)`, pics.every((r, i) => r.left >= 0 && r.right <= w && (i === 0 || r.left - pics[i - 1].right >= 8)), JSON.stringify(pics));
     const pAt = await tops(p);
     await shot(p, `create-none-${w}`);
     await genre(p, "Tower defence").tap();
@@ -306,12 +382,12 @@ try {
     const chips = await p.locator(".tags .chip").evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ h: Math.round(r.height), right: r.right })));
     check(`the tags at ${w} px: each a finger tall, none past the edge`, chips.every((c) => c.h >= 44 && c.right <= w), JSON.stringify(chips));
     check(`picks at ${w} px don't move what is under them`, (await tops(p)) === pAt, `${pAt}, then ${await tops(p)}`);
-    check(`picked at ${w} px: nothing wider than the screen`, await fits(p));
+    check(`picked at ${w} px: Genre and Tags inside the screen`, await fits(p, w));
     await p.locator(".iconchoice").scrollIntoViewIfNeeded();
     await shot(p, `picked-${w}`);
     // Worst case: every tag that can go together pressed (3D, not 2D), the longest lines.
     for (const t of await p.locator('.tags .chip[aria-pressed="false"]').allInnerTexts()) if (t.trim() !== "2D") await tag(p, t.trim()).tap();
-    check(`every tag but 2D pressed at ${w} px: nothing wider, nothing moved`, (await fits(p)) && (await tops(p)) === pAt, await pressed(p));
+    check(`every tag that can go together pressed at ${w} px: inside the screen, nothing moved`, (await fits(p, w)) && (await tops(p)) === pAt && (await pressed(p)) === "3D|Retro|Cute|Hard", await pressed(p));
     await p.locator(".tags").scrollIntoViewIfNeeded();
     await shot(p, `worst-${w}`);
     await shot(p, `worst-${w}-full`, true);

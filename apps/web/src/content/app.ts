@@ -118,18 +118,21 @@ export const fitHint: Record<"phone" | "computer", { made: string; button: strin
  * as its skill does (packages/agent/genres/), and how to let the AI pick again. No icon: the page draws one.
  */
 export const genres: { id: Genre; icon?: string; line: string }[] = [
-  { id: "runner", icon: "/games/runner_sunset_sq.jpg", line: "Run, jump and dodge while it gets faster." },
+  { id: "runner", icon: "/games/runner_sunset_sq.jpg", line: "Run, jump and dodge as it speeds up." },
   { id: "puzzle", icon: "/games/match3_sq.jpg", line: "Match, push or slide pieces on a board." },
-  { id: "racer", icon: "/games/car_city_sq.jpg", line: "Race other cars or the clock around a track." },
-  { id: "towerdefence", line: "Build towers along a road to stop the waves." },
+  { id: "racer", icon: "/games/car_city_sq.jpg", line: "Race cars or the clock around a track." },
+  { id: "towerdefence", line: "Build towers by a road to stop the waves." },
 ];
-export const genreNone = "None picked: the AI goes by your idea.";
-export const genreAgain = "Tap it again to let the AI pick.";
+/** None picked (two sentences, as long as a picked genre's line: the line under the row keeps the same room either way). */
+export const genreNone = "None picked: the AI decides from your idea. Pick one to choose it yourself.";
+export const genreAgain = "Pick it again to let the AI decide.";
+/** For screen readers, on the group: what the line under the row says to the eyes. */
+export const genreAbout = "Optional. With none picked, the AI decides from your idea; picking the picked one again clears it.";
 
 /**
  * /create's Tags (Luka, 10-27), after the genre: several at once, each a rule the game agent follows
- * (packages/agent/tags/), and 2D or 3D, never both (picking one unpicks the other). A tag's line says what it does to
- * the game, and what it costs where that was measured.
+ * (packages/agent/tags/); 2D or 3D, and Cozy or Hard, never both of a pair (picking one unpicks the other: their
+ * rules contradict). A tag's line says what it does to the game.
  */
 export const gameTags: { id: GameTag; name: string; line: string }[] = [
   { id: "2d", name: "2D", line: "Flat, seen from the side or from above." },
@@ -139,4 +142,4 @@ export const gameTags: { id: GameTag; name: string; line: string }[] = [
   { id: "cozy", name: "Cozy", line: "Calm and kind: no timer, no losing, warm colours." },
   { id: "hard", name: "Hard", line: "A real challenge that gets tough fast, and one tap to try again." },
 ];
-export const tagsNone = "Pick any that fit, or none. 2D or 3D, not both.";
+export const tagsNone = "Pick any that fit, or none. 2D or 3D, Cozy or Hard: never both.";

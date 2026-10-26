@@ -1,6 +1,7 @@
 // The genre and tags a player picks for a new game on /create (2026-10-27): one genre at most (none: the game agent picks
-// one from the idea), and any tags, 2d and 3d not both. The game agent has a skill per genre (packages/agent/genres/)
-// and a rule per tag (packages/agent/tags/); run.mjs refuses anything else too.
+// one from the idea), and any tags, but not both of a pair that contradicts itself (2d and 3d, cozy and hard). The game
+// agent has a skill per genre (packages/agent/genres/) and a rule per tag (packages/agent/tags/); run.mjs refuses
+// anything else too.
 import type { GameTag, Genre } from "@typeplay/shared";
 import { badRequest } from "../common/api-error.js";
 import { GENRES } from "../gallery/gallery.service.js";
@@ -24,6 +25,7 @@ export function parsePicks(body: unknown): Picks {
   const tags = b.tags ?? [];
   if (!Array.isArray(tags) || !tags.every(isTag) || new Set(tags).size !== tags.length) throw badRequest("Pick tags from the list, each once.");
   if (tags.includes("2d") && tags.includes("3d")) throw badRequest("Pick 2D or 3D, not both.");
+  if (tags.includes("cozy") && tags.includes("hard")) throw badRequest("Pick Cozy or Hard, not both.");
   return { genre, tags: TAGS.filter((t) => tags.includes(t)) };
 }
 

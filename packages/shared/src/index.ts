@@ -16,8 +16,8 @@ export type Orientation = "portrait" | "landscape";
  * shape scaled to fit any screen with bars; fill: the layout adapts to every shape. null: made before the choice. */
 export type Platform = "phone" | "computer" | "fill";
 /** What the player can add to a new game beside its genre (/create's Tags, 2026-10-27), several at once: 2d or 3d (not
- * both), retro (big pixels, few colours, chip sounds), cute, cozy (no rush, no losing), hard. Each is a rule the game
- * agent gets (packages/agent/tags/). */
+ * both), retro (big pixels, few colours, chip sounds), cute, cozy (no rush, no losing) or hard (not both). Each is a rule
+ * the game agent gets (packages/agent/tags/). */
 export type GameTag = "2d" | "3d" | "retro" | "cute" | "cozy" | "hard";
 
 /** Credits are numbers with one decimal (a message costs at least 0.1). */
@@ -509,7 +509,7 @@ export interface CreateProjectBody {
   platform?: Platform;
   /** The genre to build it as (one at most). Left out: the AI picks one from the idea, or none. Added 2026-10-27. */
   genre?: Genre;
-  /** Tags to build it with, several at once (2d and 3d not both). Left out or []: none. Added 2026-10-27. */
+  /** Tags to build it with, several at once (not both 2d and 3d, nor cozy and hard). Left out or []: none. Added 2026-10-27. */
   tags?: GameTag[];
 }
 

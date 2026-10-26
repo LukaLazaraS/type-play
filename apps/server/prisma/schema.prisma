@@ -225,10 +225,10 @@ model Project {
   /// What the player picked; after each build what the game's folder says (a change can make it fill every screen).
   /// null: made before the choice, or picked by the agent and not built yet.
   platform       Platform?
-  /// The genre the player picked on /create (a folder in packages/agent/genres/); null: none, so the AI picked one from the
-  /// idea. The first build gets it (and builds with it again if that one failed); the game folder's GENRE file says what
-  /// the game was built as.
-  pickedGenre    String?
+  /// The genre the player picked on /create; null: none, so the AI picked one from the idea (or none). The first build gets
+  /// it (and builds with it again if that one failed); run.mjs writes it to the game folder's GENRE file, so `genre` below
+  /// says the same once the game is built.
+  pickedGenre    Genre?
   /// The tags the player picked on /create (2d or 3d, retro, …): the first build gets them and the game folder keeps them
   /// in TAGS, so every change follows them.
   tags           String[]    @default([])
@@ -316,7 +316,7 @@ model QueuedRun {
   /// A first build's screens, as the player picked them; null: the agent picks one shape.
   platform   Platform?
   /// A first build's genre and tags, as the player picked them (Project.pickedGenre and tags); null and []: none.
-  genre      String?
+  genre      Genre?
   tags       String[]    @default([])
   lane       QueueLane
   queuedAt   DateTime    @default(now())

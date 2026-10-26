@@ -10,18 +10,20 @@ export type IconOption<T extends string> = {
   name: string;
   /** The square's picture (an <img> at cover, or a drawing). */
   picture: ReactNode;
-  /** The id of a line that describes this choice to screen readers. */
-  describedBy?: string;
+  /** What this choice is, for screen readers (the line the eyes get sits under the row, `children`). */
+  about?: string;
 };
 
 /**
  * One of a few pictures, or none (DESIGN.md: /create's Genre): app icons' squares over their names, as radios in a
- * fieldset, so the arrow keys move the pick. The picked one is ringed in ink with an ink check over its corner; tapping
- * it again (Space on the keyboard) picks none. `children` sit under the row (the picked one's line).
+ * fieldset, so the arrow keys move the pick. The picked one is ringed in ink with an ink check over its corner; picking
+ * it again (a tap, a click, or Space) picks none. `about` tells screen readers what the group is for (that none is fine,
+ * and how to clear a pick); `children` sit under the row (the picked one's line, for the eyes).
  */
 export function IconChoice<T extends string>({
   name,
   legend,
+  about,
   value,
   onChange,
   options,
@@ -32,6 +34,7 @@ export function IconChoice<T extends string>({
   /** The radio group's name: unique on the page. */
   name: string;
   legend: ReactNode;
+  about?: string;
   value: T | null;
   onChange: (value: T | null) => void;
   options: IconOption<T>[];
@@ -39,9 +42,15 @@ export function IconChoice<T extends string>({
   className?: string;
   children?: ReactNode;
 }) {
+  const aboutId = (v: string) => `${name}-about-${v}`;
   return (
-    <fieldset className={cx("iconchoice", className)} disabled={disabled}>
+    <fieldset className={cx("iconchoice", className)} disabled={disabled} aria-describedby={about ? `${name}-about` : undefined}>
       <legend className="field-label">{legend}</legend>
+      {/* Descriptions only (hidden, so not read twice while browsing; an id reference still reads them). */}
+      <div hidden>
+        {about && <span id={`${name}-about`}>{about}</span>}
+        {options.map((o) => o.about && <span key={o.value} id={aboutId(o.value)}>{o.about}</span>)}
+      </div>
       <div className="iconchoice__row">
         {options.map((o) => (
           <label key={o.value} className="iconchoice__opt" data-on={value === o.value || undefined}>
@@ -61,7 +70,7 @@ export function IconChoice<T extends string>({
                   onChange(null);
                 }
               }}
-              aria-describedby={o.describedBy}
+              aria-describedby={o.about ? aboutId(o.value) : undefined}
               className="sr-only"
             />
             <span className="iconchoice__pic">

@@ -581,8 +581,9 @@ row as `admin:<ADMIN_NAME or the OS user>`. The last three commands talk to Padd
    it back. Views carry it (`ProjectSummary`, `PublicGame`, `GalleryGame`): the site opens the preview on it, says
    "Made for phones." elsewhere, and never asks to turn the phone for a game that fills every screen.
 6. The game's genre and tags (2026-10-27, /create's Genre and Tags; `src/games/picks.ts`): `POST /projects` takes one
-   `genre` at most (a genre skill: runner, puzzle, racer, towerdefence) and any `tags` (`TAGS`: 2d or 3d, not both,
-   retro, …), each refused with 400 when it isn't one; tags are kept in the list's order. `Project.pickedGenre` and
+   `genre` at most (a genre skill: runner, puzzle, racer, towerdefence) and any `tags` (`TAGS`: 2d, 3d, retro, cute,
+   cozy, hard; not both 2d and 3d, nor cozy and hard, whose rules contradict), each refused with 400 when it isn't one;
+   tags are kept in the list's order. `Project.pickedGenre` and
    `Project.tags` keep the picks; a first build gets them (`--genre`, `--tags`), also when it waits in line (its
    `QueuedRun` row keeps them) or builds again after a failed first try (from the project). run.mjs writes them into the
    game folder (`GENRE`, one word, as before, whatever picked it; `TAGS`, the tags on one line), and every change reads
