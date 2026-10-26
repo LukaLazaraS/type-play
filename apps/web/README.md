@@ -427,6 +427,11 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   when the stage is smaller, in a flat bezel; phones and tablets open the game's own way up, with Turn beside the pill.
   The same frame is resized, so the game keeps running. Hidden on phones and tablets and in windows under 700 px; a bar
   under 620 px wide drops its version line so the name keeps room. It opens on the device the game is made for.
+  **The bar keeps the name readable and More whole** (10-27): `useFit` in `Stage.tsx` measures the bar with whatever
+  pills are in it and, when the name would be left less than its first word with "…" or More would run past the edge,
+  drops the pills' words, then the version line (`data-fit`). Walk-through: `scripts/shot-bar.mjs` (every mix of
+  device, Turn, Android, Shared and a 60-letter name at every width from 1024 to 1920; `--base <ref>` also checks that
+  wherever the bar already fit it is laid out exactly as before; mocked API, its own site on :3090).
 - **Made for** (the platform choice, 10-25; `components/app/PlatformSwitch.tsx`, words in `content/app.ts` `platforms`):
   **Best fit** (first and picked, Luka 10-26: nothing is sent, the agent picks one shape under its base rules and the
   game records it after the first build), Phone, Computer or Any screen. The game page opens the preview on the

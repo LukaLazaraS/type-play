@@ -3281,6 +3281,27 @@ body:has(main.play-gone) > .ground-band {
     white-space: nowrap;
   }
 }
+/* And wherever the words still don't fit (10-27: at 1440px with Android and Shared beside the device pill and Turn, the
+   name had 0px and More was cut off): Stage.tsx measures the bar with every pill in it and sets data-fit when the name
+   would be left less than its first word with "…", or More would run past the edge. "icons": the pills keep their icons
+   only; "tight": the version line goes too. The phone layout keeps its own rules. */
+@media (min-width: 601px) {
+  .stage__bar[data-fit] .inkpill:not(.inkpill--small) {
+    width: 44px;
+    padding: 0;
+  }
+  .stage__bar[data-fit] .inkpill__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .stage__bar[data-fit="tight"] .stage__version {
+    display: none;
+  }
+}
 
 /* /games/<id>/android: the page on the sky, cards like the account page's. Every figures line in
    it is a muted fact; the few that aren't say so below. */
