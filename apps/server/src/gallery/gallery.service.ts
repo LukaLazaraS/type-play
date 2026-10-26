@@ -3,7 +3,7 @@
 // inflating a count, or from flooding reports, live in memory only (limits.ts).
 import { closeSync, lstatSync, openSync, readSync } from "node:fs";
 import { join } from "node:path";
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import type { GalleryGame, GalleryPage, GallerySort, Genre, Orientation, Platform, ReportReason } from "@typeplay/shared";
 import { ApiException, badRequest, notFound } from "../common/api-error.js";
 import { config } from "../env.js";
@@ -16,6 +16,9 @@ export const GENRES: Genre[] = ["runner", "puzzle", "racer", "towerdefence"];
 export const REASONS: ReportReason[] = ["sexual", "hate", "copied", "scam", "other"];
 const PAGE = 24;
 const MAX_PAGE = 48;
+/** The longest search (letters, once its spaces are tidied) and the most words of it that count. */
+export const MAX_SEARCH = 60;
+const MAX_WORDS = 5;
 const MAX_REPORT_TEXT = 500;
 /** Open reports that take a game out of the gallery by themselves until an admin looks (one address sends at most one a day per game). */
 export const AUTO_HIDE_REPORTS = 3;
@@ -50,26 +53,53 @@ export function genreOf(projectId: string): Genre | null {
   }
 }
 
-type Cursor = { w?: number; t: string; id: string };
+/** Where the next page starts: after (w, t, id) on popular, (t, id) on new, (n: the name in lower case, id) on all. */
+type Cursor = { w?: number; t?: string; n?: string; id: string };
 const encodeCursor = (c: Cursor) => Buffer.from(JSON.stringify(c)).toString("base64url");
 function decodeCursor(raw: unknown, sort: GallerySort): Cursor {
   try {
-    if (typeof raw !== "string" || raw.length > 300) throw new Error("not a cursor");
+    // Room for a 60-letter name of 4-byte letters.
+    if (typeof raw !== "string" || raw.length > 600) throw new Error("not a cursor");
     const c = JSON.parse(Buffer.from(raw, "base64url").toString("utf8")) as Partial<Cursor>;
-    const ok =
-      typeof c.t === "string" && Number.isFinite(Date.parse(c.t)) && typeof c.id === "string" && ID.test(c.id) &&
-      (sort === "new" || (Number.isInteger(c.w) && (c.w as number) >= 0));
+    if (typeof c.id !== "string" || !ID.test(c.id)) throw new Error("not a cursor");
+    if (sort === "all") {
+      if (typeof c.n !== "string" || c.n.length > 4 * MAX_SEARCH) throw new Error("not a cursor");
+      return { n: c.n, id: c.id };
+    }
+    const ok = typeof c.t === "string" && Number.isFinite(Date.parse(c.t)) && (sort === "new" || (Number.isInteger(c.w) && (c.w as number) >= 0));
     if (!ok) throw new Error("not a cursor");
-    return { w: c.w, t: new Date(c.t as string).toISOString(), id: c.id as string };
+    return { w: c.w, t: new Date(c.t as string).toISOString(), id: c.id };
   } catch {
     throw badRequest("That isn't a page of the gallery.");
   }
 }
 
-type Row = { id: string; name: string; orientation: string; platform: string | null; listedAt: Date; buildId: string; poster: boolean; week: number };
+/** The search's words (any case; the first 5 count, each anywhere in the name), or none. Longer than MAX_SEARCH: 400. */
+function searchWords(raw: unknown): string[] {
+  if (raw === undefined || raw === "") return [];
+  if (typeof raw !== "string") throw badRequest("Search with words.");
+  const clean = raw.replace(/[\p{Cc}\p{Cf}]+/gu, " ").replace(/\s+/g, " ").trim();
+  if ([...clean].length > MAX_SEARCH) throw badRequest(`Search with up to ${MAX_SEARCH} letters.`);
+  return clean ? clean.split(" ").slice(0, MAX_WORDS) : [];
+}
+/** A word as an ILIKE pattern that finds it anywhere in a name; its own %, _ and \ are plain letters. */
+const anywhere = (word: string) => `%${word.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+
+type Row = {
+  id: string;
+  name: string;
+  lname: string;
+  orientation: string;
+  platform: string | null;
+  genre: string | null;
+  listedAt: Date;
+  buildId: string;
+  poster: boolean;
+  week: number;
+};
 
 @Injectable()
-export class GalleryService {
+export class GalleryService implements OnModuleInit {
   private readonly log = new Logger("gallery");
   // A play: one address counts at most 3 times an hour for a game and 60 times an hour in all; a game takes at most
   // 120 a minute whoever sends them (a backstop for made-up addresses, e.g. from inside our own network).
@@ -82,34 +112,80 @@ export class GalleryService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /** A page of the gallery: listed, shared, not hidden, built. Popular = plays in the last 7 UTC days (today included). */
-  async page(sortRaw: unknown, cursorRaw: unknown, limitRaw: unknown): Promise<GalleryPage> {
-    if (sortRaw !== undefined && sortRaw !== "popular" && sortRaw !== "new") throw badRequest("Sort is popular or new.");
-    const sort: GallerySort = sortRaw === "new" ? "new" : "popular";
+  async onModuleInit() {
+    await this.backfillGenres().catch((e) => this.log.error(`genres: ${e}`));
+  }
+
+  /** Gallery games from before the database kept genres (2026-10-27) get theirs from their folders. Builds and listing keep it
+   * up to date after that (runs.service, projects.service), so most starts find nothing to do. Returns how many it filled. */
+  async backfillGenres(): Promise<number> {
+    const missing = await this.prisma.project.findMany({ where: { listed: true, genre: null, currentVersion: { not: null } }, select: { id: true } });
+    let filled = 0;
+    for (const { id } of missing) {
+      const genre = genreOf(id);
+      // Raw SQL, so updatedAt stays (it orders the owner's list by builds and messages).
+      if (genre) filled += await this.prisma.$executeRaw`UPDATE "Project" SET genre = ${genre}::"Genre" WHERE id = ${id} AND genre IS NULL`;
+    }
+    if (filled) this.log.log(`genres: ${filled} gallery game(s) filled in from their folders`);
+    return filled;
+  }
+
+  /**
+   * A page of the gallery: listed, shared, not hidden, built; with `genre`, only that genre's games; with `q`, only names
+   * holding every word of it. Popular = plays in the last 7 UTC days (today included); new = when it joined the gallery;
+   * all = by name, A to Z. A first page (no cursor) also counts the games that match and the whole gallery's per genre.
+   */
+  async page(sortRaw: unknown, cursorRaw: unknown, limitRaw: unknown, genreRaw?: unknown, qRaw?: unknown): Promise<GalleryPage> {
+    if (sortRaw !== undefined && sortRaw !== "popular" && sortRaw !== "new" && sortRaw !== "all") throw badRequest("Sort is popular, new or all.");
+    const sort: GallerySort = sortRaw === "new" || sortRaw === "all" ? sortRaw : "popular";
     const limit = limitRaw === undefined ? PAGE : Number(limitRaw);
     if (!Number.isInteger(limit) || limit < 1 || limit > MAX_PAGE) throw badRequest(`limit is 1 to ${MAX_PAGE}.`);
+    if (genreRaw !== undefined && genreRaw !== "" && !(GENRES as unknown[]).includes(genreRaw)) throw badRequest(`Genre is one of ${GENRES.join(", ")}.`);
+    const genre = genreRaw ? (genreRaw as Genre) : null;
+    const words = searchWords(qRaw);
     const c = cursorRaw === undefined || cursorRaw === "" ? null : decodeCursor(cursorRaw, sort);
     const week = Prisma.sql`coalesce(w.n, 0)`;
+    // In the gallery: listed, shared, not hidden, and built (the join below needs the playing version).
+    const inGallery = Prisma.sql`p.listed AND p.shared AND p."hiddenAt" IS NULL AND p."listedAt" IS NOT NULL AND p."currentVersion" IS NOT NULL`;
+    const genreIs = genre ? Prisma.sql`AND p.genre = ${genre}::"Genre"` : Prisma.empty;
+    const named = words.length ? Prisma.sql`AND ${Prisma.join(words.map((w) => Prisma.sql`p.name ILIKE ${anywhere(w)}`), " AND ")}` : Prisma.empty;
     const after = !c
       ? Prisma.empty
       : sort === "new"
         ? Prisma.sql`AND (p."listedAt", p.id) < (${c.t}::timestamp, ${c.id})`
-        : Prisma.sql`AND (${week}, p."listedAt", p.id) < (${c.w}::int, ${c.t}::timestamp, ${c.id})`;
-    const order = sort === "new" ? Prisma.sql`p."listedAt" DESC, p.id DESC` : Prisma.sql`${week} DESC, p."listedAt" DESC, p.id DESC`;
+        : sort === "all"
+          ? Prisma.sql`AND (lower(p.name), p.id) > (${c.n}, ${c.id})`
+          : Prisma.sql`AND (${week}, p."listedAt", p.id) < (${c.w}::int, ${c.t}::timestamp, ${c.id})`;
+    const order =
+      sort === "new"
+        ? Prisma.sql`p."listedAt" DESC, p.id DESC`
+        : sort === "all"
+          ? Prisma.sql`lower(p.name) ASC, p.id ASC`
+          : Prisma.sql`${week} DESC, p."listedAt" DESC, p.id DESC`;
     // The playing version is the newest one (currentVersion); a restore makes a new version that reuses an old build.
     const rows = await this.prisma.$queryRaw<Row[]>`
-      SELECT p.id, p.name, p.orientation::text AS orientation, p.platform::text AS platform, p."listedAt", v."buildId", v.poster, ${week}::int AS week
+      SELECT p.id, p.name, lower(p.name) AS lname, p.orientation::text AS orientation, p.platform::text AS platform,
+        p.genre::text AS genre, p."listedAt", v."buildId", v.poster, ${week}::int AS week
       FROM "Project" p
       JOIN "Version" v ON v."projectId" = p.id AND v.n = p."currentVersion"
       LEFT JOIN (
         SELECT "projectId", sum(count)::int AS n FROM "PlayCount"
         WHERE day > (now() AT TIME ZONE 'UTC')::date - 7 GROUP BY "projectId"
       ) w ON w."projectId" = p.id
-      WHERE p.listed AND p.shared AND p."hiddenAt" IS NULL AND p."listedAt" IS NOT NULL ${after}
+      WHERE ${inGallery} ${genreIs} ${named} ${after}
       ORDER BY ${order}
       LIMIT ${limit + 1}`;
     const shown = rows.slice(0, limit);
-    const totals = await this.totals(shown.map((r) => r.id));
+    const [totals, counts] = await Promise.all([
+      this.totals(shown.map((r) => r.id)),
+      c
+        ? null
+        : Promise.all([
+            this.prisma.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM "Project" p WHERE ${inGallery} ${genreIs} ${named}`,
+            this.prisma.$queryRaw<{ genre: Genre; n: number }[]>`
+              SELECT p.genre::text AS genre, count(*)::int AS n FROM "Project" p WHERE ${inGallery} AND p.genre IS NOT NULL GROUP BY p.genre`,
+          ]),
+    ]);
     const games: GalleryGame[] = shown.map((r) => ({
       id: r.id,
       name: r.name,
@@ -119,12 +195,22 @@ export class GalleryService {
       poster: r.poster,
       plays: totals.get(r.id) ?? 0,
       playsWeek: r.week,
-      genre: genreOf(r.id),
+      genre: r.genre as Genre | null,
       listedAt: r.listedAt.toISOString(),
     }));
     const last = shown.at(-1);
-    const next = rows.length > limit && last ? encodeCursor({ ...(sort === "popular" ? { w: last.week } : {}), t: last.listedAt.toISOString(), id: last.id }) : null;
-    return { games, next };
+    const next = !(rows.length > limit && last)
+      ? null
+      : encodeCursor(sort === "all" ? { n: last.lname, id: last.id } : { ...(sort === "popular" ? { w: last.week } : {}), t: last.listedAt.toISOString(), id: last.id });
+    if (!counts) return { games, next };
+    const [[{ n: total }], perGenre] = counts;
+    // In the genres' own order, a genre with no games left out.
+    const genres: Partial<Record<Genre, number>> = {};
+    for (const g of GENRES) {
+      const n = perGenre.find((r) => r.genre === g)?.n;
+      if (n) genres[g] = n;
+    }
+    return { games, next, total, genres };
   }
 
   /** All-time plays per game, for these games (0 when none). */

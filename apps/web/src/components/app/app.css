@@ -2,11 +2,6 @@
    place. Imported by components/app/AccountSlot.tsx, which only app builds contain (next.config.ts),
    so the public build ships none of this. Loads after globals.css and uses its tokens and parts. */
 
-/* The status bar on app pages: the public section links step aside. */
-body:has(main[data-app]) .statusbar nav a[href="/#how"],
-body:has(main[data-app]) .statusbar nav a[href="/#games"] {
-  display: none;
-}
 /* Short app pages: the footer's ground stays at the bottom of the screen. */
 body:has(main[data-app]:not(.ws)) {
   display: flex;
@@ -186,8 +181,9 @@ body:has(.ws) .ground-band {
   gap: 8px;
 }
 
-/* The pill bar (ui/PillBar.tsx: Tabs, PillNav): the game page's phone tabs, the gallery's order. Ink; the current pill
-   paper with ink words, the others muted, white under a pointer, Ink Recess and a press scale when pressed. */
+/* The pill bar (ui/PillBar.tsx: Tabs, PillChoice): the game page's phone tabs, the gallery's order and genre.
+   Ink; the current pill paper with ink words, the others muted, white under a pointer, Ink Recess and a press scale when
+   pressed. Apart (the genres): no bar, each pill ink on the sky, wrapping. */
 .pillbar {
   display: flex;
   align-items: center;
@@ -218,29 +214,89 @@ body:has(.ws) .ground-band {
     background-color 160ms var(--ease-out),
     color 160ms var(--ease-out);
 }
+.pillbar--apart {
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
+.pillbar--apart .pillbar__item {
+  background: var(--ink);
+}
 .pillbar__item[aria-selected="true"],
-.pillbar__item[aria-current] {
+.pillbar__item[aria-checked="true"] {
   background: var(--paper);
   color: var(--ink);
 }
-.pillbar__item:not([aria-selected="true"], [aria-current]):active {
+.pillbar__item:not([aria-selected="true"], [aria-checked="true"]):active {
   transform: scale(0.97);
   background: var(--ink-2);
   color: var(--on-sky);
 }
 @media (hover: hover) and (pointer: fine) {
-  .pillbar__item:not([aria-selected="true"], [aria-current]):not(:has([data-pending])):hover {
+  .pillbar__item:not([aria-selected="true"], [aria-checked="true"]):hover {
     color: var(--on-sky);
   }
 }
-/* A page on its way (PillNav, useLinkStatus): its pill takes the paper at once, the current one lets go. */
-.pillbar__item:has([data-pending]) {
-  background: var(--paper);
-  color: var(--ink);
+
+/* A search box on the sky (ui/SearchField.tsx): the pill bar's ink, fully round, 52px; the glass and the placeholder
+   muted, white words, the hot caret, the amber ring while the keyboard is in it; the clear button at its end. */
+.searchfield {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 6px 0 18px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--on-sky);
 }
-.pillbar:has([data-pending]) .pillbar__item[aria-current]:not(:has([data-pending])) {
-  background: transparent;
+.searchfield:focus-within {
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: var(--focus-inner);
+}
+.searchfield__icon {
+  flex: none;
   color: var(--on-sky-muted);
+}
+.searchfield input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--on-sky);
+  font: 400 17px var(--font-ui);
+  outline: none;
+  box-shadow: none;
+  caret-color: var(--hot);
+  appearance: none;
+}
+.searchfield input::placeholder {
+  color: var(--on-sky-muted);
+  opacity: 1;
+}
+/* The browser's own clear mark and search styling (iOS): ours is the IconButton. */
+.searchfield input::-webkit-search-cancel-button,
+.searchfield input::-webkit-search-decoration {
+  appearance: none;
+}
+.searchfield__clear {
+  flex: none;
+}
+
+/* Plays on a card (ui/PlayCount.tsx): the outline play mark and the number, in figures, on one line. */
+.plays {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.plays__mark {
+  flex: none;
 }
 
 /* A round button with an icon and no words (ui/IconButton.tsx): 36px, 44px for a finger. Ghost on ink: no fill, the
@@ -1260,7 +1316,7 @@ body:has(.ws) .ground-band {
 .stage__empty--wait {
   gap: 12px;
   width: 100%;
-  max-width: 600px;
+  max-width: 796px;
   max-height: 100cqh;
   overflow-y: auto;
   scrollbar-width: none;
@@ -1288,12 +1344,12 @@ body:has(.ws) .ground-band {
   font: 700 17px/1.2 var(--font-ui);
   color: var(--on-sky);
 }
-/* Three cards side by side at every width: the gallery's listings in small (paper, the start screen at 3:4 with a Play
-   chip on it, the name under it), big enough to read as games. */
+/* Three cards side by side at every width: the gallery's cards (Luka, 10-27: the same card as Explore's, up to its 240px
+   on a computer, a wide game's start screen whole), smaller on a phone. */
 .wait__games {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: start;
+  grid-template-columns: repeat(3, minmax(0, 240px));
+  justify-content: center;
   gap: 14px;
   width: 100%;
   margin: 0;
@@ -1313,9 +1369,6 @@ body:has(.ws) .ground-band {
   background: var(--paper);
   color: var(--on-paper);
   transition: transform 160ms var(--ease-out);
-}
-.gamecard--small {
-  border-radius: var(--r-field);
 }
 .gamecard:has(.gamecard__link:active) {
   transform: scale(0.98);
@@ -1363,7 +1416,7 @@ body:has(.ws) .ground-band {
   height: 100%;
   object-fit: cover;
 }
-.gamecard:not(.gamecard--small)[data-orientation="landscape"] .gamecard__pic img {
+.gamecard[data-orientation="landscape"] .gamecard__pic img {
   object-fit: contain;
 }
 .gamecard__name {
@@ -1377,11 +1430,9 @@ body:has(.ws) .ground-band {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
-/* Names up to 60 letters: two lines at most, their room kept. */
-.gamecard--small .gamecard__name {
-  min-height: calc(2 * 1.25em);
-  margin: 10px 12px 12px;
-  font-size: 15px;
+/* Nothing under the name (the games to play while waiting, no figures): room below it as at its sides. */
+.gamecard__link:last-child .gamecard__name {
+  margin-bottom: 16px;
 }
 /* A card's place while its game is on its way (at most 3 s): it breathes in place (a fade; the dot's pulse would
    shrink it). */
@@ -1415,24 +1466,40 @@ body:has(.ws) .ground-band {
   font-weight: 700;
   line-height: 1;
 }
-.playchip--small {
-  left: 8px;
-  bottom: 8px;
-  gap: 5px;
-  padding: 6px 10px 6px 8px;
-}
 @media (max-width: 640px) {
-  .gamecard:not(.gamecard--small) {
+  .gamecard {
     border-radius: 24px;
   }
-  .gamecard:not(.gamecard--small) .gamecard__name {
+  .gamecard .gamecard__name {
     margin: 12px 12px 0;
     font-size: 15px;
   }
-  .playchip:not(.playchip--small) {
+  .gamecard__link:last-child .gamecard__name {
+    margin-bottom: 12px;
+  }
+  .playchip {
     left: 8px;
     bottom: 8px;
     padding: 6px 10px 6px 8px;
+    font-size: 12px;
+  }
+}
+/* A narrow card (three side by side on a phone's stage, 80-110px): smaller words and chip, so a name breaks between its
+   words (or at a hyphen) and the chip leaves the picture its room. The card sizes itself from its own width. */
+.gamecard__link {
+  container-type: inline-size;
+}
+@container (max-width: 150px) {
+  .gamecard .gamecard__link .gamecard__name {
+    margin: 8px 9px 10px;
+    font-size: 13px;
+    hyphens: auto;
+  }
+  .playchip {
+    left: 6px;
+    bottom: 6px;
+    gap: 5px;
+    padding: 5px 8px 5px 7px;
     font-size: 12px;
   }
 }
@@ -1443,16 +1510,6 @@ body:has(.ws) .ground-band {
   }
   .wait__games {
     gap: 10px;
-  }
-  .gamecard--small .gamecard__name {
-    margin: 8px 9px 10px;
-    font-size: 13px;
-  }
-  .playchip--small {
-    left: 6px;
-    bottom: 6px;
-    padding: 5px 8px 5px 7px;
-    font-size: 12px;
   }
 }
 
@@ -3921,10 +3978,6 @@ body:has(main.explore) > .ground-band {
   color: var(--on-sky-muted);
   text-wrap: pretty;
 }
-/* The order: the pill bar (PillNav), as the game page's phone tabs. */
-.explore__sort {
-  flex: none;
-}
 
 /* The first game: the share page's ink stage, its frame beside its words. The frame is as tall as the first
    screen allows under the head (the listings' title still shows below it), never smaller than a small phone's
@@ -4013,33 +4066,104 @@ body:has(main.explore) > .ground-band {
   margin: 18px 0 0;
 }
 
-/* Listings: paper cards at the listing's radius, in a grid that fills the width. */
-.explore__more {
-  margin-top: clamp(36px, 4vw, 48px);
+/* The library (2026-10-27): every game under the top one. Its head is the title, the count and the search (at the row's
+   end); under it the order's pill bar and the genres' pills; then the cards. */
+.library {
+  margin-top: clamp(40px, 5vw, 64px);
 }
-.explore__subtitle {
+.library__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+.library__title {
   margin: 0;
   font-size: clamp(24px, 2.6vw, 34px);
 }
+.library__count {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--on-sky-muted);
+}
+.library__search {
+  flex: 0 1 360px;
+  margin-left: auto;
+}
+.library__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 32px;
+  margin-top: 18px;
+}
+.library__sort {
+  flex: none;
+  margin-left: auto;
+}
+/* While the next cards are on their way, the ones there dim (a newer choice drops the older answer); only after 120ms,
+   so a quick answer doesn't flash, and back at once. */
+.library__grid {
+  transition: opacity 160ms var(--ease-out);
+}
+.library__grid[aria-busy="true"] {
+  opacity: 0.55;
+  transition-delay: 120ms;
+}
+/* Hundreds of cards: the browser skips drawing the ones far off screen. */
+.library__grid > li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 340px;
+}
+.library__none {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 32px;
+  margin-top: 24px;
+  padding: 24px 28px;
+}
+.library__none-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.library__shown {
+  margin: 0;
+  color: var(--on-sky-muted);
+}
+
+/* Listings: paper cards at the listing's radius, in a grid that fills the width: six across at the page's full width,
+   so the six showcase games make one row. */
 .explore__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 28px 18px;
   margin: 24px 0 0;
   padding: 0;
   list-style: none;
 }
-/* A listing (GameCard). The plays over the genre, each on its own line, across the card's whole width (a dot at a line's end read
-   as a mistake); the plays keep "12.3K plays" and "this week" whole. */
+/* A listing (GameCard). The plays (the play mark and the number) over the genre, each on its own line, across the card's
+   whole width (a dot at a line's end read as a mistake); both lines' places kept, so the plays sit at one height across a
+   row whether a card has a genre or not. */
 .glist__meta {
+  display: grid;
+  grid-template-rows: 1.5em 1.5em;
+  justify-items: start;
   min-width: 0;
   margin: auto 0 0;
   padding: 6px 16px 16px;
   line-height: 1.5;
   color: var(--on-paper-muted);
 }
-.glist__meta span {
-  display: block;
+.glist__meta .plays {
+  grid-row: 1;
+}
+.glist__meta > :not(.plays) {
+  grid-row: 2;
 }
 /* Report (IconButton scrim) in the picture's top corner, above the card's link. */
 .glist__report {
@@ -4140,11 +4264,44 @@ body:has(main.explore) > .ground-band {
   .explore {
     margin-top: 12px;
   }
-  .explore__sort {
-    width: 100%;
+  /* The search takes a row of its own under the title, the order bar the whole width. */
+  .library__search {
+    flex: 1 1 100%;
+    margin-left: 0;
   }
-  .explore__sort .pillbar__item {
+  .library__filters {
+    margin-top: 12px;
+  }
+  .library__sort {
+    width: 100%;
+    margin-left: 0;
+  }
+  .library__sort .pillbar__item {
     flex: 1;
+  }
+  /* The genres: one row that scrolls sideways to the screen's edges (the last pill cut at the edge says there is more),
+     instead of two or three rows of pills above the cards. Room above and below for the focus ring. */
+  .library__genres {
+    --gutter: clamp(16px, 4vw, 80px);
+    flex: none;
+    flex-wrap: nowrap;
+    width: calc(100% + 2 * var(--gutter));
+    margin: -6px calc(-1 * var(--gutter));
+    padding: 6px var(--gutter);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: var(--gutter);
+    scrollbar-width: none;
+  }
+  .library__genres::-webkit-scrollbar {
+    display: none;
+  }
+  .library__genres .pillbar__item {
+    flex: none;
+  }
+  .library__none {
+    padding: 20px;
+    border-radius: 32px;
   }
   .explore__top {
     margin-top: 18px;
