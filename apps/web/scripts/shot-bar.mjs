@@ -1,18 +1,21 @@
 // The game page's top bar (10-27): the game's name stays readable and More whole at every desktop width with every mix of
 // pills (before, at 1440×900 with the device pill, Turn, Shared, Android, Full screen and New tab, the name had 0px and
 // More was cut off). The API's answers are replaced at the browser's network boundary, as in shot-worst.mjs (no API, no
-// database, no games origin), on a site of its own: `next dev` on :3090 (NEXT_DIST_DIR .next/bar; tsconfig.json and
-// next-env.d.ts are put back afterwards).
+// database, no games origin), on a site of its own: `next dev` on a port picked free (scripts/test-run.mjs; NEXT_DIST_DIR
+// .next/bar; tsconfig.json and next-env.d.ts are put back afterwards).
 //   The mix: a short and a 60-letter name; Android on and off; Shared on and off; the preview on a phone or a tablet
 // (both with Turn), a laptop, or Fill the window (the longest device word). Then the worst names (one 60-letter word,
 // Georgian, an emoji first) with "version 21 · 10M plays", in the fullest bars (every pill; Small phone too) and the
-// emptiest. For each, every width from 1024 to 1920 in 8px steps (and 1366), up and then down again without a reload,
-// is checked: the name shows whole or at least its first word with "…", More is whole inside the bar, nothing is wider
+// emptiest. Each mix, five at a time: every width from 1024 to 1920 in 16px steps going up (and 1366), then each point
+// where the bar changes its step (its words, its version line, data-fit), found to the pixel, with 1px either side,
+// approached from below and again from above (a bar must not depend on which way the window went). Within one step the
+// pills keep their size, so the name only grows with the window: each step's first pixel is its worst case. Checked
+// everywhere: the name shows whole or at least its first word with "…", More is whole inside the bar, nothing is wider
 // than the screen, and where the words or the version line are gone, the bar with them was cramped. Phones (390 and 320,
 // touch) are measured too. The bar's pictures at 1024, 1280, 1366, 1440 and 1920 go on contact sheets, one per width and
 // group of names. And a menu open while the bar changes its step stays under its pill (Share, turning sharing on).
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-bar.mjs [--base <ref>] [--menu] [outDir]
-// --menu: only the menu check (a minute instead of the matrix's half hour).
+// About 2-3 minutes a site, five mixes at once (10-27: 5.4 min with --base). --menu: only the menu check.
 // --base: first the same on apps/web at that commit (exported as shot-compare.mjs does, to data/shots/base-<sha>), whose
 // failures are only reported; then wherever the base bar already fit (and on phones always), this checkout's bar must be
 // laid out exactly as the base's, to the half pixel. Shots in .impeccable/review/bar/<base-sha|this>/.
@@ -20,6 +23,8 @@ import { chromium } from "playwright";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { freePorts } from "../../../scripts/test-run.mjs";
+import { ownNextDev } from "./dev-env.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
@@ -29,15 +34,19 @@ for (let i = 2; i < process.argv.length; i++) {
   else if (process.argv[i] === "--menu") opts.menuOnly = true;
   else opts.out = process.argv[i];
 }
-const SITE_PORT = 3090;
+// The site's, and two that nothing listens on (every call to them is answered in the browser), kept from other runs.
+const [SITE_PORT, API_PORT, GAMES_PORT] = await freePorts(3);
+// This checkout's `next dev` is this run's alone (dev-env.mjs): another walk-through here would share tsconfig.json.
+await ownNextDev();
 const base = `http://localhost:${SITE_PORT}`;
-// Nothing listens on these: every call is answered in the browser.
-const api = "http://127.0.0.1:3091";
-const games = "http://127.0.0.1:3092";
+const api = `http://127.0.0.1:${API_PORT}`;
+const games = `http://127.0.0.1:${GAMES_PORT}`;
 const SHOT_WIDTHS = [1024, 1280, 1366, 1440, 1920];
-// Every 8px, and the screenshots' widths (1366 is off that grid).
-const SWEEP = [...new Set([...Array.from({ length: (1920 - 1024) / 8 + 1 }, (_, i) => 1024 + i * 8), ...SHOT_WIDTHS])].sort((a, b) => a - b);
+// Every 16px, and the screenshots' widths (1366 is off that grid).
+const SWEEP = [...new Set([...Array.from({ length: (1920 - 1024) / 16 + 1 }, (_, i) => 1024 + i * 16), ...SHOT_WIDTHS])].sort((a, b) => a - b);
 const PHONES = [390, 320];
+/** Mixes measured at once, each in a page of its own (the browser runs below normal priority with the rest: cpu.mjs). */
+const AT_ONCE = 5;
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -220,34 +229,80 @@ async function shootBar(page, file) {
   await page.screenshot({ path: file, clip });
 }
 
+/** Runs `work` on each item, AT_ONCE at a time. */
+async function inParallel(items, work) {
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(AT_ONCE, items.length) }, async () => {
+    while (next < items.length) await work(items[next++]);
+  }));
+}
+/** What the bar's step is: its words, its version line and data-fit. */
+const step = (m) => `${m.fit ?? "-"}/${m.words ? "words" : "icons"}/${m.version ? "version" : "-"}`;
+
 async function runSite(browser, label, stepBack) {
+  const t0 = Date.now();
   const dir = join(opts.out, label);
   mkdirSync(join(dir, "bars"), { recursive: true });
   const states = {};
   const failures = [];
   const tightest = [];
-  for (const combo of COMBOS) {
+  let thresholds = 0;
+  await inParallel(COMBOS, async (combo) => {
     const { ctx, page } = await open(browser, combo, { width: 1920, height: 900 });
-    for (const [pass, widths] of [["up", SWEEP], ["down", [...SWEEP].reverse()]]) {
-      for (const w of widths) {
-        await page.setViewportSize({ width: w, height: 900 });
-        await frame(page);
-        const m = await page.evaluate(measure, { stepBack });
-        if (pass === "up") states[`${combo.key}@${w}`] = m;
-        else {
-          const up = states[`${combo.key}@${w}`];
-          if (up.fit !== m.fit || up.words !== m.words || up.version !== m.version) failures.push(`${combo.key} at ${w}: ${up.fit ?? "words"} going up, ${m.fit ?? "words"} coming down`);
-        }
-        // At its last step the bar has nothing more to give: a name still short of its floor then shows what fits (a 60-letter
-        // word beside every pill at 1024px), reported, as long as More is whole.
-        if (!m.readable && m.fit === "tight" && m.moreWhole && m.page) {
-          if (pass === "up") tightest.push(`${combo.key} at ${w}: name ${m.nameW}px of ${m.floor}`);
-        }
-        else if (!m.readable || !m.moreWhole || !m.page) failures.push(`${combo.key} at ${w} (${pass}): name ${m.nameW}px of ${m.floor}, More ends ${m.moreRight} of ${m.edge}${m.page ? "" : ", wider than the screen"}`);
-        if (m.needed === false) failures.push(`${combo.key} at ${w} (${pass}): "${m.fit}" though the bar fit without it`);
-        if (pass === "up" && SHOT_WIDTHS.includes(w)) await shootBar(page, join(dir, "bars", `${w}-${combo.key}.png`));
-      }
+    const at = async (w) => {
+      await page.setViewportSize({ width: w, height: 900 });
+      await frame(page);
+      return page.evaluate(measure, { stepBack });
+    };
+    const judge = (m, w, how) => {
+      // At its last step the bar has nothing more to give: a name still short of its floor then shows what fits (a 60-letter
+      // word beside every pill at 1024px), reported, as long as More is whole.
+      if (!m.readable && m.fit === "tight" && m.moreWhole && m.page) {
+        if (how === "up") tightest.push(`${combo.key} at ${w}: name ${m.nameW}px of ${m.floor}`);
+      } else if (!m.readable || !m.moreWhole || !m.page)
+        failures.push(`${combo.key} at ${w} (${how}): name ${m.nameW}px of ${m.floor}, More ends ${m.moreRight} of ${m.edge}${m.page ? "" : ", wider than the screen"}`);
+      if (m.needed === false) failures.push(`${combo.key} at ${w} (${how}): "${m.fit}" though the bar fit without it`);
+    };
+    // Up through the grid.
+    const seen = new Map();
+    const changes = [];
+    for (const w of SWEEP) {
+      const m = await at(w);
+      seen.set(w, m);
+      judge(m, w, "up");
+      if (SHOT_WIDTHS.includes(w)) await shootBar(page, join(dir, "bars", `${w}-${combo.key}.png`));
+      const before = SWEEP[SWEEP.indexOf(w) - 1];
+      if (before && step(seen.get(before)) !== step(m)) changes.push([before, w]);
     }
+    // Each change of step, to the pixel: `first` is the first width with the new step.
+    for (const [lo0, hi0] of changes) {
+      let [lo, hi] = [lo0, hi0];
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (step(await at(mid)) === step(seen.get(lo0))) lo = mid;
+        else hi = mid;
+      }
+      thresholds++;
+      const around = [hi - 1, hi, hi + 1].filter((w) => w >= 1024 && w <= 1920);
+      // From below (each step's first pixel is its worst case), then from above: the same steps either way.
+      await at(Math.max(1024, hi - 16));
+      const up = new Map();
+      for (const w of around) {
+        const m = await at(w);
+        up.set(w, m);
+        judge(m, w, "up");
+      }
+      await at(Math.min(1920, hi + 16));
+      for (const w of [...around].reverse()) {
+        const m = await at(w);
+        judge(m, w, "down");
+        if (step(m) !== step(up.get(w))) failures.push(`${combo.key} at ${w}: ${step(up.get(w))} going up, ${step(m)} coming down`);
+      }
+      for (const [w, m] of up) if (!seen.has(w)) seen.set(w, m);
+      // A second change in the same 16px: found the same way (the loop takes what is added to `changes`).
+      if (hi < hi0 && step(seen.get(hi)) !== step(seen.get(hi0))) changes.push([hi, hi0]);
+    }
+    for (const [w, m] of seen) states[`${combo.key}@${w}`] = m;
     // The whole page once, with everything in the bar.
     if (combo.key === "long-iphone-android-shared")
       for (const w of SHOT_WIDTHS) {
@@ -257,20 +312,22 @@ async function runSite(browser, label, stepBack) {
       }
     await ctx.close();
     process.stdout.write(".");
-  }
+  });
   console.log();
-  // Phones: the device pill and Turn are hidden there, so 8 mixes at each width.
-  for (const combo of COMBOS.filter((c) => c.device.id === "iphone"))
-    for (const w of PHONES) {
-      const { ctx, page } = await open(browser, combo, { width: w, height: w === 390 ? 844 : 640 }, true);
-      const m = await page.evaluate(measure, { stepBack: false });
-      states[`${combo.key}@phone${w}`] = m;
-      if (!m.page) failures.push(`${combo.key} on a ${w}px phone: wider than the screen`);
-      await shootBar(page, join(dir, "bars", `phone${w}-${combo.key}.png`));
-      await ctx.close();
-    }
+  // Phones: the device pill and Turn are hidden there, so one mix per name and Android/Shared at each width.
+  const phones = COMBOS.filter((c) => c.device.id === "iphone").flatMap((combo) => PHONES.map((w) => ({ combo, w })));
+  await inParallel(phones, async ({ combo, w }) => {
+    const { ctx, page } = await open(browser, combo, { width: w, height: w === 390 ? 844 : 640 }, true);
+    const m = await page.evaluate(measure, { stepBack: false });
+    states[`${combo.key}@phone${w}`] = m;
+    if (!m.page) failures.push(`${combo.key} on a ${w}px phone: wider than the screen`);
+    await shootBar(page, join(dir, "bars", `phone${w}-${combo.key}.png`));
+    await ctx.close();
+  });
   writeFileSync(join(dir, "states.json"), JSON.stringify(states));
-  return { dir, states, failures, tightest };
+  const minutes = ((Date.now() - t0) / 60_000).toFixed(1);
+  console.log(`${label}: ${COMBOS.length} mixes, ${Object.keys(states).length} mix-widths measured (${thresholds} changes of step found to the pixel), ${minutes} min`);
+  return { dir, states, failures, tightest, thresholds };
 }
 
 /** One picture per width and name: the bar of each mix, labelled. */
@@ -360,8 +417,8 @@ const putBack = () => {
 };
 
 let browser = null;
+const started = Date.now();
 try {
-  if (await fetch(`${base}/`).then(() => true, () => false)) throw new Error(`port ${SITE_PORT} is taken: another run of this script?`);
   browser = await chromium.launch({ channel: "msedge", headless: true });
   let before = null;
   if (opts.base) {
@@ -396,26 +453,35 @@ try {
   putBack();
 }
 const failed = results.filter((r) => !r.ok).length;
-console.log(`\n${results.length - failed}/${results.length} checks passed`);
+console.log(`\n${results.length - failed}/${results.length} checks passed; the run took ${((Date.now() - started) / 60_000).toFixed(1)} min`);
 process.exit(failed ? 1 : 0);
 
 /** This checkout's run of every mix at every width, and (with --base) the comparison with the base's. */
 async function matrix(browser, before) {
   const after = await runSite(browser, "this", true);
   await sheets(browser, after.dir, "after");
-  check(`every mix at every width (${COMBOS.length} mixes × ${SWEEP.length} widths, up and down; phones at ${PHONES.join(" and ")}): the name readable, More whole, nothing wider than the screen, each step needed, the same going up and down`, after.failures.length === 0, after.failures.slice(0, 20).join("; "));
+  check(
+    `every mix at every width (${COMBOS.length} mixes: every 16px from 1024 to 1920 and 1366, and each of the ${after.thresholds} changes of step to the pixel, ±1px, from below and from above; phones at ${PHONES.join(" and ")}): the name readable, More whole, nothing wider than the screen, each step needed, the same either way`,
+    after.failures.length === 0,
+    after.failures.slice(0, 20).join("; "),
+  );
   if (after.tightest.length)
     console.log(`at the bar's last step (icons, no version line) and still under the name's floor, More whole (${after.tightest.length}): ${after.tightest.slice(0, 6).join("; ")}${after.tightest.length > 6 ? "; …" : ""}`);
   if (before) {
+    // Where both sides were measured: the grid and the phones (each side's own changes of step fall at its own widths).
     const changed = [];
+    let both = 0;
+    let fitting = 0;
     for (const [key, b] of Object.entries(before.states)) {
       const a = after.states[key];
+      if (!a) continue;
+      both++;
       const phone = key.includes("@phone");
       if (!phone && !(b.readable && b.moreWhole)) continue; // the base didn't fit here: the fix may change it
+      fitting++;
       if (JSON.stringify(a.boxes) !== JSON.stringify(b.boxes) || a.words !== b.words || a.version !== b.version) changed.push(key);
     }
-    const fitting = Object.values(before.states).filter((b) => b.readable && b.moreWhole).length;
-    check(`wherever the base bar fit (${fitting} of ${Object.keys(before.states).length} mix-widths) and on phones: laid out exactly as before`, changed.length === 0, changed.slice(0, 20).join(", "));
+    check(`wherever the base bar fit (${fitting} of ${both} mix-widths measured on both) and on phones: laid out exactly as before`, changed.length === 0, changed.slice(0, 20).join(", "));
   }
 }
 
