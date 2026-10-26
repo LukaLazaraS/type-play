@@ -108,12 +108,13 @@ a {
   width: 100%;
   pointer-events: none;
 }
+/* The home hero's ground: the drawing at its own shape (1440:420), so all of it shows, at the foot of the hero
+   (.home__foot keeps it under the games). */
 .home__ground {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 46%;
   z-index: 0;
 }
 .ground-band {
@@ -402,6 +403,12 @@ q {
   color: inherit;
   cursor: pointer;
   width: 100%;
+  /* A control, not text: a tap answers at once with the press below (no grey flash), a long press selects nothing. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .app__icon {
   width: var(--icon);
@@ -434,7 +441,9 @@ q {
   line-height: 1;
 }
 
-/* Hero grid: a home screen at desktop width */
+/* Hero grid: a home screen at desktop width. The widget has its place; the games fill every other place in order, row
+   by row (two left and two right of it, then whole rows under it), and "Your game" comes last. 7 columns: 2 + the
+   widget's 3 + 2 beside it, and 7 under it, so the home page's 14 games and "Your game" leave no place empty. */
 .home {
   --icon: 112px;
   position: relative;
@@ -446,7 +455,7 @@ q {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   grid-auto-rows: minmax(168px, auto);
   width: min(1280px, 100% - 2 * clamp(16px, 4vw, 80px));
   margin: 18px auto 0;
@@ -454,10 +463,19 @@ q {
 .home__grid .app {
   padding-top: 4px;
 }
+/* Under the games: room for the ground's sun (its top is 320 of the drawing's 1440 wide above the bottom) and a little
+   more, so no name or figure ever sits on the sun or the dunes; the dock at the bottom. */
+.home__foot {
+  position: relative;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vw * 320 / 1440 + 12px);
+}
 .home__widget {
-  grid-column: 3 / 7;
+  grid-column: 3 / 6;
   grid-row: 1 / 3;
-  margin: 4px 14px 16px;
+  margin: 4px 0 16px;
   padding: 28px 36px 26px;
   display: flex;
   flex-direction: column;
@@ -466,10 +484,6 @@ q {
 }
 .home__widget h1 {
   font-size: clamp(56px, 6.2vw, 88px);
-}
-.home__build {
-  grid-column: 1;
-  grid-row: 3;
 }
 @media (max-width: 1100px) {
   .home {
@@ -484,10 +498,6 @@ q {
     grid-row: 1 / 3;
     margin: 0 0 20px;
     padding: 28px;
-  }
-  .home__build {
-    grid-column: auto;
-    grid-row: auto;
   }
 }
 @media (max-width: 640px) {
@@ -681,6 +691,33 @@ q {
   line-height: 1.35;
   min-height: 46px;
   max-height: 160px;
+}
+/* "Your game" brings the visitor here (PromptForm callPrompt): once the box is on the screen, the focus ring lands on it
+   from further out, so the eye finds it; under reduced motion the ring fades in where it stays. */
+.prompt__field--called {
+  animation: prompt-called-fade 300ms ease;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .prompt__field--called {
+    animation: prompt-called 400ms var(--ease-out);
+  }
+}
+@keyframes prompt-called {
+  0% {
+    outline-width: 6px;
+    outline-offset: 20px;
+    outline-color: transparent;
+    box-shadow: 0 0 0 3px transparent;
+  }
+  55% {
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+@keyframes prompt-called-fade {
+  0% {
+    outline-color: transparent;
+    box-shadow: 0 0 0 3px transparent;
+  }
 }
 @media (max-width: 640px) {
   .prompt__field {
@@ -1998,7 +2035,7 @@ q {
   }
 }
 
-/* Short desktop viewports (1440x900, 1536x864): keep the dock inside the first screen. */
+/* Short desktop viewports (1440x900, 1536x864): all three rows of games inside the first screen. */
 @media (min-width: 1101px) and (max-height: 960px) {
   .notice {
     margin-top: 6px;

@@ -47,7 +47,7 @@ export const demoSteps: DemoStep[] = [
   },
 ];
 
-/** Every edit the same robot runner got by chat, in order (the "Night Runner" thread, on the home page until 2026-10-27). */
+/** Every edit the same robot runner got by chat, in order (the "Night Runner" thread; Night Runner's edits in content/games.ts). */
 export const demoEdits = [
   "Make the robot jump a little higher.",
   "Add coins floating in the air to collect.",

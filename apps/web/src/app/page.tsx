@@ -24,10 +24,7 @@ const game = (slug: string) => {
 const islandRush = game("show-racer-polished");
 const free = plans.find((p) => p.id === "free")!;
 const medium = plans.find((p) => p.id === "medium")!;
-// The home screen's icon order: two left of the widget, two right, then the second row.
-const row1 = [islandRush, game("show-arcade-polished")];
-const row1Right = [game("show-td-polished"), game("show-match3-polished")];
-const row2 = [game("show-runner-polished"), game("show-3d-polished")];
+const bestBuilds = games.filter((g) => g.tier === "Best").length;
 // The AIs as a settings list: what each is for, and what our test builds measured.
 const ais: { id: ModelChoice; name: string; text: string; figures: [string, string] }[] = [
   {
@@ -37,7 +34,7 @@ const ais: { id: ModelChoice; name: string; text: string; figures: [string, stri
     figures: ["new game 8 to 12 min", "edit 1 to 3 min"],
   },
   { id: "smart", name: "Smart", text: "The default for new games. The robot runner above is a Smart build.", figures: ["new game 1.6 to 9 min", "more credits than Fast"] },
-  { id: "best", name: "Best", text: "The strongest model, with better character art. The games on this page are Best builds. Costs the most credits.", figures: ["new game 8 to 23 min", "most credits"] },
+  { id: "best", name: "Best", text: `The strongest model, with better character art. ${bestBuilds} of the ${games.length} games on this page are Best builds. Costs the most credits.`, figures: ["new game 8 to 23 min", "most credits"] },
 ];
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
@@ -48,12 +45,10 @@ export default function Home() {
       <JsonLd data={structuredData} />
       {/* The home screen */}
       <section className="home" aria-label="Type it, play it">
-        <Ground className="home__ground" />
         <Notice game={islandRush} />
+        {/* The widget has its place in the grid (globals.css); the games fill the places around and under it in order,
+            and "Your game" is always the last. */}
         <div className="home__grid">
-          {row1.map((g) => (
-            <GameIcon game={g} key={g.slug} />
-          ))}
           <div className="widget home__widget">
             <h1 className="display">
               Type it.
@@ -62,17 +57,16 @@ export default function Home() {
             </h1>
             <PromptForm />
           </div>
-          {row1Right.map((g) => (
+          {games.map((g) => (
             <GameIcon game={g} key={g.slug} />
           ))}
-          {row2.map((g) => (
-            <GameIcon game={g} key={g.slug} />
-          ))}
-          <div className="home__build">
-            <BuildingIcon />
-          </div>
+          <BuildingIcon />
         </div>
-        <Dock />
+        {/* The ground rises under the games, never behind them, with the dock on it. */}
+        <div className="home__foot">
+          <Ground className="home__ground" />
+          <Dock />
+        </div>
       </section>
 
       {/* Edits by chat: the real Night Runner thread */}
@@ -104,8 +98,8 @@ export default function Home() {
           Made from one sentence each.
         </h2>
         <p className="lead">
-          Test games from our builds, exactly as the AI made them: the sentence that made each
-          one, then one to three small fixes asked for by chat. Tap one to see it.
+          Test games from our builds, exactly as the AI made them, with the sentence that made
+          each one. Some were then changed by chat. Tap one to see it.
         </p>
         <div className="strip">
           {games.map((g) => (

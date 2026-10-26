@@ -1,10 +1,14 @@
-import { AppIcon } from "@/components/ui/AppIcon";
+"use client";
 
-/** The empty slot: a game assembling itself from flat layers (sky, dune, sun, robot). */
+import { AppIcon } from "@/components/ui/AppIcon";
+import { callPrompt } from "./PromptForm";
+
+/** The last place on the home screen: a game assembling itself from flat layers (sky, dune, sun, robot). A button that
+ * brings the visitor to the prompt box, the cursor in it. */
 export function BuildingIcon() {
   return (
     <AppIcon
-      href="#prompt"
+      onClick={() => callPrompt()}
       label="Your game: start one in the prompt box"
       building
       picture={<BuildLayers />}
