@@ -1316,7 +1316,7 @@ body:has(.ws) .ground-band {
 .stage__empty--wait {
   gap: 12px;
   width: 100%;
-  max-width: 600px;
+  max-width: 796px;
   max-height: 100cqh;
   overflow-y: auto;
   scrollbar-width: none;
@@ -1344,12 +1344,12 @@ body:has(.ws) .ground-band {
   font: 700 17px/1.2 var(--font-ui);
   color: var(--on-sky);
 }
-/* Three cards side by side at every width: the gallery's listings in small (paper, the start screen at 3:4 with a Play
-   chip on it, the name under it), big enough to read as games. */
+/* Three cards side by side at every width: the gallery's cards (Luka, 10-27: the same card as Explore's, up to its 240px
+   on a computer, a wide game's start screen whole), smaller on a phone. */
 .wait__games {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: start;
+  grid-template-columns: repeat(3, minmax(0, 240px));
+  justify-content: center;
   gap: 14px;
   width: 100%;
   margin: 0;
@@ -1369,9 +1369,6 @@ body:has(.ws) .ground-band {
   background: var(--paper);
   color: var(--on-paper);
   transition: transform 160ms var(--ease-out);
-}
-.gamecard--small {
-  border-radius: var(--r-field);
 }
 .gamecard:has(.gamecard__link:active) {
   transform: scale(0.98);
@@ -1419,7 +1416,7 @@ body:has(.ws) .ground-band {
   height: 100%;
   object-fit: cover;
 }
-.gamecard:not(.gamecard--small)[data-orientation="landscape"] .gamecard__pic img {
+.gamecard[data-orientation="landscape"] .gamecard__pic img {
   object-fit: contain;
 }
 .gamecard__name {
@@ -1433,11 +1430,9 @@ body:has(.ws) .ground-band {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
-/* Names up to 60 letters: two lines at most, their room kept. */
-.gamecard--small .gamecard__name {
-  min-height: calc(2 * 1.25em);
-  margin: 10px 12px 12px;
-  font-size: 15px;
+/* Nothing under the name (the games to play while waiting, no figures): room below it as at its sides. */
+.gamecard__link:last-child .gamecard__name {
+  margin-bottom: 16px;
 }
 /* A card's place while its game is on its way (at most 3 s): it breathes in place (a fade; the dot's pulse would
    shrink it). */
@@ -1471,24 +1466,40 @@ body:has(.ws) .ground-band {
   font-weight: 700;
   line-height: 1;
 }
-.playchip--small {
-  left: 8px;
-  bottom: 8px;
-  gap: 5px;
-  padding: 6px 10px 6px 8px;
-}
 @media (max-width: 640px) {
-  .gamecard:not(.gamecard--small) {
+  .gamecard {
     border-radius: 24px;
   }
-  .gamecard:not(.gamecard--small) .gamecard__name {
+  .gamecard .gamecard__name {
     margin: 12px 12px 0;
     font-size: 15px;
   }
-  .playchip:not(.playchip--small) {
+  .gamecard__link:last-child .gamecard__name {
+    margin-bottom: 12px;
+  }
+  .playchip {
     left: 8px;
     bottom: 8px;
     padding: 6px 10px 6px 8px;
+    font-size: 12px;
+  }
+}
+/* A narrow card (three side by side on a phone's stage, 80-110px): smaller words and chip, so a name breaks between its
+   words (or at a hyphen) and the chip leaves the picture its room. The card sizes itself from its own width. */
+.gamecard__link {
+  container-type: inline-size;
+}
+@container (max-width: 150px) {
+  .gamecard .gamecard__link .gamecard__name {
+    margin: 8px 9px 10px;
+    font-size: 13px;
+    hyphens: auto;
+  }
+  .playchip {
+    left: 6px;
+    bottom: 6px;
+    gap: 5px;
+    padding: 5px 8px 5px 7px;
     font-size: 12px;
   }
 }
@@ -1499,16 +1510,6 @@ body:has(.ws) .ground-band {
   }
   .wait__games {
     gap: 10px;
-  }
-  .gamecard--small .gamecard__name {
-    margin: 8px 9px 10px;
-    font-size: 13px;
-  }
-  .playchip--small {
-    left: 6px;
-    bottom: 6px;
-    padding: 5px 8px 5px 7px;
-    font-size: 12px;
   }
 }
 
