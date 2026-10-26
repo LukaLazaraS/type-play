@@ -1,0 +1,16 @@
+{"at":"2026-10-26T00:17:12.967Z","rt":"runc","rep":1,"ok":true,"wallMs":319.46953499999995,"dockerStartMs":275.22825999999986,"idleMb":15}
+{"at":"2026-10-26T00:17:18.859Z","rt":"runsc","rep":1,"ok":true,"wallMs":408.50158199999987,"dockerStartMs":298.8176089999997,"idleMb":30}
+{"at":"2026-10-26T00:17:24.722Z","rt":"runsc","rep":2,"ok":true,"wallMs":390.7187560000002,"dockerStartMs":297.8893449999996,"idleMb":30}
+{"at":"2026-10-26T00:17:30.548Z","rt":"runc","rep":2,"ok":true,"wallMs":337.5120419999985,"dockerStartMs":294.2952780000014,"idleMb":15}
+{"at":"2026-10-26T00:17:36.366Z","rt":"runc","rep":3,"ok":true,"wallMs":332.2209810000022,"dockerStartMs":287.39656000000105,"idleMb":16}
+{"at":"2026-10-26T00:17:42.259Z","rt":"runsc","rep":3,"ok":true,"wallMs":397.0839930000002,"dockerStartMs":289.09704000000056,"idleMb":30}
+{"at":"2026-10-26T00:17:48.106Z","rt":"runsc","rep":4,"ok":true,"wallMs":380.32301700000244,"dockerStartMs":288.6070830000026,"idleMb":30}
+{"at":"2026-10-26T00:17:53.900Z","rt":"runc","rep":4,"ok":true,"wallMs":322.0135200000004,"dockerStartMs":278.05517600000167,"idleMb":16}
+{"at":"2026-10-26T00:17:59.737Z","rt":"runc","rep":5,"ok":true,"wallMs":331.91682199999923,"dockerStartMs":289.1802089999983,"idleMb":15}
+{"at":"2026-10-26T00:18:05.676Z","rt":"runsc","rep":5,"ok":true,"wallMs":442.0905849999981,"dockerStartMs":331.47614500000054,"idleMb":31}
+{"at":"2026-10-26T00:18:11.555Z","rt":"runsc","rep":6,"ok":true,"wallMs":399.94931400000496,"dockerStartMs":290.2485330000054,"idleMb":30}
+{"at":"2026-10-26T00:18:17.355Z","rt":"runc","rep":6,"ok":true,"wallMs":330.2405209999997,"dockerStartMs":286.8408769999951,"idleMb":15}
+{"at":"2026-10-26T00:18:23.196Z","rt":"runc","rep":7,"ok":true,"wallMs":366.7730540000048,"dockerStartMs":301.4625170000072,"idleMb":15}
+{"at":"2026-10-26T00:18:29.118Z","rt":"runsc","rep":7,"ok":true,"wallMs":424.36484799999744,"dockerStartMs":313.87869900000806,"idleMb":30}
+{"at":"2026-10-26T00:18:35.035Z","rt":"runsc","rep":8,"ok":true,"wallMs":416.2578899999935,"dockerStartMs":306.9039519999933,"idleMb":30}
+{"at":"2026-10-26T00:18:40.845Z","rt":"runc","rep":8,"ok":true,"wallMs":332.72302600000694,"dockerStartMs":288.3785510000016,"idleMb":16}

@@ -1,0 +1,60 @@
+# The gVisor trial's stack (RESULTS.md), one Compose project per runtime, run by bench.mjs in WSL:
+#   runner  the live runner service itself, taken from deploy/api/compose.yaml (`extends`: the same image,
+#           command, CPU and memory caps, capabilities, pids limit, network); only the runtime, a cpuset (4 vCPUs,
+#           the CPX32's count), and host folders instead of the server's are set here.
+#   api     a stand-in for the api container: just the API's key proxy (proxy.mjs) on the same address.
+# Variables (bench.mjs sets them): RUNTIME runc|runsc, CPUSET, GVB_DIR (this project's data/run/control
+# folders), GVB_ASSETS (the 3D library), GVB_BENCH (this folder, copied to WSL's disk), GVB_SECRETS (an env
+# file with ANTHROPIC_API_KEY, only while real builds run), AGENT_SCRIPT (a probe instead of run.mjs).
+services:
+  runner:
+    extends:
+      file: ../../../../deploy/api/compose.yaml
+      service: runner
+    build: !reset null
+    runtime: ${RUNTIME:?}
+    cpuset: ${CPUSET:?}
+    # Each trial stack has its own agents subnet (two networks can't share one), so the api's fixed address too.
+    extra_hosts: !override
+      - "api:${AGENTS_NET:?}.2"
+    environment:
+      AGENT_SCRIPT: ${AGENT_SCRIPT:-/app/packages/agent/run.mjs}
+      # The live file's malloc setting, or none (bench.mjs stacks runc and runsc-plain).
+      GLIBC_TUNABLES: ${JOB_TUNABLES:-}
+    volumes:
+      - ${GVB_DIR:?}/data:/data
+      - ${GVB_ASSETS:?}:/assets:ro
+      - ${GVB_DIR:?}/run:/run/typeplay
+      - ${GVB_BENCH:?}:/bench:ro
+
+  api:
+    image: typeplay-api
+    init: true
+    user: "1000:1000"
+    command: ["node", "/bench/proxy.mjs"]
+    env_file:
+      - path: ${GVB_SECRETS:-/dev/null}
+        required: false
+    environment:
+      AGENT_AUTH: api
+      PROXY_CONTROL: /control/proxy.sock
+    volumes:
+      - ${GVB_BENCH:?}:/bench:ro
+      - ${GVB_DIR:?}/control:/control
+    networks:
+      web: {}
+      agents:
+        ipv4_address: ${AGENTS_NET:?}.2
+    cpus: 1.0
+    mem_limit: 1g
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+networks:
+  web: {}
+  agents:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${AGENTS_NET:?}.0/24
+          ip_range: ${AGENTS_NET:?}.128/25

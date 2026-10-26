@@ -1,0 +1,7 @@
+# bench.mjs stack runc-nopin: the live runner with the check's pin bug fixed. tools/cpu.mjs pins every check to one
+# CPU with `taskset` (RESULTS.md, "the pin"); a do-nothing taskset in /usr/local/bin, which comes before /usr/bin on
+# the jobs' PATH (runner.mjs jobEnv), stands in for the fix.
+services:
+  runner:
+    volumes:
+      - ${GVB_BENCH:?}/taskset-noop.sh:/usr/local/bin/taskset:ro
