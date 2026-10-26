@@ -33,6 +33,7 @@ it starts inherit that.
 - `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` (sign-in check; `docs/auth.md`)
 - Optional: `PORT` (3002), `HOST` (127.0.0.1), `DATA_DIR` (`<repo>/data`), `GAMES_BUILDS_DIR`
   (`apps/games/builds`), `GODOT_VERSION` (4.7.2), `GODOT_EXE`, `MAX_RUNS` (3), `RUN_TIMEOUT_MIN` (40),
+  `QUEUE_WAIT_MIN` (30) and `QUEUE_FREE_DELAY_MIN` (10) ("The build queue"),
   `R2_GAMES_BUCKET` (typeplay-games), `BROWSER_EXE` (the check's hidden browser), `ASSET_LIBRARY`
   (the 3D model library's root; `/assets` in the runner)
 - Who pays for the agent: `AGENT_AUTH` = `max` (default: the Claude Code login on this PC, Luka's Max)
@@ -84,14 +85,16 @@ brings the database up to date and empties it first), so they can run any time, 
 nothing else may use that database (a run empties it).
 
 ```
-npm run test:e2e -w @typeplay/server          # 363 checks (2026-10-25); starts its own API on :3023 with DEV_AUTH=1 AGENT_FAKE=1 (API_URL to use yours);
+npm run test:e2e -w @typeplay/server          # 434 checks (2026-10-26); starts its own API on :3023 with DEV_AUTH=1 AGENT_FAKE=1 (API_URL to use yours);
                                               # makes and deletes its own test users; the Supabase sign-in record check runs only where
                                               # the database is a Supabase project's (the online test environment, later); starts
                                               # a second API on :3013 of its own for the run timeout and the interrupted-run recovery,
+                                              # one on :3016 with MAX_RUNS=1 for the build queue (and a restart of it),
                                               # one on :3019 with TRUST_PROXY=1 for the gallery (several visitors, fresh limits),
                                               # one on :3021 with BETA_INVITE_ONLY=1 for the closed beta, and one on :3033 (its key
                                               # proxy on :8797) with AGENT_AUTH=api FAKE_METER=1 and a mock Anthropic ("Security review 10-20")
 npm run test:ledger -w @typeplay/server       # the ledger's arithmetic (53 checks, no database; after a build)
+npm run test:queue -w @typeplay/server        # the build queue's order and rough waits (21 checks, no database; after a build)
 npm run test:proxy -w @typeplay/server        # the key proxy's metering against a mock Anthropic (11 checks, no key, no network)
 npm run test:billing -w @typeplay/server      # Paddle webhooks, inbox, handlers, admin and services against a stub (233 checks; starts its own API on :3014, :3025-3028)
 npm run test:android -w @typeplay/server      # Android export's pure parts: preset, names, crypto, manifest check, zip/ELF, the phone link, a Stop against the queue (133 checks, no database)
@@ -528,13 +531,14 @@ row as `admin:<ADMIN_NAME or the OS user>`. The last three commands talk to Padd
 
 ## How a message runs
 
-1. Checks (in order): one run per project (409 `busy`), the plan's builds at once per user (Free and
-   Medium one, High and up two, `credits.ts` `runsAtOnce`: 409 `busy`), at most `MAX_RUNS` at once
-   (409 `busy`), model in the plan (403), credits ≥ the estimate's low after what the user's other runs
+1. Checks (in order): one run per project, going or waiting (409 `busy`), the plan's builds at once per user,
+   waiting ones included (Free and Medium one, High and up two, `credits.ts` `runsAtOnce`: 409 `busy`), model in the
+   plan (403), credits ≥ the estimate's low after what the user's other runs
    hold (402 `no_credits`), Free: credits left today ≥ the low, the same rule the site shows (402
    `daily_limit`), estimate's high over 25 / 3 on Free without `confirm` (409 `needs_confirm`). The
    run then **holds** its estimate's high (in memory, `CreditsService.heldBy`) until its charge or its
-   failure is written, so two messages sent at once can't both spend the same credits.
+   failure is written, so two messages sent at once can't both spend the same credits. Past `MAX_RUNS` at once
+   the build waits in line instead of starting ("The build queue" below; until 2026-10-26: 409 `busy`).
 2. `node packages/agent/run.mjs --dir data/projects/<id> --model haiku|sonnet|opus --effort … --events
    [--edit | --platform phone|computer|fill]` (a first build: the screens the player picked on /create, `POST /projects`
    `platform`; left out, the agent picks one shape, portrait first); its `@@event` lines become the SSE `progress` events (each line cut at 64 KB, at most
@@ -572,6 +576,65 @@ cache is git-ignored, so `git reset` and `git clean` leave it, and imports of fi
 broke the next check after a reset (10-19). The next check or export imports afresh. It runs as
 `git clean -qfdx -- .godot`, through the same `git()` as the reset (in the runner on the live server); a
 cache that can't be removed is logged and left, never a failed reset.
+
+## The build queue (2026-10-26)
+
+When every builder is busy (`MAX_RUNS` agent runs going; an Android build counts as two), a new build no longer gets
+409 `busy`: it waits in line and starts by itself (`src/runs/queue.service.ts`; the arithmetic, pure, in
+`src/runs/queue-math.ts`).
+
+- **The line is in Postgres** (`QueuedRun`: one row per waiting build, one per game; its agent message has status
+  `queued`), so a restart keeps it: at the start the rows are mirrored in `RunRegistry` again and their credits held
+  again, and the line moves once what a stopped server left running has been reset. A build the queue had taken out of
+  the line but not yet started when the server stopped (its message `queued`, no row) is marked failed (interrupted,
+  0 credits). The mirror keeps every check in the registry synchronous, as before: two requests can't both pass the
+  per-game or the per-user claim.
+- **The order: paid first, first come first served, and a free build ages.** Each row has a turn, `turnAt`: when it was
+  queued for a paid plan's build, `QUEUE_FREE_DELAY_MIN` (10) later for a Free one; the line is sorted by turn, then by
+  when queued. A paid build that arrives within those 10 minutes goes ahead of a free one; nothing that arrives later
+  ever does, so a free build always reaches the front however many paid builds keep coming, and a paid build's place
+  never moves back. Aging rather than a reserved share (one start in N kept for Free): a share starves nobody either, but
+  a place in line then jumps with the share's counter, so no wait shown could be honest; with aging a build's place
+  changes only when one ahead of it starts or leaves or, for a free build in its first 10 minutes, a paid one arrives.
+- **The plan's builds at once still apply, waiting ones included** (`credits.ts` `runsAtOnce`: one on Free and Medium,
+  two from High): past it, 409 `busy` as before. One build per game, waiting or going: a message, a restore or an
+  Android build of a game whose build waits answers 409 `busy`; a download works (the files are as they were).
+- **Credits.** The checks run when the build is sent, as before (402 `no_credits` / `daily_limit` / `free_paused`, 403,
+  409 `needs_confirm`: nobody waits in line for nothing), and its estimate's high is held from then on (in memory; held
+  again after a restart), so the user's other messages can't spend the same credits. **Nothing is charged while it
+  waits.** At its turn the checks run again on the user's row as it is then (`CreditsService.assertCanStart`; asking
+  first is not repeated): a plan that lapsed meanwhile, a billing hold, the credits after the user's other holds, and for
+  a Free build **the kill switch** (`FREE_DAILY_AI_USD`). A build that no longer passes leaves the line without starting,
+  its reason in its message ("Free builds were paused while this waited: …", 0 credits). The message's `plan` is the plan
+  it started on. A build that started is charged at its end, as every run.
+- **Stop** (`POST /projects/:id/cancel`) takes a waiting build out of the line ("Stopped. Your game is unchanged, and
+  nothing was charged."); deleting the game or the account does too. A Stop and the build's turn can come at once:
+  whoever deletes the row has the build (one conditional delete, as the Android queue's claim); when the turn won, the
+  build starts and the Stop then stops the run.
+- **The wait limit:** a build still waiting `QUEUE_WAIT_MIN` (30) after its turn leaves the line, 0 credits ("This waited
+  too long for its turn, so it left the line…"): a paid build 30 minutes after it was sent, a free one 40. Counted from the
+  turn so that, under a load paid builds alone fill, a free build fares as a paid one sent 10 minutes later would, rather
+  than always being the one dropped.
+- **What the site sees:** `ProjectSummary.status` `queued` with `queue: { ahead, waitMin, lane, leavesAt }` (`leavesAt`:
+  when the wait limit would take it out of the line; the site says so when the rough wait runs past it); the agent message
+  `queued`, then `running` with `startedAt` (and `finishedAt` in the database: how long builds wait and take on the
+  server is one query). An agent message without `startedAt` left the line without starting (the migration
+  `20261026010000_started_backfill` gave the older ones their `createdAt`, as every build started when sent then). Events: `{ type: "queued", messageId, queue }` when a build joins the line and whenever its place
+  or rough wait changes (looked at every 30 s while builds wait), `started` when it starts (with `startedAt`), `failed`
+  when it leaves without starting.
+- **The rough wait** (`queue-math.ts` `waits`): each builder comes free when its build should end (a run its typical
+  length after it started and at least a minute from now; an Android build in about 3 minutes, holding two), and each
+  waiting build in turn takes the first builder to come free, for its own typical length (`TYPICAL_MIN`, by new or edit
+  and model, and for Opus by effort too: its high effort runs 3 to 18 times longer; medians of this PC's runs,
+  `docs/research/build-capacity-2026-10-26.md`). Whole minutes, at least 1: a guess from typical lengths, so the site
+  says "about".
+- `/health` gains `queued`. A restart keeps the line, but it still stops the builds going, so `deploy.mjs api` still
+  checks `runs`.
+
+Tests: `npm run test:queue` (the order and the waits, no database) and the e2e's "the build queue" (its own API on :3016
+with one builder, a 3 s free delay and a 15 s wait limit): paid before free, no starvation, nothing charged while
+waiting and charged once it ran, Stop and deleting the game, the wait limit, the kill switch at a build's turn, a
+restart that keeps the line.
 
 ## Where data lives
 
@@ -900,8 +963,9 @@ without sign-in, ownership on every game route, secrets, the site's redirects an
   is moved into its file before the flag checks (a prompt that is exactly `--dir` no longer gets the
   job refused) and an incoming `--prompt-file` is refused; the check's file server
   (`packages/agent/tools/web.mjs`) refuses an encoded `../` outside the build folder.
-- Several API processes: move the in-memory run registry, the credit holds and the event bus to
-  Postgres or Redis (the ledger itself is already safe across processes: the user-row lock); the Android
+- Several API processes: move the in-memory run registry (with its mirror of the build queue), the credit holds and
+  the event bus to Postgres or Redis (the ledger itself is already safe across processes: the user-row lock; the queue's
+  rows are in Postgres already, and its claims are conditional deletes); the Android
   queue's in-memory parts too (the running set, the phone-link tokens, the key-download counter).
 - Backups of the API server's `data/` (Hetzner backups, or a nightly copy to R2).
 - Paddle: a daily reconciliation job (the verify pull and `admin sync` meanwhile); packs by

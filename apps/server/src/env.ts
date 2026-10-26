@@ -72,10 +72,19 @@ export const config = {
   godotVersion: env.GODOT_VERSION || "4.7.2",
   godotExe: env.GODOT_EXE || "C:/Users/lazar/Godot/4.7.2/Godot_v4.7.2-stable_win64.exe",
   agentRunner: join(ROOT, "packages/agent/run.mjs"),
-  /** Game agent runs at once on this machine; one per project at a time regardless. */
+  /** Game agent runs at once on this machine; one per project at a time regardless. Past it, builds wait in line. */
   maxRuns: num(env.MAX_RUNS, 3),
   /** A run that takes longer than this is stopped (and charged nothing). */
   runTimeoutMin: num(env.RUN_TIMEOUT_MIN, 40),
+  /**
+   * The build queue (runs/queue.service.ts): a waiting build that hasn't started this long after its turn leaves the line,
+   * charged nothing (as an Android build after 30 minutes); a free build's turn comes this much after it was queued
+   * (aging: paid builds that arrive within it go first, later ones never do). Shorter in the tests.
+   */
+  queue: {
+    waitMin: num(env.QUEUE_WAIT_MIN, 30),
+    freeDelayMin: num(env.QUEUE_FREE_DELAY_MIN, 10),
+  },
   /** The ledger's 10-minute settle sweep (credits/ledger.service.ts), the webhook inbox's 30-second loop and the
    * refund lookup job (billing/); BILLING_JOBS=0 turns them off (tests). */
   billingJobs: env.BILLING_JOBS !== "0",

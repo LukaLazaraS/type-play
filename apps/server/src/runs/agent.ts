@@ -63,7 +63,7 @@ export const MODEL_FLAG: Record<ModelChoice, ModelFamily> = { fast: "haiku", sma
 // left out except the tool paths. On Luka's PC with AGENT_AUTH=max the Claude login (his Max) comes
 // from the user profile; with AGENT_AUTH=api the agent gets the key proxy's address and a run token.
 const KEEP = new Set(["GODOT_EXE", "BROWSER_EXE", "GODOT_VERSION", "AGENT_AUTH", "ASSET_LIBRARY"]);
-const OURS = ["DEV_AUTH", "AGENT_FAKE", "DATA_DIR", "GAMES_BUILDS_DIR", "GAMES_PUBLISH", "MAX_RUNS", "RUN_TIMEOUT_MIN", "PORT", "HOST",
+const OURS = ["DEV_AUTH", "AGENT_FAKE", "DATA_DIR", "GAMES_BUILDS_DIR", "GAMES_PUBLISH", "MAX_RUNS", "RUN_TIMEOUT_MIN", "QUEUE_WAIT_MIN", "QUEUE_FREE_DELAY_MIN", "PORT", "HOST",
   "RUNNER_SOCKET", "KEY_PROXY_HOST", "KEY_PROXY_PORT", "KEY_PROXY_URL", "ANTHROPIC_UPSTREAM"];
 const MODEL_AUTH = ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL"];
 // A parent Claude Code session's variables (when the server is started from one, e.g. by the

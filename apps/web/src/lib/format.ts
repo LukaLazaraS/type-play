@@ -38,6 +38,33 @@ export function untilUtcMidnight(now = Date.now()): string {
   return h < 1 ? "in less than an hour" : h === 1 ? "in about an hour" : `in about ${h} hours`;
 }
 
+/** Words that stay on one line ("37 builds ahead", "about 1 h 35 min"): a line breaks only between them. */
+const unbroken = (s: string) => s.replace(/ /g, "\u00a0");
+
+/** "next in line", "1 build ahead", "12 builds ahead": a build's place while it waits for its turn (QueuePlace.ahead);
+ * "in line" when the number is missing. */
+export const aheadWord = (n: number) =>
+  !Number.isFinite(n) ? "in line" : unbroken(n <= 0 ? "next in line" : n === 1 ? "1 build ahead" : `${n.toLocaleString("en-US")} builds ahead`);
+
+/**
+ * "any minute now", "about 6 min", "about 1 h", "about 1 h 20 min": the rough wait until a build in line starts
+ * (QueuePlace.waitMin). A minute or less is "any minute now": the API's floor while the build ahead runs past its usual length.
+ */
+export function waitWord(min: number): string {
+  if (!Number.isFinite(min)) return "";
+  // Past an hour, to the nearest 5 minutes: a rough guess shouldn't look exact ("about 1 h 1 min").
+  const m = Math.max(1, Math.round(min) < 60 ? Math.round(min) : Math.round(min / 5) * 5);
+  const h = Math.floor(m / 60);
+  return unbroken(m <= 1 ? "any minute now" : m < 60 ? `about ${m} min` : m % 60 ? `about ${h} h ${m % 60} min` : `about ${h} h`);
+}
+
+/** A rough wait that runs past the moment the build would leave the line (QueuePlace.leavesAt): the line is too long for it. */
+export const tooLong = (q: { waitMin: number; leavesAt: string }, now = Date.now()) => now + q.waitMin * 60_000 > Date.parse(q.leavesAt);
+
+/** "2 builds ahead · about 6 min": a waiting build's place and wait, as one figures line (the dot keeps to the part
+ * before it, so a narrow line never starts with it). */
+export const placeWords = (q: { ahead: number; waitMin: number }) => [aheadWord(q.ahead), waitWord(q.waitMin)].filter(Boolean).join("\u00a0· ");
+
 /** 0:42, 3:05, 12:00: how long a build has been running. */
 export function clock(fromIso: string, now = Date.now()): string {
   const s = Math.max(0, Math.floor((now - Date.parse(fromIso)) / 1000));

@@ -4,17 +4,20 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { ArrowRight, X } from "@phosphor-icons/react";
+import type { QueuePlace } from "@typeplay/shared";
 import { IconButton } from "@/components/ui/IconButton";
 import { InkPillLink } from "@/components/ui/InkPill";
 import { Pulse } from "@/components/ui/Pulse";
+import { inLine } from "@/content/app";
 import { watchProject } from "@/lib/api";
-import { clock } from "@/lib/format";
+import { aheadWord, clock, waitWord } from "@/lib/format";
 import { ReadyLine } from "./ReadyLine";
 import { useNow } from "./useNow";
 import { forgetWaiting, useWaiting } from "./WhileYouWait";
 
-/** `at`: when it was last heard of, so the clock is right before the first tick (the pill lives as long as the page). */
-type Seen = { name: string; status: "running" | "ready" | "failed"; since: string | null; line: string; at: number };
+/** `at`: when it was last heard of, so the clock is right before the first tick (the pill lives as long as the page).
+ * `place`: while it waits for its turn. */
+type Seen = { name: string; status: "queued" | "running" | "ready" | "failed"; since: string | null; line: string; place: QueuePlace | null; at: number };
 
 /**
  * The way back from the gallery (WhileYouWait's "More in the gallery"): on every other page of this tab, a pill
@@ -37,15 +40,20 @@ export function BuildPill() {
           const running = e.project.messages.findLast((m) => m.role === "agent" && m.status === "running");
           setSeen({
             name: e.project.name,
-            status: e.project.status === "running" ? "running" : e.project.buildId ? "ready" : "failed",
-            since: running?.createdAt ?? null,
+            status: e.project.status === "running" ? "running" : e.project.status === "queued" ? "queued" : e.project.buildId ? "ready" : "failed",
+            since: running ? (running.startedAt ?? running.createdAt) : null,
             line: "",
+            place: e.project.queue ?? null,
             at: Date.now(),
           });
+        } else if (e.type === "queued") {
+          setSeen((s) => (s ? { ...s, status: "queued", place: e.queue, at: Date.now() } : s));
+        } else if (e.type === "started") {
+          setSeen((s) => (s ? { ...s, status: "running", since: e.startedAt ?? new Date().toISOString(), line: "", place: null, at: Date.now() } : s));
         } else if (e.type === "progress") {
           setSeen((s) => (s ? { ...s, line: e.text, at: Date.now() } : s));
         } else if (e.type === "done" || e.type === "failed") {
-          setSeen((s) => ({ name: e.project.name, status: e.project.buildId ? "ready" : "failed", since: s?.since ?? null, line: "", at: Date.now() }));
+          setSeen((s) => ({ name: e.project.name, status: e.project.buildId ? "ready" : "failed", since: s?.since ?? null, line: "", place: null, at: Date.now() }));
         }
       },
       () => {},
@@ -59,7 +67,28 @@ export function BuildPill() {
   // On the page itself, not inside the status bar it is mounted from (whose phone layout hides its links).
   return createPortal(
     <div className="buildpill" role="status" data-status={seen.status}>
-      {seen.status === "running" ? (
+      {seen.status === "queued" ? (
+        <>
+          <Pulse still />
+          <span className="buildpill__text">
+            <b>{inLine.pill}</b>
+            {/* The place is read out when it changes; the wait (every minute) only shows. A phone keeps the words alone:
+                beside "Your game is in line" and the two buttons there is no room for them (the game's page has them). */}
+            {seen.place && (
+              <span className="buildpill__line figures">
+                {aheadWord(seen.place.ahead)}
+                <span aria-hidden="true">
+                  {" · "}
+                  {waitWord(seen.place.waitMin)}
+                </span>
+              </span>
+            )}
+          </span>
+          <InkPillLink href={href} size="small" className="buildpill__back" icon={<ArrowRight size={16} weight="bold" aria-hidden="true" />} iconAfter>
+            <span className="buildpill__label">Back to it</span>
+          </InkPillLink>
+        </>
+      ) : seen.status === "running" ? (
         <>
           <Pulse />
           <span className="buildpill__text">

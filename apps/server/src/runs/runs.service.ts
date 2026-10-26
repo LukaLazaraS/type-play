@@ -35,9 +35,11 @@ export interface StartRun {
   platform?: Platform | null;
   /** The credits held for this run (credits.service `assertCanRun`); released when it ends. */
   hold: CreditHold | null;
+  /** When it started, as its message's `startedAt` says (after its time in line, if it waited). */
+  startedAt: Date;
 }
 
-const FAILED_TEXT = {
+export const FAILED_TEXT = {
   new: "I couldn't build that game this time. Nothing was charged. Try again, maybe in other words.",
   edit: "I couldn't get that change working, so your game is unchanged. Nothing was charged. Try again, maybe in other words.",
   refused: "I can't make that one. Try a different idea. Nothing was charged.",
@@ -88,7 +90,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       // old run's agent, Godot and browser may still be on the folder: stop them before resetting it.
       if (process.platform === "win32" && !config.agentFake) sweep(projectDir(m.projectId));
       await this.settleOrMark(m.projectId, m.project.currentVersion);
-      await this.prisma.message.update({ where: { id: m.id }, data: { status: "failed", text: FAILED_TEXT.interrupted, credits: 0 } });
+      await this.prisma.message.update({ where: { id: m.id }, data: { status: "failed", text: FAILED_TEXT.interrupted, credits: 0, finishedAt: new Date() } });
     }
     if (stale.length) this.log.warn(`marked ${stale.length} interrupted run(s) as failed`);
     this.log.log(config.agentFake ? "AGENT_FAKE=1: runs are simulated" : `game agent: ${config.agentRunner}`);
@@ -105,9 +107,10 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
 
   /** Starts the run; the project is in `active` when this returns. */
   start(s: StartRun) {
-    const run: ActiveRun = { ...s, handle: null, export: null, cancelled: false, timedOut: false, lastProgress: null, finished: Promise.resolve() };
+    const { startedAt, ...rest } = s;
+    const run: ActiveRun = { ...rest, startedAt: startedAt.getTime(), handle: null, export: null, cancelled: false, timedOut: false, lastProgress: null, finished: Promise.resolve() };
     this.registry.active.set(s.projectId, run);
-    this.events.emit(s.projectId, { type: "started", messageId: s.messageId, model: s.model, effort: s.effort });
+    this.events.emit(s.projectId, { type: "started", messageId: s.messageId, model: s.model, effort: s.effort, startedAt: startedAt.toISOString() });
     run.finished = this.execute(run)
       .catch(async (e) => {
         this.log.error(`run ${s.projectId}: ${(e as Error).stack ?? e}`);
@@ -116,8 +119,10 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       .finally(() => {
         run.hold?.release();
         if (this.registry.active.get(s.projectId) === run) this.registry.active.delete(s.projectId);
+        this.registry.free(); // a builder is free: the next build in line starts
       });
   }
+
 
   /** Stops the project's run, if any, and waits until the game is back at its last version. */
   async cancel(projectId: string) {
@@ -240,7 +245,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
         const version = await tx.version.create({ data: { projectId: run.projectId, n, label: run.prompt, buildId, commit, poster } });
         const message = await tx.message.update({
           where: { id: run.messageId },
-          data: { status: "done", text, credits, costUsd, meteredUsd: metered, versionN: n, suggestions: result.suggestions ?? [] },
+          data: { status: "done", text, credits, costUsd, meteredUsd: metered, versionN: n, suggestions: result.suggestions ?? [], finishedAt: new Date() },
         });
         // The kill switch's number (kept apart from the message: a deleted game's runs still count).
         if (message.plan === "free") await this.ledger.addFreeSpend(tx, aiSpentUsd(result, metered));
@@ -258,6 +263,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     trimExport(dir); // the engine files (~36 MB) are not needed once the pack is published
     this.registry.active.delete(run.projectId);
     run.hold?.release();
+    this.registry.free();
     this.log.log(
       `run ${run.projectId} done: v${n}, $${chargeUsd.toFixed(3)} charged (agent $${agentUsd.toFixed(3)}, metered ${metered === null ? "n/a" : "$" + metered.toFixed(3)}), ${credits} credits`,
     );
@@ -292,12 +298,20 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
               : FAILED_TEXT.edit;
     const message = await this.prisma.message.update({
       where: { id: run.messageId },
-      data: { status: refused ? "refused" : "failed", text, credits: 0, costUsd: result.costUsd + result.messageCostUsd + (result.suggestionsCostUsd ?? 0), meteredUsd: metered },
+      data: {
+        status: refused ? "refused" : "failed",
+        text,
+        credits: 0,
+        costUsd: result.costUsd + result.messageCostUsd + (result.suggestionsCostUsd ?? 0),
+        meteredUsd: metered,
+        finishedAt: new Date(),
+      },
     });
     // Failed runs count towards the Free kill switch too (the AI was paid for): a Stop's or a timeout's metered calls included.
     if (message.plan === "free") await this.ledger.addFreeSpend(this.prisma, aiSpentUsd(result, metered)).catch((e) => this.log.error(`free spend ${run.projectId}: ${e}`));
     this.registry.active.delete(run.projectId);
     run.hold?.release();
+    this.registry.free();
     this.log.log(`run ${run.projectId} ${why ?? (run.cancelled ? "cancelled" : refused ? "refused" : "failed")}`);
     this.events.emit(run.projectId, {
       type: "failed",

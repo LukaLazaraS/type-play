@@ -18,7 +18,8 @@ import { ButtonLink } from "@/components/ui/ButtonLink";
 import { PageWidget } from "@/components/ui/PageWidget";
 import { Tabs } from "@/components/ui/PillBar";
 import { api, ApiFailure, watchProject, type StreamState } from "@/lib/api";
-import { creditsWord } from "@/lib/format";
+import { inLine } from "@/content/app";
+import { aheadWord, creditsWord } from "@/lib/format";
 import { refreshMe, setCredits, signOut, useSession } from "@/lib/session";
 
 /** Why the page or its live updates can't go on (ApiFailure's code and status, or server_error for anything else). */
@@ -35,7 +36,8 @@ function settle(p: Project, message: Message, version: Version | null, summary: 
     ? p.messages.map((m) => (m.id === message.id ? message : m))
     : [...p.messages, message];
   const versions = version && !p.versions.some((v) => v.n === version.n) ? [...p.versions, version] : p.versions;
-  return { ...p, ...summary, messages, versions, currentVersion: version ? version.n : p.currentVersion };
+  // `queue` as the summary says it: gone once the build has left the line.
+  return { ...p, ...summary, queue: summary.queue, messages, versions, currentVersion: version ? version.n : p.currentVersion };
 }
 
 type Tab = "chat" | "play";
@@ -57,26 +59,57 @@ export function GameClient() {
   const [prefill, setPrefill] = useState<{ text: string; n: number } | null>(null); // a tapped next-step idea
   // What the stream's handler needs to know, without re-subscribing on every change.
   const current = useRef<Project | null>(null);
+  // Events applied so far: a project fetched because of an event is used only when nothing newer came meanwhile.
+  const seq = useRef(0);
+  // What the announcer last said about a build in line: its start, or why it left the line without starting.
+  const [said, setSaid] = useState("");
   const tabRef = useRef<Tab>("chat");
   // Phones open on the game when there is one to play (or the first build, with games to play while it runs),
   // else on the chat; then the player decides.
-  const opened = useCallback((p: Project) => setTab((t) => t ?? (p.buildId || p.status === "running" ? "play" : "chat")), []);
+  const opened = useCallback((p: Project) => setTab((t) => t ?? (p.buildId || p.status === "running" || p.status === "queued" ? "play" : "chat")), []);
 
   const onEvent = useCallback((e: RunEvent) => {
+    seq.current += 1;
     switch (e.type) {
       case "snapshot":
         setProject(e.project);
         opened(e.project);
         if (e.project.status !== "running") setLive(null);
         break;
+      case "queued": {
+        // The build waits for its turn: its place and rough wait, as they change.
+        const p = current.current;
+        if (p && !p.messages.some((m) => m.id === e.messageId)) {
+          // Sent from another tab: its messages, unless a newer event (its start) has come by the time they arrive.
+          const at = seq.current;
+          void api
+            .project(p.id)
+            .then((q) => seq.current === at && setProject(q))
+            .catch(() => {});
+        } else {
+          setProject((q) => (q ? { ...q, status: "queued", queue: e.queue } : q));
+        }
+        break;
+      }
       case "started": {
         setLive({ messageId: e.messageId, text: "" });
         const p = current.current;
+        if (p?.status === "queued") setSaid(inLine.started);
         if (p && !p.messages.some((m) => m.id === e.messageId)) {
           // Started somewhere else (another tab): fetch the new messages.
           void api.project(p.id).then(setProject).catch(() => {});
         } else {
-          setProject((q) => (q ? { ...q, status: "running" } : q));
+          // A build that waited in line starts now: its answer turns from waiting to building, its clock from its start.
+          setProject((q) =>
+            q
+              ? {
+                  ...q,
+                  status: "running",
+                  queue: undefined,
+                  messages: q.messages.map((m) => (m.id === e.messageId ? { ...m, status: "running", startedAt: e.startedAt ?? m.startedAt } : m)),
+                }
+              : q,
+          );
         }
         break;
       }
@@ -85,6 +118,8 @@ export function GameClient() {
         break;
       case "done":
       case "failed":
+        // A build that left the line without starting: why, read out (nobody may have pressed anything).
+        if (e.type === "failed" && !e.message.startedAt) setSaid(e.message.text);
         setProject((p) => (p ? settle(p, e.message, e.type === "done" ? e.version : null, e.project) : p));
         setLive(null);
         setCredits(e.credits);
@@ -140,6 +175,7 @@ export function GameClient() {
   }, [fatal]);
 
   const running = project?.status === "running";
+  const queued = project?.status === "queued";
   const exporting = project?.status === "exporting";
   const now = useNow(running);
   const kind = project?.currentVersion == null ? "new" : "edit";
@@ -177,7 +213,7 @@ export function GameClient() {
   };
   const firstPrompt = project?.messages.find((m) => m.role === "user")?.text;
   const retry =
-    project && !running && !project.buildId && firstPrompt
+    project && !running && !queued && !project.buildId && firstPrompt
       ? () => send(firstPrompt, me?.models.includes("smart") ? "smart" : "fast", effort, false)
       : null;
 
@@ -204,6 +240,11 @@ export function GameClient() {
   return (
     <main className="ws" data-app data-tab={shown}>
       <title>{`${project.name} | TypePlay`}</title>
+      {/* A build in line, read out whichever tab shows: its place when it changes (the minutes are on the screen only), its
+          start, or why it left the line without starting. */}
+      <p className="sr-only" role="status">
+        {queued && project.queue ? `${inLine.state}: ${aheadWord(project.queue.ahead)}` : said}
+      </p>
       <Tabs
         label="Game page"
         className="ws__tabs"
@@ -257,6 +298,7 @@ export function GameClient() {
         <ChatLog
           messages={project.messages}
           live={live}
+          queue={project.queue}
           now={now}
           currentVersion={project.currentVersion}
           onPlay={() => show("play")}
@@ -269,6 +311,8 @@ export function GameClient() {
           effort={effort}
           onEffort={setEffort}
           running={running}
+          queued={queued}
+          queue={project.queue}
           exporting={exporting}
           balance={me?.credits ?? null}
           me={me}

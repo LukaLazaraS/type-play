@@ -156,8 +156,27 @@ export interface PortalLinks {
   updatePaymentMethod: string | null;
 }
 
-/** exporting: an Android build is running on this game (chat, restore and delete answer 409 busy meanwhile). */
-export type RunStatus = "idle" | "running" | "exporting";
+/** exporting: an Android build is running on this game (chat, restore and delete answer 409 busy meanwhile). queued: its
+ * build waits for a free builder (`queue` says where it is; added 2026-10-26); chat and restore answer 409 busy then too. */
+export type RunStatus = "idle" | "queued" | "running" | "exporting";
+
+/**
+ * A build waiting for its turn (added 2026-10-26): when every builder is busy (the server builds MAX_RUNS games at once),
+ * a new build waits in line instead of being refused. Paid plans' builds start first, first come first served; a free
+ * build lines up as if it had come 10 minutes later, so it always gets its turn. Nothing is charged while it waits, and
+ * Stop (POST /projects/:id/cancel) takes it out of the line.
+ */
+export interface QueuePlace {
+  /** Builds ahead of this one in the line (0: it is next). */
+  ahead: number;
+  /** A rough wait until it starts, in whole minutes (at least 1): from the builds going and how long builds like them take. */
+  waitMin: number;
+  /** Which line it is in: free builds let paid ones that arrive within 10 minutes go first. */
+  lane: "paid" | "free";
+  /** When it leaves the line if it hasn't started (the wait limit: 30 minutes after its turn). A rough wait that runs past
+   * it means the line is too long for it today: the site says so. */
+  leavesAt: string;
+}
 
 export interface ProjectSummary {
   id: string;
@@ -168,6 +187,8 @@ export interface ProjectSummary {
   /** Games origin build id of the current version, e.g. "k3x9p2m7qd-v4"; null until the first build passes. */
   buildId: string | null;
   status: RunStatus;
+  /** While status is "queued": its place in the line and the rough wait. */
+  queue?: QueuePlace;
   createdAt: string; // ISO
   updatedAt: string;
   /** Anyone with the link can play it at typeplay.app/play/<id> (PATCH /projects/:id { shared }). Private by default. */
@@ -183,7 +204,8 @@ export interface ProjectSummary {
   plays: number;
 }
 
-export type MessageStatus = "running" | "done" | "failed" | "refused";
+/** queued: the build waits for a free builder (added 2026-10-26); running from its start. */
+export type MessageStatus = "queued" | "running" | "done" | "failed" | "refused";
 
 export interface Message {
   id: string;
@@ -198,6 +220,8 @@ export interface Message {
   credits?: number;
   /** The version this message produced, when it produced one. */
   versionN?: number;
+  /** Agent messages: when the build started (later than createdAt when it waited in line). Added 2026-10-26. */
+  startedAt?: string;
   /** Up to 9 next changes the player might ask for (short lines in the player's language), best first, made with the
    * answer as part of its charge; the chat shows three under its newest answer and "More ideas" adds the other six.
    * Missing when there are none. */
@@ -471,7 +495,7 @@ export interface CreateProjectBody {
   platform?: Platform;
 }
 
-/** POST /projects/:id/messages: ask for a change. 409 while a run is active on this project. */
+/** POST /projects/:id/messages: ask for a change. 409 while a run is active or waiting in line on this project. */
 export interface SendMessageBody {
   text: string;
   model: ModelChoice;
@@ -547,11 +571,11 @@ export interface FeedbackBody {
 // ---- Responses -----------------------------------------------------------------------------
 // GET  /me                       -> Me
 // GET  /projects                 -> ProjectSummary[]   (newest first)
-// POST /projects                 -> Project            (status "running"; its first two messages are the prompt and the running agent message)
+// POST /projects                 -> Project            (status "running", or "queued" when every builder is busy; its first two messages are the prompt and the agent message)
 // GET  /projects/:id             -> Project
 // POST /projects/:id/messages    -> Project            (with the new user + running agent message)
 // POST /projects/:id/restore     -> Project
-// POST /projects/:id/cancel      -> Project            (stops the active run; nothing is charged; the game stays at its last version)
+// POST /projects/:id/cancel      -> Project            (stops the active run, or takes a waiting one out of the line; nothing is charged; the game stays at its last version)
 // GET  /estimate?kind=new|edit&model=fast|smart|best[&effort=low|medium|high]   -> Estimate
 // GET  /projects/:id/events      -> text/event-stream of RunEvent (see below)
 //
@@ -651,11 +675,23 @@ export interface FeedbackBody {
 //                                                       is the way in; 400 bad_request (not six digits), 403 code_wrong (wrong,
 //                                                       used up, or used by this account already), 429 too_many (5 wrong an
 //                                                       hour per email, 50 an hour in all))
+//
+// Added 2026-10-26 (the build queue, apps/server/README.md "The build queue"):
+// POST /projects, POST /projects/:id/messages   no more 409 busy when every builder is busy: the build waits in line
+//                                 (status "queued", `queue`; its agent message is "queued"), then starts by itself ("started").
+//                                 Credits are checked as before when it is sent and again when it starts (and for a Free build the
+//                                 kill switch, free_paused), so a build can leave the line with a "failed" message and 0 credits.
+//                                 A queued build counts as one of the plan's builds at once (409 busy past it, as before).
+// POST /projects/:id/cancel       also takes a waiting build out of the line (its message: failed, 0 credits).
+// POST /projects/:id/restore, POST /projects/:id/android/builds   409 busy while the game's build waits in line too.
+// GET  /projects/:id/events       { type: "queued", messageId, queue } when a build joins the line and when its place or wait
+//                                 changes; a build that waited past the limit (30 minutes after its turn) leaves with "failed".
+// Message.startedAt: when the build started.
 
 export type ApiErrorCode =
   | "unauthorized" // no or bad token
   | "not_found"
-  | "busy" // a run is already active on this project (409)
+  | "busy" // a run is already active or waiting in line on this project, or the plan's builds at once are used (409)
   | "no_credits" // not enough credits (402)
   | "daily_limit" // Free plan: 5 credits a day used (402)
   | "free_paused" // Free builds are paused until 00:00 UTC: the day's free allowance is used up across TypePlay (402)
@@ -689,13 +725,16 @@ export interface ApiError {
 
 export type RunEvent =
   | { type: "snapshot"; project: Project }
-  /** A run began (after POST /projects or POST /messages). */
-  | { type: "started"; messageId: string; model: ModelChoice; effort: Effort }
+  /** A build waits for a free builder: sent when it joins the line and whenever its place or rough wait changes (2026-10-26). */
+  | { type: "queued"; messageId: string; queue: QueuePlace }
+  /** A run began (after POST /projects or POST /messages, or when a build waiting in line got its turn). `startedAt`: 2026-10-26. */
+  | { type: "started"; messageId: string; model: ModelChoice; effort: Effort; startedAt?: string }
   /** Progress, for the "building…" line: short plain words, e.g. "Writing the player", "Testing the game", "Step 2 of 2: polish". */
   | { type: "progress"; messageId: string; text: string; at: string }
   /** The run finished: the agent message is final, and on success there is a new version to play. */
   | { type: "done"; message: Message; version: Version | null; project: ProjectSummary; credits: CreditBalance }
-  /** The run failed or was cancelled: nothing charged, the game is unchanged. */
+  /** The run failed or was cancelled, or a build left the line without starting (stopped, waited too long, or no longer
+   * allowed at its turn: the message says which): nothing charged, the game is unchanged. */
   | { type: "failed"; message: Message; project: ProjectSummary; credits: CreditBalance }
   /** An Android build of this game changed status (2026-10-18). The game page ignores it; the Android page refetches its state. */
   | { type: "android"; build: AndroidBuild };

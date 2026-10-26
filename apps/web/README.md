@@ -442,6 +442,21 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   mounted from the account slot, put into `<body>`): the gallery button remembers the game for this tab
   (`sessionStorage`), and every other page shows an ink pill that follows the build ("Building your game 1:23") and turns
   into "<name> is ready. Play it"; gone once the player is back on the game's page or closes it.
+- **A build waiting for its turn** (the build queue, 2026-10-26; the API's side in `apps/server/README.md` "The build
+  queue"; words in `content/app.ts` `inLine`, `lib/format.ts` `placeWords`): when TypePlay is building as many games as
+  it can, a new build waits in line instead of being turned away (status `queued`, `Project.queue` = its place, a rough
+  wait and when it would leave the line; the `queued` event when they change). The chat's answer has the still dot
+  (`Pulse still`) and "Waiting for its turn" over "Fast · 2 builds ahead · about 6 min"; a first build's stage shows the sky
+  and the ground standing still (`AppTile waiting`; at its start `landed`, so only the sun and the robot paste in), the
+  state, the place on its own line, what happens ("Yours starts by itself, and nothing is charged while it waits"; on Free
+  also "Builds on paid plans go first.") and the games to play meanwhile; a change's stage line says "Version 2 is waiting
+  for its turn: 2 builds ahead, about 30 min" over the game; a rough wait past the moment it would leave the line says when
+  ("The line is long right now: if yours hasn't started by 14:32…"). The composer has Stop (it takes the build out of the
+  line) and says so; the build pill says "Your game is in line", the /games tile "in line"; a build that left the line
+  without starting says "Didn't start, not charged". One `sr-only` announcer in the game page reads out the place when it
+  changes, the start and why a build left the line (the panels aren't live meanwhile: each change is heard once). Each
+  part of the place stays on one line (non-breaking spaces): a line breaks only after a "·". Walk-through:
+  `scripts/shot-queue.mjs` (its own stack on :3080-3082 with one builder; 46 checks; shots in `.impeccable/review/queue/`).
 
 ## Known trap
 

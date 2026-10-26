@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowUp, Stop } from "@phosphor-icons/react";
-import type { CreditBalance, Effort, Estimate, Me, ModelChoice } from "@typeplay/shared";
+import type { CreditBalance, Effort, Estimate, Me, ModelChoice, QueuePlace } from "@typeplay/shared";
 import { Ask } from "@/components/ui/Ask";
 import { Button } from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/ButtonLink";
@@ -11,11 +11,11 @@ import { TextArea } from "@/components/ui/Field";
 import { Strip } from "@/components/ui/Strip";
 import { TextLink } from "@/components/ui/TextLink";
 import { android } from "@/content/android";
-import { MAX_TEXT } from "@/content/app";
+import { inLine, MAX_TEXT } from "@/content/app";
 import { checkoutHref, HOLD_LINE, pack, planAbove, planFacts } from "@/content/billing";
 import { credits as siteCredits } from "@/content/site";
 import { ApiFailure } from "@/lib/api";
-import { creditsWord, dayOf, untilUtcMidnight, usd } from "@/lib/format";
+import { creditsWord, dayOf, tooLong, untilUtcMidnight, usd, whenParts } from "@/lib/format";
 import { planName } from "./AccountSlot";
 import { EffortSwitch, effortLine, ModelSwitch, modelLine } from "./ModelPicker";
 
@@ -27,6 +27,10 @@ type Props = {
   effort: Effort;
   onEffort: (e: Effort) => void;
   running: boolean;
+  /** Its build waits for its turn: nothing can be sent until it is done, and Stop takes it out of the line. */
+  queued?: boolean;
+  /** Where it waits (the tip says why a free build's place can move back, and when a long line would drop it). */
+  queue?: QueuePlace | null;
   /** An Android build of this game is running: nothing can be sent until it is done (the API answers 409). */
   exporting?: boolean;
   /** What the player can spend: a note when it isn't enough for the picked model. */
@@ -61,7 +65,8 @@ type PanelKind = "no_credits" | "daily_limit" | "free_paused" | "billing_hold";
 const PANELS: PanelKind[] = ["no_credits", "daily_limit", "free_paused", "billing_hold"];
 
 /** Say what to change: the box, Fast / Smart / Best and the effort with their cost, Send, or Stop while building. */
-export function Composer({ kind, allowed, estimates, effort, onEffort, running, exporting = false, balance, me, backTo, onSend, onStop, prefill }: Props) {
+export function Composer({ kind, allowed, estimates, effort, onEffort, running, queued = false, queue = null, exporting = false, balance, me, backTo, onSend, onStop, prefill }: Props) {
+  const going = running || queued; // a build of this game going or waiting: Stop instead of Send
   const [text, setText] = useState("");
   const [picked, setPicked] = useState<ModelChoice | null>(null);
   // The tip under the box explains whichever control was touched last.
@@ -136,12 +141,12 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!running && !busy && !exporting) void send();
+    if (!going && !busy && !exporting) void send();
   };
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
-      if (!running && !busy && !exporting) void send();
+      if (!going && !busy && !exporting) void send();
     }
   };
 
@@ -193,7 +198,7 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
         value={text}
         maxLength={MAX_TEXT}
         enterKeyHint="send"
-        placeholder={running || exporting ? "Say your next change" : kind === "new" ? "Say what game to make" : "Say what to change"}
+        placeholder={going || exporting ? "Say your next change" : kind === "new" ? "Say what game to make" : "Say what to change"}
         onChange={(e) => {
           setText(e.target.value);
           if (error) setError(null);
@@ -214,7 +219,7 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
           allowed={allowed}
           disabled={busy || exporting}
         />
-        {running ? (
+        {going ? (
           <Button look="quiet" size="small" onClick={() => void stop()} busy={busy}>
             <Stop size={16} weight="fill" aria-hidden="true" />
             <span className="composer__label">Stop</span>
@@ -237,11 +242,13 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
           }}
           disabled={busy || exporting}
         />
-        {!running && est && <span className="composer__cost figures">about {creditsWord(est.typical)}</span>}
+        {!going && est && <span className="composer__cost figures">about {creditsWord(est.typical)}</span>}
       </div>
       <p id="say-tip" className="composer__tip" aria-live="polite">
         {exporting ? (
           android.exporting.composer
+        ) : queued ? (
+          [queue && tooLong(queue) ? inLine.long(whenParts(queue.leavesAt).time) : inLine.composer, queue?.lane === "free" ? inLine.paidFirst : null].filter(Boolean).join(" ")
         ) : running ? (
           "Building now. You can type your next change and send it when this one is done."
         ) : est && balance && balance.available < est.low ? (

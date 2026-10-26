@@ -29,6 +29,7 @@ export function GameMenu({ project, onRename }: { project: Project; onRename: ()
   }, []);
   const close = () => menu.current?.close();
   const running = project.status === "running";
+  const queued = project.status === "queued"; // its build waits for its turn (the files are as they were: it downloads)
 
   const download = async () => {
     setBusy("download");
@@ -72,8 +73,8 @@ export function GameMenu({ project, onRename }: { project: Project; onRename: ()
             id={`delete-q-${project.id}`}
             question={
               <>
-                <b>Delete {project.name}?</b> Every version goes, and its share page{running ? ", and the build that is running now" : ""}. You can&apos;t
-                undo this.
+                <b>Delete {project.name}?</b> Every version goes, and its share page
+                {running ? ", and the build that is running now" : queued ? ", and the build waiting for its turn" : ""}. You can&apos;t undo this.
               </>
             }
             actions={

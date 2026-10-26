@@ -2,11 +2,12 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Play, Plus } from "@phosphor-icons/react";
-import type { Message, ModelChoice } from "@typeplay/shared";
+import type { Message, ModelChoice, QueuePlace } from "@typeplay/shared";
 import { Chip } from "@/components/ui/Chip";
 import { Pressable } from "@/components/ui/Pressable";
 import { Pulse } from "@/components/ui/Pulse";
-import { clock, creditsWord } from "@/lib/format";
+import { inLine } from "@/content/app";
+import { clock, creditsWord, placeWords } from "@/lib/format";
 
 const modelName: Record<ModelChoice, string> = { fast: "Fast", smart: "Smart", best: "Best" };
 /** Ideas shown at first; "More ideas" adds the rest of the 9 made under them (Luka, 10-25). */
@@ -18,6 +19,7 @@ export type LiveLine = { messageId: string; text: string } | null;
 export function ChatLog({
   messages,
   live,
+  queue,
   now,
   currentVersion,
   onPlay,
@@ -25,6 +27,8 @@ export function ChatLog({
 }: {
   messages: Message[];
   live: LiveLine;
+  /** The game's build waiting for its turn: its place and rough wait (the queued answer shows them). */
+  queue?: QueuePlace | null;
   now: number;
   /** The version playing now: only its message offers Play (older ones have Restore). */
   currentVersion: number | null;
@@ -77,7 +81,15 @@ export function ChatLog({
             <p className="bubble">{m.text}</p>
           </li>
         ) : (
-          <AgentMessage key={m.id} m={m} live={live?.messageId === m.id ? live.text : null} now={now} current={m.versionN != null && m.versionN === currentVersion} onPlay={onPlay} />
+          <AgentMessage
+            key={m.id}
+            m={m}
+            live={live?.messageId === m.id ? live.text : null}
+            queue={queue ?? null}
+            now={now}
+            current={m.versionN != null && m.versionN === currentVersion}
+            onPlay={onPlay}
+          />
         ),
       )}
       {ideas.length > 0 && (
@@ -117,9 +129,39 @@ export function ChatLog({
   );
 }
 
-function AgentMessage({ m, live, now, current, onPlay }: { m: Message; live: string | null; now: number; current: boolean; onPlay: () => void }) {
+function AgentMessage({
+  m,
+  live,
+  queue,
+  now,
+  current,
+  onPlay,
+}: {
+  m: Message;
+  live: string | null;
+  queue: QueuePlace | null;
+  now: number;
+  current: boolean;
+  onPlay: () => void;
+}) {
   // "Fast", or "Fast, high effort" when the effort wasn't the usual medium.
   const model = m.model ? `${modelName[m.model]}${m.effort && m.effort !== "medium" ? `, ${m.effort} effort` : ""}` : null;
+  if (m.status === "queued") {
+    // Nothing runs yet: the still dot, the state, and the place and rough wait under it. Not a live region: the game page
+    // has one announcer for the place (GameClient), so a screen reader hears a change once, not from every panel.
+    return (
+      <li className="msg msg--agent">
+        <p className="bubble bubble--agent bubble--live">
+          <Pulse still />
+          <span className="bubble__line">{inLine.state}</span>
+        </p>
+        <span className="msg__meta figures">
+          {model ? `${model}\u00a0· ` : ""}
+          {queue ? placeWords(queue) : "in line"}
+        </span>
+      </li>
+    );
+  }
   if (m.status === "running") {
     return (
       <li className="msg msg--agent">
@@ -130,16 +172,19 @@ function AgentMessage({ m, live, now, current, onPlay }: { m: Message; live: str
           </span>
         </p>
         <span className="msg__meta figures">
-          {model ? `${model} · ` : ""}building {clock(m.createdAt, now)}
+          {model ? `${model} · ` : ""}building {clock(m.startedAt ?? m.createdAt, now)}
         </span>
       </li>
     );
   }
   const failed = m.status === "failed" || m.status === "refused";
+  // A build that left the line without starting (stopped, waited too long, not allowed at its turn) never ran.
   const cost = failed
     ? m.status === "refused"
       ? "Not made, not charged"
-      : "Didn't work, not charged"
+      : m.startedAt
+        ? "Didn't work, not charged"
+        : "Didn't start, not charged"
     : `${creditsWord(m.credits ?? 0)}${m.versionN ? ` · version ${m.versionN}` : ""}`;
   return (
     <li className="msg msg--agent" data-failed={failed || undefined}>

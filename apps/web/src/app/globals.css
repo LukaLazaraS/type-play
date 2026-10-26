@@ -1678,6 +1678,22 @@ q {
   position: absolute;
   inset: 0;
 }
+/* A build waiting for its turn (the build queue): the sky and the ground alone, standing still (the sky's two bands are the
+   wallpaper's own colours: the ground keeps the tile seen on it); the sun and the robot paste in once it starts. */
+.build--waiting .build__layer {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+.build--waiting .build__layer:nth-child(n + 3) {
+  visibility: hidden;
+}
+/* A build that waited, at its start: the sky and the ground begin landed (12% of the loop), so nothing on the screen blinks. */
+@media (prefers-reduced-motion: no-preference) {
+  .build--landed .build__layer:nth-child(-n + 2) {
+    animation-delay: -0.72s;
+  }
+}
 @media (prefers-reduced-motion: no-preference) {
   .build__layer {
     animation: paste 6s var(--ease-out) infinite;

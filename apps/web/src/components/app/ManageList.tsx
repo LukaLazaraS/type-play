@@ -8,6 +8,7 @@ import { AppTile } from "@/components/ui/AppIcon";
 import { Button } from "@/components/ui/Button";
 import { ErrorLine } from "@/components/ui/ErrorLine";
 import { TextField } from "@/components/ui/Field";
+import { inLine } from "@/content/app";
 import { posterUrl } from "@/lib/urls";
 import { api, saveFile } from "@/lib/api";
 import { ago, playsWord } from "@/lib/format";
@@ -54,8 +55,9 @@ function Row({ game, onChange, onRemoved }: { game: ProjectSummary; onChange: (g
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState(game.name);
   const running = game.status === "running";
+  const queued = game.status === "queued"; // its build waits for its turn
   const meta = [
-    running ? "building…" : game.buildId ? `changed ${ago(game.updatedAt)}` : "not built yet",
+    running ? "building…" : queued ? inLine.tile : game.buildId ? `changed ${ago(game.updatedAt)}` : "not built yet",
     game.shared ? (game.listed && !game.galleryHidden ? "shared, in the gallery" : "shared") : null,
     game.plays > 0 ? playsWord(game.plays) : null,
   ]
@@ -90,8 +92,8 @@ function Row({ game, onChange, onRemoved }: { game: ProjectSummary; onChange: (g
 
   return (
     <li className="manage__row" data-mode={mode}>
-      <AppTile className="manage__icon">
-        <GameTile id={game.id} name={game.name} building={running && !game.buildId} poster={game.buildId && game.poster ? posterUrl(game.buildId) : null} />
+      <AppTile className="manage__icon" waiting={queued && !game.buildId}>
+        <GameTile id={game.id} name={game.name} building={(running || queued) && !game.buildId} poster={game.buildId && game.poster ? posterUrl(game.buildId) : null} />
       </AppTile>
 
       <div className="manage__text">
@@ -147,7 +149,8 @@ function Row({ game, onChange, onRemoved }: { game: ProjectSummary; onChange: (g
         )}
         {mode === "delete" && (
           <p className="manage__ask" id={`ask-${game.id}`}>
-            Delete it for good? Every version goes, and its share page{running ? ", and the build that is running now" : ""}. You can&apos;t undo this.
+            Delete it for good? Every version goes, and its share page{running ? ", and the build that is running now" : queued ? ", and the build waiting for its turn" : ""}. You
+            can&apos;t undo this.
           </p>
         )}
         {error && <ErrorLine>{error}</ErrorLine>}

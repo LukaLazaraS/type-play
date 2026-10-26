@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 import { PageWidget } from "@/components/ui/PageWidget";
 import { TextLink } from "@/components/ui/TextLink";
+import { inLine } from "@/content/app";
 import { CLOSED_BETA_NOTE, closedBeta } from "@/content/beta";
 import { api, ApiFailure } from "@/lib/api";
 import { ago, credits, creditsWord, playsWord } from "@/lib/format";
@@ -28,7 +29,7 @@ export function GamesClient() {
   const [reload, setReload] = useState(0); // bumped by Try again after a failed load
   const signedIn = session.status === "in";
 
-  const running = load.status === "ok" && load.games.some((g) => g.status === "running");
+  const running = load.status === "ok" && load.games.some((g) => g.status === "running" || g.status === "queued");
 
   useEffect(() => {
     if (!signedIn) return;
@@ -40,7 +41,7 @@ export function GamesClient() {
         .catch((e: ApiFailure) => live && setLoad({ status: "error", message: e.message }));
     void get();
     void refreshMe();
-    // Builds finish while the list is open: look again every 15 s while one is running.
+    // Builds start and finish while the list is open: look again every 15 s while one is running or waiting.
     const timer = running ? setInterval(get, 15_000) : null;
     return () => {
       live = false;
@@ -128,15 +129,17 @@ export function GamesClient() {
         <ul className="mine__grid">
           {games.map((g) => {
             const building = g.status === "running";
+            const queued = g.status === "queued"; // waits for its turn: a first build shows the empty sky, standing still
             return (
               <li key={g.id}>
                 <AppIcon
                   href={`/games/${g.id}`}
                   building={building && !g.buildId}
-                  picture={<GameTile id={g.id} name={g.name} building={building && !g.buildId} poster={g.buildId && g.poster ? posterUrl(g.buildId) : null} />}
+                  waiting={queued && !g.buildId}
+                  picture={<GameTile id={g.id} name={g.name} building={(building || queued) && !g.buildId} poster={g.buildId && g.poster ? posterUrl(g.buildId) : null} />}
                   name={g.name}
                   nameClassName="mine__name"
-                  stat={building ? "building…" : !g.buildId ? "not built yet" : g.plays > 0 ? playsWord(g.plays) : ago(g.updatedAt)}
+                  stat={building ? "building…" : queued ? inLine.tile : !g.buildId ? "not built yet" : g.plays > 0 ? playsWord(g.plays) : ago(g.updatedAt)}
                 />
               </li>
             );

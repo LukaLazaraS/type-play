@@ -38,9 +38,9 @@ function ok(cond, what) {
   if (!cond) failures++;
 }
 
-async function api(token, method, path, body) {
+async function api(token, method, path, body, base = API) {
   const send = () =>
-    fetch(API + path, {
+    fetch(base + path, {
       method,
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body ? { "Content-Type": "application/json" } : {}) },
       body: body ? JSON.stringify(body) : undefined,
@@ -52,10 +52,10 @@ async function api(token, method, path, body) {
   return { status: res.status, body: text ? JSON.parse(text) : null };
 }
 
-/** Reads the project's SSE stream with fetch (as the site does) and collects the events. */
-async function openEvents(token, id) {
+/** Reads the project's SSE stream with fetch (as the site does) and collects the events (`base`: another API of ours). */
+async function openEvents(token, id, base = API) {
   const ctrl = new AbortController();
-  const res = await fetch(`${API}/projects/${id}/events`, { headers: { Authorization: `Bearer ${token}` }, signal: ctrl.signal });
+  const res = await fetch(`${base}/projects/${id}/events`, { headers: { Authorization: `Bearer ${token}` }, signal: ctrl.signal });
   const events = [];
   const wake = new Set();
   if (res.ok) {
@@ -273,6 +273,173 @@ async function securityChecks() {
   } finally {
     sec.kill();
     upstream.close();
+  }
+}
+
+/**
+ * The build queue (2026-10-26, apps/server/README.md "The build queue"), against an API of our own on :3016 with one
+ * builder (MAX_RUNS=1), a 3-second free delay and a 15-second wait limit; "HOLD" builds keep the builder busy until
+ * stopped. Paid before free, first come first served; no starvation (a free build whose turn has come stays ahead of
+ * paid builds that come later); nothing charged while a build waits, charged once it has run; Stop and deleting the game
+ * take a build out of the line; the wait limit; the Free kill switch checked at a build's turn; a restart keeps the line.
+ */
+async function queueChecks(db) {
+  console.log("the build queue (an API of our own on :3016: one builder, a 3 s free delay, a 15 s wait limit)");
+  const env = { MAX_RUNS: "1", QUEUE_FREE_DELAY_MIN: "0.05", QUEUE_WAIT_MIN: "0.25", BILLING_JOBS: "0" };
+  let q = await spawnApi(3016, env);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const call = (token, method, path, body) => api(token, method, path, body, q.url);
+  const events = (token, id) => openEvents(token, id, q.url);
+  const user = (name) => `dev:e2e-${stamp}-q${name}@test.local`;
+  const [P, P2, F, F2, F3, F4, F5] = ["p", "p2", "f", "f2", "f3", "f4", "f5"].map(user);
+  const credits = async (token) => (await call(token, "GET", "/me")).body.credits;
+  const rowOf = async (id) => (await db.query(`SELECT lane, extract(epoch FROM "turnAt" - "queuedAt")::float AS delay FROM "QueuedRun" WHERE "projectId" = $1`, [id])).rows[0];
+  const game = async (token, prompt) => {
+    const r = await call(token, "POST", "/projects", { prompt, model: "fast" });
+    if (r.body?.id) projects.push(r.body.id);
+    return r;
+  };
+  const stop = (token, id) => call(token, "POST", `/projects/${id}/cancel`);
+  const streams = [];
+  const watch = async (token, id) => {
+    const s = await events(token, id);
+    streams.push(s);
+    await s.until((e) => e.type === "snapshot");
+    return s;
+  };
+  let tripped = false;
+  try {
+    for (const t of [P, P2, F, F2, F3, F4, F5]) await call(t, "GET", "/me");
+    for (const t of [P, P2]) ok(admin("plan", emailOf(t), "medium").status === 0 && admin("grant", emailOf(t), "40").status === 0, `${emailOf(t).split("@")[0]}: Medium + 40 credits`);
+
+    // Paid before free; nothing charged while waiting; the place changes live.
+    const hold1 = await game(P, "Keep the builder busy HOLD");
+    ok(hold1.status === 201 && hold1.body.status === "running", "one builder: P's build starts at once");
+    const fBefore = await credits(F);
+    const f1 = await game(F, "A free game that waits");
+    ok(f1.status === 201 && f1.body.status === "queued" && f1.body.queue?.ahead === 0 && f1.body.queue.lane === "free" && f1.body.queue.waitMin >= 1, `F's build while the builder is busy: 201, queued, next in line, free, about ${f1.body.queue?.waitMin} min (no more 409 busy)`);
+    const f1Msg = f1.body.messages?.[1];
+    ok(f1Msg?.status === "queued" && f1Msg.credits === undefined && f1Msg.startedAt === undefined, "its agent message: queued, no credits, not started");
+    const f1Leaves = (Date.parse(f1.body.queue?.leavesAt) - Date.parse(f1Msg?.createdAt)) / 1000;
+    ok(Math.abs(f1Leaves - 18) < 0.5, `its place says when it leaves the line if it hasn't started: ${f1Leaves.toFixed(1)} s after it was sent (its turn at 3 s + the 15 s limit)`);
+    const sF1 = await watch(F, f1.body.id);
+    ok(sF1.events[0].project.status === "queued" && sF1.events[0].project.queue?.ahead === 0, "a stream opened now: the snapshot says queued, with its place");
+    const p1 = await game(P2, "A paid game that comes later");
+    ok(p1.status === 201 && p1.body.status === "queued" && p1.body.queue?.ahead === 0 && p1.body.queue.lane === "paid", "P2's paid build a moment later: queued ahead of the free one (next)");
+    const p1Leaves = (Date.parse(p1.body.queue?.leavesAt) - Date.parse(p1.body.messages?.[1]?.createdAt)) / 1000;
+    ok(Math.abs(p1Leaves - 15) < 0.5, `…and a paid build leaves the line 15 s after it was sent (${p1Leaves.toFixed(1)} s): its turn is at once`);
+    const moved = await sF1.until((e) => e.type === "queued" && e.queue.ahead === 1).catch(() => null);
+    ok(!!moved && moved.messageId === f1Msg?.id, "F hears it live: 1 build ahead of it now");
+    const fWhile = await credits(F);
+    ok(fWhile.available === fBefore.available && fWhile.todayLeft === fBefore.todayLeft, `nothing charged while it waits (${fWhile.available} credits, ${fWhile.todayLeft} today, as before)`);
+    const r1 = await rowOf(f1.body.id);
+    const r2 = await rowOf(p1.body.id);
+    ok(r1?.lane === "free" && Math.abs(r1.delay - 3) < 0.01 && r2?.lane === "paid" && r2.delay === 0, "database: both in QueuedRun; the free build's turn 3 s after it was queued, the paid one's at once");
+    const second = await game(F, "Another free game");
+    ok(second.status === 409 && second.body.error === "busy" && /one game at a time/.test(second.body.message), "F's second game while one waits: 409 busy (Free builds one at a time; waiting counts)");
+    ok((await call(F, "POST", `/projects/${f1.body.id}/messages`, { text: "Add coins", model: "fast" })).body?.error === "busy", "a message to the waiting game: 409 busy");
+    const sP1 = await watch(P2, p1.body.id);
+    await stop(P, hold1.body.id);
+    await sP1.until((e) => e.type === "started");
+    ok(!sF1.events.some((e) => e.type === "started"), "the builder free: the paid build starts, the free one still waits");
+    const movedAt = sF1.events.indexOf(moved);
+    ok(!!(await sF1.until((e) => sF1.events.indexOf(e) > movedAt && e.type === "queued" && e.queue.ahead === 0).catch(() => null)), "…and F hears it is next again");
+    const p1Done = await sP1.until(finished);
+    const f1Started = await sF1.until((e) => e.type === "started");
+    const f1Done = await sF1.until(finished);
+    ok(p1Done.type === "done" && f1Started && f1Done.type === "done", "then the free build starts by itself and is built");
+    ok(f1Done.message.credits === 1.7 && f1Done.credits.available === fBefore.available - 1.7, `charged once it ran: 1.7 credits (${f1Done.credits.available} left)`);
+    // Differences only: pg reads timestamp(3) columns, which hold UTC, as local time.
+    const f1Row = (await db.query(`SELECT extract(epoch FROM "startedAt" - "createdAt")::float AS waited, "finishedAt" > "startedAt" AS ended, plan FROM "Message" WHERE id = $1`, [f1Msg?.id])).rows[0];
+    ok(f1Row?.waited >= 4 && f1Row.ended && f1Row.plan === "free", `database: its message started ${f1Row?.waited.toFixed(1)} s after it was sent (its wait in line), then finished; the plan it started on`);
+    const f1Seen = (Date.parse(f1Done.message.startedAt) - Date.parse(f1Done.message.createdAt)) / 1000;
+    ok(Math.abs(f1Seen - (f1Row?.waited ?? 0)) < 0.01, "the message says when it started (startedAt)");
+
+    // No starvation: a free build whose turn has come is ahead of the paid builds that come after it.
+    const hold2 = await game(P, "Keep it busy again HOLD");
+    const f2 = await game(F2, "A free game that ages in line");
+    ok(f2.body?.status === "queued" && f2.body.queue?.ahead === 0, "F2's free build waits, next in line");
+    await sleep(3500); // past the 3 s free delay: its turn has come
+    const p2 = await game(P2, "A paid game after the free one's turn");
+    ok(p2.body?.status === "queued" && p2.body.queue?.ahead === 1, "a paid build after the free build's turn: behind it (no starvation)");
+    const sF2 = await watch(F2, f2.body.id);
+    const sP2 = await watch(P2, p2.body.id);
+    await stop(P, hold2.body.id);
+    await sF2.until((e) => e.type === "started");
+    ok(!sP2.events.some((e) => e.type === "started"), "the builder free: the free build starts first");
+    await sF2.until(finished);
+    await sP2.until(finished);
+    ok(sP2.events.some((e) => e.type === "started"), "…then the paid one");
+
+    // Stop takes a build out of the line; so does deleting its game.
+    const hold3 = await game(P, "Busy for the stops HOLD");
+    const f3Before = await credits(F3);
+    const f3 = await game(F3, "A free game I stop in line");
+    const stopped = await stop(F3, f3.body.id);
+    const last = stopped.body?.messages?.at(-1);
+    ok(stopped.status === 200 && stopped.body.status === "idle" && stopped.body.queue === undefined, "Stop on a waiting build: 200, idle");
+    ok(last?.status === "failed" && last.credits === 0 && /^Stopped/.test(last.text), `its message: "${last?.text}", 0 credits`);
+    ok(!(await rowOf(f3.body.id)) && (await credits(F3)).available === f3Before.available, "database: out of QueuedRun; nothing charged");
+    const f3b = await game(F3, "A free game whose game I delete");
+    ok(f3b.body?.status === "queued", "F3 can queue again (its one build at a time is free)");
+    const removed = await call(F3, "DELETE", `/projects/${f3b.body.id}`);
+    ok(removed.status === 200 && !(await rowOf(f3b.body.id)), "deleting a game whose build waits: 200, its row gone with it");
+
+    // The wait limit: 15 s after its turn (a free build's turn: 3 s after it was queued), the build leaves the line.
+    const f3c = await game(F3, "A free game that waits too long");
+    const sF3c = await watch(F3, f3c.body.id);
+    const gone = await sF3c.until(finished, 40_000).catch(() => null);
+    const waited = gone ? (Date.now() - Date.parse(f3c.body.messages[1].createdAt)) / 1000 : 0;
+    ok(gone?.type === "failed" && /waited too long/.test(gone.message.text) && gone.message.credits === 0 && gone.project.status === "idle", `past the wait limit it leaves the line: "${gone?.message.text}", 0 credits`);
+    ok(waited >= 18 && waited < 30, `…after ${waited.toFixed(1)} s: its turn (3 s) + the limit (15 s), not before`);
+    ok(!sF3c.events.some((e) => e.type === "started") && (await credits(F3)).available === f3Before.available, "it never started; nothing charged");
+
+    // The kill switch at a build's turn: tripped while two wait, the paid one still starts and the free one doesn't.
+    const f4Before = await credits(F4);
+    const f4 = await game(F4, "A free game when the switch trips");
+    const p3 = await game(P2, "A paid game when the switch trips");
+    ok(f4.body?.status === "queued" && p3.body?.status === "queued", "a free and a paid build wait");
+    await db.query(`INSERT INTO "FreeSpend" (day, usd) VALUES (${UTC_TODAY}, 25) ON CONFLICT (day) DO UPDATE SET usd = "FreeSpend".usd + 25`);
+    tripped = true;
+    const sF4 = await watch(F4, f4.body.id);
+    const sP3 = await watch(P2, p3.body.id);
+    await stop(P, hold3.body.id);
+    const p3Done = await sP3.until(finished);
+    const refused = await sF4.until(finished);
+    ok(p3Done.type === "done", "the Free kill switch tripped while they waited: the paid build starts and is built");
+    ok(refused.type === "failed" && /Free builds were paused/.test(refused.message.text) && refused.message.credits === 0, `at its turn the free one doesn't start: "${refused.message.text.slice(0, 60)}…", 0 credits`);
+    ok(!sF4.events.some((e) => e.type === "started") && (await credits(F4)).available === f4Before.available, "it never started; nothing charged");
+    await db.query(`UPDATE "FreeSpend" SET usd = greatest(0, usd - 25) WHERE day = ${UTC_TODAY}`);
+    tripped = false;
+
+    // A restart keeps the line: the build going is marked interrupted, the waiting ones keep their order and run.
+    const hold4 = await game(P, "Running when the API dies HOLD");
+    const p4 = await game(P2, "A paid game waiting through a restart");
+    const f5Before = await credits(F5);
+    const f5 = await game(F5, "A free game waiting through a restart");
+    ok(hold4.body?.status === "running" && p4.body?.status === "queued" && f5.body?.status === "queued" && f5.body.queue?.ahead === 1, "one build going, a paid and a free one waiting (the free one second)");
+    for (const s of streams.splice(0)) s.close();
+    q.kill(); // no shutdown hooks: as if the server died
+    await sleep(1500);
+    q = await spawnApi(3016, env);
+    let p4After = null;
+    for (let i = 0; i < 20 && p4After?.status !== "running"; i++) {
+      p4After = (await call(P2, "GET", `/projects/${p4.body.id}`)).body;
+      if (p4After?.status !== "running") await sleep(250);
+    }
+    const f5After = (await call(F5, "GET", `/projects/${f5.body.id}`)).body;
+    const hold4After = (await call(P, "GET", `/projects/${hold4.body.id}`)).body;
+    ok(hold4After?.messages.at(-1).status === "failed" && /interrupted/.test(hold4After.messages.at(-1).text), "after the restart: the build that was going is marked interrupted");
+    ok(p4After?.status === "running" && f5After?.status === "queued" && f5After.queue?.ahead === 0, "the line kept its order: the paid build has started, the free one waits, next");
+    ok(/2 build\(s\) waiting in line/.test(q.output()), "the new API logged the two builds it found waiting");
+    const sF5 = await watch(F5, f5.body.id);
+    const f5Done = await sF5.until(finished, 30_000);
+    ok(f5Done.type === "done" && f5Done.message.credits === 1.7 && f5Done.credits.available === f5Before.available - 1.7, "then the free build runs: charged once, 1.7 credits (its hold was taken again, never doubled)");
+    ok((await db.query(`SELECT count(*)::int AS n FROM "QueuedRun"`)).rows[0].n === 0, "database: the line is empty at the end");
+  } finally {
+    if (tripped) await db.query(`UPDATE "FreeSpend" SET usd = greatest(0, usd - 25) WHERE day = ${UTC_TODAY}`).catch(() => {});
+    for (const s of streams) s.close();
+    q.kill();
   }
 }
 
@@ -1133,26 +1300,26 @@ async function main() {
   if (dRun.body?.id) projects.push(dRun.body.id);
   const dSecond = await api(D, "POST", "/projects", { prompt: "D's second game", model: "fast" });
   ok(dSecond.status === 409 && dSecond.body.error === "busy" && /one game at a time/.test(dSecond.body.message), "D's second at once: 409 busy (Free: one at a time)");
+  // MAX_RUNS used: no more 409 busy (2026-10-26). E's build waits in line and starts by itself once a builder is free.
+  const eBefore = (await api(E, "GET", "/me")).body.credits.available;
   const eRun = await api(E, "POST", "/projects", { prompt: "E's game", model: "fast" });
-  ok(eRun.status === 409 && eRun.body.error === "busy" && /as many games as it can/.test(eRun.body.message), "E, with 3 running in all: 409 busy (MAX_RUNS)");
-  // All three streams open before waiting: the three fake runs end within the same second, so a stream opened after the
+  ok(eRun.status === 201 && eRun.body.status === "queued" && eRun.body.queue?.ahead === 0 && eRun.body.queue.lane === "free", "E, with 3 running in all (MAX_RUNS): 201, waits in line, next (was 409 busy)");
+  if (eRun.body?.id) projects.push(eRun.body.id);
+  // All the streams open before waiting: the three fake runs end within the same second, so a stream opened after the
   // first one ended would only get the snapshot, never its run's end.
   const streams = [];
   for (const [token, id] of [[B, runs[1]], [B, runs[2]], [D, dRun.body?.id]]) if (id) streams.push(await openEvents(token, id));
+  const sE = eRun.body?.id ? await openEvents(E, eRun.body.id) : null;
   for (const s of streams) {
     await s.until(finished);
     s.close();
   }
   ok((await api(B, "GET", "/me")).body.credits.available === 26.9, "B's 3 runs charged: 30.3 - 5.1 = 26.9");
-  ok((await api(E, "POST", "/projects", { prompt: "E's game", model: "fast" })).status === 201, "E can build once a slot is free");
-  {
-    const eId = (await api(E, "GET", "/projects")).body[0]?.id;
-    if (eId) {
-      projects.push(eId);
-      const s = await openEvents(E, eId);
-      await s.until(finished);
-      s.close();
-    }
+  if (sE) {
+    await sE.until((e) => e.type === "started");
+    const eDone = await sE.until(finished);
+    sE.close();
+    ok(eDone.type === "done" && eDone.message.credits === 1.7 && eDone.credits.available === eBefore - 1.7, "E's build started by itself once a builder was free, and was charged once it had run (1.7)");
   }
   // Ask first, then confirm: a Best new game at high effort (up to 43.2 credits) needs confirm: true
   // exactly; the string "true" doesn't count.
@@ -1495,6 +1662,7 @@ async function main() {
     slow.kill();
   }
 
+  await queueChecks(db);
   await galleryChecks(db);
   await feedbackChecks(db, p.id);
   await inviteChecks(db);

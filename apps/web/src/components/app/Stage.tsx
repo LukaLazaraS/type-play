@@ -12,10 +12,10 @@ import { TextField } from "@/components/ui/Field";
 import { InkPill, InkPillLink } from "@/components/ui/InkPill";
 import { Pulse } from "@/components/ui/Pulse";
 import { android } from "@/content/android";
-import { fitHint } from "@/content/app";
+import { fitHint, inLine } from "@/content/app";
 import { posterUrl } from "@/lib/urls";
 import { api } from "@/lib/api";
-import { clock, playsWord } from "@/lib/format";
+import { aheadWord, clock, placeWords, playsWord, tooLong, waitWord, whenParts } from "@/lib/format";
 import type { LiveLine } from "./ChatLog";
 import { DeviceMenu, deviceFor, FILL, type Device } from "./DeviceMenu";
 import { GameMenu } from "./GameMenu";
@@ -69,14 +69,25 @@ export function Stage({
   const [renaming, setRenaming] = useState(false);
   const full = useRef<HTMLButtonElement>(null);
   const running = project.status === "running";
+  // Its build waits for its turn (the build queue): where it is in line and the rough wait.
+  const queued = project.status === "queued";
+  const place = queued ? (project.queue ?? null) : null;
+  const placeLine = place ? `${aheadWord(place.ahead)}, ${waitWord(place.waitMin)}` : null;
+  // A first build that waited starts with its sky and ground in place (they were on the screen).
+  const [waited, setWaited] = useState(false);
+  if (queued && !waited) setWaited(true);
+  // The last answer left the line without starting (no game yet): it didn't "not work", it never ran.
+  const lastAnswer = project.messages.findLast((m) => m.role === "agent");
+  const neverStarted = lastAnswer?.status === "failed" && !lastAnswer.startedAt;
   const runningMessage = running ? [...project.messages].reverse().find((m) => m.role === "agent" && m.status === "running") : undefined;
+  const since = runningMessage ? (runningMessage.startedAt ?? runningMessage.createdAt) : null;
   const nextN = (project.versions.reduce((n, v) => Math.max(n, v.n), 0) || 0) + 1;
 
-  // While the first build runs: another game playing in the stage, picked from WhileYouWait.
-  const firstBuild = running && !project.buildId;
+  // While the first build runs or waits for its turn: another game playing in the stage, picked from WhileYouWait.
+  const firstBuild = (running || queued) && !project.buildId;
   const waitGames = useWaitGames(project.messages.find((m) => m.role === "user")?.text ?? "", firstBuild);
   const [waiting, setWaiting] = useState<WaitGame | null>(null);
-  const ready = !!waiting && !running && !!project.buildId; // the build finished while they played
+  const ready = !!waiting && !running && !queued && !!project.buildId; // the build finished while they played
   const [startOwn, setStartOwn] = useState(false); // "Play it": their game starts at once
   const [goFull, setGoFull] = useState(0);
   // A phone plays full screen (as GameFrame's own Play does): asked right after the tap that picked the game.
@@ -113,7 +124,7 @@ export function Stage({
       ? (madeFor === "phone" && device.kind === "computer") || (madeFor === "computer" && device.kind === "phone" && !sideways)
       : madeFor === "computer" && phone && upright);
   // Hidden while a build or an export says what it's doing; its line keeps the room meanwhile (no jump in the frame).
-  const hint = mismatch && !running && project.status !== "exporting" ? fitHint[madeFor!] : null;
+  const hint = mismatch && !running && !queued && project.status !== "exporting" ? fitHint[madeFor!] : null;
   const [room, setRoom] = useState<{ w: number; h: number } | null>(null);
   useEffect(() => {
     const el = screen.current;
@@ -193,12 +204,24 @@ export function Stage({
               <Pulse />
               <span className="stage__busy-text">
                 Building your game: {live?.text || "getting started"}
-                {runningMessage && (
+                {since && (
                   <span className="figures" aria-hidden="true">
                     {" "}
-                    {clock(runningMessage.createdAt, now)}
+                    {clock(since, now)}
                   </span>
                 )}
+              </span>
+              <InkPill size="small" icon={<X size={16} weight="bold" aria-hidden="true" />} onClick={() => setWaiting(null)}>
+                Close
+              </InkPill>
+            </>
+          ) : queued ? (
+            <>
+              <Pulse still />
+              {/* The page's announcer reads the place out; this line would say it again every minute. */}
+              <span className="stage__busy-text" aria-hidden="true">
+                {inLine.pill}
+                {placeLine && `: ${placeLine}`}
               </span>
               <InkPill size="small" icon={<X size={16} weight="bold" aria-hidden="true" />} onClick={() => setWaiting(null)}>
                 Close
@@ -226,6 +249,16 @@ export function Stage({
                 <Pulse />
                 <span className="stage__busy-text">
                   Making version {nextN}: {live?.text || "getting started"}
+                </span>
+              </>
+            )}
+            {queued && (
+              <>
+                <Pulse still />
+                {/* The page's announcer reads the place out; this live line would say it again every minute. */}
+                <span className="stage__busy-text" aria-hidden="true">
+                  {inLine.version(nextN)}
+                  {placeLine && `: ${placeLine}`}
                 </span>
               </>
             )}
@@ -284,15 +317,39 @@ export function Stage({
           </div>
         ) : running ? (
           <div className="stage__empty stage__empty--wait">
-            <AppTile building className="stage__build">
+            <AppTile building landed={waited} className="stage__build">
               <BuildLayers />
             </AppTile>
             {/* Only the step is announced: the clock ticking inside the live region was read out every second. */}
             <p className="stage__line">
               <span role="status">{live?.text || "Getting started"}</span>
-              {runningMessage && <span className="figures"> {clock(runningMessage.createdAt, now)}</span>}
+              {since && <span className="figures"> {clock(since, now)}</span>}
             </p>
             <p className="stage__note">This takes a few minutes. You can leave this page: it keeps building.</p>
+            <WhileYouWait
+              projectId={project.id}
+              games={waitGames}
+              onPlay={(g) => {
+                setWaiting(g);
+                setGoFull((n) => n + 1);
+              }}
+            />
+          </div>
+        ) : queued ? (
+          <div className="stage__empty stage__empty--wait">
+            {/* The sky and the ground, standing still: nothing more is built until its turn; then the sun and the robot paste in. */}
+            <AppTile waiting className="stage__build">
+              <BuildLayers />
+            </AppTile>
+            {/* The state, and its place on a line of its own (the page's announcer reads the place out when it changes). */}
+            <p className="stage__line">
+              {inLine.state}
+              {place && <span className="figures stage__place">{placeWords(place)}</span>}
+            </p>
+            <p className="stage__note">
+              {place && tooLong(place) ? inLine.long(whenParts(place.leavesAt).time) : inLine.note}
+              {place?.lane === "free" && ` ${inLine.paidFirst}`}
+            </p>
             <WhileYouWait
               projectId={project.id}
               games={waitGames}
@@ -305,7 +362,9 @@ export function Stage({
         ) : (
           <div className="stage__empty">
             <p className="stage__line">No game yet.</p>
-            <p className="stage__note">The first build didn&apos;t work. Nothing was charged. Try again, or say it in other words in the chat.</p>
+            <p className="stage__note">
+              {neverStarted ? inLine.firstNotStarted : "The first build didn't work. Nothing was charged. Try again, or say it in other words in the chat."}
+            </p>
             {retryError && retryError.after === project.messages.length && <ErrorLine tone="sky">{retryError.text}</ErrorLine>}
             {onRetry && (
               <Button
@@ -327,7 +386,7 @@ export function Stage({
         )}
       </div>
 
-      <Versions versions={project.versions} current={project.currentVersion} running={running} onRestore={onRestore} />
+      <Versions versions={project.versions} current={project.currentVersion} running={running || queued} onRestore={onRestore} />
     </section>
   );
 }

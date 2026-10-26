@@ -129,7 +129,11 @@ const games = Array.from({ length: 30 }, (_, i) => ({
 
 const messages = [];
 let n = 0;
-const push = (m) => messages.push({ id: `m${messages.length}`, createdAt: iso(400 - messages.length * 5), ...m });
+const push = (m) => {
+  const createdAt = iso(400 - messages.length * 5);
+  // Agent messages: started when sent (a build that waited in line would start later; one that never started has none).
+  messages.push({ id: `m${messages.length}`, createdAt, ...(m.role === "agent" ? { startedAt: createdAt } : {}), ...m });
+};
 push({ role: "user", text: longPrompt });
 push({ role: "agent", text: "Your game is ready! Build towers on the grey tiles and press Start for the first wave.", model: "smart", effort: "medium", status: "done", credits: 7.4, versionN: ++n });
 const edits = [

@@ -27,6 +27,7 @@ import { ProjectsService } from "./projects/projects.service.js";
 import { ProjectViews } from "./projects/views.js";
 import { PublicController } from "./public.controller.js";
 import { KeyProxy } from "./runs/key-proxy.js";
+import { BuildQueue } from "./runs/queue.service.js";
 import { RunRegistry } from "./runs/registry.js";
 import { RunsService } from "./runs/runs.service.js";
 
@@ -49,6 +50,7 @@ import { RunsService } from "./runs/runs.service.js";
     GalleryService,
     ProjectViews,
     RunsService,
+    BuildQueue,
     AndroidService,
     ProjectsService,
     AccountService,

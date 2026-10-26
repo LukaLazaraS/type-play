@@ -11,13 +11,15 @@ const ease = [0.23, 1, 0.32, 1] as const;
 /**
  * A game as an app on a home screen (DESIGN.md "App icon"): a `--icon`-sized rounded square (25% radius, Ink Recess under
  * the picture) over its name in 600 14px and a figures line. The whole icon is the link or the button; the square presses
- * to 0.95. `building`: the square assembles (BuildLayers in it). `layoutId`: the square zooms into the launcher's frame.
+ * to 0.95. `building`: the square assembles (BuildLayers in it). `waiting`: its build waits for its turn: the sky and the
+ * ground alone, standing still, until it starts. `layoutId`: the square zooms into the launcher's frame.
  */
 export function AppIcon({
   picture,
   name,
   stat,
   building,
+  waiting,
   layoutId,
   href,
   onClick,
@@ -31,6 +33,7 @@ export function AppIcon({
   name: ReactNode;
   stat?: ReactNode;
   building?: boolean;
+  waiting?: boolean;
   layoutId?: string;
   /** Where it goes: a page of this site, or a place on this page ("#prompt"). */
   href?: string;
@@ -46,7 +49,7 @@ export function AppIcon({
       {picture}
     </motion.span>
   ) : (
-    <span className={cx("app__icon", building && "build")} aria-hidden={building || undefined}>
+    <span className={cx("app__icon", (building || waiting) && "build", waiting && "build--waiting")} aria-hidden={building || waiting || undefined}>
       {picture}
     </span>
   );
@@ -71,10 +74,24 @@ export function AppIcon({
   );
 }
 
-/** The rounded square alone, for a picture that isn't a whole app (a row's icon, the build assembling on the stage). */
-export function AppTile({ building, className, children }: { building?: boolean; className?: string; children?: ReactNode }) {
+/** The rounded square alone, for a picture that isn't a whole app (a row's icon, the build assembling on the stage, or
+ * waiting for its turn there: `waiting`, as AppIcon's). `landed`: a build that waited starts with its sky and ground
+ * already in place (they were on the screen), so only the sun and the robot paste in. */
+export function AppTile({
+  building,
+  waiting,
+  landed,
+  className,
+  children,
+}: {
+  building?: boolean;
+  waiting?: boolean;
+  landed?: boolean;
+  className?: string;
+  children?: ReactNode;
+}) {
   return (
-    <span className={cx("app__icon", building && "build", className)} aria-hidden="true">
+    <span className={cx("app__icon", (building || waiting) && "build", waiting && "build--waiting", landed && "build--landed", className)} aria-hidden="true">
       {children}
     </span>
   );

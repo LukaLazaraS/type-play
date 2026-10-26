@@ -390,7 +390,9 @@ export class AndroidService implements OnModuleInit, OnApplicationShutdown {
     const version = await this.prisma.version.findUnique({ where: { projectId_n: { projectId, n } } });
     if (!version) throw notFound(`There is no version ${n}.`);
     if (!existsSync(join(projectDir(projectId), ".git"))) throw notFound("This game's files are missing.");
-    if (this.registry.status(projectId) === "running") throw new ApiException(409, "busy", "This game is being changed right now. Export it when the build is done.");
+    const run = this.registry.status(projectId);
+    if (run === "running") throw new ApiException(409, "busy", "This game is being changed right now. Export it when the build is done.");
+    if (run === "queued") throw new ApiException(409, "busy", "This game's last change is waiting for its turn to be built. Export it when that build is done.");
     const going = await this.prisma.androidBuild.count({ where: { projectId, status: { in: ["queued", "running", "signing"] } } });
     if (going) throw new ApiException(409, "busy", "A build of this game is already queued or running. One at a time.");
     const minuteAgo = new Date(Date.now() - 60_000);

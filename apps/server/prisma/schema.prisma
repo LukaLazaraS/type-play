@@ -52,11 +52,20 @@ enum Effort {
   high
 }
 
+/// queued: the build waits for a free builder (the build queue, QueuedRun); running from its start.
 enum MessageStatus {
+  queued
   running
   done
   failed
   refused
+}
+
+/// A waiting build's line (runs/queue-math.ts): paid plans' builds start first; a free one lines up as if it had come
+/// QUEUE_FREE_DELAY_MIN later (aging), so it always gets its turn.
+enum QueueLane {
+  paid
+  free
 }
 
 /// grant: credits added (a bucket opens). charge: a message. refund: credits back (a correction).
@@ -261,10 +270,42 @@ model Message {
   /// The plan the run started on (agent messages): the Free kill switch sums costUsd by plan and day.
   plan      Plan?
   createdAt DateTime       @default(now())
+  /// Agent messages: when the build started (after createdAt when it waited in line) and when it ended.
+  startedAt  DateTime?
+  finishedAt DateTime?
   feedback  Feedback[]
+  /// While the build waits in line.
+  queued    QueuedRun?
 
   @@index([projectId, createdAt])
   @@index([plan, createdAt])
+}
+
+/// A build waiting for a free builder (every one of MAX_RUNS busy): the build queue's rows (runs/queue.service.ts), kept
+/// here so a restart keeps the line. One per game. Taken out when the build starts, is stopped, waits past the limit, or
+/// is no longer allowed at its turn; its agent message (status queued until then) says how it ended. Nothing is charged
+/// while it waits.
+model QueuedRun {
+  /// The agent message that carries the build.
+  messageId  String      @id
+  message    Message     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  projectId  String      @unique
+  userId     String
+  /// "new" (a first build, or building again after the first failed) or "edit".
+  kind       String
+  /// What the player asked for (the user message before it).
+  prompt     String
+  /// A first build's screens, as the player picked them; null: the agent picks one shape.
+  platform   Platform?
+  lane       QueueLane
+  queuedAt   DateTime    @default(now())
+  /// Its place in the line: queuedAt for a paid build, queuedAt + the free delay for a free one. The wait limit
+  /// (QUEUE_WAIT_MIN) counts from here.
+  turnAt     DateTime
+  /// The credits held for it while it waits (its estimate's high, tenths): held again after a restart.
+  holdTenths Int
+
+  @@index([turnAt])
 }
 
 model Version {

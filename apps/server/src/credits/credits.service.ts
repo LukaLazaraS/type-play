@@ -1,10 +1,10 @@
 // The credits as the API sees them: the balance, the checks before a run (model, credits, the Free
 // daily limit, the kill switch, ask-first), the holds, and the history. The ledger itself (buckets,
 // charges, grants, expiry, the Free month) is ledger.service.ts; this file never writes a row.
-// A run's charge is written only when it finishes, so while it runs its estimate's `high` is held
+// A run's charge is written only when it finishes, so while it waits in line and runs its estimate's `high` is held
 // (in memory) and the next message of the same user is checked against what is left after the holds.
 import { Injectable } from "@nestjs/common";
-import type { CreditBalance, Effort, ModelChoice, PlanId, UsageEntry, UsagePage } from "@typeplay/shared";
+import type { CreditBalance, Effort, Estimate, ModelChoice, PlanId, UsageEntry, UsagePage } from "@typeplay/shared";
 import { ApiException } from "../common/api-error.js";
 import type { CreditEntry, User } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
@@ -62,7 +62,8 @@ export class CreditsService {
     return fromTenths(tenths);
   }
 
-  private hold(userId: string, credits: number): CreditHold {
+  /** Holds credits for a build of this user's (a waiting build's again after a restart: queue.service.ts). */
+  hold(userId: string, credits: number): CreditHold {
     const set = this.holds.get(userId) ?? new Set<CreditHold>();
     this.holds.set(userId, set);
     const h: CreditHold = {
@@ -82,6 +83,20 @@ export class CreditsService {
    * the hold when the run's charge is written (runs.service), or at once if the run never starts.
    */
   async assertCanRun(user: User, kind: "new" | "edit", model: ModelChoice, confirm: boolean | undefined, effort: Effort = "medium"): Promise<CreditHold> {
+    const est = await this.check(user, kind, model, effort, { confirm: !!confirm, own: null });
+    return this.hold(user.id, est.high);
+  }
+
+  /**
+   * A build that waited in line, at its turn (queue.service.ts): the same checks against the user's row now (a plan
+   * that lapsed meanwhile, the kill switch for a Free build, the credits after the user's other holds), except asking
+   * first (they confirmed when they sent it). Its own hold stays its run's. Throws the contract's error.
+   */
+  async assertCanStart(user: User, kind: "new" | "edit", model: ModelChoice, effort: Effort, own: CreditHold): Promise<void> {
+    await this.check(user, kind, model, effort, { confirm: true, own });
+  }
+
+  private async check(user: User, kind: "new" | "edit", model: ModelChoice, effort: Effort, opts: { confirm: boolean; own: CreditHold | null }): Promise<Estimate> {
     const plan = user.plan as PlanId;
     // A disputed payment (chargeback) holds the account until an admin clears it: no builds, no buying.
     if (user.billingFlag === "chargeback") {
@@ -96,8 +111,9 @@ export class CreditsService {
     }
     const est = estimate(kind, model, plan, effort);
     const { available, todayLeft } = await this.balance(user);
-    // No await from here to the hold: two messages sent at once can't both pass on the same credits.
-    const held = this.heldBy(user.id);
+    // No await from here to the hold: two messages sent at once can't both pass on the same credits. A waiting build
+    // at its turn doesn't count its own hold against itself.
+    const held = fromTenths(toTenths(this.heldBy(user.id)) - (opts.own ? toTenths(opts.own.credits) : 0));
     const left = fromTenths(toTenths(available) - toTenths(held));
     if (available <= 0 || left < est.low) {
       throw new ApiException(
@@ -116,10 +132,10 @@ export class CreditsService {
           : `Not enough of today's 5 free credits left for this (${todayLeft} left; it needs at least ${est.low}). More tomorrow.`,
       );
     }
-    if (est.needsConfirm && !confirm) {
+    if (est.needsConfirm && !opts.confirm) {
       throw new ApiException(409, "needs_confirm", `This could cost up to ${est.high} credits. Send it again to confirm.`);
     }
-    return this.hold(user.id, est.high);
+    return est;
   }
 
   /** The credit history, newest first: `limit` entries older than `cursor` (an entry id from `next`). */

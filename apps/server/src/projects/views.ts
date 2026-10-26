@@ -22,8 +22,9 @@ export function toMessage(m: Message): MessageView {
     if (m.model) view.model = m.model as ModelChoice;
     if (m.effort) view.effort = m.effort as Effort;
     if (m.status) view.status = m.status;
-    if (m.status && m.status !== "running") view.credits = Number(m.credits ?? 0);
+    if (m.status && m.status !== "running" && m.status !== "queued") view.credits = Number(m.credits ?? 0);
     if (m.versionN != null) view.versionN = m.versionN;
+    if (m.startedAt) view.startedAt = m.startedAt.toISOString();
     if (m.suggestions?.length) view.suggestions = m.suggestions;
   }
   return view;
@@ -50,13 +51,16 @@ export class ProjectViews {
 
   /** `current`: the newest version (the one playing), or null before the first build; `plays`: all time. */
   summaryOf(p: Project, current: Pick<Version, "buildId" | "poster"> | null, plays: number): ProjectSummary {
+    const status = this.runs.status(p.id);
+    const queue = status === "queued" ? this.runs.placeOf(p.id) : null;
     return {
       id: p.id,
       name: p.name,
       orientation: p.orientation as Orientation,
       platform: p.platform,
       buildId: current?.buildId ?? null,
-      status: this.runs.status(p.id),
+      status,
+      ...(queue ? { queue } : {}),
       createdAt: p.createdAt.toISOString(),
       updatedAt: p.updatedAt.toISOString(),
       shared: p.shared,

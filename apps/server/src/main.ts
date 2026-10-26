@@ -37,7 +37,8 @@ app.useBodyParser("json", {
   type: (req: IncomingMessage) => req.url === "/webhooks/paddle" || /^application\/([a-z0-9.+-]+\+)?json\b/i.test(req.headers["content-type"] ?? ""),
 });
 // GET /health, no sign-in: the deploy script and the container health check. 503 when the runner
-// (live server) does not answer; `runs` is how many builds are going (a deploy stops them);
+// (live server) does not answer; `runs` is how many builds are going (a deploy stops them); `queued` how many wait in
+// line (they keep their place through a restart);
 // `billing`: the mode, whether Paddle answered the catalog check, and the webhook inbox's counts;
 // `android`: whether this server builds for Android and how many builds are going; `inviteOnly`: the
 // closed beta is on (BETA_INVITE_ONLY: only invited emails get past the sign-in).
@@ -54,6 +55,7 @@ const android = app.get(AndroidService);
     ok: runner,
     runner,
     runs: registry.active.size,
+    queued: registry.queued.size,
     agent: config.agentFake ? "fake" : config.agentAuth,
     billing,
     android: { enabled: android.enabled, running: android.runningCount },

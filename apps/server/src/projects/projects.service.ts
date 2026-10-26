@@ -1,4 +1,4 @@
-// Projects: create (and start the first build), send a change, restore a version, cancel a run;
+// Projects: create (and start the first build, or put it in line), send a change, restore a version, cancel a run;
 // rename, share, download and delete a game.
 import { randomInt } from "node:crypto";
 import { existsSync, readdirSync, rmSync } from "node:fs";
@@ -17,6 +17,7 @@ import { readPlatformWord, readProjectGodot } from "../games/files.js";
 import { removeFolder, restoreCommit, settleFolder } from "../games/git.js";
 import { orientationOf, platformOf } from "../games/godot.js";
 import { PrismaService } from "../prisma.js";
+import { BuildQueue, type QueuedRunData } from "../runs/queue.service.js";
 import { RunRegistry } from "../runs/registry.js";
 import { projectDir, RunsService } from "../runs/runs.service.js";
 import { ProjectViews } from "./views.js";
@@ -51,7 +52,7 @@ export function parsePlatform(body: unknown): Platform | null {
   return p as Platform;
 }
 
-/** Who a run is for: the registry caps runs per user by plan. */
+/** Who a run is for: the registry caps runs going or waiting per user by plan. */
 const ownerOf = (user: User) => ({ id: user.id, plan: user.plan as PlanId });
 
 /** A short lowercase random id, used in URLs and build ids. */
@@ -86,6 +87,7 @@ export class ProjectsService {
     private readonly prisma: PrismaService,
     private readonly registry: RunRegistry,
     private readonly runs: RunsService,
+    private readonly queue: BuildQueue,
     private readonly views: ProjectViews,
     private readonly credits: CreditsService,
     private readonly android: AndroidService,
@@ -95,11 +97,14 @@ export class ProjectsService {
     const req = parseRunBody(body, "prompt");
     const platform = parsePlatform(body);
     const id = newProjectId();
-    const release = this.registry.reserve(id, "run", ownerOf(user));
-    let hold: CreditHold | null = null; // the run's credits, until the run owns them
+    // A builder is free: it starts at once. All busy: it waits in line (runs/queue.service.ts).
+    const claim = this.registry.claimRun(id, ownerOf(user), { kind: "new", model: req.model, effort: req.effort });
+    let hold: CreditHold | null = null; // the run's credits, until the run (or the line) owns them
     try {
       hold = await this.credits.assertCanRun(user, "new", req.model, req.confirm, req.effort);
       const now = Date.now();
+      const sent = new Date(now + 1);
+      const queued = claim.now ? null : this.queue.rowFor({ projectId: id, userId: user.id, kind: "new", prompt: req.text, platform, plan: user.plan, hold, at: sent });
       const project = await this.prisma.project.create({
         data: {
           id,
@@ -109,18 +114,19 @@ export class ProjectsService {
           messages: {
             create: [
               { role: "user", text: req.text, createdAt: new Date(now) },
-              // `plan`: the Free kill switch sums each day's cost by the plan the run started on.
-              { role: "agent", text: "", model: req.model, effort: req.effort, status: "running", plan: user.plan, createdAt: new Date(now + 1) },
+              { ...this.agentMessage(user, req, sent, queued), createdAt: sent },
             ],
           },
         },
         include: { messages: { where: { role: "agent" } } },
       });
-      this.runs.start({ projectId: id, userId: user.id, messageId: project.messages[0].id, kind: "new", prompt: req.text, model: req.model, effort: req.effort, platform, hold });
+      const messageId = project.messages[0].id;
+      if (queued) this.queue.added({ ...queued, messageId }, req.model, req.effort, hold);
+      else this.runs.start({ projectId: id, userId: user.id, messageId, kind: "new", prompt: req.text, model: req.model, effort: req.effort, platform, hold, startedAt: sent });
       hold = null;
     } finally {
       hold?.release();
-      release();
+      claim.release();
     }
     return this.views.full(id);
   }
@@ -128,25 +134,35 @@ export class ProjectsService {
   async send(user: User, id: string, body: unknown): Promise<ProjectView> {
     const project = await this.views.owned(user.id, id);
     const req = parseRunBody(body, "text");
-    const release = this.registry.reserve(project.id, "run", ownerOf(user));
+    const kind = project.currentVersion == null ? "new" : "edit"; // the first build failed: build again
+    const claim = this.registry.claimRun(project.id, ownerOf(user), { kind, model: req.model, effort: req.effort });
     let hold: CreditHold | null = null;
     try {
-      const kind = project.currentVersion == null ? "new" : "edit"; // the first build failed: build again
       hold = await this.credits.assertCanRun(user, kind, req.model, req.confirm, req.effort);
       const now = Date.now();
-      await this.prisma.message.create({ data: { projectId: id, role: "user", text: req.text, createdAt: new Date(now) } });
-      const agent = await this.prisma.message.create({
-        data: { projectId: id, role: "agent", text: "", model: req.model, effort: req.effort, status: "running", plan: user.plan, createdAt: new Date(now + 1) },
-      });
-      await this.prisma.project.update({ where: { id }, data: { updatedAt: new Date() } });
+      const sent = new Date(now + 1);
       // The first build failed and this builds again: for the screens the player picked.
-      this.runs.start({ projectId: id, userId: user.id, messageId: agent.id, kind, prompt: req.text, model: req.model, effort: req.effort, platform: project.platform, hold });
+      const queued = claim.now ? null : this.queue.rowFor({ projectId: id, userId: user.id, kind, prompt: req.text, platform: project.platform, plan: user.plan, hold, at: sent });
+      await this.prisma.message.create({ data: { projectId: id, role: "user", text: req.text, createdAt: new Date(now) } });
+      const agent = await this.prisma.message.create({ data: { projectId: id, ...this.agentMessage(user, req, sent, queued), createdAt: sent } });
+      await this.prisma.project.update({ where: { id }, data: { updatedAt: new Date() } });
+      if (queued) this.queue.added({ ...queued, messageId: agent.id }, req.model, req.effort, hold);
+      else this.runs.start({ projectId: id, userId: user.id, messageId: agent.id, kind, prompt: req.text, model: req.model, effort: req.effort, platform: project.platform, hold, startedAt: sent });
       hold = null;
     } finally {
       hold?.release();
-      release();
+      claim.release();
     }
     return this.views.full(id);
+  }
+
+  /**
+   * A build's agent message: running from now, or waiting in line with its QueuedRun row (written in the same insert).
+   * `plan`: the Free kill switch sums each day's cost by the plan a run started on (a waiting build's is set again at its start).
+   */
+  private agentMessage(user: User, req: RunRequest, sent: Date, queued: QueuedRunData | null) {
+    const base = { role: "agent" as const, text: "", model: req.model, effort: req.effort, plan: user.plan };
+    return queued ? { ...base, status: "queued" as const, queued: { create: queued } } : { ...base, status: "running" as const, startedAt: sent };
   }
 
   async restore(user: User, id: string, body: unknown): Promise<ProjectView> {
@@ -182,7 +198,8 @@ export class ProjectsService {
 
   async cancel(user: User, id: string): Promise<ProjectView> {
     await this.views.owned(user.id, id);
-    await this.runs.cancel(id);
+    await this.queue.cancel(id); // a build waiting in line leaves it
+    await this.runs.cancel(id); // one going, or one whose turn came just now, stops
     return this.views.full(id);
   }
 
@@ -250,6 +267,7 @@ export class ProjectsService {
    * published builds (so their links stop working) and its run logs. The credit ledger keeps its
    * charges: they are the account's history, and the balance depends on them. */
   async removeGame(id: string): Promise<void> {
+    await this.queue.cancel(id); // a build waiting in line leaves it
     await this.runs.cancel(id); // waits until the folder is back at its last version
     await this.android.cancelAll(id); // an Android build going or queued: stopped (it holds the project while it runs)
     const release = this.registry.reserve(id, "delete");
