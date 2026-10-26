@@ -137,6 +137,8 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     const playOnce = async () => {
       await v.goto(`${base}/play/${g1}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
       await v.locator(".play__name").waitFor({ timeout: 60_000 });
+      // A click before the page has woken up does nothing (a dev server compiles a page's script on its first visit).
+      await v.waitForLoadState("networkidle");
       const sent = v.waitForResponse((r) => r.url().endsWith(`/public/games/${g1}/play`) && r.request().method() === "POST", { timeout: 120_000 });
       sent.catch(() => {}); // a frame that never starts fails below with its own error, not as this one's
       await v.getByRole("button", { name: /^Play / }).click();
