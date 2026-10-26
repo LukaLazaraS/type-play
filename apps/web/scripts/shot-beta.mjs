@@ -1,7 +1,7 @@
 // Beta 1, end to end with screenshots: the closed-beta screen (signed in, not invited) and Send feedback, on a stack of
-// its own on spare ports, so the dev stack on 3000-3002 is never touched: the API on :3041 with the closed beta on
-// (BETA_INVITE_ONLY=1, DEV_AUTH=1, AGENT_FAKE=1), the games origin on :3042, the site on :3040 (`next dev` with its own
-// NEXT_DIST_DIR, .next/beta; tsconfig.json is put back afterwards). Build the API first (npm run build -w @typeplay/server),
+// its own on ports picked free and a database of its own (dev-env.mjs useOwnStack), so the dev stack and other runs are
+// never touched: the API with the closed beta on (BETA_INVITE_ONLY=1, DEV_AUTH=1, AGENT_FAKE=1), the games origin, the
+// site (`next dev` with its own NEXT_DIST_DIR, .next/beta; tsconfig.json is put back afterwards). Build the API first (npm run build -w @typeplay/server),
 // then, through the CPU limiter:
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-beta.mjs [outDir]
 // Shots in .impeccable/review/beta/. Checks: an uninvited sign-in gets the closed-beta screen on /create, /games, /account
@@ -18,19 +18,16 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
-import { useDevEnv } from "./dev-env.mjs";
+import { useOwnStack } from "./dev-env.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
 const serverDir = join(root, "apps/server");
 const out = process.argv[2] ?? join(root, ".impeccable/review/beta");
-const SITE_PORT = 3040;
-const API_PORT = 3041;
-const GAMES_PORT = 3042;
+mkdirSync(out, { recursive: true });
+const [SITE_PORT, API_PORT, GAMES_PORT] = await useOwnStack("beta", 3);
 const base = `http://localhost:${SITE_PORT}`;
 const apiBase = `http://127.0.0.1:${API_PORT}`;
-mkdirSync(out, { recursive: true });
-await useDevEnv();
 
 const stamp = Date.now().toString(36);
 const outsider = `beta-out-${stamp}@dev.test`;
@@ -116,7 +113,7 @@ try {
     NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "",
   });
   await until("the site", async () => (await fetch(`${base}/pricing`)).ok, 180, siteProc.log);
-  console.log("stack up: site :3040, API :3041 (closed beta on), games :3042");
+  console.log(`stack up: site :${SITE_PORT}, API :${API_PORT} (closed beta on), games :${GAMES_PORT}`);
 
   browser = await chromium.launch({ channel: "msedge", headless: true });
 

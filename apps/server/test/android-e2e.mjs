@@ -1,6 +1,6 @@
-// End-to-end test of the Android export's API against an API of its own on :3015 with fake runs and
+// End-to-end test of the Android export's API against an API of its own on a free port with fake runs and
 // a fake Android job + signer (DEV_AUTH=1 AGENT_FAKE=1 ANDROID_EXPORT=1 ANDROID_FAKE=1): no JDK, no
-// Godot, no network. Run after `npm run build -w @typeplay/server`; on the automated tests' database (typeplay_autotest):
+// Godot, no network. Run after `npm run build -w @typeplay/server`; on a database of the run's own (test/test-db.mjs):
 //   npm run test:android:e2e -w @typeplay/server
 // Free → 403; setup makes the app + key (second setup 409, a taken name 409); a build goes queued →
 // running → signing → done on the event stream with matching rows; the checks list is green; download
@@ -21,12 +21,13 @@ import { existsSync, readdirSync, readFileSync, rmdirSync, rmSync } from "node:f
 import { join, resolve } from "node:path";
 import { crc32, deflateSync, inflateRawSync } from "node:zlib";
 import pg from "pg";
+import { freePort } from "../../../scripts/test-run.mjs";
 import { useTestDatabase } from "./test-db.mjs";
 
 const here = resolve(import.meta.dirname, "..");
 const root = resolve(here, "../..");
-await useTestDatabase(); // typeplay_autotest, emptied first
-const PORT = 3015;
+await useTestDatabase(); // typeplay_autotest_android_e2e_<id>, made fresh
+const PORT = await freePort(); // every restart below comes back on it
 const API = `http://127.0.0.1:${PORT}`;
 const DATA = resolve(process.env.DATA_DIR || join(root, "data"));
 const MASTER = randomBytes(32).toString("hex");
@@ -333,7 +334,7 @@ try {
   ok(dl.status === 200 && dl.type === "application/vnd.android.package-archive" && dl.disposition === `attachment; filename="${SLUG}-v1.apk"` && dl.buf.length === done.build.bytes, "download: APK mime, name <slug>-v1.apk, the bytes");
   ok(dl.buf.includes("SIGNED-FAKE"), "the file is the signed one");
   const link = await api(A, "POST", `/projects/${p.id}/android/builds/${p.id}-a1/link`);
-  ok(link.status === 200 && /^http:\/\/127\.0\.0\.1:3015\/android\/dl\/[A-Za-z0-9_-]{40,}$/.test(link.body.url) && (Date.parse(link.body.expiresAt) - Date.now()) / 60_000 > 9, "link: a 10-minute token URL on the API");
+  ok(link.status === 200 && new RegExp(`^${API.replaceAll(".", "\\.")}/android/dl/[A-Za-z0-9_-]{40,}$`).test(link.body.url) && (Date.parse(link.body.expiresAt) - Date.now()) / 60_000 > 9, "link: a 10-minute token URL on the API");
   const phone = await raw(null, link.body.url);
   ok(phone.status === 200 && phone.buf.equals(dl.buf) && phone.disposition.includes(`${SLUG}-v1.apk`), "the link needs no sign-in and serves the same bytes");
   ok((await raw(null, `${API}/android/dl/${"x".repeat(43)}`)).status === 404, "a wrong token: 404");
@@ -445,7 +446,7 @@ try {
   const rLink = await api(A, "POST", `/projects/${p.id}/android/builds/${rb.body.id}/link`);
   const opened = Date.now(); // the link lives 4 seconds from about here
   const short = rLink.body.url;
-  ok(rLink.status === 200 && /^http:\/\/127\.0\.0\.1:3015\/android\/dl\/[A-Za-z0-9_-]{43}$/.test(short) && short.length < 100, `the phone link is the short API link (${short.length} characters), not a ~450-character presigned URL`);
+  ok(rLink.status === 200 && new RegExp(`^${API.replaceAll(".", "\\.")}/android/dl/[A-Za-z0-9_-]{43}$`).test(short) && short.length < 100, `the phone link is the short API link (${short.length} characters), not a ~450-character presigned URL`);
   const lifeLeft = Date.parse(rLink.body.expiresAt) - opened;
   ok(lifeLeft > 2000 && lifeLeft <= 4100, `…good for the 4 seconds this run asked for (${lifeLeft} ms left)`);
   const h1 = await hop(short);

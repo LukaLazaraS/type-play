@@ -4,7 +4,9 @@
 // five PADDLE_PRICE_*) and apps/web/.env.local (NEXT_PUBLIC_PADDLE_ENV, NEXT_PUBLIC_PADDLE_CLIENT_TOKEN).
 // Build the API first (npm run build -w @typeplay/server), then, through the CPU limiter:
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/paddle-sandbox.mjs stack      the API on :3062 and the
-//        site on :3060 (`next dev`, .next/sandbox) on typeplay_sandbox, until stopped (Ctrl+C or taskkill)
+//        site on :3060 (`next dev`, .next/sandbox) on typeplay_sandbox, until stopped (Ctrl+C or taskkill). One on this
+//        PC at a time (its fixed ports, which the webhook tunnel and the other commands use, and its database): a
+//        second waits, saying which checkout's holds them (scripts/test-run.mjs lock)
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/paddle-sandbox.mjs explore    a checkout opened, the
 //        overlay's fields listed and a picture taken (.impeccable/review/sandbox)
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/paddle-sandbox.mjs buy <email> plan:medium|pack [card]
@@ -19,6 +21,7 @@ import { chromium } from "playwright";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { lock } from "../../../scripts/test-run.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
@@ -31,6 +34,7 @@ const DB = process.env.DATABASE_URL ?? "postgres://postgres@127.0.0.1:54329/type
 const [cmd, ...args] = process.argv.slice(2);
 
 if (cmd === "stack") {
+  await lock("the Paddle sandbox stack (:3060, :3062, typeplay_sandbox)");
   const children = [];
   const start = (name, argv, cwd, env) => {
     const child = spawn(process.execPath, argv, { cwd, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
