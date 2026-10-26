@@ -1,8 +1,7 @@
-// /create's Genre and Tags (Luka 10-27), end to end with screenshots, on a stack of its own on spare ports so the local
-// site on 3000-3002 is never touched: the API on :3161 (DEV_AUTH=1, AGENT_FAKE=1) on a database of its own,
-// typeplay_kinds (made fresh each run, dropped at the end; game folders in data/shots/kinds-data), the games origin on
-// :3162, the site on :3160 (`next dev` with its own NEXT_DIST_DIR, .next/kinds; tsconfig.json is put back afterwards).
-// It stops at once if one of its ports is taken (another session's stack would answer in its place).
+// /create's Genre and Tags (Luka 10-27), end to end with screenshots, on a stack of its own on ports picked free and a
+// database of its own (dev-env.mjs useOwnStack), so the local site and other runs are never touched: the API (DEV_AUTH=1,
+// AGENT_FAKE=1; game folders in data/shots/kinds-data), the games origin, the site (`next dev` with its own
+// NEXT_DIST_DIR, .next/kinds; tsconfig.json is put back afterwards).
 // Build the API first (npm run build -w @typeplay/server), then, through the CPU limiter:
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-kinds.mjs [outDir]
 // Shots in .impeccable/review/kinds/. Checks: the four genre pictures, none picked at first and the line saying the AI
@@ -17,21 +16,20 @@
 import { chromium } from "playwright";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { createServer } from "node:net";
 import { join } from "node:path";
 import pg from "pg";
-import { createDatabase, migrate, startServer, urlOf } from "../../../scripts/local-db.mjs";
+import { useOwnStack } from "./dev-env.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
 const serverDir = join(root, "apps/server");
 const out = process.argv[2] ?? join(root, ".impeccable/review/kinds");
-const PORT = { site: 3160, api: 3161, games: 3162, proxy: 3163 };
+mkdirSync(out, { recursive: true });
+const [site, apiPort, games, proxy] = await useOwnStack("kinds", 4);
+const PORT = { site, api: apiPort, games, proxy };
 const base = `http://localhost:${PORT.site}`;
 const apiBase = `http://127.0.0.1:${PORT.api}`;
-const DB = "typeplay_kinds";
 const DATA = join(root, "data/shots/kinds-data");
-mkdirSync(out, { recursive: true });
 
 const stamp = Date.now().toString(36);
 const maker = `kinds-${stamp}@dev.test`;
@@ -46,7 +44,7 @@ const shot = async (page, name, full = false) => {
   await page.screenshot({ path: join(out, `${name}.png`), fullPage: full });
   console.log("wrote", name);
 };
-const env = { DATABASE_URL: urlOf(DB), DIRECT_URL: urlOf(DB), DATA_DIR: DATA };
+const env = { DATA_DIR: DATA }; // the run's own database comes in DATABASE_URL (useOwnStack)
 const admin = (...args) =>
   spawnSync(process.execPath, [join(root, "node_modules/tsx/dist/cli.mjs"), "src/admin.ts", ...args], { cwd: serverDir, encoding: "utf8", env: { ...process.env, ...env, ADMIN_NAME: "shots" }, windowsHide: true });
 const api = (email, method, path, body) =>
@@ -54,7 +52,6 @@ const api = (email, method, path, body) =>
     status: r.status,
     body: await r.json().catch(() => null),
   }));
-/** No sideways scrolling on a phone: the page is no wider than the screen. */
 /** Genre and Tags inside the screen: every part of both sections within the screen's width (a phone emulated in the browser
  * widens its window to whatever is wider, so the page's own width can't tell). */
 const fits = (page, w) =>
@@ -88,26 +85,10 @@ async function until(what, test, seconds, log) {
   throw new Error(`${what} did not start: ${log?.() ?? ""}`);
 }
 
-// Another session's stack on one of these ports would answer in our place (a page without these changes): stop first.
-const portFree = (port) =>
-  new Promise((resolve) => {
-    const s = createServer();
-    s.once("error", () => resolve(false));
-    s.once("listening", () => s.close(() => resolve(true)));
-    s.listen(port);
-  });
-for (const [name, port] of Object.entries(PORT)) if (!(await portFree(port))) throw new Error(`port ${port} (${name}) is in use: another stack runs there`);
-
 const tsconfig = join(webDir, "tsconfig.json");
 const tsconfigBefore = readFileSync(tsconfig, "utf8");
-await startServer();
-const server = new pg.Client({ connectionString: urlOf("postgres") });
-await server.connect();
-await server.query(`DROP DATABASE IF EXISTS ${DB} WITH (FORCE)`);
-await createDatabase(DB);
-migrate(DB);
 rmSync(DATA, { recursive: true, force: true });
-const db = new pg.Client({ connectionString: urlOf(DB) });
+const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
 await db.connect();
 
 let browser = null;
@@ -404,9 +385,7 @@ try {
     console.log("cleanup:", e instanceof Error ? e.message : e);
   }
   await db.end().catch(() => {});
-  stopAll();
-  await server.query(`DROP DATABASE IF EXISTS ${DB} WITH (FORCE)`).catch((e) => console.log("drop:", e.message));
-  await server.end().catch(() => {});
+  stopAll(); // the run's database goes as the process exits (scripts/test-run.mjs)
   rmSync(DATA, { recursive: true, force: true });
   if (readFileSync(tsconfig, "utf8") !== tsconfigBefore) writeFileSync(tsconfig, tsconfigBefore);
 }

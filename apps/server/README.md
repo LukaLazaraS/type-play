@@ -89,7 +89,7 @@ starts takes a port picked free for the run (`scripts/test-run.mjs`; `docs/envir
 any number of runs, from any checkout, go at the same time, beside the live beta, `npm run dev` and the local site.
 
 ```
-npm run test:e2e -w @typeplay/server          # 434 checks (2026-10-26); starts its own API with DEV_AUTH=1 AGENT_FAKE=1 (API_URL to use yours);
+npm run test:e2e -w @typeplay/server          # 473 checks (2026-10-27); starts its own API with DEV_AUTH=1 AGENT_FAKE=1 (API_URL to use yours);
                                               # makes and deletes its own test users; the Supabase sign-in record check runs only where
                                               # the database is a Supabase project's (the online test environment, later); starts
                                               # a second API of its own for the run timeout and the interrupted-run recovery,

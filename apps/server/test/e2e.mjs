@@ -1142,7 +1142,7 @@ async function platformChecks() {
 /**
  * The genre and tags a player picks on /create (2026-10-27): a wrong pick is refused; the picks reach the first build (the
  * fake agent writes them where run.mjs does: GENRE, TAGS) and the project records them; a change keeps them; a first
- * build that failed builds again with them; and one that waits in line (an API of our own on :3029 with one builder)
+ * build that failed builds again with them; and one that waits in line (an API of our own with one builder)
  * starts with them.
  */
 async function pickChecks(db) {
@@ -1232,7 +1232,7 @@ async function pickChecks(db) {
   const K2 = `dev:e2e-${stamp}-picks2@test.local`;
   await api(K2, "GET", "/me");
   ok(admin("plan", emailOf(K2), "medium").status === 0, "a second maker on Medium");
-  const q = await spawnApi(3029, { MAX_RUNS: "1", BILLING_JOBS: "0" });
+  const q = await spawnApi({ MAX_RUNS: "1", BILLING_JOBS: "0" });
   try {
     const hold = await api(K2, "POST", "/projects", { prompt: "Keep the builder busy HOLD", model: "fast" }, q.url);
     if (hold.body?.id) projects.push(hold.body.id);

@@ -567,6 +567,12 @@ body:has(.ws) .ground-band {
   justify-content: start;
   gap: 12px;
 }
+/* A folded phone (280px): 52px squares would fill their columns, and the picked ring would touch the next picture. */
+@media (max-width: 300px) {
+  .iconchoice__row {
+    --icon: 44px;
+  }
+}
 .iconchoice__opt {
   display: flex;
   flex-direction: column;

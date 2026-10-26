@@ -1458,3 +1458,185 @@
 {"date":"2026-10-24T23:49:02.861Z","game":"plat-moba-c","error":"[test moba_test.tscn] SCRIPT ERROR: Invalid access to property or key 'hp' on a base object of type 'previously freed'. (at: _draw (res://hud.gd:66))"}
 {"date":"2026-10-24T23:49:14.073Z","game":"plat-moba-b","error":"[test moba_test.tscn] FAIL: a wave spawned"}
 {"date":"2026-10-24T23:49:14.073Z","game":"plat-moba-b","error":"[test moba_test.tscn] FAIL: enemy minions exist"}
+{"date":"2026-10-26T21:54:29.313Z","game":"tag-puzzle-none","error":"[test core_test.tscn] FAIL: space starts play"}
+{"date":"2026-10-26T21:54:29.314Z","game":"tag-puzzle-none","error":"[test core_test.tscn] FAIL: undo restores"}
+{"date":"2026-10-26T21:54:29.314Z","game":"tag-puzzle-none","error":"[test core_test.tscn] FAIL: win state"}
+{"date":"2026-10-26T21:54:29.315Z","game":"tag-puzzle-none","error":"[test core_test.tscn] FAIL: win screen shown"}
+{"date":"2026-10-26T21:55:41.573Z","game":"tag-puzzle-retro","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"v\" variable because the value doesn't have a set type. (at: GDScript::reload (res://board_view.gd:135))"}
+{"date":"2026-10-26T21:55:41.574Z","game":"tag-puzzle-retro","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-26T21:55:41.574Z","game":"tag-puzzle-retro","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T21:55:41.575Z","game":"tag-puzzle-retro","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T21:55:41.575Z","game":"tag-puzzle-retro","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:40))"}
+{"date":"2026-10-26T21:55:41.576Z","game":"tag-puzzle-retro","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'board_rect' in base 'Nil'. (at: _draw_bg (res://main.gd:269))"}
+{"date":"2026-10-26T21:55:41.576Z","game":"tag-puzzle-retro","error":"[browser] ERROR: Required object \"rp_child\" is null."}
+{"date":"2026-10-26T21:56:03.760Z","game":"tag-puzzle-none","error":"[test core_test.tscn] FAIL: next level starts"}
+{"date":"2026-10-26T22:04:25.986Z","game":"tag-racer-none","error":"[run] SCRIPT ERROR: Parse Error: The function signature doesn't match the parent. Parent signature is \"_set(StringName, Variant) -> bool\". (at: GDScript::reload (res://joystick.gd:27))"}
+{"date":"2026-10-26T22:04:25.987Z","game":"tag-racer-none","error":"[run] ERROR: Failed to load script \"res://joystick.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:04:25.987Z","game":"tag-racer-none","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: The function signature doesn't match the parent. Parent signature is \"_set(StringName, Variant) -> bool\". (at: GDScript::reload (res://joystick.gd:27))"}
+{"date":"2026-10-26T22:04:25.987Z","game":"tag-racer-none","error":"[test core_test.tscn] ERROR: Failed to load script \"res://joystick.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:04:25.988Z","game":"tag-racer-none","error":"[test core_test.tscn] SCRIPT ERROR: Invalid assignment of property or key 'enabled' with value of type 'bool' on a base object of type 'Control'. (at: start (res://main.gd:101))"}
+{"date":"2026-10-26T22:07:52.834Z","game":"tag-racer-3d","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"a\" variable because the value doesn't have a set type. (at: GDScript::reload (res://track.gd:129))"}
+{"date":"2026-10-26T22:07:52.835Z","game":"tag-racer-3d","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"b\" variable because the value doesn't have a set type. (at: GDScript::reload (res://track.gd:130))"}
+{"date":"2026-10-26T22:07:52.835Z","game":"tag-racer-3d","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-26T22:07:52.835Z","game":"tag-racer-3d","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:07:52.836Z","game":"tag-racer-3d","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:07:52.836Z","game":"tag-racer-3d","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:43))"}
+{"date":"2026-10-26T22:07:52.836Z","game":"tag-racer-3d","error":"[run] SCRIPT ERROR: Out of bounds get index '1' (on base: 'Array') (at: _process (res://main.gd:324))"}
+{"date":"2026-10-26T22:07:52.837Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"a\" variable because the value doesn't have a set type. (at: GDScript::reload (res://track.gd:129))"}
+{"date":"2026-10-26T22:07:52.837Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"b\" variable because the value doesn't have a set type. (at: GDScript::reload (res://track.gd:130))"}
+{"date":"2026-10-26T22:07:52.837Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-26T22:07:52.838Z","game":"tag-racer-3d","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:07:52.838Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:43))"}
+{"date":"2026-10-26T22:07:52.838Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Out of bounds get index '1' (on base: 'Array') (at: _process (res://main.gd:324))"}
+{"date":"2026-10-26T22:07:52.838Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'hide_title' in base 'Nil'. (at: begin_countdown (res://main.gd:149))"}
+{"date":"2026-10-26T22:07:52.839Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'position' on a base object of type 'Nil'. (at: _ready (res://test/core_test.gd:9))"}
+{"date":"2026-10-26T22:07:52.839Z","game":"tag-racer-3d","error":"[browser] ERROR: Required object \"rp_child\" is null."}
+{"date":"2026-10-26T22:08:48.941Z","game":"tag-racer-3d","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"a\" variable because the value doesn't have a set type. (at: GDScript::reload (res://track.gd:129))"}
+{"date":"2026-10-26T22:08:48.942Z","game":"tag-racer-3d","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"b\" variable because the value doesn't have a set type. (at: GDScript::reload (res://track.gd:130))"}
+{"date":"2026-10-26T22:08:48.942Z","game":"tag-racer-3d","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-26T22:08:48.943Z","game":"tag-racer-3d","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:08:48.943Z","game":"tag-racer-3d","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:08:48.943Z","game":"tag-racer-3d","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:43))"}
+{"date":"2026-10-26T22:08:48.944Z","game":"tag-racer-3d","error":"[run] SCRIPT ERROR: Out of bounds get index '1' (on base: 'Array') (at: _process (res://main.gd:324))"}
+{"date":"2026-10-26T22:08:48.944Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"a\" variable because the value doesn't have a set type. (at: GDScript::reload (res://track.gd:129))"}
+{"date":"2026-10-26T22:08:48.944Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"b\" variable because the value doesn't have a set type. (at: GDScript::reload (res://track.gd:130))"}
+{"date":"2026-10-26T22:08:48.944Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-26T22:08:48.945Z","game":"tag-racer-3d","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:08:48.945Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:43))"}
+{"date":"2026-10-26T22:08:48.946Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Out of bounds get index '1' (on base: 'Array') (at: _process (res://main.gd:324))"}
+{"date":"2026-10-26T22:08:48.946Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'hide_title' in base 'Nil'. (at: begin_countdown (res://main.gd:149))"}
+{"date":"2026-10-26T22:08:48.946Z","game":"tag-racer-3d","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'position' on a base object of type 'Nil'. (at: _ready (res://test/core_test.gd:9))"}
+{"date":"2026-10-26T22:08:48.946Z","game":"tag-racer-3d","error":"[browser] ERROR: Required object \"rp_child\" is null."}
+{"date":"2026-10-26T22:09:57.127Z","game":"tag-racer-retro","error":"[import] SCRIPT ERROR: Parse Error: The function signature doesn't match the parent. Parent signature is \"_set(StringName, Variant) -> bool\". (at: GDScript::reload (res://touch.gd:46))"}
+{"date":"2026-10-26T22:09:57.128Z","game":"tag-racer-retro","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-26T22:09:57.128Z","game":"tag-racer-retro","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:09:57.128Z","game":"tag-racer-retro","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:09:57.129Z","game":"tag-racer-retro","error":"[run] SCRIPT ERROR: Invalid access to property or key 'g' on a base object of type 'Dictionary'. (at: Track._stamp (res://track.gd:79))"}
+{"date":"2026-10-26T22:09:57.130Z","game":"tag-racer-retro","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:83))"}
+{"date":"2026-10-26T22:21:55.928Z","game":"tag-runner-3d","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"click\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:122))"}
+{"date":"2026-10-26T22:21:55.929Z","game":"tag-runner-3d","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:21:55.929Z","game":"tag-runner-3d","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"click\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:122))"}
+{"date":"2026-10-26T22:21:55.930Z","game":"tag-runner-3d","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:21:55.930Z","game":"tag-runner-3d","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Node3D'. (at: _ready (res://test/core_test.gd:12))"}
+{"date":"2026-10-26T22:21:55.931Z","game":"tag-runner-3d","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-26T22:27:08.400Z","game":"tag-runner-3d","error":"[import] SCRIPT ERROR: Parse Error: Could not preload resource script \"res://hud.gd\". (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T22:27:08.401Z","game":"tag-runner-3d","error":"[import] SCRIPT ERROR: Parse Error: Could not resolve script \"res://hud.gd\". (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T22:27:08.406Z","game":"tag-runner-3d","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:27:08.407Z","game":"tag-runner-3d","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Could not preload resource script \"res://hud.gd\". (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T22:27:08.410Z","game":"tag-runner-3d","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Could not resolve script \"res://hud.gd\". (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T22:27:08.412Z","game":"tag-runner-3d","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:27:08.413Z","game":"tag-runner-3d","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Node3D'. (at: _ready (res://test/core_test.gd:12))"}
+{"date":"2026-10-26T22:27:08.414Z","game":"tag-runner-3d","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-26T22:34:31.682Z","game":"tag-puzzle-hard","error":"[test core_test.tscn] FAIL: level 1 solvable"}
+{"date":"2026-10-26T22:34:31.683Z","game":"tag-puzzle-hard","error":"[test core_test.tscn] FAIL: level 2 solvable"}
+{"date":"2026-10-26T22:34:31.684Z","game":"tag-puzzle-hard","error":"[test core_test.tscn] FAIL: level 4 solvable"}
+{"date":"2026-10-26T22:34:31.684Z","game":"tag-puzzle-hard","error":"[test core_test.tscn] FAIL: level 6 solvable"}
+{"date":"2026-10-26T22:34:31.684Z","game":"tag-puzzle-hard","error":"[test core_test.tscn] FAIL: level 1 won with best route"}
+{"date":"2026-10-26T22:35:29.178Z","game":"tag-puzzle-cute","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"click\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:180))"}
+{"date":"2026-10-26T22:35:29.179Z","game":"tag-puzzle-cute","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:35:29.180Z","game":"tag-puzzle-cute","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"click\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:180))"}
+{"date":"2026-10-26T22:35:29.180Z","game":"tag-puzzle-cute","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:35:29.181Z","game":"tag-puzzle-cute","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Node2D'. (at: _ready (res://test/core_test.gd:24))"}
+{"date":"2026-10-26T22:38:07.627Z","game":"tag-puzzle-cute","error":"[test core_test.tscn] FAIL: bump costs no move"}
+{"date":"2026-10-26T22:38:07.628Z","game":"tag-puzzle-cute","error":"[test core_test.tscn] FAIL: move counts"}
+{"date":"2026-10-26T22:38:07.628Z","game":"tag-puzzle-cute","error":"[test core_test.tscn] FAIL: undo works"}
+{"date":"2026-10-26T22:46:33.087Z","game":"tag-racer-none","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"click\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:69))"}
+{"date":"2026-10-26T22:46:33.087Z","game":"tag-racer-none","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:46:33.088Z","game":"tag-racer-none","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"click\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:69))"}
+{"date":"2026-10-26T22:46:33.088Z","game":"tag-racer-none","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:46:33.088Z","game":"tag-racer-none","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'start_race' in base 'Node2D'. (at: _ready (res://test/core_test.gd:6))"}
+{"date":"2026-10-26T22:46:33.089Z","game":"tag-racer-none","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-26T22:47:46.471Z","game":"tag-racer-cozy","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"click\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:118))"}
+{"date":"2026-10-26T22:47:46.473Z","game":"tag-racer-cozy","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:47:46.473Z","game":"tag-racer-cozy","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"click\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:118))"}
+{"date":"2026-10-26T22:47:46.475Z","game":"tag-racer-cozy","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:47:46.475Z","game":"tag-racer-cozy","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Node2D'. (at: _ready (res://test/core_test.gd:6))"}
+{"date":"2026-10-26T22:47:46.476Z","game":"tag-racer-cozy","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-26T22:49:39.027Z","game":"tag-racer-cozy","error":"[run] ERROR: Invalid polygon data, triangulation failed. (at: canvas_item_add_polygon (servers/rendering/renderer_canvas_cull.cpp:1770))"}
+{"date":"2026-10-26T22:49:39.028Z","game":"tag-racer-cozy","error":"[test core_test.tscn] ERROR: Invalid polygon data, triangulation failed. (at: canvas_item_add_polygon (servers/rendering/renderer_canvas_cull.cpp:1770))"}
+{"date":"2026-10-26T22:50:03.281Z","game":"tag-racer-cute","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"click\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:131))"}
+{"date":"2026-10-26T22:50:03.282Z","game":"tag-racer-cute","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:50:03.282Z","game":"tag-racer-cute","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"click\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:131))"}
+{"date":"2026-10-26T22:50:03.282Z","game":"tag-racer-cute","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:50:03.283Z","game":"tag-racer-cute","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'player' on a base object of type 'Node2D'. (at: _ready (res://test/core_test.gd:6))"}
+{"date":"2026-10-26T22:50:03.283Z","game":"tag-racer-cute","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-26T22:51:50.197Z","game":"tag-racer-cute","error":"[run] ERROR: Node not found: \"Panel/VBoxContainer/Controls\" (relative to \"/root/Main/@CanvasLayer@10/@Control@11/@Control@31\"). (at: get_node (scene/main/node.cpp:1975))"}
+{"date":"2026-10-26T22:51:50.197Z","game":"tag-racer-cute","error":"[run] SCRIPT ERROR: Invalid assignment of property or key 'text' with value of type 'String' on a base object of type 'null instance'. (at: show_title (res://hud.gd:198))"}
+{"date":"2026-10-26T22:51:50.198Z","game":"tag-racer-cute","error":"[test core_test.tscn] ERROR: Node not found: \"Panel/VBoxContainer/Controls\" (relative to \"/root/CoreTest/Main/@CanvasLayer@10/@Control@11/@Control@31\"). (at: get_node (scene/main/node.cpp:1975))"}
+{"date":"2026-10-26T22:51:50.198Z","game":"tag-racer-cute","error":"[test core_test.tscn] SCRIPT ERROR: Invalid assignment of property or key 'text' with value of type 'String' on a base object of type 'null instance'. (at: show_title (res://hud.gd:198))"}
+{"date":"2026-10-26T22:51:50.198Z","game":"tag-racer-cute","error":"[test core_test.tscn] FAIL: car drives forward"}
+{"date":"2026-10-26T22:57:48.389Z","game":"tag-racer-hard","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"click\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:104))"}
+{"date":"2026-10-26T22:57:48.390Z","game":"tag-racer-hard","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:57:48.391Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"want\" variable because the value doesn't have a set type. (at: GDScript::reload (res://car.gd:94))"}
+{"date":"2026-10-26T22:57:48.392Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot pass a value of type \"float\" as \"Color\". (at: GDScript::reload (res://track.gd:83))"}
+{"date":"2026-10-26T22:57:48.392Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Invalid argument for \"draw_polyline()\" function: argument 2 should be \"Color\" but is \"float\". (at: GDScript::reload (res://track.gd:83))"}
+{"date":"2026-10-26T22:57:48.394Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot pass a value of type \"Color\" as \"float\". (at: GDScript::reload (res://track.gd:83))"}
+{"date":"2026-10-26T22:57:48.394Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Invalid argument for \"draw_polyline()\" function: argument 3 should be \"float\" but is \"Color\". (at: GDScript::reload (res://track.gd:83))"}
+{"date":"2026-10-26T22:57:48.395Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://test/core_test.gd:0))"}
+{"date":"2026-10-26T22:57:48.395Z","game":"tag-racer-hard","error":"[test core_test.tscn] ERROR: Failed to load script \"res://test/core_test.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:57:48.396Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"click\" variable because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:104))"}
+{"date":"2026-10-26T22:57:48.397Z","game":"tag-racer-hard","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:57:48.397Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Node2D'. (at: _ready (res://test/core_test.gd:7))"}
+{"date":"2026-10-26T22:57:48.397Z","game":"tag-racer-hard","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-26T22:58:51.174Z","game":"tag-racer-hard","error":"[import] SCRIPT ERROR: Parse Error: Cannot find member \"Label\" in base \"UI\". (at: GDScript::reload (res://hud.gd:248))"}
+{"date":"2026-10-26T22:58:51.176Z","game":"tag-racer-hard","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-26T22:58:51.176Z","game":"tag-racer-hard","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:58:51.177Z","game":"tag-racer-hard","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:58:51.177Z","game":"tag-racer-hard","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:51))"}
+{"date":"2026-10-26T22:58:51.177Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot find member \"Label\" in base \"UI\". (at: GDScript::reload (res://hud.gd:248))"}
+{"date":"2026-10-26T22:58:51.178Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-10-26T22:58:51.178Z","game":"tag-racer-hard","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T22:58:51.178Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:51))"}
+{"date":"2026-10-26T22:58:51.178Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'hide_overlay' in base 'Nil'. (at: start_race (res://main.gd:99))"}
+{"date":"2026-10-26T22:58:51.179Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'count' in base 'Nil'. (at: _physics_process (res://main.gd:119))"}
+{"date":"2026-10-26T22:58:51.179Z","game":"tag-racer-hard","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'overlay' on a base object of type 'Nil'. (at: _ready (res://test/core_test.gd:82))"}
+{"date":"2026-10-26T22:58:51.179Z","game":"tag-racer-hard","error":"[test core_test.tscn] FAIL: race starts after the countdown"}
+{"date":"2026-10-26T22:58:51.180Z","game":"tag-racer-hard","error":"[test core_test.tscn] FAIL: the car drives forward by itself"}
+{"date":"2026-10-26T22:58:51.180Z","game":"tag-racer-hard","error":"[test core_test.tscn] FAIL: steering right turns the car"}
+{"date":"2026-10-26T22:58:51.180Z","game":"tag-racer-hard","error":"[test core_test.tscn] FAIL: off the road the car is slower"}
+{"date":"2026-10-26T22:58:51.181Z","game":"tag-racer-hard","error":"[test core_test.tscn] FAIL: AI car 1 gains progress"}
+{"date":"2026-10-26T22:58:51.182Z","game":"tag-racer-hard","error":"[test core_test.tscn] FAIL: AI car 2 gains progress"}
+{"date":"2026-10-26T22:58:51.182Z","game":"tag-racer-hard","error":"[test core_test.tscn] FAIL: AI car 3 gains progress"}
+{"date":"2026-10-26T22:58:51.183Z","game":"tag-racer-hard","error":"[test core_test.tscn] FAIL: crossing the line on the last lap finishes"}
+{"date":"2026-10-26T22:58:51.183Z","game":"tag-racer-hard","error":"[browser] ERROR: Required object \"rp_child\" is null."}
+{"date":"2026-10-26T23:01:47.650Z","game":"tag-runner-cute","error":"[import] SCRIPT ERROR: Parse Error: Value of type \"CanvasLayer\" cannot be assigned to a variable of type \"Node2D\". (at: GDScript::reload (res://main.gd:48))"}
+{"date":"2026-10-26T23:01:47.651Z","game":"tag-runner-cute","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T23:01:47.651Z","game":"tag-runner-cute","error":"[test berry_test.tscn] SCRIPT ERROR: Parse Error: Value of type \"CanvasLayer\" cannot be assigned to a variable of type \"Node2D\". (at: GDScript::reload (res://main.gd:48))"}
+{"date":"2026-10-26T23:01:47.651Z","game":"tag-runner-cute","error":"[test berry_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T23:01:47.652Z","game":"tag-runner-cute","error":"[test berry_test.tscn] SCRIPT ERROR: Invalid access to property or key 'bonus' on a base object of type 'Node2D'. (at: _ready (res://test/berry_test.gd:8))"}
+{"date":"2026-10-26T23:01:47.652Z","game":"tag-runner-cute","error":"[test berry_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-26T23:01:47.653Z","game":"tag-runner-cute","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Value of type \"CanvasLayer\" cannot be assigned to a variable of type \"Node2D\". (at: GDScript::reload (res://main.gd:48))"}
+{"date":"2026-10-26T23:01:47.653Z","game":"tag-runner-cute","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T23:01:47.653Z","game":"tag-runner-cute","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Node2D'. (at: _ready (res://test/core_test.gd:6))"}
+{"date":"2026-10-26T23:01:47.654Z","game":"tag-runner-cute","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-26T23:03:44.498Z","game":"tag-runner-cute","error":"[import] SCRIPT ERROR: Parse Error: Value of type \"CanvasLayer\" cannot be assigned to a variable of type \"Node2D\". (at: GDScript::reload (res://main.gd:48))"}
+{"date":"2026-10-26T23:03:44.504Z","game":"tag-runner-cute","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T23:03:44.507Z","game":"tag-runner-cute","error":"[test berry_test.tscn] SCRIPT ERROR: Parse Error: Value of type \"CanvasLayer\" cannot be assigned to a variable of type \"Node2D\". (at: GDScript::reload (res://main.gd:48))"}
+{"date":"2026-10-26T23:03:44.533Z","game":"tag-runner-cute","error":"[test berry_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T23:03:44.537Z","game":"tag-runner-cute","error":"[test berry_test.tscn] SCRIPT ERROR: Invalid access to property or key 'bonus' on a base object of type 'Node2D'. (at: _ready (res://test/berry_test.gd:8))"}
+{"date":"2026-10-26T23:03:44.538Z","game":"tag-runner-cute","error":"[test berry_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-26T23:03:44.541Z","game":"tag-runner-cute","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Value of type \"CanvasLayer\" cannot be assigned to a variable of type \"Node2D\". (at: GDScript::reload (res://main.gd:48))"}
+{"date":"2026-10-26T23:03:44.543Z","game":"tag-runner-cute","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T23:03:44.543Z","game":"tag-runner-cute","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Node2D'. (at: _ready (res://test/core_test.gd:6))"}
+{"date":"2026-10-26T23:03:44.545Z","game":"tag-runner-cute","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-26T23:07:10.888Z","game":"tag-runner-cute","error":"[test core_test.tscn] FAIL: timed jump clears the first obstacle"}
+{"date":"2026-10-26T23:10:42.126Z","game":"tag-runner-hard","error":"[import] SCRIPT ERROR: Parse Error: Could not preload resource script \"res://player.gd\". (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T23:10:42.126Z","game":"tag-runner-hard","error":"[import] SCRIPT ERROR: Parse Error: Could not resolve script \"res://player.gd\". (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T23:10:42.127Z","game":"tag-runner-hard","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"Player\" constant because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T23:10:42.127Z","game":"tag-runner-hard","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T23:10:42.127Z","game":"tag-runner-hard","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Could not preload resource script \"res://player.gd\". (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T23:10:42.128Z","game":"tag-runner-hard","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Could not resolve script \"res://player.gd\". (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T23:10:42.128Z","game":"tag-runner-hard","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"Player\" constant because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T23:10:42.129Z","game":"tag-runner-hard","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T23:10:42.129Z","game":"tag-runner-hard","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Node2D'. (at: _ready (res://test/core_test.gd:6))"}
+{"date":"2026-10-26T23:10:42.129Z","game":"tag-runner-hard","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-10-26T23:12:10.035Z","game":"tag-runner-hard","error":"[import] SCRIPT ERROR: Parse Error: Could not preload resource script \"res://player.gd\". (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T23:12:10.035Z","game":"tag-runner-hard","error":"[import] SCRIPT ERROR: Parse Error: Could not resolve script \"res://player.gd\". (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T23:12:10.036Z","game":"tag-runner-hard","error":"[import] SCRIPT ERROR: Parse Error: Cannot infer the type of \"Player\" constant because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T23:12:10.036Z","game":"tag-runner-hard","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T23:12:10.037Z","game":"tag-runner-hard","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Could not preload resource script \"res://player.gd\". (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T23:12:10.037Z","game":"tag-runner-hard","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Could not resolve script \"res://player.gd\". (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T23:12:10.038Z","game":"tag-runner-hard","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: Cannot infer the type of \"Player\" constant because the value doesn't have a set type. (at: GDScript::reload (res://main.gd:8))"}
+{"date":"2026-10-26T23:12:10.038Z","game":"tag-runner-hard","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-10-26T23:12:10.039Z","game":"tag-runner-hard","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Node2D'. (at: _ready (res://test/core_test.gd:6))"}
+{"date":"2026-10-26T23:12:10.039Z","game":"tag-runner-hard","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}

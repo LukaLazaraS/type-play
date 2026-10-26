@@ -106,7 +106,7 @@ chat, composer, game stage, versions), `src/app/create/CreateApp.tsx`, `src/app/
   from the idea), the tags toggle chips (`ui/Chip.tsx` `pressed`), several at once, never both 2D and 3D nor Cozy and
   Hard. Sent with the build as `genre` and `tags`; the game agent follows them (`packages/agent/tags/`). Kept with the
   idea while the visitor signs in (`typeplay.picks`), cleared once the build starts or a new idea comes from the home
-  page. Walk-through: `scripts/shot-kinds.mjs` (its own stack on :3160-3163 and database: desktop, 200% zoom, phones at
+  page. Walk-through: `scripts/shot-kinds.mjs` (its own stack and database, `useOwnStack`: desktop, 200% zoom, phones at
   390, 320 and 280 px, the sending state, picks kept by an older page).
 - **Share page `/play/<id>`** (public, no sign-in; `app/play/[id]/`): the game in its frame, its name,
   "Made with TypePlay" and **Make your own** (/create). Per-page title, description and canonical
