@@ -177,6 +177,7 @@ a {
   padding: 9px 18px;
   border-radius: 999px;
   font-weight: 600;
+  white-space: nowrap;
   transition: transform 160ms var(--ease-out);
 }
 .pill:active,
@@ -514,6 +515,22 @@ q {
   }
   .statusbar nav a:not(.pill):not(.statusbar__keep) {
     display: none;
+  }
+}
+/* A small phone: TypePlay, Games and Sign in (signed in, the account place has its own steps: app.css). */
+@media (max-width: 380px) {
+  .statusbar nav .statusbar__keep[href="/pricing"] {
+    display: none;
+  }
+}
+/* The smallest phones (under 300px): the gaps and the pill's sides give the few pixels that keep Sign in on one line. */
+@media (max-width: 300px) {
+  .statusbar,
+  .statusbar nav {
+    gap: 12px;
+  }
+  .statusbar .pill {
+    padding-inline: 14px;
   }
 }
 
@@ -1906,7 +1923,7 @@ q {
 }
 .faq {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 18px;
 }
 .faq div {

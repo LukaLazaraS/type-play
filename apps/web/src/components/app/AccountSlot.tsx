@@ -79,7 +79,9 @@ function Account({ me, problem }: { me: Me | null; problem: string | null }) {
         My games
       </Link>
       <span className="account__credits" title={me ? "Credits you can spend" : undefined}>
-        <b className="figures">{me ? credits(me.credits.available) : "…"}</b> {me && Math.round(me.credits.available * 10) === 10 ? "credit" : "credits"}
+        <b className="figures">{me ? credits(me.credits.available) : "…"}</b>{" "}
+        {/* On a narrow bar the word steps aside for screen readers only (app.css); the number stays. */}
+        <span className="account__unit">{me && Math.round(me.credits.available * 10) === 10 ? "credit" : "credits"}</span>
       </span>
       <Popover
         id="account-menu"
