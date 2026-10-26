@@ -216,6 +216,13 @@ model Project {
   /// What the player picked; after each build what the game's folder says (a change can make it fill every screen).
   /// null: made before the choice, or picked by the agent and not built yet.
   platform       Platform?
+  /// The genre the player picked on /create (a folder in packages/agent/genres/); null: none, so the AI picked one from the
+  /// idea. The first build gets it (and builds with it again if that one failed); the game folder's GENRE file says what
+  /// the game was built as.
+  pickedGenre    String?
+  /// The tags the player picked on /create (2d or 3d, retro, …): the first build gets them and the game folder keeps them
+  /// in TAGS, so every change follows them.
+  tags           String[]    @default([])
   /// n of the version playing now (the newest); null before the first build passes.
   currentVersion Int?
   /// The player renamed it: later builds keep this name instead of the game agent's.
@@ -297,6 +304,9 @@ model QueuedRun {
   prompt     String
   /// A first build's screens, as the player picked them; null: the agent picks one shape.
   platform   Platform?
+  /// A first build's genre and tags, as the player picked them (Project.pickedGenre and tags); null and []: none.
+  genre      String?
+  tags       String[]    @default([])
   lane       QueueLane
   queuedAt   DateTime    @default(now())
   /// Its place in the line: queuedAt for a paid build, queuedAt + the free delay for a free one. The wait limit

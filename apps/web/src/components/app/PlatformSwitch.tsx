@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { Devices, DeviceMobile, Laptop, MagicWand, type Icon } from "@phosphor-icons/react";
+import { HintLines } from "@/components/ui/HintLines";
 import { Segmented } from "@/components/ui/Segmented";
 import { platforms, type PlatformChoice } from "@/content/app";
 
@@ -44,13 +45,7 @@ export function PlatformSwitch({ value, onChange, disabled }: { value: PlatformC
       })}
     >
       {/* Outside the labels, so a line describes its option instead of joining its name. */}
-      <div className="made__lines" aria-hidden="true">
-        {platforms.map((p) => (
-          <p key={p.id} id={`made-${p.id}`} className="field-hint" data-on={p.id === value || undefined}>
-            {p.line}
-          </p>
-        ))}
-      </div>
+      <HintLines lines={platforms.map((p) => ({ id: `made-${p.id}`, text: p.line }))} current={`made-${value}`} />
     </Segmented>
   );
 }

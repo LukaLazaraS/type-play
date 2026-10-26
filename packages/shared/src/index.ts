@@ -15,6 +15,10 @@ export type Orientation = "portrait" | "landscape";
 /** The screens a game is made for (the new-game screen's choice, 2026-10-25): phone (upright) or computer (wide), one
  * shape scaled to fit any screen with bars; fill: the layout adapts to every shape. null: made before the choice. */
 export type Platform = "phone" | "computer" | "fill";
+/** What the player can add to a new game beside its genre (/create's Tags, 2026-10-27), several at once: 2d or 3d (not
+ * both), retro (big pixels, few colours, chip sounds), cute, cozy (no rush, no losing), hard. Each is a rule the game
+ * agent gets (packages/agent/tags/). */
+export type GameTag = "2d" | "3d" | "retro" | "cute" | "cozy" | "hard";
 
 /** Credits are numbers with one decimal (a message costs at least 0.1). */
 export interface CreditBalance {
@@ -184,6 +188,10 @@ export interface ProjectSummary {
   orientation: Orientation;
   /** Added 2026-10-25. The player's pick, then what the game says after each build (a change can make it fill). */
   platform: Platform | null;
+  /** Added 2026-10-27. The genre the player picked on /create; null: none, so the AI picked one from the idea (or none). */
+  pickedGenre: Genre | null;
+  /** Added 2026-10-27. The tags the player picked on /create, which every build of the game follows; none: []. */
+  tags: GameTag[];
   /** Games origin build id of the current version, e.g. "k3x9p2m7qd-v4"; null until the first build passes. */
   buildId: string | null;
   status: RunStatus;
@@ -493,6 +501,10 @@ export interface CreateProjectBody {
   confirm?: boolean;
   /** The screens to make it for. Left out: the agent picks one shape (portrait first). Added 2026-10-25. */
   platform?: Platform;
+  /** The genre to build it as (one at most). Left out: the AI picks one from the idea, or none. Added 2026-10-27. */
+  genre?: Genre;
+  /** Tags to build it with, several at once (2d and 3d not both). Left out or []: none. Added 2026-10-27. */
+  tags?: GameTag[];
 }
 
 /** POST /projects/:id/messages: ask for a change. 409 while a run is active or waiting in line on this project. */

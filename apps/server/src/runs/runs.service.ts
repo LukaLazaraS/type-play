@@ -3,7 +3,7 @@ import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from "@nestjs/common";
-import type { Effort, ModelChoice, Platform } from "@typeplay/shared";
+import type { Effort, GameTag, Genre, ModelChoice, Platform } from "@typeplay/shared";
 import { creditsForUsd, toTenths } from "../credits/credits.js";
 import { CreditsService, type CreditHold } from "../credits/credits.service.js";
 import { LedgerService, TX_OPTIONS } from "../credits/ledger.service.js";
@@ -33,6 +33,10 @@ export interface StartRun {
   effort: Effort;
   /** A first build: the screens the player picked (null: the agent picks one shape). A change keeps the game's own. */
   platform?: Platform | null;
+  /** A first build: the genre the player picked (null: the agent picks one from the idea) and the tags. A change keeps the
+   * game's own (its folder's GENRE and TAGS). */
+  genre?: Genre | null;
+  tags?: GameTag[];
   /** The credits held for this run (credits.service `assertCanRun`); released when it ends. */
   hold: CreditHold | null;
   /** When it started, as its message's `startedAt` says (after its time in line, if it waited). */
@@ -163,6 +167,8 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       model: run.model,
       effort: run.effort,
       platform: run.kind === "new" ? (run.platform ?? null) : null,
+      genre: run.kind === "new" ? (run.genre ?? null) : null,
+      tags: run.kind === "new" ? (run.tags ?? []) : [],
       logFile: join(config.dataDir, "logs", `${run.projectId}-${run.messageId}.log`),
       onProgress: (text: string) => {
         const e = { type: "progress" as const, messageId: run.messageId, text, at: new Date().toISOString() };

@@ -1,5 +1,5 @@
 // The signed-in app (package 4): its switches, where the API is, and the words its screens use.
-import type { Effort, ModelChoice, Platform } from "@typeplay/shared";
+import type { Effort, GameTag, Genre, ModelChoice, Platform } from "@typeplay/shared";
 
 export const app = {
   /**
@@ -32,6 +32,8 @@ export const supabaseConfig = {
 
 /** Where the browser keeps the sentence while the visitor signs in (the home page's prompt box too). */
 export const DRAFT_KEY = "typeplay.draft";
+/** …and the genre and tags picked on /create with it (cleared when the build starts). */
+export const PICKS_KEY = "typeplay.picks";
 
 /** The longest idea or change a message holds: the API refuses longer ones (apps/server, MAX_PROMPT). */
 export const MAX_TEXT = 4000;
@@ -110,28 +112,31 @@ export const fitHint: Record<"phone" | "computer", { made: string; button: strin
   computer: { made: "Made for computers.", button: "Ask to make it fit phones", ask: "Make it fit phone screens too." },
 };
 
-export type Starter = { genre: string; ready: boolean; icon?: string; examples: string[] };
-
-/** Genre starters on /create: a tap puts an example sentence in the box (PLAN.md, "Better than the competitors" #3). */
-export const starters: Starter[] = [
-  {
-    genre: "Runner",
-    ready: true,
-    icon: "/games/runner_sunset_sq.jpg",
-    examples: [
-      "Make an endless runner where a little robot jumps over cactuses and it gets faster over time.",
-      "Make an endless runner where a fox dashes through a night forest, jumping over logs and collecting stars.",
-    ],
-  },
-  {
-    genre: "Puzzle",
-    ready: true,
-    icon: "/games/match3_sq.jpg",
-    examples: [
-      "Make a match-3 puzzle game with cute fruit.",
-      "Make a puzzle game where you push boxes onto targets, with 5 levels that get harder.",
-    ],
-  },
-  { genre: "Racer", ready: false, icon: "/games/car_city_sq.jpg", examples: [] },
-  { genre: "Tower defence", ready: false, examples: [] },
+/**
+ * /create's Genre (Luka, 10-27; itch.io's way: one genre, then tags): the game agent's genre skills as pictures, one at
+ * most. None picked: the AI goes by the idea (it picks a skill itself, or none). Each line says what the genre covers,
+ * as its skill does (packages/agent/genres/), and how to let the AI pick again. No icon: the page draws one.
+ */
+export const genres: { id: Genre; icon?: string; line: string }[] = [
+  { id: "runner", icon: "/games/runner_sunset_sq.jpg", line: "Run, jump and dodge while it gets faster." },
+  { id: "puzzle", icon: "/games/match3_sq.jpg", line: "Match, push or slide pieces on a board." },
+  { id: "racer", icon: "/games/car_city_sq.jpg", line: "Race other cars or the clock around a track." },
+  { id: "towerdefence", line: "Build towers along a road to stop the waves." },
 ];
+export const genreNone = "None picked: the AI goes by your idea.";
+export const genreAgain = "Tap it again to let the AI pick.";
+
+/**
+ * /create's Tags (Luka, 10-27), after the genre: several at once, each a rule the game agent follows
+ * (packages/agent/tags/), and 2D or 3D, never both (picking one unpicks the other). A tag's line says what it does to
+ * the game, and what it costs where that was measured.
+ */
+export const gameTags: { id: GameTag; name: string; line: string }[] = [
+  { id: "2d", name: "2D", line: "Flat, seen from the side or from above." },
+  { id: "3d", name: "3D", line: "A 3D world with real models and a camera that follows." },
+  { id: "retro", name: "Retro", line: "Big pixels, a few bold colours and chip sounds, like an old arcade game." },
+  { id: "cute", name: "Cute", line: "Round, friendly characters with big eyes and bouncy moves." },
+  { id: "cozy", name: "Cozy", line: "Calm and kind: no timer, no losing, warm colours." },
+  { id: "hard", name: "Hard", line: "A real challenge that gets tough fast, and one tap to try again." },
+];
+export const tagsNone = "Pick any that fit, or none. 2D or 3D, not both.";

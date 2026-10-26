@@ -19,6 +19,8 @@ const summaryOf = (p: Project): ProjectSummary => ({
   name: p.name,
   orientation: p.orientation,
   platform: p.platform,
+  pickedGenre: p.pickedGenre,
+  tags: p.tags,
   buildId: p.buildId,
   status: p.status,
   createdAt: p.createdAt,

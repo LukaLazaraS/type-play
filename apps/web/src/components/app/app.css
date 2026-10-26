@@ -485,37 +485,148 @@ body:has(.ws) .ground-band {
   white-space: nowrap;
 }
 
-/* Genre starters: kinds of game as app icons; a tap puts an example idea in the box. */
-.starters {
+/* One of a few pictures, or none (ui/IconChoice.tsx: /create's Genre, Luka 10-27): app icons' squares over their names
+   in a row of four, radios underneath. The picked square is ringed in ink 3px off its edge (the ring settles out from
+   the edge) with an ink check over its top right corner, cut out of the picture by a paper ring; a pointer previews
+   the ring in the hover colour; the keyboard's focus ring takes the ring's place. Names keep one weight, so a pick never
+   re-wraps a name. */
+.iconchoice {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
-.starters__row {
+.iconchoice legend {
+  margin-bottom: 10px;
+}
+.iconchoice__row {
   --icon: clamp(52px, 14vw, 72px);
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
-.starter {
+.iconchoice__opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 0 6px;
   color: var(--on-paper);
-  padding: 6px 0;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
 }
-.starter .app__stat {
-  color: var(--on-paper-muted);
+/* No ring at rest (0 wide, so forced colours draw none either); it grows out from the edge when picked. */
+.iconchoice__pic {
+  position: relative;
+  border-radius: var(--r-icon);
+  outline: 0 solid transparent;
+  outline-offset: 0;
+  transition:
+    transform 160ms var(--ease-out),
+    outline-color 160ms var(--ease-out),
+    outline-width 160ms var(--ease-out),
+    outline-offset 160ms var(--ease-out);
 }
-.starter:disabled {
+.iconchoice__pic .app__icon {
+  display: block;
+}
+.iconchoice__opt:active .iconchoice__pic {
+  transform: scale(0.95);
+}
+.iconchoice__opt[data-on] .iconchoice__pic {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .iconchoice__opt:not([data-on]):hover .iconchoice__pic {
+    outline: 3px solid #e6dff5;
+    outline-offset: 3px;
+  }
+}
+.iconchoice__opt:has(input:focus-visible) .iconchoice__pic {
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: var(--focus-inner);
+}
+.iconchoice__check {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  outline: 2px solid var(--paper);
+  opacity: 0;
+  transform: scale(0.9);
+  transition:
+    opacity 120ms var(--ease-out),
+    transform 120ms var(--ease-out);
+}
+.iconchoice__opt[data-on] .iconchoice__check {
+  opacity: 1;
+  transform: none;
+  transition-duration: 160ms;
+}
+/* Whole words only: at 320px "defence" is a few pixels wider than its column and runs into the gap, as the app icons'
+   names do, rather than breaking inside the word. */
+.iconchoice__name {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+/* Disabled (the form is sending): the pick stays, the others fade, no pointer. */
+.iconchoice:disabled .iconchoice__opt {
   cursor: default;
 }
-.starter:disabled .app__icon {
-  filter: grayscale(0.7);
-  opacity: 0.55;
+.iconchoice:disabled .iconchoice__opt:not([data-on]) {
+  opacity: 0.5;
 }
-.starter:disabled .app__name {
-  color: var(--on-paper-muted);
+/* Reduced motion: the ring and the check still fade in, in place (no growth, no scale). */
+@media (prefers-reduced-motion: reduce) {
+  .iconchoice__pic {
+    transition: outline-color 160ms var(--ease-out);
+  }
+  .iconchoice__check {
+    transform: none;
+    transition: opacity 160ms var(--ease-out);
+  }
+}
+
+/* Tags on /create (Luka 10-27): toggle chips (ui/Chip.tsx `pressed`) in a wrapping row, several at once. */
+.tags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.tags__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+/* One muted line out of a few (ui/HintLines.tsx: the picked choice's, or the one touched last): all in one cell, only
+   the current one shown, so the box keeps the longest line's height and nothing under it moves when the line changes. */
+.hintlines {
+  display: grid;
+}
+.hintlines > p {
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+.hintlines > p[data-on] {
+  visibility: visible;
 }
 .app__icon svg {
   display: block;
@@ -907,6 +1018,30 @@ body:has(.ws) .ground-band {
 }
 .chip--icon svg {
   flex: none;
+}
+/* A toggle chip (/create's Tags): off, Field with a plus; on, ink with white words and a check (Ink Recess under a
+   pointer). The mark keeps its place, so the pill never changes width. */
+.chip[aria-pressed] {
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out);
+}
+.chip[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+@media (hover: hover) and (pointer: fine) {
+  .chip[aria-pressed="true"]:hover {
+    background: var(--ink-2);
+  }
+}
+/* Disabled (the form is sending): the picks stay, the others mute to the locked colour, no pointer. */
+.chip[aria-pressed]:disabled {
+  cursor: default;
+}
+.chip[aria-pressed="false"]:disabled {
+  color: #8a80a3;
 }
 /* The ideas arrive with the answer: the label, then each idea 40 ms apart; More ideas' six follow the same way, the
    first three staying put. */
@@ -1998,18 +2133,6 @@ body:has(.ws) {
 }
 .made .switch__opt svg {
   flex: none;
-}
-/* The four lines in one cell, only the picked one shown: the box keeps the longest line's height, so a new pick never
-   moves the AI rows under it. */
-.made__lines {
-  display: grid;
-}
-.made__lines > p {
-  grid-area: 1 / 1;
-  visibility: hidden;
-}
-.made__lines > p[data-on] {
-  visibility: visible;
 }
 /* Too narrow for the four in a row (about 410px of track; the widget's inside is narrower below ~540px): two rows of
    two across the widget, each icon beside its name, each a finger tall. */
@@ -3191,19 +3314,8 @@ body:has(main.play-gone) > .ground-band {
   flex-wrap: wrap;
 }
 
-/* ---- UX review 2026-10-18: touch targets, press feedback, the starters' row, the empty list ----- */
+/* ---- UX review 2026-10-18: touch targets, press feedback, the empty list ----- */
 
-/* Genre starters: the names may take two lines on a phone ("Tower defence"); the figures line
-   under every icon then sits at the same height, at the bottom of the row. */
-.starters__row li {
-  display: flex;
-}
-.starter {
-  height: 100%;
-}
-.starter .app__stat {
-  margin-top: auto;
-}
 /* The model rows' cost now says the unit ("about 1.7 credits"), so it may wrap under the text on
    a phone; nowrap stays for desktop widths. */
 .choice__side.figures {
