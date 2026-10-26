@@ -49,8 +49,9 @@ const api = (email, method, path, body) =>
     status: r.status,
     body: await r.json().catch(() => null),
   }));
-/** No sideways scrolling on a phone: the page is no wider than the screen. */
-const fits = (page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+/** No sideways scrolling on a phone: the page no wider than the viewport the context was given. Not window.innerWidth: a phone
+ * context lets the page grow to fit what overflows, and innerWidth with it (the 10-27 header bug passed that check). */
+const fits = (page) => page.evaluate((vw) => document.documentElement.scrollWidth <= vw + 1, page.viewportSize().width);
 
 // ---- The stack ------------------------------------------------------------------------------------
 const children = [];

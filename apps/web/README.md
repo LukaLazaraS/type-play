@@ -36,9 +36,12 @@ Run it alongside the site in dev: `cd ../games && npm run build-demo && npm run 
   phone and desktop width on a base commit and on the working tree, with the same fixtures, and lists the pairs that
   differ (`node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-compare.mjs --base <ref>`, from the repo root;
   shots and the list in `.impeccable/review/compare/`). The walk-throughs that start a stack of their own (`shot-beta`,
-  `shot-compare`, `shot-platform`, `shot-queue`) take ports picked free and a database of the run's own, so any number
-  run at once beside the local site and the tests; two in one checkout take turns, as their `next dev` share
-  `tsconfig.json` (`scripts/dev-env.mjs`, `docs/environments.md` "The automated tests").
+  `shot-compare`, `shot-header`, `shot-platform`, `shot-queue`) take ports picked free and a database of the run's own, so
+  any number run at once beside the local site and the tests; two in one checkout take turns, as their `next dev` share
+  `tsconfig.json` (`scripts/dev-env.mjs`, `docs/environments.md` "The automated tests"). `shot-header.mjs` checks the
+  status bar on phones (280-430px, signed in with 20, 1,299.1 and 12,345.6 credits, and signed out, on the pages it is on;
+  a few minutes). "Nothing wider than the screen" is measured against the viewport the context was given, never
+  `window.innerWidth`: a phone context (`isMobile`) lets the page grow to fit what overflows, and innerWidth with it.
 
 Design authorities: `../../PRODUCT.md` (product record) and `../../DESIGN.md` (the design system).
 
