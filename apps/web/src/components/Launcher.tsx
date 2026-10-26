@@ -141,7 +141,7 @@ function LauncherOverlay() {
               <q>{game.prompt}</q>
               <div className="figures">
                 Built on {game.tier} in {game.minutes} min
-                {game.edits ? `, then ${game.edits.length} edits by chat` : ""}
+                {game.edits ? `, then ${game.edits.length} ${game.edits.length === 1 ? "edit" : "edits"} by chat` : ""}
               </div>
               <p className="launcher__how">{howToPlay}</p>
             </div>

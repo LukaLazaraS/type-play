@@ -489,12 +489,12 @@ async function galleryChecks(db) {
     }
     return null;
   };
-  /** Every page of the gallery, `limit` at a time: the games in the order served. */
-  const gallery = async (sort, limit) => {
+  /** Every page of the gallery, `limit` at a time: the games in the order served. `also`: more of the query (&genre=, &q=). */
+  const gallery = async (sort, limit, also = "") => {
     const games = [];
     let cursor = null;
     for (let i = 0; i < 200; i++) {
-      const r = await call(null, "GET", `/public/gallery?sort=${sort}${limit ? `&limit=${limit}` : ""}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`);
+      const r = await call(null, "GET", `/public/gallery?sort=${sort}${also}${limit ? `&limit=${limit}` : ""}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`);
       if (r.status !== 200) return { status: r.status, games };
       games.push(...r.body.games);
       cursor = r.body.next;
@@ -506,11 +506,12 @@ async function galleryChecks(db) {
     await call(GA, "GET", "/me");
     await call(GB, "GET", "/me");
     ok(admin("plan", emailOf(GA), "high").status === 0 && admin("plan", emailOf(GB), "high").status === 0, "two makers on High (two builds at a time)");
-    const g1 = await build(GA, "A gallery game, one");
+    // GENRE: the fake agent writes the word into the game's GENRE file, as run.mjs does with the genre skill it picked.
+    const g1 = await build(GA, "A gallery game, one GENRE:runner");
     const g2 = await build(GA, "A gallery game, two");
-    const g4 = await build(GB, "A gallery game, four");
+    const g4 = await build(GB, "A gallery game, four GENRE:puzzle");
     for (const [t, id] of [[GA, g1], [GA, g2], [GB, g4]]) await untilIdle(t, id);
-    const g3 = await build(GA, "A gallery game, three");
+    const g3 = await build(GA, "A gallery game, three GENRE:<b>runner</b>");
     const g5 = await build(GB, "A gallery game that will FAIL");
     await untilIdle(GA, g3);
     await untilIdle(GB, g5);
@@ -582,10 +583,39 @@ async function galleryChecks(db) {
     ok(mine(pagedNew.games) === [g4, g3, g2, g1].join() && pagedNew.games.length === neu.games.length, "New one at a time: the same order, every game once");
     const card = pop.games.find((g) => g.id === g1);
     ok(Object.keys(card ?? {}).sort().join() === "buildId,genre,id,listedAt,name,orientation,platform,plays,playsWeek,poster", "a card carries the game and its figures, nothing about its maker");
-    writeFileSync(join(DATA, "projects", g1, "GENRE"), "runner\n");
-    writeFileSync(join(DATA, "projects", g3, "GENRE"), "<b>runner</b>\n");
     const genres = (await gallery("new")).games;
-    ok(genres.find((g) => g.id === g1)?.genre === "runner" && genres.find((g) => g.id === g3)?.genre === null, "genre: from the game's GENRE file when it names a genre skill, else null");
+    ok(genres.find((g) => g.id === g1)?.genre === "runner" && genres.find((g) => g.id === g4)?.genre === "puzzle" && genres.find((g) => g.id === g3)?.genre === null && genres.find((g) => g.id === g2)?.genre === null, "genre: the build's GENRE file when it names a genre skill, else null");
+    ok((await db.query(`SELECT genre::text AS genre FROM "Project" WHERE id = $1`, [g1])).rows[0]?.genre === "runner", "database: the build kept the genre on the game (what the filter reads)");
+
+    console.log("  the gallery as a library: genre, search, A to Z, the counts");
+    // Listing again reads the genre from the folder (games built before builds kept it); a fresh API fills in the rest.
+    writeFileSync(join(DATA, "projects", g3, "GENRE"), "racer\n");
+    await call(GA, "PATCH", `/projects/${g3}`, { listed: true });
+    ok((await gallery("new")).games.find((g) => g.id === g3)?.genre === "racer", "listing (again) takes the genre from the game's folder");
+    writeFileSync(join(DATA, "projects", g2, "GENRE"), "towerdefence\n");
+    const fresh2 = await spawnApi();
+    fresh2.kill();
+    ok((await db.query(`SELECT genre::text AS genre FROM "Project" WHERE id = $1`, [g2])).rows[0]?.genre === "towerdefence" && fresh2.output().includes("filled in from their folders"), "an API that starts fills in the genre of gallery games that have none, from their folders");
+    for (const [t, id, name] of [[GA, g1, "banana run"], [GA, g2, "Zebra Quest 100%_off"], [GA, g3, "Cherry drift"], [GB, g4, "apple zebra dash"]]) await call(t, "PATCH", `/projects/${id}`, { name });
+    const az = await gallery("all");
+    ok(az.status === 200 && mine(az.games) === [g4, g1, g3, g2].join(), "All: A to Z by name, in any case (apple, banana, Cherry, Zebra)");
+    const azPaged = await gallery("all", 1);
+    ok(mine(azPaged.games) === [g4, g1, g3, g2].join() && azPaged.games.length === az.games.length && new Set(azPaged.games.map((g) => g.id)).size === az.games.length, "All one at a time: the same order, every game once");
+    const byGenre = await gallery("new", 1, "&genre=runner");
+    ok(mine(byGenre.games) === g1 && byGenre.games.every((g) => g.genre === "runner"), "genre=runner: only runners, page by page");
+    const search = async (q, also = "") => mine((await gallery("popular", undefined, `&q=${encodeURIComponent(q)}${also}`)).games);
+    ok((await search("zebra")).split(",").sort().join() === [g2, g4].sort().join(), "search: a word anywhere in the name, any case");
+    ok((await search("quest zebra")) === g2 && (await search("  ZEBRA   dash ")) === g4, "search: every word, in any order; spaces tidied");
+    ok((await search("%")) === g2 && (await search("_")) === g2, "search: % and _ are letters, not wildcards");
+    ok((await search("zebra", "&genre=puzzle")) === g4 && (await search("nothing like this")) === "", "search within a genre; no match: no games");
+    const head = (await call(null, "GET", "/public/gallery?sort=new&limit=1")).body;
+    const everyGame = (await gallery("new")).games;
+    const per = (genre) => everyGame.filter((g) => g.genre === genre).length;
+    ok(head.total === everyGame.length && ["runner", "puzzle", "racer", "towerdefence"].every((g) => (head.genres[g] ?? 0) === per(g)) && Object.values(head.genres).every((n) => n > 0), "a first page counts the games, and the whole gallery's per genre (none: left out)");
+    const headZebra = (await call(null, "GET", "/public/gallery?sort=all&q=zebra&genre=puzzle")).body;
+    ok(headZebra.total === 1 && headZebra.genres.runner === per("runner"), "the total counts what matches the genre and the search; the genres don't follow them");
+    const later = (await call(null, "GET", `/public/gallery?sort=new&limit=1&cursor=${encodeURIComponent(head.next)}`)).body;
+    ok(later.games.length === 1 && later.total === undefined && later.genres === undefined, "a later page: no counts");
     await db.query(`UPDATE "Project" SET shared = true, listed = true, "listedAt" = now() AT TIME ZONE 'UTC' WHERE id = $1`, [g5]);
     ok(!(await gallery("new")).games.some((g) => g.id === g5), "listed and shared but never built (planted): not in the gallery");
     await db.query(`UPDATE "Project" SET shared = false, listed = false WHERE id = $1`, [g5]);
@@ -593,8 +623,12 @@ async function galleryChecks(db) {
     ok(!mine((await gallery("new")).games).includes(g3), "unshared: out of the gallery");
     await call(GA, "PATCH", `/projects/${g3}`, { shared: true });
     ok(!mine((await gallery("new")).games).includes(g3), "shared again, not listed: still out");
-    const bad = await Promise.all(["sort=best", "cursor=nonsense", "limit=49", "limit=0"].map((q) => call(null, "GET", `/public/gallery?${q}`)));
-    ok(bad.every((r) => r.status === 400 && r.body?.error === "bad_request"), "a bad sort, cursor or limit: 400");
+    const popCursor = (await call(null, "GET", "/public/gallery?sort=popular&limit=1")).body.next;
+    const bad = await Promise.all(
+      ["sort=best", "cursor=nonsense", "limit=49", "limit=0", "genre=space", `q=${"a".repeat(61)}`, `sort=all&cursor=${encodeURIComponent(popCursor)}`].map((q) => call(null, "GET", `/public/gallery?${q}`)),
+    );
+    ok(bad.every((r) => r.status === 400 && r.body?.error === "bad_request"), "a bad sort, cursor, limit or genre, a search past 60 letters, another order's cursor: 400");
+    ok((await call(null, "GET", `/public/gallery?q=${"a".repeat(60)}`)).status === 200, "a search of 60 letters is fine");
 
     console.log("  admin: hide and unhide");
     const before = (await call(GA, "GET", `/projects/${g2}`)).body;

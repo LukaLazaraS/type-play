@@ -445,7 +445,8 @@ export interface AndroidLink {
 
 /** The genre skill the game was built with (its folder's GENRE file); null when none fitted. */
 export type Genre = "runner" | "puzzle" | "racer" | "towerdefence";
-export type GallerySort = "popular" | "new";
+/** popular: most played in the last 7 days first; new: the latest to join the gallery first; all: every game A to Z (2026-10-27). */
+export type GallerySort = "popular" | "new" | "all";
 
 /** One game in the gallery. */
 export interface GalleryGame {
@@ -466,11 +467,16 @@ export interface GalleryGame {
   listedAt: string;
 }
 
-/** GET /public/gallery?sort=popular|new&cursor=&limit=: most played this week, or newest, first. */
+/** GET /public/gallery?sort=popular|new|all&genre=&q=&cursor=&limit=: most played this week, newest, or A to Z first. */
 export interface GalleryPage {
   games: GalleryGame[];
-  /** Pass as ?cursor= with the same sort for the next page; null on the last page. */
+  /** Pass as ?cursor= with the same sort, genre and q for the next page; null on the last page. */
   next: string | null;
+  /** First pages only (no cursor; 2026-10-27): how many games match the genre and the search, all pages together. */
+  total?: number;
+  /** First pages only (2026-10-27): the games in the whole gallery per genre (no search, no genre filter), a genre with
+   * none left out. What the genre filter offers. */
+  genres?: Partial<Record<Genre, number>>;
 }
 
 /** Why someone reports a game: the terms' "What you may not do", in player words. */
@@ -687,6 +693,12 @@ export interface FeedbackBody {
 // GET  /projects/:id/events       { type: "queued", messageId, queue } when a build joins the line and when its place or wait
 //                                 changes; a build that waited past the limit (30 minutes after its turn) leaves with "failed".
 // Message.startedAt: when the build started.
+//
+// Added 2026-10-27 (the gallery as a library, /explore):
+// GET  /public/gallery            gains sort=all (A to Z by name), genre=<Genre> (only games built with that genre skill) and
+//                                 q=<words> (names containing them, any case; up to 60 letters); a first page (no cursor) also
+//                                 says `total` (games matching genre and q) and `genres` (games per genre in the whole gallery).
+//                                 The cursor belongs to its sort, genre and q (400 bad_request for another genre or a bad one).
 
 export type ApiErrorCode =
   | "unauthorized" // no or bad token

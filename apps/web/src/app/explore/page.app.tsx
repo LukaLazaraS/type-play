@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import type { GallerySort } from "@typeplay/shared";
+import type { GallerySort, Genre } from "@typeplay/shared";
 import { ButtonLink } from "@/components/ui/ButtonLink";
-import { PillNav } from "@/components/ui/PillBar";
-import { sorts } from "@/content/gallery";
+import { genreName } from "@/content/gallery";
 import { galleryFirst, UNAVAILABLE } from "@/lib/public";
-import { ExploreGames, Invite, SortLabel } from "./ExploreClient";
+import { ExploreGames, Invite } from "./ExploreClient";
 
-// App builds only (.app.tsx), like the share pages it leads to. The public gallery: the games their
-// makers chose to show (shared, then "Show it in the gallery"), the week's most played or the newest
-// first. It waits for the API before answering, so the first page arrives whole.
+// App builds only (.app.tsx), like the share pages it leads to. The public gallery: the games their makers chose to show
+// (shared, then "Show it in the gallery"). On top, the week's most played game in its frame; under it the library, every
+// game in the order, genre and search the address asks for (Luka, 10-27), which the page then changes in place. It waits
+// for the API before answering, so the first page arrives whole.
 export const instant = false;
 
 export const metadata: Metadata = {
@@ -19,12 +19,23 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-type Props = { searchParams: Promise<{ sort?: string | string[] }> };
+type Props = { searchParams: Promise<{ sort?: string | string[]; genre?: string | string[]; q?: string | string[] }> };
+
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export default async function Explore({ searchParams }: Props) {
-  const sort: GallerySort = (await searchParams).sort === "new" ? "new" : "popular";
-  const page = await galleryFirst(sort);
-  const empty = page !== UNAVAILABLE && page.games.length === 0;
+  const params = await searchParams;
+  const sortWord = one(params.sort);
+  const sort: GallerySort = sortWord === "new" || sortWord === "all" ? sortWord : "popular";
+  const genreWord = one(params.genre);
+  const genre = Object.hasOwn(genreName, genreWord) ? (genreWord as Genre) : null;
+  // As the API takes it: spaces tidied, 60 letters at most.
+  const q = [...one(params.q).replace(/\s+/g, " ").trim()].slice(0, 60).join("");
+  // The top game and the gallery's counts come from its usual first page; the library's first page is the same one
+  // unless the address asks for another order, a genre or a search.
+  const top = await galleryFirst("popular");
+  const asked = sort === "popular" && !genre && !q ? top : await galleryFirst(sort, genre, q);
+  const empty = top !== UNAVAILABLE && top.games.length === 0;
   return (
     <main className="explore">
       <header className="explore__head">
@@ -32,20 +43,13 @@ export default async function Explore({ searchParams }: Props) {
           <h1 className="title explore__title">Explore.</h1>
           <p className="explore__lead">Games people made with TypePlay, each one from a typed idea. Play any of them here, free.</p>
         </div>
-        {!empty && (
-          <PillNav
-            className="explore__sort"
-            label="Order of the games"
-            links={sorts.map((s) => ({ href: s.href, label: <SortLabel name={s.name} />, current: s.id === sort }))}
-          />
-        )}
       </header>
 
-      {page === UNAVAILABLE ? (
+      {top === UNAVAILABLE ? (
         <>
           <section className="widget explore__empty" role="alert">
             <p>We can&apos;t load the games right now. Try again in a minute.</p>
-            <ButtonLink href={sort === "new" ? "/explore?sort=new" : "/explore"} look="quiet" prefetch={false}>
+            <ButtonLink href="/explore" look="quiet" prefetch={false}>
               Try again
             </ButtonLink>
           </section>
@@ -62,7 +66,13 @@ export default async function Explore({ searchParams }: Props) {
           <ButtonLink href="/create">Make a game</ButtonLink>
         </section>
       ) : (
-        <ExploreGames key={sort} sort={sort} first={page} />
+        <ExploreGames
+          top={top.games[0]}
+          gallery={top.total ?? top.games.length}
+          genres={top.genres ?? {}}
+          view={{ sort, genre, q }}
+          first={asked === UNAVAILABLE ? null : asked}
+        />
       )}
     </main>
   );

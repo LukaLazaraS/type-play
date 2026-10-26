@@ -95,6 +95,9 @@ async function fakeWork(job: AgentJob) {
     cpSync(join(ROOT, "packages/agent/templates/blank"), job.dir, { recursive: true });
     appendFileSync(join(job.dir, ".gitignore"), ".godot/\nexport/\n.agent-log.jsonl\n");
     setPlatform(job.dir, job.platform ?? "auto");
+    // GENRE:<word> in the prompt: the GENRE file run.mjs writes for the genre skill it picked (the word as given, junk too).
+    const genre = /GENRE:(\S+)/.exec(job.prompt)?.[1];
+    if (genre) writeFileSync(join(job.dir, "GENRE"), `${genre}\n`);
     await git(job.dir, "init", "-q");
     await commitAll("template");
   } else if (job.prompt.includes("FILL")) {

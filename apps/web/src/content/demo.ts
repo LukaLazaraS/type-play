@@ -47,6 +47,18 @@ export const demoSteps: DemoStep[] = [
   },
 ];
 
+/** Every edit the same robot runner got by chat, in order (the "Night Runner" thread, on the home page until 2026-10-27). */
+export const demoEdits = [
+  "Make the robot jump a little higher.",
+  "Add coins floating in the air to collect.",
+  "Let the robot double jump.",
+  "The cactuses come too fast at the start, make the beginning easier.",
+  "Add a shield power-up that saves you from one hit.",
+  "Make the score text bigger.",
+  "Change the sky to night with stars.",
+  "Add sounds when you jump and when you collect a coin.",
+];
+
 /** What the agent says while it works, in the player's words. */
 export const demoWork = {
   new: ["Planning the game", "Writing the code", "Running it and taking screenshots"],
