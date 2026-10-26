@@ -4,10 +4,11 @@ import { randomInt } from "node:crypto";
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { Injectable, Logger } from "@nestjs/common";
-import type { Effort, ModelChoice, PlanId, Platform, Project as ProjectView } from "@typeplay/shared";
+import type { Effort, Genre, ModelChoice, PlanId, Platform, Project as ProjectView } from "@typeplay/shared";
 import { AndroidService } from "../android/android.service.js";
 import { ApiException, badRequest, notFound } from "../common/api-error.js";
 import { config } from "../env.js";
+import { genreOf } from "../gallery/gallery.service.js";
 import { projectZip, TooBig } from "../games/download.js";
 import { unpublishBuild } from "../games/publish.js";
 import { MODELS } from "../credits/credits.js";
@@ -207,7 +208,7 @@ export class ProjectsService {
   async update(user: User, id: string, body: unknown): Promise<ProjectView> {
     const project = await this.views.owned(user.id, id);
     const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
-    const data: { name?: string; renamed?: true; shared?: boolean; sharedAt?: Date | null; listed?: boolean; listedAt?: Date } = {};
+    const data: { name?: string; renamed?: true; shared?: boolean; sharedAt?: Date | null; listed?: boolean; listedAt?: Date; genre?: Genre | null } = {};
     if (b.name !== undefined) {
       data.name = cleanName(b.name);
       data.renamed = true;
@@ -225,6 +226,8 @@ export class ProjectsService {
       data.listed = b.listed;
       // The first time only: going back in later doesn't move it up in New.
       if (b.listed && !project.listedAt) data.listedAt = new Date();
+      // Its genre for the gallery's filter, from its folder (a game built before builds kept it there has none yet).
+      if (b.listed) data.genre = genreOf(id);
     }
     if (data.shared === false) data.listed = false;
     if (!Object.keys(data).length) throw badRequest("Say what to change: a name, sharing, or the gallery.");

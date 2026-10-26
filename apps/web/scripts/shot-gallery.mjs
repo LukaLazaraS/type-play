@@ -1,7 +1,8 @@
 // The public gallery, end to end, with screenshots: the gallery empty (when the database has no listed games),
 // the Share menu's second switch (only once shared; on; the line under it), a play counted when the share page's
 // frame says the game started (once per page view) and the count where the maker sees it, /explore signed out
-// (the top game in its frame, listings with plays and genre, Popular and New), Report this game on the share
+// (the top game in its frame; the library under it: every game as a card with its plays and genre, Popular, New and
+// All in place, a genre, a search and no match, the address following), Report this game on the share
 // page and from a listing (the dialog, a reason, the thanks, the row, a second report from the same visitor),
 // an admin hide (out of the gallery, the share link still works, the maker's Share menu says so), the phone,
 // then worst cases planted in the database: 300 games, 60-letter and unbreakable names, 9,999,999 plays,
@@ -137,6 +138,7 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       await v.goto(`${base}/play/${g1}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
       await v.locator(".play__name").waitFor({ timeout: 60_000 });
       const sent = v.waitForResponse((r) => r.url().endsWith(`/public/games/${g1}/play`) && r.request().method() === "POST", { timeout: 120_000 });
+      sent.catch(() => {}); // a frame that never starts fails below with its own error, not as this one's
       await v.getByRole("button", { name: /^Play / }).click();
       await v.locator(".gameframe[data-ready]").waitFor({ timeout: 90_000 });
       return (await sent).status();
@@ -182,36 +184,67 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     check("Popular: the most played this week is on top, in its frame, with this week's plays", (await v.locator(".feature__name").innerText()) === "Fox Log Jumper" && (await text(v.locator(".feature__figures"))) === "2 plays this week · Runner", await text(v.locator(".feature__figures")));
     check("an upright top game sits beside the invitation (as on an upright share page)", await v.evaluate(() => { const f = document.querySelector(".feature")?.getBoundingClientRect(); const m = document.querySelector(".explore__top .play__made")?.getBoundingClientRect(); return !!f && !!m && m.left >= f.right && Math.abs(m.top - f.top) < 2; }));
     check("the top game's frame has its size (an upright game, beside its words)", await v.locator(".feature__frame").evaluate((f) => f.getBoundingClientRect().width > 200 && f.getBoundingClientRect().height > 350));
-    const names = await v.locator(".gamecard__name").allInnerTexts();
-    check("the others as listings: no plays this week says nothing, then the genre", names.includes("Fruit Pop") && names.includes("Tiny Laps") && (await text(v.locator(".gamecard", { hasText: "Fruit Pop" }).locator(".glist__meta"))) === "Puzzle");
+    const names = await v.locator(".library .gamecard__name").allInnerTexts();
+    check("the library: every game as a card, the top one too", ["Fox Log Jumper", "Fruit Pop", "Tiny Laps"].every((n) => names.includes(n)));
+    const card = (name) => v.locator(".library .gamecard", { hasText: name });
+    check("a card with no plays this week says nothing about plays, then the genre", (await card("Fruit Pop").locator(".plays").count()) === 0 && (await text(card("Fruit Pop").locator(".glist__meta"))) === "Puzzle");
+    const foxPlays = card("Fox Log Jumper").locator(".plays");
+    check("a card's plays: the play mark and the number, the words for screen readers and as the tooltip", (await foxPlays.locator('[aria-hidden="true"]').last().innerText()) === "2" && (await foxPlays.getAttribute("title")) === "2 plays this week" && (await foxPlays.locator(".sr-only").innerText()) === "2 plays this week");
     check("the page ends on the invitation as well", (await v.locator("main > .explore__made").count()) === 1);
-    check("a listing opens the game's share page", (await v.getByRole("link", { name: "Play Tiny Laps" }).getAttribute("href")) === `/play/${g3}`);
-    check("the order bar says Popular is the one shown", (await v.locator('.explore__sort a[aria-current="page"]').innerText()) === "Popular");
+    check("a card opens the game's share page", (await v.getByRole("link", { name: "Play Tiny Laps" }).getAttribute("href")) === `/play/${g3}`);
+    check("the order says Popular is the one shown", (await v.locator('.library__sort [aria-checked="true"]').innerText()) === "Popular");
+    const total = Number((await v.locator(".library__count").innerText()).replace(/\D/g, ""));
+    check("the count says how many games the gallery has", total === (await v.locator(".library .gamecard").count()) || (await v.getByRole("button", { name: "Show more games" }).count()) === 1, String(total));
     await noBadge(v);
     await v.waitForTimeout(400);
     await shot(v, "explore-desktop");
     await shot(v, "explore-desktop-full", true);
-    // While New is on its way (its request held for 2 s), its pill already looks chosen: paper with ink text.
-    await v.route(/\/explore\?sort=new/, async (route) => {
+    // New changes the cards in place: while its page is on its way (held for 2 s) its pill is chosen and the cards dim.
+    await v.route(/\/public\/gallery\?sort=new/, async (route) => {
       await new Promise((r) => setTimeout(r, 2000));
       await route.continue().catch(() => {});
     });
-    await v.getByRole("link", { name: "New" }).click();
+    await v.getByRole("radio", { name: "New" }).click();
     await v.waitForTimeout(400);
-    const pending = await v.evaluate(() => {
-      const a = document.querySelector(".explore__sort a:has([data-pending])");
-      const s = a && getComputedStyle(a);
-      return s ? `${s.backgroundColor} ${s.color}` : "none";
+    const dimmed = await v.evaluate(() => {
+      const pill = document.querySelector('.library__sort [aria-checked="true"]');
+      const s = pill && getComputedStyle(pill);
+      return `${pill?.textContent} ${s?.backgroundColor} ${document.querySelector(".library__grid")?.getAttribute("aria-busy")}`;
     });
-    check("New on its way: its pill takes the paper with ink text at once", pending === "rgb(255, 255, 255) rgb(23, 13, 51)", pending);
+    check("New on its way: its pill is chosen at once (paper) and the cards dim", dimmed === "New rgb(255, 255, 255) true", dimmed);
     await shot(v, "explore-sort-pending-desktop");
-    await v.waitForURL(/\/explore\?sort=new$/, { timeout: 30_000 });
-    await v.unroute(/\/explore\?sort=new/);
-    await v.locator('.explore__sort a[aria-current="page"]', { hasText: "New" }).waitFor({ timeout: 30_000 });
-    check("New: the latest to join the gallery on top", (await v.locator(".feature__name").innerText()) === "Tiny Laps" && (await text(v.locator(".feature__figures"))) === "Newest in the gallery · Racer", await text(v.locator(".feature__figures")));
-    check("New: the listings say all their plays, over the genre", (await text(v.locator(".gamecard", { hasText: "Fox Log Jumper" }).locator(".glist__meta"))) === "2 plays\nRunner");
+    await v.locator(".library__grid:not([aria-busy])").waitFor({ timeout: 30_000 });
+    await v.unroute(/\/public\/gallery\?sort=new/);
+    check("New: the address follows, the page stays", new URL(v.url()).search === "?sort=new");
+    check("New: the latest to join the gallery first; the top game stays the week's most played", (await v.locator(".library .gamecard__name").first().innerText()) === "Tiny Laps" && (await v.locator(".feature__name").innerText()) === "Fox Log Jumper");
+    check("New: a card's plays are all its plays", (await foxPlays.getAttribute("title")) === "2 plays" && (await text(card("Fox Log Jumper").locator(".glist__meta"))).endsWith("Runner"));
     await noBadge(v);
     await shot(v, "explore-new-desktop");
+    await v.getByRole("radio", { name: "All", exact: true }).click();
+    await v.locator(".library__grid:not([aria-busy])").waitFor({ timeout: 30_000 });
+    const az = await v.locator(".library .gamecard__name").allInnerTexts();
+    check("All: every game, A to Z", az.length > 0 && az.every((n, i) => i === 0 || az[i - 1].localeCompare(n, "en", { sensitivity: "base" }) <= 0) && new URL(v.url()).search === "?sort=all", az.slice(0, 4).join(", "));
+    await v.getByRole("radio", { name: "Puzzle" }).click();
+    await v.locator(".library__grid:not([aria-busy])").waitFor({ timeout: 30_000 });
+    const puzzles = await v.locator(".library .glist__meta").allInnerTexts();
+    check("a genre: only its games, and the count says how many of all", puzzles.length > 0 && puzzles.every((m) => m.endsWith("Puzzle")) && (await v.locator(".library .gamecard__name").allInnerTexts()).includes("Fruit Pop") && / of /.test(await v.locator(".library__count").innerText()));
+    await v.getByRole("radio", { name: "Any genre" }).click();
+    await v.fill("#library-search", "fox LOG");
+    await v.waitForFunction(() => new URL(location.href).searchParams.get("q") === "fox LOG", null, { timeout: 10_000 });
+    await v.locator(".library__grid:not([aria-busy])").waitFor({ timeout: 30_000 });
+    const found = await v.locator(".library .gamecard__name").allInnerTexts();
+    check("search: names with every word, any case", found.includes("Fox Log Jumper") && found.every((n) => /fox/i.test(n) && /log/i.test(n)), found.join(", "));
+    await v.fill("#library-search", "no game is called this");
+    await v.locator(".library__none").waitFor({ timeout: 10_000 });
+    check("no match: says so, with Show every game", (await v.locator(".library__none-title").innerText()) === "No game names match “no game is called this”.");
+    await noBadge(v);
+    await shot(v, "explore-search-none-desktop");
+    await v.getByRole("button", { name: "Show every game" }).click();
+    await v.locator(".library__grid:not([aria-busy])").waitFor({ timeout: 30_000 });
+    check("Show every game: the search and the genre cleared, the order kept", (await v.inputValue("#library-search")) === "" && new URL(v.url()).search === "?sort=all");
+    await v.goto(`${base}/explore?sort=new&genre=puzzle&q=fruit`, { waitUntil: "domcontentloaded" });
+    await v.locator(".library .gamecard").first().waitFor({ timeout: 60_000 });
+    check("an address with a view opens on it", (await v.locator('.library [aria-checked="true"]').allInnerTexts()).sort().join() === "New,Puzzle" && (await v.inputValue("#library-search")) === "fruit" && (await v.locator(".library .gamecard__name").allInnerTexts()).join() === "Fruit Pop");
 
     // ---- Report this game: from a listing, then on the share page ----------------------------------
     await v.goto(`${base}/explore`, { waitUntil: "domcontentloaded" });
@@ -337,10 +370,8 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
        SELECT id, (now() AT TIME ZONE 'UTC')::date, c FROM unnest($1::text[], $2::int[]) AS t(id, c)`,
       [ids, ids.map((_, i) => (i === 0 ? 9_999_999 : i < 4 ? [0, 1_234, 999_999, 12_345][i] : (n - i) * 3))],
     );
-    for (const [i, g] of [[0, "towerdefence"], [1, "runner"], [2, "puzzle"], [3, "racer"]]) {
-      mkdirSync(join(DATA, "projects", ids[i]), { recursive: true });
-      writeFileSync(join(DATA, "projects", ids[i], "GENRE"), `${g}\n`);
-    }
+    // Their genres, as a build or listing keeps them (the gallery filters by the column).
+    for (const [i, g] of [[0, "towerdefence"], [1, "runner"], [2, "puzzle"], [3, "racer"]]) await db.query(`UPDATE "Project" SET genre = $2::"Genre" WHERE id = $1`, [ids[i], g]);
     await v.goto(`${base}/explore`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     await v.locator(".feature").waitFor({ timeout: 60_000 });
     check("worst case: the wide game on top with 9,999,999 plays says 10M plays", (await v.locator(".feature").getAttribute("data-orientation")) === "landscape" && (await text(v.locator(".feature__figures"))) === "10M plays this week · Tower defence", await text(v.locator(".feature__figures")));
@@ -350,10 +381,10 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       .then(() => true, () => false);
     check("worst case: pictures that fail (before or after the page woke up) show the drawn tile, not a broken image", noBroken && (await v.locator(".gamecard__pic svg").count()) > 0);
     check("worst case: a 60-letter name on top stays inside the stage", await v.evaluate(() => { const n = document.querySelector(".feature__name"); const s = document.querySelector(".feature"); return !!n && !!s && n.getBoundingClientRect().right <= s.getBoundingClientRect().right + 1; }));
-    const counts = await Promise.all([/^1\.2K\splays/, /^1M\splays/, /^12\.3K\splays/].map((t) => v.locator(".glist__meta", { hasText: t }).count()));
-    check("worst case: big counts read short (1.2K, 1M, 12.3K)", counts.every((c) => c > 0), counts.join());
-    const first = await v.locator(".gamecard").count();
-    check("worst case: the first page is the top game and 23 listings", first === 23, String(first));
+    const counts = await Promise.all(["1.2K", "1M", "12.3K"].map((n) => v.locator(`.library .plays[title="${n} plays this week"]`, { hasText: n }).count()));
+    check("worst case: big counts read short (1.2K, 1M, 12.3K), on one line with the play mark", counts.every((c) => c > 0) && (await v.locator(".library .plays").evaluateAll((els) => els.every((e) => e.getBoundingClientRect().height < 24))), counts.join());
+    const first = await v.locator(".library .gamecard").count();
+    check("worst case: the library's first page is 24 cards, and says how many there are in all", first === 24 && (await v.locator(".library__shown").innerText()).startsWith("24 of "), String(first));
     await noBadge(v);
     await v.waitForTimeout(800);
     await shot(v, "explore-worst-desktop");
@@ -391,10 +422,9 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
   } finally {
     await ctx.close();
     await visitor.close();
-    // The planted rows go with their user (cascade); their folders and the wide build too.
+    // The planted rows go with their user (cascade); the wide build too.
     await db.query(`DELETE FROM "User" WHERE id = $1`, [worstId]).catch(() => {});
     rmSync(join(BUILDS, wideBuild), { recursive: true, force: true });
-    for (let i = 0; i < 4; i++) rmSync(join(DATA, "projects", `wst${stamp}${String(i).padStart(3, "0")}`), { recursive: true, force: true });
     await db.end();
   }
 }

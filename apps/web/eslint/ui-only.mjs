@@ -7,7 +7,7 @@
 /** Raw elements, and the pieces that render them. */
 const ELEMENTS = {
   button: "Button, InkPill, TextButton, IconButton, Chip, or Pressable (a card that is a button)",
-  input: "TextField, Checkbox, Segmented, ChoiceRows or FileButton",
+  input: "TextField, SearchField, Checkbox, Segmented, ChoiceRows or FileButton",
   textarea: "TextArea",
   select: "Select",
   dialog: "Dialog",
@@ -42,7 +42,9 @@ const OWNED = [
   [/^dialog(--[a-z-]+|__[a-z-]+)?$/, "Dialog and its parts"],
   [/^pop(--[a-z-]+)?$/, "Popover"],
   [/^menu(__[a-z-]+)?$/, "Menu, MenuItem, MenuGroup or MenuAsk"],
-  [/^pillbar(__[a-z-]+)?$/, "Tabs or PillNav"],
+  [/^pillbar(--[a-z-]+|__[a-z-]+)?$/, "Tabs or PillChoice"],
+  [/^searchfield(__[a-z-]+)?$/, "SearchField"],
+  [/^plays(__[a-z-]+)?$/, "PlayCount"],
   [/^avatarbutton$/, "AvatarButton"],
   [/^(app|app__icon|app__name|app__stat)$/, "AppIcon, AppTile or AppIconSlot"],
   [/^gamecard(--[a-z-]+|__[a-z-]+)?$/, "GameCard or GameCardSlot"],

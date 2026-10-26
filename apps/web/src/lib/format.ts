@@ -13,6 +13,9 @@ const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFra
 /** "1 play", "940 plays", "1.2K plays", "10M plays": a play count as the gallery and the Share menu say it. */
 export const playsWord = (n: number) => `${n < 1000 ? n : compact.format(n)} ${n === 1 ? "play" : "plays"}`;
 
+/** "12", "940", "1.2K", "10M": the number alone, beside the play mark on a card (ui/PlayCount). */
+export const playsShort = (n: number) => (n < 1000 ? String(n) : compact.format(n));
+
 /** "just now", "5 min ago", "2 h ago", "yesterday", "3 days ago", then the date. */
 export function ago(iso: string, now = Date.now()): string {
   const t = Date.parse(iso);

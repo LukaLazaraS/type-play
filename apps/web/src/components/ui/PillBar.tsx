@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { cx } from "./cx";
 
 /**
@@ -59,15 +58,54 @@ export function Tabs<T extends string>({
   );
 }
 
-/** The same bar as links to pages (the gallery's Popular / New); a link's label may say its page is on its way (data-pending). */
-export function PillNav({ label, links, className }: { label: string; links: { href: string; label: ReactNode; current: boolean }[]; className?: string }) {
+/**
+ * The same bar as a choice of one that changes what the page shows in place (the gallery's order and genre): radios, so
+ * only the chosen pill is in the Tab order and the arrow keys move the choice. `apart`: each pill its own ink pill, and
+ * they wrap, for a list too long for one bar (the genres).
+ */
+export function PillChoice<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+  apart,
+  className,
+}: {
+  label: string;
+  value: T;
+  onChange: (value: T) => void;
+  options: { value: T; label: ReactNode }[];
+  apart?: boolean;
+  className?: string;
+}) {
   return (
-    <nav className={cx("pillbar", className)} aria-label={label}>
-      {links.map((l) => (
-        <Link key={l.href} href={l.href} aria-current={l.current ? "page" : undefined} prefetch={false} className="pillbar__item">
-          {l.label}
-        </Link>
+    <div
+      className={cx("pillbar", apart && "pillbar--apart", className)}
+      role="radiogroup"
+      aria-label={label}
+      onKeyDown={(e) => {
+        const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+        if (!step) return;
+        e.preventDefault();
+        const at = options.findIndex((o) => o.value === value);
+        const next = (at + step + options.length) % options.length;
+        onChange(options[next].value);
+        e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')[next]?.focus();
+      }}
+    >
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={o.value === value}
+          tabIndex={o.value === value ? 0 : -1}
+          className="pillbar__item"
+          onClick={() => o.value !== value && onChange(o.value)}
+        >
+          {o.label}
+        </button>
       ))}
-    </nav>
+    </div>
   );
 }
