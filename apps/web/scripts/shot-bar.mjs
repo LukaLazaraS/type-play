@@ -10,8 +10,9 @@
 // is checked: the name shows whole or at least its first word with "…", More is whole inside the bar, nothing is wider
 // than the screen, and where the words or the version line are gone, the bar with them was cramped. Phones (390 and 320,
 // touch) are measured too. The bar's pictures at 1024, 1280, 1366, 1440 and 1920 go on contact sheets, one per width and
-// group of names.
-//   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-bar.mjs [--base <ref>] [outDir]
+// group of names. And a menu open while the bar changes its step stays under its pill (Share, turning sharing on).
+//   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-bar.mjs [--base <ref>] [--menu] [outDir]
+// --menu: only the menu check (a minute instead of the matrix's half hour).
 // --base: first the same on apps/web at that commit (exported as shot-compare.mjs does, to data/shots/base-<sha>), whose
 // failures are only reported; then wherever the base bar already fit (and on phones always), this checkout's bar must be
 // laid out exactly as the base's, to the half pixel. Shots in .impeccable/review/bar/<base-sha|this>/.
@@ -22,9 +23,10 @@ import { join } from "node:path";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
-const opts = { base: null, out: join(root, ".impeccable/review/bar") };
+const opts = { base: null, menuOnly: false, out: join(root, ".impeccable/review/bar") };
 for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i] === "--base") opts.base = process.argv[++i];
+  else if (process.argv[i] === "--menu") opts.menuOnly = true;
   else opts.out = process.argv[i];
 }
 const SITE_PORT = 3090;
@@ -114,7 +116,7 @@ const comboLabel = (c) =>
   [c.worst ? `“${NAMES[c.nameKey]}”` : null, c.device.pick ?? { iphone: "iPhone", laptop: "Laptop", fill: "Fill the window" }[c.device.id], c.android ? "Android" : null, c.shared ? "Shared" : null].filter(Boolean).join(" · ");
 
 async function mock(page, combo) {
-  const proj = project({ name: NAMES[combo.nameKey], shared: combo.shared, platform: combo.device.platform, worst: combo.worst });
+  let proj = project({ name: NAMES[combo.nameKey], shared: combo.shared, platform: combo.device.platform, worst: combo.worst });
   await page.route(`${api}/**`, async (route) => {
     const req = route.request();
     const url = new URL(req.url());
@@ -127,6 +129,10 @@ async function mock(page, combo) {
     if (url.pathname === "/estimate") return json({ kind: "edit", model: "fast", typical: 0.3, low: 0.1, high: 0.5, needsConfirm: false });
     if (url.pathname.endsWith("/events"))
       return route.fulfill({ status: 200, headers: { ...headers, "Content-Type": "text/event-stream" }, body: `data: ${JSON.stringify({ type: "snapshot", project: proj })}\n\n` });
+    if (url.pathname.startsWith("/projects/") && req.method() === "PATCH") {
+      proj = { ...proj, ...req.postDataJSON() }; // sharing on or off
+      return json(proj);
+    }
     if (url.pathname.startsWith("/projects/")) return json(proj);
     return json({ error: "not_found", message: "We couldn't find that." }, 404);
   });
@@ -374,6 +380,27 @@ try {
   await siteUp(tail);
   putBack();
   console.log(`this checkout up on :${SITE_PORT}`);
+  const menu = await menuFollows(browser);
+  check(
+    "a menu open while the bar changes its step stays under its pill (Share at 1448px: turning sharing on drops the words)",
+    menu.before.fit === null && menu.after.fit === "icons" && Math.abs(menu.before.panel - menu.before.pill) <= 1 && Math.abs(menu.after.panel - menu.after.pill) <= 1,
+    JSON.stringify(menu),
+  );
+  if (!opts.menuOnly) await matrix(browser, before);
+  console.log(`shots and sheets in ${opts.out}`);
+} catch (e) {
+  check("the run", false, e instanceof Error ? e.stack : String(e));
+} finally {
+  await browser?.close().catch(() => {});
+  stopSite();
+  putBack();
+}
+const failed = results.filter((r) => !r.ok).length;
+console.log(`\n${results.length - failed}/${results.length} checks passed`);
+process.exit(failed ? 1 : 0);
+
+/** This checkout's run of every mix at every width, and (with --base) the comparison with the base's. */
+async function matrix(browser, before) {
   const after = await runSite(browser, "this", true);
   await sheets(browser, after.dir, "after");
   check(`every mix at every width (${COMBOS.length} mixes × ${SWEEP.length} widths, up and down; phones at ${PHONES.join(" and ")}): the name readable, More whole, nothing wider than the screen, each step needed, the same going up and down`, after.failures.length === 0, after.failures.slice(0, 20).join("; "));
@@ -390,14 +417,30 @@ try {
     const fitting = Object.values(before.states).filter((b) => b.readable && b.moreWhole).length;
     check(`wherever the base bar fit (${fitting} of ${Object.keys(before.states).length} mix-widths) and on phones: laid out exactly as before`, changed.length === 0, changed.slice(0, 20).join(", "));
   }
-  console.log(`shots and sheets in ${opts.out}`);
-} catch (e) {
-  check("the run", false, e instanceof Error ? e.stack : String(e));
-} finally {
-  await browser?.close().catch(() => {});
-  stopSite();
-  putBack();
 }
-const failed = results.filter((r) => !r.ok).length;
-console.log(`\n${results.length - failed}/${results.length} checks passed`);
-process.exit(failed ? 1 : 0);
+
+/**
+ * A menu open while the bar changes its step stays under its pill: at 1448px the iPhone bar with a short name has its
+ * words until sharing is turned on ("Shared" is 9px wider), then drops them, and the pills move under the open Share menu.
+ */
+async function menuFollows(browser) {
+  const combo = COMBOS.find((c) => c.key === "short-iphone");
+  const { ctx, page } = await open(browser, combo, { width: 1448, height: 900 });
+  const where = () =>
+    page.evaluate(() => {
+      const pill = document.querySelector('.stage__bar [aria-label^="Share"]').getBoundingClientRect();
+      const panel = document.querySelector(".pop:popover-open").getBoundingClientRect();
+      return { fit: document.querySelector(".stage__bar").dataset.fit ?? null, pill: Math.round(pill.right), panel: Math.round(panel.right) };
+    });
+  await page.getByRole("button", { name: "Share this game" }).click();
+  await page.locator(".pop:popover-open").waitFor({ timeout: 10_000 });
+  await sleep(300);
+  const before = await where();
+  await page.locator(".pop:popover-open").getByRole("switch").click();
+  await page.locator('.stage__bar [aria-label^="Shared"]').waitFor({ timeout: 10_000 });
+  await sleep(300);
+  const after = await where();
+  await page.screenshot({ path: join(opts.out, "menu-follows.png"), clip: { x: 900, y: 0, width: 548, height: 420 } });
+  await ctx.close();
+  return { before, after };
+}

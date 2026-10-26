@@ -82,7 +82,11 @@ function useFit() {
     fit();
     const size = new ResizeObserver(fit);
     size.observe(el);
-    const contents = new MutationObserver(fit);
+    // What changes inside an open menu (its panel sits in the bar: "Copied", a busy switch) changes nothing in the bar.
+    const inMenu = (r: MutationRecord) => !!(r.target instanceof Element ? r.target : r.target.parentElement)?.closest(".pop");
+    const contents = new MutationObserver((records) => {
+      if (!records.every(inMenu)) fit();
+    });
     contents.observe(el, { childList: true, subtree: true, characterData: true });
     document.fonts.addEventListener("loadingdone", fit);
     return () => {
