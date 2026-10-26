@@ -104,6 +104,10 @@ async function fakeWork(job: AgentJob) {
     setPlatform(job.dir, "fill"); // as the agent does when asked to make a game fit other screens too
   }
   appendFileSync(join(job.dir, "FAKE.md"), `- ${job.kind}: ${job.prompt}\n`);
+  // A first build's picks in the files run.mjs keeps them in: GENRE for a picked genre (with none, run.mjs writes the
+  // one it picks itself), TAGS for the tags (no tags, no file).
+  if (job.kind === "new" && job.genre) writeFileSync(join(job.dir, "GENRE"), `${job.genre}\n`);
+  if (job.kind === "new" && job.tags?.length) writeFileSync(join(job.dir, "TAGS"), `${job.tags.join(" ")}\n`);
   await commitAll(`${job.kind}: ${job.prompt}`);
   const pack = demoPack();
   if (!pack) throw new Error("no demo build to fake with (run apps/games/scripts/build-demo.mjs)");

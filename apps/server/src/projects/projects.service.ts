@@ -17,6 +17,7 @@ import type { User } from "../generated/prisma/client.js";
 import { readPlatformWord, readProjectGodot } from "../games/files.js";
 import { removeFolder, restoreCommit, settleFolder } from "../games/git.js";
 import { orientationOf, platformOf } from "../games/godot.js";
+import { parsePicks, picksOf } from "../games/picks.js";
 import { PrismaService } from "../prisma.js";
 import { BuildQueue, type QueuedRunData } from "../runs/queue.service.js";
 import { RunRegistry } from "../runs/registry.js";
@@ -97,6 +98,7 @@ export class ProjectsService {
   async create(user: User, body: unknown): Promise<ProjectView> {
     const req = parseRunBody(body, "prompt");
     const platform = parsePlatform(body);
+    const { genre, tags } = parsePicks(body);
     const id = newProjectId();
     // A builder is free: it starts at once. All busy: it waits in line (runs/queue.service.ts).
     const claim = this.registry.claimRun(id, ownerOf(user), { kind: "new", model: req.model, effort: req.effort });
@@ -105,13 +107,15 @@ export class ProjectsService {
       hold = await this.credits.assertCanRun(user, "new", req.model, req.confirm, req.effort);
       const now = Date.now();
       const sent = new Date(now + 1);
-      const queued = claim.now ? null : this.queue.rowFor({ projectId: id, userId: user.id, kind: "new", prompt: req.text, platform, plan: user.plan, hold, at: sent });
+      const queued = claim.now ? null : this.queue.rowFor({ projectId: id, userId: user.id, kind: "new", prompt: req.text, platform, genre, tags, plan: user.plan, hold, at: sent });
       const project = await this.prisma.project.create({
         data: {
           id,
           ownerId: user.id,
           name: nameFromPrompt(req.text),
           platform,
+          pickedGenre: genre,
+          tags,
           messages: {
             create: [
               { role: "user", text: req.text, createdAt: new Date(now) },
@@ -123,7 +127,7 @@ export class ProjectsService {
       });
       const messageId = project.messages[0].id;
       if (queued) this.queue.added({ ...queued, messageId }, req.model, req.effort, hold);
-      else this.runs.start({ projectId: id, userId: user.id, messageId, kind: "new", prompt: req.text, model: req.model, effort: req.effort, platform, hold, startedAt: sent });
+      else this.runs.start({ projectId: id, userId: user.id, messageId, kind: "new", prompt: req.text, model: req.model, effort: req.effort, platform, genre, tags, hold, startedAt: sent });
       hold = null;
     } finally {
       hold?.release();
@@ -142,13 +146,14 @@ export class ProjectsService {
       hold = await this.credits.assertCanRun(user, kind, req.model, req.confirm, req.effort);
       const now = Date.now();
       const sent = new Date(now + 1);
-      // The first build failed and this builds again: for the screens the player picked.
-      const queued = claim.now ? null : this.queue.rowFor({ projectId: id, userId: user.id, kind, prompt: req.text, platform: project.platform, plan: user.plan, hold, at: sent });
+      // The first build failed and this builds again: for the screens, genre and tags the player picked.
+      const { genre, tags } = picksOf({ genre: project.pickedGenre, tags: project.tags });
+      const queued = claim.now ? null : this.queue.rowFor({ projectId: id, userId: user.id, kind, prompt: req.text, platform: project.platform, genre, tags, plan: user.plan, hold, at: sent });
       await this.prisma.message.create({ data: { projectId: id, role: "user", text: req.text, createdAt: new Date(now) } });
       const agent = await this.prisma.message.create({ data: { projectId: id, ...this.agentMessage(user, req, sent, queued), createdAt: sent } });
       await this.prisma.project.update({ where: { id }, data: { updatedAt: new Date() } });
       if (queued) this.queue.added({ ...queued, messageId: agent.id }, req.model, req.effort, hold);
-      else this.runs.start({ projectId: id, userId: user.id, messageId: agent.id, kind, prompt: req.text, model: req.model, effort: req.effort, platform: project.platform, hold, startedAt: sent });
+      else this.runs.start({ projectId: id, userId: user.id, messageId: agent.id, kind, prompt: req.text, model: req.model, effort: req.effort, platform: project.platform, genre, tags, hold, startedAt: sent });
       hold = null;
     } finally {
       hold?.release();

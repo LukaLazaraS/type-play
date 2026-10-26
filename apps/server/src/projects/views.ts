@@ -12,6 +12,7 @@ import type {
 } from "@typeplay/shared";
 import { notFound } from "../common/api-error.js";
 import { GalleryService } from "../gallery/gallery.service.js";
+import { picksOf } from "../games/picks.js";
 import type { Message, Project, Version } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
 import { RunRegistry } from "../runs/registry.js";
@@ -53,11 +54,14 @@ export class ProjectViews {
   summaryOf(p: Project, current: Pick<Version, "buildId" | "poster"> | null, plays: number): ProjectSummary {
     const status = this.runs.status(p.id);
     const queue = status === "queued" ? this.runs.placeOf(p.id) : null;
+    const picks = picksOf({ genre: p.pickedGenre, tags: p.tags });
     return {
       id: p.id,
       name: p.name,
       orientation: p.orientation as Orientation,
       platform: p.platform,
+      pickedGenre: picks.genre,
+      tags: picks.tags,
       buildId: current?.buildId ?? null,
       status,
       ...(queue ? { queue } : {}),

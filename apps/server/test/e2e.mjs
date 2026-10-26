@@ -1139,6 +1139,123 @@ async function platformChecks() {
   }
 }
 
+/**
+ * The genre and tags a player picks on /create (2026-10-27): a wrong pick is refused; the picks reach the first build (the
+ * fake agent writes them where run.mjs does: GENRE, TAGS) and the project records them; a change keeps them; a first
+ * build that failed builds again with them; and one that waits in line (an API of our own with one builder)
+ * starts with them.
+ */
+async function pickChecks(db) {
+  console.log("the genre and tags: wrong ones refused, they reach the build and are recorded; a change, a retry, the queue");
+  const K = `dev:e2e-${stamp}-picks@test.local`;
+  await api(K, "GET", "/me");
+  ok(admin("plan", emailOf(K), "medium").status === 0 && admin("grant", emailOf(K), "40").status === 0, "a maker on Medium + 40 credits (several builds)");
+  for (const [body, what] of [
+    [{ genre: "shooter" }, "a genre with no skill"],
+    [{ genre: ["puzzle", "runner"] }, "two genres"],
+    [{ tags: ["2d", "3d"] }, "2D and 3D together"],
+    [{ tags: ["cozy", "hard"] }, "Cozy and Hard together"],
+    [{ tags: ["sparkly"] }, "a tag that isn't one"],
+    [{ tags: "3d" }, "tags that aren't a list"],
+    [{ tags: ["3d", "3d"] }, "a tag twice"],
+  ]) {
+    const r = await api(K, "POST", "/projects", { prompt: "A game with a wrong pick", model: "fast", ...body });
+    ok(r.status === 400 && r.body?.error === "bad_request", `${what}: 400 bad_request`);
+  }
+  const build = async (body, token = K, base = API) => {
+    const made = await api(token, "POST", "/projects", { model: "fast", ...body }, base);
+    if (!made.body?.id) return null;
+    projects.push(made.body.id);
+    const stream = await openEvents(token, made.body.id, base);
+    try {
+      return { id: made.body.id, made: made.body, end: await stream.until(finished) };
+    } finally {
+      stream.close();
+    }
+  };
+  const file = (id, name) => (existsSync(join(DATA, "projects", id, name)) ? readFileSync(join(DATA, "projects", id, name), "utf8").trim() : null);
+  const row = async (id) => (await db.query(`SELECT "pickedGenre", tags FROM "Project" WHERE id = $1`, [id])).rows[0];
+
+  const puzzle = await build({ prompt: "A puzzle with fruit", genre: "puzzle" });
+  ok(puzzle?.made.pickedGenre === "puzzle" && puzzle.made.tags.length === 0, "Puzzle alone: on the project at once (genre puzzle, no tags)");
+  ok(puzzle?.end.type === "done" && file(puzzle.id, "GENRE") === "puzzle" && file(puzzle.id, "TAGS") === null, "…and the build got it: GENRE says puzzle, no TAGS file");
+  // The gallery's genre (Project.genre, the folder's GENRE after each build) says the same, so /explore's filter shows it there.
+  if (puzzle) {
+    const genreRow = (await db.query(`SELECT genre::text AS genre FROM "Project" WHERE id = $1`, [puzzle.id])).rows[0];
+    ok(genreRow?.genre === "puzzle", "the gallery's genre for it: puzzle, as picked");
+    await api(K, "PATCH", `/projects/${puzzle.id}`, { shared: true });
+    const listed = await api(K, "PATCH", `/projects/${puzzle.id}`, { listed: true });
+    const inGenre = async (g) => ((await api(null, "GET", `/public/gallery?sort=new&limit=48&genre=${g}`)).body?.games ?? []).some((x) => x.id === puzzle.id);
+    ok(listed.status === 200 && (await inGenre("puzzle")) && !(await inGenre("racer")), "in the gallery: under Puzzle, not under Racer");
+  }
+  const racer = await build({ prompt: "A race through a city", genre: "racer", tags: ["3d"] });
+  ok(racer?.end.type === "done" && file(racer.id, "GENRE") === "racer" && file(racer.id, "TAGS") === "3d", "Racer + 3D: GENRE racer, TAGS 3d");
+  const runner = await build({ prompt: "A robot runs over rooftops", genre: "runner", tags: ["retro", "2d"] });
+  ok(runner?.made.tags.join() === "2d,retro", "Runner + Retro + 2D: the tags kept in the list's order (2d, retro)");
+  const runnerRow = runner && (await row(runner.id));
+  ok(runner?.end.type === "done" && file(runner.id, "TAGS") === "2d retro" && runnerRow?.pickedGenre === "runner" && runnerRow.tags.join() === "2d,retro", "…in TAGS and in the database");
+  const none = await build({ prompt: "A game with nothing picked" });
+  ok(none?.made.pickedGenre === null && none.made.tags.length === 0 && none.end.type === "done" && file(none.id, "TAGS") === null, "nothing picked: no genre, no tags (the agent picks a genre itself)");
+  const tagOnly = await build({ prompt: "A game in 3D with no genre picked", tags: ["3d"] });
+  ok(tagOnly?.made.pickedGenre === null && tagOnly.end.type === "done" && file(tagOnly.id, "TAGS") === "3d", "a tag without a genre: TAGS 3d, the genre left to the agent");
+  const list = (await api(K, "GET", "/projects")).body;
+  ok(Array.isArray(list) && list.find((g) => g.id === racer?.id)?.tags.join() === "3d", "the games list carries the tags");
+
+  // A change follows the game's own files (run.mjs reads them): nothing is passed, both stay.
+  if (racer) {
+    const ev = await openEvents(K, racer.id);
+    try {
+      await api(K, "POST", `/projects/${racer.id}/messages`, { text: "Add a turbo", model: "fast" });
+      const v2 = await ev.until((e) => (e.type === "done" && e.version?.n === 2) || e.type === "failed");
+      ok(v2.type === "done" && file(racer.id, "GENRE") === "racer" && file(racer.id, "TAGS") === "3d" && v2.project.tags.join() === "3d", "a change: GENRE and TAGS stay, the project still says 3d");
+    } finally {
+      ev.close();
+    }
+  }
+
+  // A first build that failed builds again with the picks (the folder starts clean, so they come from the project).
+  const failed = await build({ prompt: "Fail this first build FAIL", genre: "towerdefence", tags: ["retro"] });
+  ok(failed?.end.type === "failed" && failed.end.project.tags.join() === "retro", "a first build that failed: the picks stay on the project");
+  if (failed) {
+    const ev = await openEvents(K, failed.id);
+    try {
+      await api(K, "POST", `/projects/${failed.id}/messages`, { text: "Build it again, please", model: "fast" });
+      const again = await ev.until((e) => (e.type === "done" && e.version?.n === 1) || e.type === "failed");
+      ok(again.type === "done" && file(failed.id, "GENRE") === "towerdefence" && file(failed.id, "TAGS") === "retro", "…built again: GENRE towerdefence, TAGS retro");
+    } finally {
+      ev.close();
+    }
+  }
+
+  // A first build that waits in line keeps its picks (in its QueuedRun row) and starts with them. Another maker keeps
+  // the one builder busy (Medium builds one game at a time, waiting ones included).
+  const K2 = `dev:e2e-${stamp}-picks2@test.local`;
+  await api(K2, "GET", "/me");
+  ok(admin("plan", emailOf(K2), "medium").status === 0, "a second maker on Medium");
+  const q = await spawnApi({ MAX_RUNS: "1", BILLING_JOBS: "0" });
+  try {
+    const hold = await api(K2, "POST", "/projects", { prompt: "Keep the builder busy HOLD", model: "fast" }, q.url);
+    if (hold.body?.id) projects.push(hold.body.id);
+    const waiting = await api(K, "POST", "/projects", { prompt: "A queued puzzle in 3D", model: "fast", genre: "puzzle", tags: ["3d", "retro"] }, q.url);
+    if (waiting.body?.id) projects.push(waiting.body.id);
+    ok(hold.body?.status === "running" && waiting.body?.status === "queued", "one builder busy: the picked game waits in line");
+    const qRow = waiting.body?.id && (await db.query(`SELECT genre, tags FROM "QueuedRun" WHERE "projectId" = $1`, [waiting.body.id])).rows[0];
+    ok(qRow?.genre === "puzzle" && qRow.tags.join() === "3d,retro", "database: its QueuedRun row keeps the genre and tags");
+    if (waiting.body?.id) {
+      const ev = await openEvents(K, waiting.body.id, q.url);
+      try {
+        await api(K2, "POST", `/projects/${hold.body.id}/cancel`, undefined, q.url);
+        const end = await ev.until(finished);
+        ok(end.type === "done" && file(waiting.body.id, "GENRE") === "puzzle" && file(waiting.body.id, "TAGS") === "3d retro", "its turn: built with them (GENRE puzzle, TAGS 3d retro)");
+      } finally {
+        ev.close();
+      }
+    }
+  } finally {
+    q.kill();
+  }
+}
+
 async function main() {
   console.log(`e2e against ${API}`);
   // Never against a real server: a run would burn the agent, and cleanup deletes users under it.
@@ -1712,6 +1829,7 @@ async function main() {
   await codeChecks(db);
   await badgeChecks();
   await platformChecks();
+  await pickChecks(db);
   await securityChecks();
 
   // The Supabase sign-in record: the API deletes it with this statement (account.service.ts). Real

@@ -79,7 +79,8 @@ and an untracked `junk.txt`, which the reset must take away); `SLOW` publishes s
 can land a Stop after the agent has finished; `LONG` takes ~45 s instead of ~5 (the screens shown while a first
 build runs); `NOPOSTER` writes a picture that isn't a PNG, so the
 build publishes without a poster; `FILL` on a change makes the game fill every screen (its `PLATFORM` word and window, as
-the agent does when asked to make a game fit other screens too); a first build sets them for the request's platform; a build that works brings nine fixed next-step ideas; with `FAKE_METER=1`, `METER:<n>` makes one Haiku call through the key proxy at the
+the agent does when asked to make a game fit other screens too); a first build sets them for the request's platform, and
+writes `GENRE` for a picked genre and `TAGS` for tags, as run.mjs does; a build that works brings nine fixed next-step ideas; with `FAKE_METER=1`, `METER:<n>` makes one Haiku call through the key proxy at the
 start, whose (mock) answer reports `<n>` output tokens. Real git commits, real builds, real ledger entries.
 
 Each database test run gets a database of its own, `typeplay_autotest_<script>_<id>` (`test/test-db.mjs` starts this
@@ -88,7 +89,7 @@ starts takes a port picked free for the run (`scripts/test-run.mjs`; `docs/envir
 any number of runs, from any checkout, go at the same time, beside the live beta, `npm run dev` and the local site.
 
 ```
-npm run test:e2e -w @typeplay/server          # 434 checks (2026-10-26); starts its own API with DEV_AUTH=1 AGENT_FAKE=1 (API_URL to use yours);
+npm run test:e2e -w @typeplay/server          # 473 checks (2026-10-27); starts its own API with DEV_AUTH=1 AGENT_FAKE=1 (API_URL to use yours);
                                               # makes and deletes its own test users; the Supabase sign-in record check runs only where
                                               # the database is a Supabase project's (the online test environment, later); starts
                                               # a second API of its own for the run timeout and the interrupted-run recovery,
@@ -555,8 +556,9 @@ row as `admin:<ADMIN_NAME or the OS user>`. The last three commands talk to Padd
    failure is written, so two messages sent at once can't both spend the same credits. Past `MAX_RUNS` at once
    the build waits in line instead of starting ("The build queue" below; until 2026-10-26: 409 `busy`).
 2. `node packages/agent/run.mjs --dir data/projects/<id> --model haiku|sonnet|opus --effort … --events
-   [--edit | --platform phone|computer|fill]` (a first build: the screens the player picked on /create, `POST /projects`
-   `platform`; left out, the agent picks one shape, portrait first); its `@@event` lines become the SSE `progress` events (each line cut at 64 KB, at most
+   [--edit | --platform phone|computer|fill --genre <genre> --tags <tag>,…]` (a first build: the screens, genre and tags
+   the player picked on /create, `POST /projects` `platform`, `genre`, `tags`; left out, the agent picks one shape,
+   portrait first, and a genre from the idea); its `@@event` lines become the SSE `progress` events (each line cut at 64 KB, at most
    50 MB a run, `src/runs/lines.ts`). Full output: `data/logs/`.
 3. Success: the web export is published as `builds/<id>-v<n>/` (`src/games/publish.ts`, `publishBuild()`:
    `apps/games/builds` on this PC, R2 → typeplay.dev live; its `game.json` says `badge: true` when the owner is
@@ -579,6 +581,16 @@ row as `admin:<ADMIN_NAME or the OS user>`. The last three commands talk to Padd
    game from before (no file). A change can make a game fill every screen ("make it fit here too"); a restore can take
    it back. Views carry it (`ProjectSummary`, `PublicGame`, `GalleryGame`): the site opens the preview on it, says
    "Made for phones." elsewhere, and never asks to turn the phone for a game that fills every screen.
+6. The game's genre and tags (2026-10-27, /create's Genre and Tags; `src/games/picks.ts`): `POST /projects` takes one
+   `genre` at most (a genre skill: runner, puzzle, racer, towerdefence) and any `tags` (`TAGS`: 2d, 3d, retro, cute,
+   cozy, hard; not both 2d and 3d, nor cozy and hard, whose rules contradict), each refused with 400 when it isn't one;
+   tags are kept in the list's order. `Project.pickedGenre` and
+   `Project.tags` keep the picks; a first build gets them (`--genre`, `--tags`), also when it waits in line (its
+   `QueuedRun` row keeps them) or builds again after a failed first try (from the project). run.mjs writes them into the
+   game folder (`GENRE`, one word, as before, whatever picked it; `TAGS`, the tags on one line), and every change reads
+   them from there, so a change is never sent them. Views carry both (`ProjectSummary.pickedGenre`, `tags`). Nothing
+   picked: no flags, and the agent picks a genre from the idea, as before. The gallery's genre is still the folder's
+   `GENRE` file.
 
 A server that stops mid-run marks that run failed at the next start and resets the folder. When a
 folder can't be reset (the runner restarting, a file still held), the reset is tried again after 2, 10

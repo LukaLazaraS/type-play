@@ -71,8 +71,10 @@ and some pay for more credits and a store build.
 
 ## Capabilities and Constraints
 
-- **Genres:** closed beta 1 has endless runner and 2D puzzle; launch adds racer and tower
-  defence. Open-world 3D comes later, as the models get better.
+- **Genres:** runner, puzzle, racer and tower defence, each with a skill the agent follows; the
+  player picks one on /create (or none, and the AI goes by the idea), plus tags that steer the
+  build (2D or 3D, Retro, Cute, Cozy, Hard; since 2026-10-27). Open-world 3D comes later, as the
+  models get better.
 - **Exports by phase:** web preview now; Android (APK + AAB) planned before launch; iOS, Steam
   and desktop after launch. Copy can promise every platform, but it must not say a platform
   is available before it is, and it names no dates: the site says "now" for the web and

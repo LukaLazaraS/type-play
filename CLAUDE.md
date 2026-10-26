@@ -197,7 +197,7 @@ type-play/                  npm workspaces + Turborepo (decided 2026-10-14, docs
     server/       the API (:3002, NestJS + Prisma on Supabase): users, projects, agent runs, versions, credits, SSE; see its README
     desktop/ mobile/   (later) the builder as a Cursor-style desktop app; phone apps
   packages/       libraries shared by apps, never reached into directly
-    agent/        the game agent: runner, rules, genre skills, check tool, gallery, 3D model catalogue (`tools/assets.mjs`)
+    agent/        the game agent: runner, rules, genre skills, tag rules (`tags/`), check tool, gallery, 3D model catalogue (`tools/assets.mjs`)
     shared/       the API contract between web and server (types only); `ui/` later for shared React parts
 ```
 

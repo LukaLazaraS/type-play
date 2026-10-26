@@ -669,3 +669,66 @@ buttons, swipes until fruit swapped, the joystick held while a spell fires). ✓
 - 3 of 6 (b) titles started only from their Play button; `BASE.md` now says a tap anywhere but on other buttons starts.
 - The check's touch phone page shows the agent its own touch controls (`DisplayServer.is_touchscreen_available()` is true
   under the browser's touch emulation; a tap there arrives as a touch and a click, hence "handle it once").
+
+## 2026-10-27: genre and tags (the picks on /create)
+
+**Question (Luka, 10-27):** /create's genre pictures became one pick at most, and tags several at once (2D or 3D,
+Retro, Cute, Cozy or Hard; `tags/`). Does the agent build what was picked, and does a tag cost more? One idea that names
+no genre and no look, "A game about a fox who collects berries in a forest.", built on Smart (Sonnet, medium: the
+default for a new game) as Puzzle, Racer and Runner, each with no tags and with each tag (the Runner's Retro with 2D),
+one build per cell, three at a time, this PC's Max login, 10-27 01:48-03:15. Tooling: `tests/tags-eval/` (`builds.mjs`,
+`table.mjs`); games in `output/tag-*`, records in `output/_tags-eval/`.
+
+**All 19 built on the first try, and each is what was picked** (its screenshots and its own description):
+
+| Genre | Tags | Credits | Min | What it built |
+|---|---|--:|--:|---|
+| Puzzle | none | 13.9 | 12.3 | sliding fox on a board, eat every berry, par moves, levels |
+| Puzzle | 3D | 9.2 | 6.5 | the same idea in 3D: a cube-pets fox, low-poly pines and rocks, 6 levels |
+| Puzzle | Retro | 16.0 | 12.1 | pixel art, SCORE 000000 / HI 000000, blocky lettering, a dark palette |
+| Puzzle | Cute | 10.2 | 11.6 | big-eyed fox, trees and berries with faces, "sleepy rocks", pastel |
+| Puzzle | Cozy | 13.1 | 8.6 | a calm match-3 filling a basket, no timer, no move limit, Hint and Shuffle |
+| Puzzle | Hard | 9.0 | 11.4 | a sliding puzzle with a move limit and par stars |
+| Racer | none | 16.8 | 12.1 | 3 laps against three rival animals, minimap, countdown (after the fix below) |
+| Racer | 3D | 17.4 | 15.1 | a 3D forest race, start/finish gate, 3 laps, 3 rivals, wide |
+| Racer | Retro | 19.8 | 11.8 | a pixel-art race, LAP 1/3, 3RD/4, berries for speed |
+| Racer | Cute | 14.5 | 15.3 | kart race against a bunny, a bear and a kitten |
+| Racer | Cozy | 12.4 | 12.5 | a "cosy" two-lap race, berries grow back every lap |
+| Racer | Hard | 12.8 | 13.6 | a timed race: berries add time, and the clock running out loses |
+| Runner | none | 10.0 | 10.1 | side-view runner over logs and rocks, speeds up |
+| Runner | 3D | 14.3 | 14.5 | three-lane 3D runner, swipe to change lane |
+| Runner | 2D + Retro | 10.8 | 7.8 | side-view pixel runner, GAME OVER / NEW BEST! in pixel lettering |
+| Runner | Cute | 15.7 | 16.9 | chubby fox, "grumpy stumps", "pouting mushrooms", smiling clouds |
+| Runner | Cozy | 7.9 | 7.9 | "nothing can go wrong": a bump only slows the fox, 30 berries end the day |
+| Runner | Hard | 9.8 | 9.8 | one hit ends the run, the speed keeps climbing |
+
+**Found and fixed: the genre skill's first line.** It was written for the AI's own pick ("The player's request always
+wins … if this genre doesn't fit what they asked for, do what they asked"). Under it Racer with no tags built a berry
+chase with wolves and a timer, not a race: the idea won over the picked genre (kept in `_tags-eval/old-genre-line/`).
+A picked genre now opens its skill with "The player picked this genre for the game: make it one, with their idea inside
+it. Their own words win over the genre defaults below (theme, characters, extra features), never over the genre
+itself." The same Racer then built a 3-lap race. Puzzle (none, 3D, Retro) and Racer (3D, Retro) were built under the old
+line (they kept their genre anyway); the rest under the new one.
+
+**Cost and time per tag** (the three genres' credits as the app charges them, against the same genres with no tags):
+
+| Tag | Credits | Minutes |
+|---|--:|--:|
+| 3D | +0% | +5% |
+| Retro | +14% | −8% |
+| Cute | −1% | +27% |
+| Cozy | −18% | −16% |
+| Hard | −22% | +1% |
+
+One build per cell, and the same Sonnet build varies 2-5× run to run (10-25, platforms), so read differences under
+~25% as noise: **no tag measurably changes the credits or the build time**, and /create says nothing about cost under
+the tags (Any screen's +7% line came from a measurement; here there is nothing to say). Single games swing widely either
+way (3D Puzzle 9.2 credits against 13.9 without; 3D Runner 14.3 against 10.0). 19 builds, $14.45 at API prices on the
+Max login, 217 build minutes. Then (HQ 10-27 03:25, the subscription near its weekly limit) the API path was checked
+on the API key without a full build: the API started `run.mjs --model sonnet --effort medium --genre towerdefence --tags
+retro,cute` for `POST /projects` with those picks, and run.mjs said "genre skill: towerdefence", "tags: retro, cute"
+before it was stopped (0 credits); an edit of the 3D Racer said "genre skill: racer", "tags: 3d" (it reads the game's
+GENRE and TAGS) before its model call.
+
+Not done: Fast (Haiku, 2-3 short steps) and Best (Opus) with tags; play by hand on a phone; Tower defence only through
+the stopped API run above.

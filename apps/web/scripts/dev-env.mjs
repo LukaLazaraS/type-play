@@ -12,8 +12,8 @@ export async function useDevEnv() {
 }
 
 /**
- * For a walk-through that starts a stack of its own (shot-beta, shot-compare, shot-platform, shot-queue), so any number
- * of them, from any checkout, run at once beside the local site and the tests (scripts/test-run.mjs): the env above,
+ * For a walk-through that starts a stack of its own (shot-beta, shot-compare, shot-kinds, shot-platform, shot-queue), so
+ * any number of them, from any checkout, run at once beside the local site and the tests (scripts/test-run.mjs): the env above,
  * then a database of the run's own (typeplay_autotest_shot_<name>_<id>, dropped at the end) that the API it starts and
  * the admin CLI use instead of typeplay_dev, and `count` ports picked free. First it waits for this checkout's `next dev`
  * to be its own: two walk-throughs in one checkout would share tsconfig.json (`next dev` writes its type folders into

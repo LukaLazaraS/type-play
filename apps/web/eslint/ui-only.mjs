@@ -11,8 +11,8 @@ const ELEMENTS = {
   textarea: "TextArea",
   select: "Select",
   dialog: "Dialog",
-  label: "the label of TextField, TextArea, Select, FieldLabel, Checkbox, Segmented or ChoiceRows",
-  fieldset: "Segmented or ChoiceRows",
+  label: "the label of TextField, TextArea, Select, FieldLabel, Checkbox, Segmented, ChoiceRows or IconChoice",
+  fieldset: "Segmented, ChoiceRows or IconChoice",
 };
 
 const POPOVER = new Set(["popover", "popoverTarget", "popoverTargetAction"]);
@@ -28,6 +28,8 @@ const OWNED = [
   [/^chip(--[a-z-]+)?$/, "Chip"],
   [/^pulse$/, "Pulse"],
   [/^toggle(__[a-z-]+)?$/, "Toggle"],
+  [/^iconchoice(__[a-z-]+)?$/, "IconChoice"],
+  [/^hintlines$/, "HintLines"],
   [/^(segmented|switch(--[a-z-]+|__[a-z-]+)?)$/, "Segmented"],
   [/^(choices|choice(--[a-z-]+|__[a-z-]+)?)$/, "ChoiceRows"],
   [/^checkbox(__[a-z-]+)?$/, "Checkbox"],

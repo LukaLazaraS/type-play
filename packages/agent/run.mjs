@@ -6,6 +6,8 @@
 //          --playtest (the agent writes and runs a bot play-test)  --slim (short custom system
 //          prompt instead of Claude Code's)  --genre auto|none|<a folder in genres/> (new games;
 //          auto: one cheap Haiku call picks it; edits reuse the game's GENRE file)
+//          --tags <name>[,<name>…] (new games: the tags the player picked, a file each in tags/; not both 2d and 3d,
+//          nor cozy and hard; edits reuse the game's TAGS file)
 //          --platform auto|phone|computer|fill (new games: the screens it is made for, rules/SCREEN_*.md; auto,
 //          the default: one shape the agent picks, portrait first; edits reuse the game's PLATFORM file)
 //          --steps 1|2|3 (new games: 2 = core, then polish; 3 = core with one level, then the
@@ -66,6 +68,16 @@ if (!game || !prompt) { console.error('need --game (or --dir) and --prompt'); pr
 // the player; or fill: the layout adapts to every shape. Every game gets the controls for touch, mouse and keys.
 const PLATFORMS = ['auto', 'phone', 'computer', 'fill'];
 if (!isEdit && !PLATFORMS.includes(opt('platform', 'auto'))) { console.error(`--platform: ${PLATFORMS.join(' | ')}`); process.exit(2); }
+// Tags (Luka, 10-27): what the player picked beside the genre on /create, several at once (2d or 3d, retro, …). Each is
+// a short rule file, tags/<name>.md, that the agent gets after the genre skill.
+const TAGS = readdirSync(join(HERE, 'tags')).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3));
+const pickedTags = isEdit ? [] : [...new Set(opt('tags', '').split(',').map((t) => t.trim()).filter(Boolean))];
+// Pairs that contradict each other: one of each at most.
+const EITHER = [['2d', '3d'], ['cozy', 'hard']];
+if (pickedTags.some((t) => !TAGS.includes(t)) || EITHER.some((pair) => pair.every((t) => pickedTags.includes(t)))) {
+  console.error(`--tags: any of ${TAGS.join(', ')}, comma-separated; not both of ${EITHER.map((p) => p.join(' and ')).join(', nor ')}`);
+  process.exit(2);
+}
 // project.godot's window settings per platform, over the template's (portrait 720×1280, stretch aspect "keep").
 // Fill: the short side is always 720 and the long side grows to the screen; it turns with the device.
 const DISPLAY = {
@@ -120,6 +132,8 @@ if (isEdit) {
     writeFileSync(join(dir, 'project.godot'), text);
   }
   writeFileSync(join(dir, 'PLATFORM'), opt('platform', 'auto') + '\n');
+  // The tags the same way, in TAGS (one line, as picked); no tags, no file.
+  if (pickedTags.length) writeFileSync(join(dir, 'TAGS'), pickedTags.join(' ') + '\n');
   if (opt('seed')) cpSync(resolve(opt('seed')), dir, { recursive: true }); // ports and tests: files the game starts with (Builder only)
   git('init', '-q'); git('add', '-A'); git('commit', '-qm', 'template');
 }
@@ -152,6 +166,9 @@ async function classify(request) {
 }
 const genreFile = join(dir, 'GENRE');
 let genre = opt('genre', 'auto');
+// A new game's genre named here (the player's pick on /create) is the game's genre; the agent's own pick (auto) only
+// helps, as the request wins over it.
+const pickedGenre = !isEdit && !['auto', 'none'].includes(genre);
 let size = 'small';
 const route = modelKey === 'auto' ? 'haiku' : modelKey;
 if (isEdit) genre = existsSync(genreFile) ? readFileSync(genreFile, 'utf8').trim() : 'none';
@@ -166,6 +183,10 @@ else {
   writeFileSync(genreFile, genre + '\n');
 }
 if (genre !== 'none') console.log(`genre skill: ${genre}`);
+// A change follows the tags the game was made with (unknown words in the file are skipped).
+const tagsFile = join(dir, 'TAGS');
+const tags = isEdit ? (existsSync(tagsFile) ? readFileSync(tagsFile, 'utf8').split(/\s+/).filter((t) => TAGS.includes(t)) : []) : pickedTags;
+if (tags.length) console.log(`tags: ${tags.join(', ')}`);
 
 // Every game gets the current feature-test helper on every run (older games and forks may
 // predate it or carry an older version; the agent is told not to change it).
@@ -184,8 +205,16 @@ const rules = [
   read('BASE.md').replace('{SCREEN}', () => screen).replace('{PLAYTEST}', playtest ? read('PLAYTEST.md') : ''),
   read('GOTCHAS.md'),
   genre !== 'none' && GENRES.includes(genre)
-    ? "\n**The player's request always wins over the genre defaults below.** If they ask for something different, or this genre doesn't fit what they asked for, do what they asked.\n"
+    ? (pickedGenre
+      // Picked by the player on /create (10-27): the game is this genre, with their idea inside it.
+      ? '\n**The player picked this genre for the game: make it one, with their idea inside it.** Their own words win over the genre defaults below (theme, characters, extra features), never over the genre itself.\n'
+      : "\n**The player's request always wins over the genre defaults below.** If they ask for something different, or this genre doesn't fit what they asked for, do what they asked.\n")
       + readFileSync(join(HERE, 'genres', genre, 'GENRE.md'), 'utf8')
+    : '',
+  // The player chose these on purpose: they win over the genre's defaults, and the game is all of them at once.
+  tags.length
+    ? `\n**The player picked ${tags.length === 1 ? 'this tag' : 'these tags'} for the game: make it ${tags.length === 1 ? 'so' : 'all of them at once'}.** A tag wins over the genre defaults above; where the player's own words ask for something more specific, follow the words and keep the tag.\n`
+      + tags.map((t) => readFileSync(join(HERE, 'tags', `${t}.md`), 'utf8').trimEnd()).join('\n\n') + '\n'
     : '',
   isEdit ? read('EDIT.md') : '',
 ].join('\n').replaceAll('{CHECK}', checkPath).replaceAll('{ASSETS}', assetsPath).replaceAll('{GODOT}', GODOT);
@@ -361,7 +390,7 @@ const [message, next] = await Promise.all([
 // the run failed.
 const record = {
   date: new Date().toISOString(), game, kind: isEdit ? 'edit' : 'new', prompt, route: modelKey === 'auto' ? `auto→${route}` : route,
-  genre, size, steps, platform, playtest, slim, ok: final.ok, playerMessage: message.text, messageCostUsd: +message.costUsd.toFixed(4),
+  genre, tags, size, steps, platform, playtest, slim, ok: final.ok, playerMessage: message.text, messageCostUsd: +message.costUsd.toFixed(4),
   suggestions: next.list, suggestionsCostUsd: +next.costUsd.toFixed(4),
   costUsd: +attempts.reduce((s, a) => s + a.costUsd, 0).toFixed(3),
   chargeUsd: final.ok ? +attempts.filter((a) => a.ok).reduce((s, a) => s + a.costUsd, 0).toFixed(3) : 0,

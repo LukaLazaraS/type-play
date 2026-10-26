@@ -2,21 +2,24 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Effort, ModelChoice } from "@typeplay/shared";
+import type { Effort, GameTag, Genre, ModelChoice } from "@typeplay/shared";
 import { EffortSwitch, effortLine, ModelRows } from "@/components/app/ModelPicker";
 import { PlatformSwitch } from "@/components/app/PlatformSwitch";
 import { SignIn } from "@/components/app/SignIn";
 import { useEstimates } from "@/components/app/useEstimates";
-import { AppIcon } from "@/components/ui/AppIcon";
 import { Ask } from "@/components/ui/Ask";
 import { Button } from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/ButtonLink";
+import { Chip } from "@/components/ui/Chip";
 import { ErrorLine } from "@/components/ui/ErrorLine";
 import { TextArea } from "@/components/ui/Field";
+import { HintLines } from "@/components/ui/HintLines";
+import { IconChoice } from "@/components/ui/IconChoice";
 import { PageWidget } from "@/components/ui/PageWidget";
-import { DRAFT_KEY, MAX_TEXT, starters, type PlatformChoice, type Starter } from "@/content/app";
+import { DRAFT_KEY, gameTags, genreAbout, genreAgain, genreNone, genres, MAX_TEXT, PICKS_KEY, tagsNone, type PlatformChoice } from "@/content/app";
 import { CLOSED_BETA_NOTE, closedBeta } from "@/content/beta";
 import { checkoutHref, planIdOf } from "@/content/billing";
+import { genreName } from "@/content/gallery";
 import { api, ApiFailure } from "@/lib/api";
 import { credits, creditsWord } from "@/lib/format";
 import { refreshMe, useSession } from "@/lib/session";
@@ -41,9 +44,48 @@ function save(text: string) {
   }
 }
 
-const SHORT = "Say a little more: what kind of game, and what you do in it.";
+/** The genre and tags picked for the next game: kept in this browser with the idea, so they survive the trip to Google. */
+type Picks = { genre: Genre | null; tags: GameTag[] };
+const NO_PICKS: Picks = { genre: null, tags: [] };
+function picksFrom(raw: string | null): Picks {
+  try {
+    const p = JSON.parse(raw ?? "null") as { genre?: unknown; tags?: unknown } | null;
+    const kept = Array.isArray(p?.tags) ? (p.tags as unknown[]) : [];
+    // Ours only, in the list's order; of a pair that can't go together (an older page's, or a hand-made value) the second.
+    const ids = gameTags.map((t) => t.id);
+    const beaten = (t: GameTag) => !!OTHER_SIDE[t] && kept.includes(OTHER_SIDE[t]) && ids.indexOf(t) < ids.indexOf(OTHER_SIDE[t]);
+    const tags = ids.filter((t) => kept.includes(t) && !beaten(t));
+    return { genre: genres.find((g) => g.id === p?.genre)?.id ?? null, tags };
+  } catch {
+    return NO_PICKS;
+  }
+}
+let keptPicks: { raw: string | null; picks: Picks } = { raw: null, picks: NO_PICKS };
+function readPicks(): Picks {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(PICKS_KEY);
+  } catch {
+    /* private mode */
+  }
+  if (raw !== keptPicks.raw) keptPicks = { raw, picks: picksFrom(raw) };
+  return keptPicks.picks;
+}
+function savePicks(picks: Picks) {
+  try {
+    if (picks.genre || picks.tags.length) localStorage.setItem(PICKS_KEY, JSON.stringify(picks));
+    else localStorage.removeItem(PICKS_KEY);
+  } catch {
+    /* private mode: nothing to keep */
+  }
+}
+/** 2D or 3D, Cozy or Hard: never both of a pair (their rules contradict), so picking one unpicks the other. */
+const OTHER_SIDE: Partial<Record<GameTag, GameTag>> = { "2d": "3d", "3d": "2d", cozy: "hard", hard: "cozy" };
 
-/** The app's front door: the sentence, genre starters, the AI and its cost, then Build. */
+const SHORT = "Say a little more: what kind of game, and what you do in it.";
+const SHORT_PICKED = "Say a little more: what you do in your game.";
+
+/** The app's front door: the sentence, its genre and tags, the screens, the AI and its cost, then Build. */
 export function CreateApp() {
   const params = useSearchParams();
   const router = useRouter();
@@ -52,6 +94,25 @@ export function CreateApp() {
   const saved = useSyncExternalStore(subscribe, readSaved, () => "");
   const [edited, setEdited] = useState<string | null>(null);
   const text = edited ?? (fromUrl || saved);
+  // Genre: one at most (none: the AI goes by the idea). Tags: any, 2D or 3D not both (Luka, 10-27).
+  const savedPicks = useSyncExternalStore(subscribe, readPicks, () => NO_PICKS);
+  const [chosen, setChosen] = useState<Picks | null>(null);
+  const picks = chosen ?? savedPicks;
+  // The tag touched last: its line shows under the tags while it stays picked.
+  const [lastTag, setLastTag] = useState<GameTag | null>(null);
+  const choose = (next: Picks) => {
+    setChosen(next);
+    savePicks(next);
+  };
+  const toggleTag = (tag: GameTag) => {
+    const on = picks.tags.includes(tag);
+    // Off: it goes. On: it joins in the list's order, and 2D or 3D takes the other one's place.
+    const next = on
+      ? picks.tags.filter((t) => t !== tag)
+      : gameTags.map((t) => t.id).filter((t) => t === tag || (picks.tags.includes(t) && t !== OTHER_SIDE[tag]));
+    choose({ ...picks, tags: next });
+    setLastTag(on ? null : tag);
+  };
 
   const me = session.status === "in" ? session.me : null;
   const allowed: ModelChoice[] = me?.models ?? ["fast"];
@@ -75,6 +136,9 @@ export function CreateApp() {
   useEffect(() => {
     if (!fromUrl) return;
     save(fromUrl);
+    // A new idea starts with nothing picked: picks left from an idea that was never built don't belong to it (the page
+    // reads the kept picks again as the address changes).
+    savePicks(NO_PICKS);
     router.replace("/create", { scroll: false });
   }, [fromUrl, router]);
 
@@ -93,16 +157,10 @@ export function CreateApp() {
     if (ask) setAsk(null);
   };
 
-  const fill = (s: Starter) => {
-    const at = s.examples.indexOf(text.trim());
-    change(s.examples[(at + 1) % s.examples.length]);
-    box.current?.focus({ preventScroll: true });
-  };
-
   const build = async (confirm = false) => {
     const prompt = text.trim();
     if (prompt.length < 8) {
-      setError(SHORT);
+      setError(picks.genre ? SHORT_PICKED : SHORT);
       box.current?.focus();
       return;
     }
@@ -114,8 +172,17 @@ export function CreateApp() {
     setError(null);
     setAsk(null);
     try {
-      const project = await api.create({ prompt, model, effort, confirm: confirm || undefined, platform: platform === "auto" ? undefined : platform });
+      const project = await api.create({
+        prompt,
+        model,
+        effort,
+        confirm: confirm || undefined,
+        platform: platform === "auto" ? undefined : platform,
+        genre: picks.genre ?? undefined,
+        tags: picks.tags.length ? picks.tags : undefined,
+      });
       save("");
+      savePicks(NO_PICKS);
       void refreshMe();
       router.push(`/games/${project.id}`);
     } catch (e) {
@@ -170,32 +237,46 @@ export function CreateApp() {
           />
         </div>
 
-        <div className="starters">
-          <span className="field-label" id="starters-label">
-            Or start from a kind of game
+        <IconChoice
+          name="genre"
+          legend="Genre"
+          about={genreAbout}
+          value={picks.genre}
+          onChange={(genre) => choose({ ...picks, genre })}
+          disabled={busy}
+          options={genres.map((g) => ({
+            value: g.id,
+            name: genreName[g.id],
+            picture: g.icon ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={g.icon} alt="" width={240} height={240} loading="lazy" />
+            ) : (
+              <TowerArt />
+            ),
+            about: g.line,
+          }))}
+        >
+          <HintLines
+            lines={[{ id: "genre-none", text: genreNone }, ...genres.map((g) => ({ id: `genre-${g.id}`, text: `${g.line} ${genreAgain}` }))]}
+            current={picks.genre ? `genre-${picks.genre}` : "genre-none"}
+          />
+        </IconChoice>
+
+        <div className="tags" role="group" aria-labelledby="tags-label" aria-describedby="tags-none">
+          <span className="field-label" id="tags-label">
+            Tags
           </span>
-          <ul className="starters__row" aria-labelledby="starters-label">
-            {starters.map((s) => (
-              <li key={s.genre}>
-                <AppIcon
-                  className="starter"
-                  disabled={!s.ready}
-                  onClick={() => fill(s)}
-                  label={s.ready ? `${s.genre}: put an example idea in the box` : `${s.genre}: coming`}
-                  picture={
-                    s.icon ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={s.icon} alt="" width={240} height={240} loading="lazy" />
-                    ) : (
-                      <TowerArt />
-                    )
-                  }
-                  name={s.genre}
-                  stat={s.ready ? "an idea" : "coming"}
-                />
-              </li>
+          <div className="tags__row">
+            {gameTags.map((t) => (
+              <Chip key={t.id} pressed={picks.tags.includes(t.id)} onClick={() => toggleTag(t.id)} disabled={busy} aria-describedby={`tag-${t.id}`}>
+                {t.name}
+              </Chip>
             ))}
-          </ul>
+          </div>
+          <HintLines
+            lines={[{ id: "tags-none", text: tagsNone }, ...gameTags.map((t) => ({ id: `tag-${t.id}`, text: t.line }))]}
+            current={lastTag && picks.tags.includes(lastTag) ? `tag-${lastTag}` : "tags-none"}
+          />
         </div>
 
         {session.status === "loading" && <div className="make__wait" aria-hidden="true" />}
@@ -273,7 +354,7 @@ export function CreateApp() {
   );
 }
 
-/** Tower defence has no test game yet: a flat tower on the dusk sky, drawn like the rest. */
+/** Tower defence has no picture of a game yet: a flat tower on the dusk sky, drawn like the rest. */
 function TowerArt() {
   return (
     <svg viewBox="0 0 112 112" aria-hidden="true">

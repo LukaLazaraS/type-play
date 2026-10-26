@@ -6,12 +6,13 @@
 // included for a Free build. A build still waiting QUEUE_WAIT_MIN after its turn leaves the line, as does one that is
 // stopped; its message says why, 0 credits. Every change is announced on the project's event stream ({ type: "queued" }).
 import { Injectable, Logger, type OnApplicationBootstrap, type OnApplicationShutdown, type OnModuleInit } from "@nestjs/common";
-import type { ApiErrorCode, Effort, ModelChoice, Platform } from "@typeplay/shared";
+import type { ApiErrorCode, Effort, GameTag, Genre, ModelChoice, Platform } from "@typeplay/shared";
 import { ApiException } from "../common/api-error.js";
 import { fromTenths, toTenths } from "../credits/credits.js";
 import { CreditsService, type CreditHold } from "../credits/credits.service.js";
 import { config } from "../env.js";
 import { EventBus } from "../events/event-bus.js";
+import { picksOf } from "../games/picks.js";
 import type { Plan, QueuedRun, User } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
 import { ProjectViews, toMessage } from "../projects/views.js";
@@ -34,7 +35,7 @@ const TAKEN_TEXT = "This build was interrupted by a restart on our side just as 
 /** What a new build in line needs written: QueuedRun's columns (nested under its agent message, in the same write). */
 export type QueuedRunData = Omit<QueuedRun, "messageId">;
 
-const entryOf = (row: Omit<QueuedRun, "prompt" | "platform" | "holdTenths">, model: ModelChoice, effort: Effort): QueuedEntry => ({
+const entryOf = (row: Omit<QueuedRun, "prompt" | "platform" | "genre" | "tags" | "holdTenths">, model: ModelChoice, effort: Effort): QueuedEntry => ({
   projectId: row.projectId,
   messageId: row.messageId,
   userId: row.userId,
@@ -103,10 +104,10 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
   }
 
   /** The row for a build going into the line now: its turn (paid now, free after the delay) and its hold. */
-  rowFor(r: { projectId: string; userId: string; kind: RunKind; prompt: string; platform: Platform | null; plan: Plan; hold: CreditHold; at: Date }): QueuedRunData {
+  rowFor(r: { projectId: string; userId: string; kind: RunKind; prompt: string; platform: Platform | null; genre: Genre | null; tags: GameTag[]; plan: Plan; hold: CreditHold; at: Date }): QueuedRunData {
     const lane = r.plan === "free" ? "free" : "paid";
     const turnAt = new Date(turnAtOf(r.at.getTime(), lane, config.queue.freeDelayMin * 60_000));
-    return { projectId: r.projectId, userId: r.userId, kind: r.kind, prompt: r.prompt, platform: r.platform, lane, queuedAt: r.at, turnAt, holdTenths: toTenths(r.hold.credits) };
+    return { projectId: r.projectId, userId: r.userId, kind: r.kind, prompt: r.prompt, platform: r.platform, genre: r.genre, tags: r.tags, lane, queuedAt: r.at, turnAt, holdTenths: toTenths(r.hold.credits) };
   }
 
   /** A build just written into the line (its message and row): mirrored, its hold kept, announced; it starts when it can. */
@@ -230,6 +231,7 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
       model: q.model,
       effort: row.message.effort ?? "medium",
       platform: row.platform,
+      ...picksOf(row),
       hold,
       startedAt,
     });
