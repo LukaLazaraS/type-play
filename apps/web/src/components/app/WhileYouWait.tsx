@@ -130,8 +130,9 @@ export function forgetWaiting() {
 export const useWaiting = () => useSyncExternalStore(subscribe, waitingFor, () => null);
 
 /**
- * Under the build's progress: three games as cards, the gallery's listings in small (Luka, 10-25: the icons were too
- * small to read as games), each a big picture with a Play chip and its name; a tap plays it in the stage. Then the gallery.
+ * Under the build's progress: three games as cards, the gallery's own (Luka, 10-25: the icons were too small to read as
+ * games; 10-27: the same card as Explore's, a wide game shown whole), each a big picture with a Play chip and its name; a
+ * tap plays it in the stage. Then the gallery.
  */
 export function WhileYouWait({ projectId, games, onPlay }: { projectId: string; games: WaitGame[] | null; onPlay: (g: WaitGame) => void }) {
   return (
@@ -144,7 +145,6 @@ export function WhileYouWait({ projectId, games, onPlay }: { projectId: string; 
           g ? (
             <GameCard
               key={g.key}
-              small
               name={g.name}
               label={`Play ${g.name}`}
               picture={<GameTile id={g.key} name={g.name} building={false} poster={g.poster ?? null} fill />}
@@ -152,7 +152,7 @@ export function WhileYouWait({ projectId, games, onPlay }: { projectId: string; 
               onClick={() => onPlay(g)}
             />
           ) : (
-            <GameCardSlot key={i} small />
+            <GameCardSlot key={i} />
           ),
         )}
       </ul>

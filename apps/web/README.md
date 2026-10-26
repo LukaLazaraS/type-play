@@ -328,16 +328,25 @@ PLAN.md "Better than the competitors" #9 with #4's share pages; the API's side: 
   sharing off takes it out of the gallery as well, and sharing again leaves it out until the switch goes on again. When an
   admin took it out after a report, the switch's line says so and names the support address; its link keeps working.
 - **`/explore`** (`app/explore/`; app builds only, like the share pages; **noindex** until Luka says otherwise,
-  `docs/parked.md` row 13): "Explore." with one line and the order as an ink pill bar (**Popular**: most plays in the last 7
-  days; **New**: the newest in the gallery); the **top game in its frame** on the share page's ink stage (Play loads the
-  real game in place, full screen on a phone; the name links to its page; Full screen, Share, Report this game) with the
-  "Make your own game." invitation beside an upright one on wide screens; then **listings** (the start screen at 3:4,
-  letterboxed when the game is wide; the name; this week's plays on Popular or all plays on New, over the genre, no plays
-  said as nothing; a Play mark; a flag to report it; the card opens `/play/<id>`), **Show more games** (24 a page, fetched
-  by the browser), and the invitation again at the end. The first
-  page is rendered on the server at request time (`lib/public.ts` `galleryFirst`), so a game taken out leaves at once.
-  States: empty (Make a game), one game (no listings), the API not answering. While the other order loads, its pill takes
-  the current look at once (`useLinkStatus`).
+  `docs/parked.md` row 13): "Explore." with one line; the **top game in its frame** (the week's most played, whatever the
+  library below shows) on the share page's ink stage (Play loads the real game in place, full screen on a phone; the name
+  links to its page; Full screen, Share, Report this game) with the "Make your own game." invitation beside an upright one
+  on wide screens; then **the library** (2026-10-27, Luka: a real library, not a few games): "Every game." with the count
+  ("6 games", "1 of 6 games" when filtered), a **search** by name (`ui/SearchField`; every word anywhere in the name, any
+  case; a quarter second after the last letter; Escape or the clear button empties it), the **order** (`ui/PillChoice`:
+  **Popular**, most plays in the last 7 days; **New**, the newest in the gallery; **All**, every game A to Z), the
+  **genres** that have games ("Any genre" first; one sideways-scrolling row on phones), then every game as a **card**
+  (the start screen at 3:4, letterboxed when the game is wide; the name; the plays as `ui/PlayCount`, the outline play
+  mark and the number, this week's on Popular and all of them otherwise, the full words for screen readers and as the
+  tooltip, nothing when there are none; the genre under them; a Play chip; a flag to report it; the card opens
+  `/play/<id>`), six across at full width, two on phones, the top game among them; **Show more games** with "24 of 306"
+  (24 a page, fetched by the browser), and the invitation again at the end. Every choice changes the cards in place: the
+  cards there dim while the next ones come (a newer choice drops the older answer), a screen reader hears the new count,
+  and the address follows (`?sort=new&genre=puzzle&q=fox`, replaced, so Back still leaves the page), so a reload or a
+  shared link opens the same view. The first pages are rendered on the server at request time (`lib/public.ts`
+  `galleryFirst`), so a game taken out leaves at once. States: empty (Make a game), one game (the top game alone, no
+  library), no match ("No game names match …", Show every game), the API not answering (Try again). Far-off cards are
+  skipped by the browser (`content-visibility`), so hundreds stay smooth.
 - **Plays.** A share page's frame, and the gallery's top game, send `POST /public/games/:id/play` when the frame says the
   game started (`ready`), once per page view (`lib/gallery.ts` `countPlay`; Try again doesn't count twice). The maker sees
   the count beside the version in the game's bar, in the Share menu, under the icon on /games (instead of "2 h ago") and in
@@ -348,12 +357,13 @@ PLAN.md "Better than the competitors" #9 with #4's share pages; the API's side: 
   reasons (the terms' "What you may not do" in player words), one optional line (500 letters), Send; then "Thanks for
   telling us." A second report from the same visitor about the same game within a day is thanked and not stored (the API's
   429). Escape, Cancel or a tap beside it close it; the focus goes back to the button that opened it.
-- **Links in:** the share page's "More games made with TypePlay" and /games' "Explore games". No status-bar link while the
-  app is in beta (a provisional call in `docs/parked.md`).
+- **Links in:** the status bar's **Games** on every page (2026-10-27; the public build, which has no gallery, keeps the
+  home page's `/#games`), the share page's "More games made with TypePlay" and /games' "Explore games".
 - **Tests:** `scripts/shot-gallery.mjs`, inside `shot-app.mjs` or alone
   (`node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-gallery.mjs [outDir] [siteUrl] [apiUrl]`, shots in
   `.impeccable/review/gallery/` by default when alone): the empty gallery, the Share menu's switch, a play counted once per
-  page view and the counts the maker sees, /explore signed out (Popular, New), a report from a listing and on a share page
+  page view and the counts the maker sees, /explore signed out (Popular, New and All in place, a genre, a search, no
+  match, an address with a view), a report from a listing and on a share page
   (and a second one from the same visitor), an admin hide (out of the gallery, the link still works, the maker's Share
   menu), phones, then worst cases planted in the database and removed afterwards (300 games, 60-letter, unbreakable, emoji,
   Georgian and Japanese names, 9,999,999 plays, missing and broken pictures, a wide game on top, Show more twice, 320 px).

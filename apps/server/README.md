@@ -158,13 +158,23 @@ PLAN.md "Better than the competitors" #9 with #4's share pages. `src/gallery/` (
   it is shared (or shared in the same request); `shared: false` sets `listed: false` too, and sharing again leaves it out.
   `listedAt` is the first time it went in and stays: going back in later doesn't move it up in New. Neither a listing nor
   an admin's hide moves the game up its maker's list (`updatedAt` stays).
-- `GET /public/gallery?sort=popular|new&cursor=&limit=` (no sign-in, `no-store`): listed, shared, not hidden games with a
-  build; 24 a page (`limit` 1-48). Popular orders by plays in the last 7 UTC days (today included), then `listedAt`, then
-  id; New by `listedAt`, id. Keyset cursors (base64url JSON of the last row's keys), so paging never repeats a game while
-  the order holds; Popular can move as people play (the site drops a game it already shows). A `GalleryGame` is id, name,
-  orientation, platform, buildId, poster, plays (all time), playsWeek, genre and listedAt, nothing about the maker. The genre is the
-  game folder's `GENRE` file (run.mjs writes it) when it names a genre skill, read as untrusted data: a plain file of at
-  most 64 bytes, never a link or a pipe.
+- `GET /public/gallery?sort=popular|new|all&genre=&q=&cursor=&limit=` (no sign-in, `no-store`): listed, shared, not hidden
+  games with a build; 24 a page (`limit` 1-48). Popular orders by plays in the last 7 UTC days (today included), then
+  `listedAt`, then id; New by `listedAt`, id; All (2026-10-27) by the name in lower case, A to Z, then id. `genre` keeps one
+  genre's games; `q` keeps names holding every one of its words (the first 5), anywhere and in any case (`ILIKE`, with `%`,
+  `_` and `\` as plain letters; 60 letters at most, else 400). "Any case" is the database's: Latin letters always; other
+  scripts (Ракета, ракета) only where its locale folds them, not on this PC's C-locale Postgres (the live one: not checked).
+  Keyset cursors (base64url JSON of the last row's keys), so paging never repeats a game while the order holds; pass the
+  same genre and q with them. Popular can move as people play (the site drops a game it already shows). A first page (no cursor) also says `total` (the games matching genre and q)
+  and `genres` (the whole gallery's games per genre, a genre with none left out), two counts beside the page's query. A
+  `GalleryGame` is id, name, orientation, platform, buildId, poster, plays (all time), playsWeek, genre and listedAt,
+  nothing about the maker.
+- **The genre** is the column `Project.genre` (enum `Genre`, 2026-10-27; migration `20261027000000_gallery_library`), copied
+  from the game folder's `GENRE` file (run.mjs writes it; read as untrusted data: a plain file of at most 64 bytes, never a
+  link or a pipe, a word that names a genre skill or nothing) after every build that makes a version and whenever the game
+  goes into the gallery. Games listed before the column existed get theirs when the API starts (`backfillGenres`, logged
+  "genres: N gallery game(s) filled in"). Search at scale: the name filter is a scan of the listed games, fine for
+  thousands; past that, a `pg_trgm` index on `name` is the step.
 - `POST /public/games/:id/play` (no sign-in, no body): the share page's frame said the game started. 204 for anything that
   looks like a game id (404 otherwise, before any work), counted or not; one upsert of `PlayCount` (game, UTC day, count)
   for a shared, built game. **Nothing about the visitor is stored.** The limits live in memory only (`limits.ts`, gone on
@@ -200,8 +210,9 @@ npm run admin -w @typeplay/server -- gallery unshare <gameId> [reason]   # stops
   opt-in rules (share first, unsharing takes it out, `listedAt` kept), plays (a private game counts nothing, 3 an hour per
   game and address, an IPv6 /64 as one address, 60 an hour per address, 120 a minute per game, the counts the maker and the
   share page get, the tables hold no visitor column), the gallery's pages (Popular by the week's plays with all-time plays on
-  the card, New, paging one and two at a time with every game once, the genre file, hidden / unshared / never built / not
-  listed left out, bad parameters), reports (404, 400s, the stored line, 429 twice from one address and after 5 an hour,
+  the card, New, All A to Z in any case, paging one and two at a time with every game once, the genre from the build's
+  file, from the folder when listed, and filled in by a starting API; a genre, a search by words in any order and case,
+  `%` and `_` as letters, the first page's counts, hidden / unshared / never built / not listed left out, bad parameters), reports (404, 400s, the stored line, 429 twice from one address and after 5 an hour,
   the third report hides by itself and is audited), `admin gallery reports | hide | unhide | dismiss | unshare` and their
   audit rows.
 

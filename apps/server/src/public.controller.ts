@@ -23,11 +23,18 @@ export class PublicController {
     return this.views.publicGame(id);
   }
 
-  /** The gallery: games their makers listed, newest or most played this week first. Never cached, so a game taken out leaves at once. */
+  /** The gallery: games their makers listed, most played this week, newest or A to Z first, of a genre or matching a search.
+   * Never cached, so a game taken out leaves at once. */
   @Get("gallery")
   @Header("Cache-Control", "no-store")
-  page(@Query("sort") sort?: unknown, @Query("cursor") cursor?: unknown, @Query("limit") limit?: unknown): Promise<GalleryPage> {
-    return this.gallery.page(sort, cursor, limit);
+  page(
+    @Query("sort") sort?: unknown,
+    @Query("cursor") cursor?: unknown,
+    @Query("limit") limit?: unknown,
+    @Query("genre") genre?: unknown,
+    @Query("q") q?: unknown,
+  ): Promise<GalleryPage> {
+    return this.gallery.page(sort, cursor, limit, genre, q);
   }
 
   /** The share page's game started (the frame said ready): one more play today. 204 whatever came of it, so it says nothing. */

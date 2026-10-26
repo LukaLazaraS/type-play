@@ -159,6 +159,10 @@ a {
   color: var(--on-sky-muted);
   transition: color 160ms var(--ease-out);
 }
+/* The words' links get a finger's height (44px) without looking any different; the Sign in pill has its own. */
+.statusbar nav a:not(.pill) {
+  padding-block: 10px;
+}
 @media (hover: hover) and (pointer: fine) {
   .statusbar nav a:hover {
     color: var(--on-sky);

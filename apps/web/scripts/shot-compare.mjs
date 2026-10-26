@@ -394,9 +394,9 @@ step("share four games and put them in the gallery", async () => {
     await sleep(50);
   }
 });
-add({ name: "explore", path: "/explore", full: true, ready: heading("More to play.") });
-add({ name: "explore-new", path: "/explore?sort=new", full: true, ready: heading("More to play.") });
-add({ name: "explore-report", path: "/explore", ready: heading("More to play."), act: async (p) => {
+add({ name: "explore", path: "/explore", full: true, ready: heading("Every game.") });
+add({ name: "explore-new", path: "/explore?sort=new", full: true, ready: heading("Every game.") });
+add({ name: "explore-report", path: "/explore", ready: heading("Every game."), act: async (p) => {
   await click(p, "Report Desert Racer");
   await dialogOpen(p);
   await p.locator("dialog[open] label").nth(2).click();
@@ -702,7 +702,7 @@ add({ name: "focus-create-model", who: "maker", path: "/create", ready: button("
 add({ name: "focus-create-build", who: "maker", path: "/create", ...draft(IDEA), ready: button("Build my game"), act: keyFocus((p) => p.getByRole("button", { name: "Build my game" })) });
 add({ name: "hover-create-build", who: "maker", path: "/create", ...draft(IDEA), vps: ["desktop"], ready: button("Build my game"), act: pointAt((p) => p.getByRole("button", { name: "Build my game" })) });
 add({ name: "hover-home-button", path: "/", vps: ["desktop"], ready: heading(/Type it/), act: pointAt((p) => p.getByRole("button", { name: "Make my game" })) });
-add({ name: "focus-explore-card", path: "/explore", ready: heading("More to play."), act: keyFocus((p) => p.locator(".gamecard__link").first()) });
+add({ name: "focus-explore-card", path: "/explore", ready: heading("Every game."), act: keyFocus((p) => p.locator(".gamecard__link").first()) });
 add({ name: "focus-game-segment", ...runner, act: async (p, vp) => {
   await chatTab(p, vp);
   await keyFocus((pg) => pg.locator(".composer .switch__opt input:checked").first())(p, vp);
