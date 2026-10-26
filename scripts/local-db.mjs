@@ -1,13 +1,11 @@
-// This PC's Postgres 17 for development and the automated tests (docs/environments.md): one server for every checkout,
-// two databases.
-//   typeplay_dev        `npm run dev`, the local site, the admin CLI (.env.development): kept, test data only
-//   typeplay_autotest   the automated test scripts (.env.autotest): emptied at the start of every run
+// This PC's Postgres 17 for development and the automated tests (docs/environments.md): one server for every checkout.
+//   typeplay_dev                   `npm run dev`, the local site, the admin CLI (.env.development): kept, test data only
+//   typeplay_autotest_<run>_<id>   one per automated test run, made and dropped by the run (scripts/test-run.mjs)
 // The live database is never used on this PC, and real users' data is never copied here.
 //   node scripts/local-db.mjs start        starts it if needed (in the background, below normal priority; it keeps
 //                                          running after the terminal closes, until `stop` or a restart of the PC),
-//                                          makes both databases and brings their tables up to date (prisma migrate deploy)
+//                                          makes typeplay_dev and brings its tables up to date (prisma migrate deploy)
 //   node scripts/local-db.mjs stop | status
-//   node scripts/local-db.mjs reset-autotest   the automated tests' database dropped and made again from the migrations
 // Portable Postgres binaries (npm @embedded-postgres/windows-x64) and the data live outside every checkout, in
 // %LOCALAPPDATA%\TypePlay\postgres-17; it listens on 127.0.0.1:54329 only, user postgres without a password.
 import { spawnSync } from "node:child_process";
@@ -23,16 +21,17 @@ const BIN = join(HOME, "pkg", "node_modules", "@embedded-postgres", "windows-x64
 export const DATA = join(HOME, "data");
 const LOG = join(HOME, "postgres.log");
 export const PORT = 54329;
-export const DATABASES = ["typeplay_dev", "typeplay_autotest"];
+export const DATABASES = ["typeplay_dev"];
 export const urlOf = (db) => `postgres://postgres@127.0.0.1:${PORT}/${db}`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const pgCtl = (...args) => spawnSync(join(BIN, "pg_ctl.exe"), args, { encoding: "utf8", windowsHide: true });
 export const running = () => existsSync(join(BIN, "pg_ctl.exe")) && pgCtl("status", "-D", DATA).status === 0;
 
-async function client(db) {
+/** A connection to one of the server's databases (`options`: pg.Client's own, such as application_name). */
+export async function client(db, options = {}) {
   const { default: pg } = await import(`file:///${join(ROOT, "node_modules", "pg", "lib", "index.js").replaceAll("\\", "/")}`);
-  const c = new pg.Client({ connectionString: urlOf(db) });
+  const c = new pg.Client({ connectionString: urlOf(db), ...options });
   await c.connect();
   return c;
 }
@@ -74,6 +73,14 @@ export async function startServer() {
       if ((await c.query("SHOW timezone")).rows[0].TimeZone !== "UTC") {
         await c.query("ALTER SYSTEM SET timezone TO 'UTC'");
         await c.query("ALTER SYSTEM SET log_timezone TO 'UTC'");
+        await c.query("SELECT pg_reload_conf()");
+      }
+      // Room for many test runs at once (each has a database and APIs of its own: two e2e runs together peaked at 36
+      // connections, 10-27); Postgres' default is 100. Takes effect at the server's next start (a PC restart, or stop
+      // and start), so a running server is never restarted under the runs using it.
+      const max = (await c.query("SELECT setting::int AS n, pending_restart AS pending FROM pg_settings WHERE name = 'max_connections'")).rows[0];
+      if (max.n < 300 && !max.pending) {
+        await c.query("ALTER SYSTEM SET max_connections = 300");
         await c.query("SELECT pg_reload_conf()");
       }
     } finally {
@@ -118,19 +125,7 @@ export function migrate(db) {
   if (r.status !== 0) throw new Error(`prisma migrate deploy on ${db} failed:\n${`${r.stdout}${r.stderr}`.slice(-1500)}`);
 }
 
-/** Every table emptied (the migrations' own record kept): the start of a test run. */
-export async function emptyDatabase(db) {
-  if (db !== "typeplay_autotest") throw new Error(`${db} is kept; only typeplay_autotest is emptied`);
-  const c = await client(db);
-  try {
-    const tables = (await c.query(`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`)).rows.map((r) => `"${r.tablename}"`);
-    if (tables.length) await c.query(`TRUNCATE ${tables.join(", ")} RESTART IDENTITY CASCADE`);
-  } finally {
-    await c.end();
-  }
-}
-
-/** Running, both databases there and up to date. */
+/** Running, typeplay_dev there and up to date. */
 export async function start() {
   await startServer();
   for (const db of DATABASES) {
@@ -153,14 +148,6 @@ async function dropOldTestDatabase() {
   }
 }
 
-/** The automated tests' database, fresh: migrated and empty (the test scripts call this first). */
-export async function freshAutotestDatabase() {
-  await startServer();
-  await createDatabase("typeplay_autotest");
-  migrate("typeplay_autotest");
-  await emptyDatabase("typeplay_autotest");
-}
-
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const cmd = process.argv[2];
   try {
@@ -171,16 +158,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
       console.log(running() ? (pgCtl("stop", "-D", DATA, "-m", "fast").status === 0 ? "Stopped." : "Could not stop it.") : "Not running.");
     } else if (cmd === "status") {
       console.log(running() ? `Running on 127.0.0.1:${PORT} (${HOME})` : "Not running.");
-    } else if (cmd === "reset-autotest") {
-      await startServer();
-      const c = await client("postgres");
-      await c.query("DROP DATABASE IF EXISTS typeplay_autotest WITH (FORCE)");
-      await c.end();
-      await createDatabase("typeplay_autotest");
-      migrate("typeplay_autotest");
-      console.log("typeplay_autotest made again from the migrations.");
     } else {
-      console.log("usage: node scripts/local-db.mjs start | stop | status | reset-autotest");
+      console.log("usage: node scripts/local-db.mjs start | stop | status");
       process.exit(2);
     }
   } catch (e) {

@@ -149,7 +149,9 @@ open the API account just before beta 1.
 - Knowledge lives in this repo (`CLAUDE.md`, `PLAN.md`, `docs/`), not in memory. Accounts and keys:
   `docs/cloudflare.md` (domains, R2), `docs/auth.md` (Supabase, Google sign-in), `deploy/README.md` (server).
   Environments: `docs/environments.md` (development and tests on this PC's own Postgres, never the live database;
-  real users' data is never copied to this PC). Code: private GitHub repo `LukaLazaraS/type-play`, branch `main`.
+  real users' data is never copied to this PC). Every test run and walk-through that starts a stack has a database of
+  its own and ports picked free (`scripts/test-run.mjs`): any number run at once, from any checkout; never point one at
+  `typeplay_dev` or at another run's database, and never give one a fixed port. Code: private GitHub repo `LukaLazaraS/type-play`, branch `main`.
 - Browser tasks (Claude in Chrome): only the Edge browser named **"Automation"** (signed in to
   Cloudflare etc.). If it isn't the connected one, run `switch_browser` and ask Luka to click
   Connect there; never fall back to another browser.

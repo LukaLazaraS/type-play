@@ -1,6 +1,7 @@
-// End-to-end test of the API, on the automated tests' own database (typeplay_autotest, emptied first: test/test-db.mjs):
-//   npm run test:e2e -w @typeplay/server     (after npm run build) starts its API on :3023 with DEV_AUTH=1 and
+// End-to-end test of the API, on a database of the run's own (typeplay_autotest_e2e_<id>, made fresh: test/test-db.mjs):
+//   npm run test:e2e -w @typeplay/server     (after npm run build) starts its API on a free port with DEV_AUTH=1 and
 //                                            AGENT_FAKE=1; API_URL runs it against a server of yours instead
+// Every API it starts takes a port picked free for this run (scripts/test-run.mjs), so runs from several checkouts go at once.
 // Uses fresh dev users (dev:e2e-<time>-a@test.local) and deletes them, their games and builds at the end.
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -10,13 +11,14 @@ import { join, resolve } from "node:path";
 import { crc32, inflateRawSync } from "node:zlib";
 import pg from "pg";
 
+import { freePort } from "../../../scripts/test-run.mjs";
 import { useTestDatabase } from "./test-db.mjs";
 
 const here = resolve(import.meta.dirname, "..");
 const root = resolve(here, "../..");
 await useTestDatabase();
 // The API under test: one of our own on the test database (stopped at the end), unless API_URL names one.
-const mainApi = process.env.API_URL ? null : await spawnApi(3023);
+const mainApi = process.env.API_URL ? null : await spawnApi();
 const API = process.env.API_URL || mainApi.url;
 const DATA = resolve(process.env.DATA_DIR || join(root, "data"));
 const BUILDS = resolve(process.env.GAMES_BUILDS_DIR || join(root, "apps/games/builds"));
@@ -158,9 +160,11 @@ const freeToday = async () => Number((await dbMain.query(`SELECT usd FROM "FreeS
 
 /**
  * A second API of our own (another port, fake runs), for what can't be driven through a running
- * server: the run timeout and the recovery of a run interrupted by a restart. Stopped with kill().
+ * server: the run timeout and the recovery of a run interrupted by a restart. Stopped with kill(). On a port picked free
+ * for this run, or `port` (an earlier one's, kept for this run: a restart on the same address).
  */
-async function spawnApi(port, extraEnv = {}) {
+async function spawnApi(extraEnv = {}, port = null) {
+  port ??= await freePort();
   const child = spawn(process.execPath, ["dist/main.js"], {
     cwd: here,
     env: { ...process.env, PORT: String(port), DEV_AUTH: "1", AGENT_FAKE: "1", ...extraEnv },
@@ -174,21 +178,21 @@ async function spawnApi(port, extraEnv = {}) {
     await new Promise((r) => setTimeout(r, 500));
     if (child.exitCode !== null) throw new Error(`the test API on :${port} exited: ${output.slice(-800)}`);
     const h = await fetch(`http://127.0.0.1:${port}/health`).then((r) => r.json()).catch(() => null);
-    if (h?.agent === "fake") return { url: `http://127.0.0.1:${port}`, kill: () => child.kill(), output: () => output };
+    if (h?.agent === "fake") return { url: `http://127.0.0.1:${port}`, port, kill: () => child.kill(), output: () => output };
   }
   child.kill();
   throw new Error(`the test API on :${port} did not start: ${output.slice(-800)}`);
 }
 
 /**
- * Security review 10-20 (apps/server/README.md "Security review 10-20"), against an API of our own on :3033 with
+ * Security review 10-20 (apps/server/README.md "Security review 10-20"), against an API of our own with
  * AGENT_AUTH=api and FAKE_METER=1: fake runs make one model call through the key proxy, to a mock Anthropic here. The Free
  * kill switch counts what the proxy metered, so a Stop (the agent cut before its record: $0 reported) still counts what
  * the model cost; a build is charged the larger of what the agent reports and the meter. And a body past the API's limit
  * is a 413 in one plain sentence (it was a 500 with a stack in the log), while 1.2 MB is still read.
  */
 async function securityChecks() {
-  console.log("security review 10-20: the kill switch counts the key proxy's meter (an API of our own on :3033, a mock Anthropic); 413 for a big body");
+  console.log("security review 10-20: the kill switch counts the key proxy's meter (an API of our own, a mock Anthropic); 413 for a big body");
   const { usageCostUsd } = await import("../dist/credits/prices.js");
   const usd = (tokens) => usageCostUsd("haiku", { input: 0, output: tokens, cacheWrite: 0, cacheRead: 0 });
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -210,12 +214,13 @@ async function securityChecks() {
     });
   });
   await new Promise((r) => upstream.listen(0, "127.0.0.1", r));
-  const sec = await spawnApi(3033, {
+  const proxyPort = await freePort();
+  const sec = await spawnApi({
     AGENT_AUTH: "api",
     ANTHROPIC_API_KEY: "sk-ant-api-e2e-only",
     ANTHROPIC_UPSTREAM: `http://127.0.0.1:${upstream.address().port}`,
-    KEY_PROXY_PORT: "8797",
-    KEY_PROXY_URL: "http://127.0.0.1:8797",
+    KEY_PROXY_PORT: String(proxyPort),
+    KEY_PROXY_URL: `http://127.0.0.1:${proxyPort}`,
     FAKE_METER: "1",
     BILLING_JOBS: "0",
   });
@@ -277,16 +282,16 @@ async function securityChecks() {
 }
 
 /**
- * The build queue (2026-10-26, apps/server/README.md "The build queue"), against an API of our own on :3016 with one
+ * The build queue (2026-10-26, apps/server/README.md "The build queue"), against an API of our own with one
  * builder (MAX_RUNS=1), a 3-second free delay and a 15-second wait limit; "HOLD" builds keep the builder busy until
  * stopped. Paid before free, first come first served; no starvation (a free build whose turn has come stays ahead of
  * paid builds that come later); nothing charged while a build waits, charged once it has run; Stop and deleting the game
  * take a build out of the line; the wait limit; the Free kill switch checked at a build's turn; a restart keeps the line.
  */
 async function queueChecks(db) {
-  console.log("the build queue (an API of our own on :3016: one builder, a 3 s free delay, a 15 s wait limit)");
+  console.log("the build queue (an API of our own: one builder, a 3 s free delay, a 15 s wait limit)");
   const env = { MAX_RUNS: "1", QUEUE_FREE_DELAY_MIN: "0.05", QUEUE_WAIT_MIN: "0.25", BILLING_JOBS: "0" };
-  let q = await spawnApi(3016, env);
+  let q = await spawnApi(env);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const call = (token, method, path, body) => api(token, method, path, body, q.url);
   const events = (token, id) => openEvents(token, id, q.url);
@@ -421,7 +426,7 @@ async function queueChecks(db) {
     for (const s of streams.splice(0)) s.close();
     q.kill(); // no shutdown hooks: as if the server died
     await sleep(1500);
-    q = await spawnApi(3016, env);
+    q = await spawnApi(env, q.port);
     let p4After = null;
     for (let i = 0; i < 20 && p4After?.status !== "running"; i++) {
       p4After = (await call(P2, "GET", `/projects/${p4.body.id}`)).body;
@@ -444,15 +449,15 @@ async function queueChecks(db) {
 }
 
 /**
- * The public gallery, play counts and reports, against an API of our own on :3019 started with TRUST_PROXY=1: a
+ * The public gallery, play counts and reports, against an API of our own started with TRUST_PROXY=1: a
  * test can then be several visitors (CF-Connecting-IP), and the in-memory limits start from nothing.
  */
 async function galleryChecks(db) {
-  console.log("the gallery: opt-in, play counts and their limits, the gallery's pages, reports, admin (an API of our own on :3019)");
+  console.log("the gallery: opt-in, play counts and their limits, the gallery's pages, reports, admin (an API of our own)");
   const { addressKey } = await import("../dist/gallery/limits.js");
   ok(addressKey("203.0.113.9") === "203.0.113.9" && addressKey("::ffff:203.0.113.9") === "203.0.113.9", "an IPv4 address, also when written as IPv6, is one address");
   ok(addressKey("2001:db8:1:2::1") === addressKey("2001:0db8:0001:0002:ffff:0:0:3") && addressKey("2001:db8:1:2::1") !== addressKey("2001:db8:1:3::1"), "IPv6: a whole /64 is one address, the next /64 another");
-  const gal = await spawnApi(3019, { TRUST_PROXY: "1" });
+  const gal = await spawnApi({ TRUST_PROXY: "1" });
   const GA = `dev:e2e-${stamp}-ga@test.local`;
   const GB = `dev:e2e-${stamp}-gb@test.local`;
   const call = async (token, method, path, body, ip) => {
@@ -742,14 +747,14 @@ async function feedbackChecks(db, othersGame) {
 }
 
 /**
- * The closed beta (BETA_INVITE_ONLY), against an API of our own on :3021 started with it on: an uninvited email is 403
+ * The closed beta (BETA_INVITE_ONLY), against an API of our own started with it on: an uninvited email is 403
  * invite_only on every signed-in route and makes no user; an invite lets it in (Gmail's dots, a +tag and capitals don't
  * matter), admin grant works for it, removing the invite locks the account out again; ADMIN_EMAILS always get in;
  * admin invite add | list | remove and their audit rows. The main API runs with it off (this PC's default): every other
  * check in this file is "as today".
  */
 async function inviteChecks(db) {
-  console.log("the closed beta: invite only on an API of our own on :3021 (BETA_INVITE_ONLY=1); admin invite add | list | remove");
+  console.log("the closed beta: invite only on an API of our own (BETA_INVITE_ONLY=1); admin invite add | list | remove");
   const { inviteMatch } = await import("../dist/beta/invites.js");
   const { emailHash } = await import("../dist/auth/tombstone.js");
   ok(
@@ -758,7 +763,7 @@ async function inviteChecks(db) {
   );
   ok((await (await fetch(`${API}/health`)).json()).inviteOnly === false, "the main API (this PC's default): invite only off, so every check above ran as today");
   const BOSS = `dev:e2e-${stamp}-boss@test.local`;
-  const beta = await spawnApi(3021, { BETA_INVITE_ONLY: "1", ADMIN_EMAILS: emailOf(BOSS) });
+  const beta = await spawnApi({ BETA_INVITE_ONLY: "1", ADMIN_EMAILS: emailOf(BOSS) });
   const U = `dev:e2e-${stamp}-u@test.local`; // never invited
   const I = `dev:e2e-${stamp}-inv@gmail.com`; // invited as written below
   const given = `E2E-${stamp}-I.N.V+beta@Gmail.com`;
@@ -898,7 +903,7 @@ async function inviteChecks(db) {
 }
 
 /**
- * Beta codes (Luka, 10-24), against an API of our own on :3027 with the closed beta on and the overall limit lowered to
+ * Beta codes (Luka, 10-24), against an API of our own with the closed beta on and the overall limit lowered to
  * 9 wrong codes an hour (BETA_CODE_TRIES_PER_HOUR_ALL; 50 live): admin code add | list | remove; an account that isn't
  * invited types a code (POST /beta/code, the one route it may call): six digits only; 5 wrong an hour per account
  * (403 code_wrong saying the tries left, then 429 too_many, even for the right code); a right code invites the email and
@@ -906,17 +911,20 @@ async function inviteChecks(db) {
  * code; admins and invited accounts pass without using one; invite add as before; the overall limit; the audit rows.
  */
 async function codeChecks(db) {
-  console.log("beta codes: an API of our own on :3027 (BETA_INVITE_ONLY=1, 9 wrong codes an hour in all); admin code add | list | remove");
+  console.log("beta codes: an API of our own (BETA_INVITE_ONLY=1, 9 wrong codes an hour in all); admin code add | list | remove");
   const BOSS = `dev:e2e-${stamp}-cboss@test.local`;
-  const beta = await spawnApi(3027, { BETA_INVITE_ONLY: "1", ADMIN_EMAILS: emailOf(BOSS), BETA_CODE_TRIES_PER_HOUR_ALL: "9" });
+  const beta = await spawnApi({ BETA_INVITE_ONLY: "1", ADMIN_EMAILS: emailOf(BOSS), BETA_CODE_TRIES_PER_HOUR_ALL: "9" });
   const tok = (name) => `dev:e2e-${stamp}-c${name}@test.local`;
   const [A, B, C, D, W] = ["a", "b", "c", "d", "w"].map(tok);
   const ask = async (token, method, path, body) => {
-    const res = await fetch(beta.url + path, {
-      method,
-      headers: { Authorization: `Bearer ${token}`, ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    const send = () =>
+      fetch(beta.url + path, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    // As api() above: a keep-alive socket the server closed during an admin CLI pause is reset; send once more.
+    const res = await send().catch((e) => (e?.cause?.code === "ECONNRESET" ? send() : Promise.reject(e)));
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const redeem = (token, code) => ask(token, "POST", "/beta/code", code === undefined ? {} : { code });
@@ -1462,7 +1470,8 @@ async function main() {
   ok(del.status === 200 && del.body.ok === true, "delete: ok");
   ok((await api(B, "GET", `/projects/${gone}`)).status === 404 && !(await api(B, "GET", "/projects")).body.some((g) => g.id === gone), "gone from the API and the list");
   ok(!existsSync(join(DATA, "projects", gone)) && goneBuilds().length === 0, "its folder and builds are gone");
-  ok(!readdirSync(join(DATA, "logs")).some((f) => f.startsWith(`${gone}-`)), "its run logs are gone");
+  // A new checkout has no data/logs until a real run writes one (the fake runs write none).
+  ok(!(existsSync(join(DATA, "logs")) && readdirSync(join(DATA, "logs")).some((f) => f.startsWith(`${gone}-`))), "its run logs are gone");
   ok((await api(B, "GET", "/me")).body.credits.available === balanceB, "the balance stays (the ledger keeps the charge)");
   const deletedEntry = (await api(B, "GET", "/me/usage?limit=100")).body.entries.find((e) => e.prompt === "Game number 0" || (e.gameDeleted && e.kind === "charge"));
   ok(deletedEntry?.gameDeleted === true && deletedEntry.game === null, "history: the charge says the game was deleted");
@@ -1621,10 +1630,10 @@ async function main() {
   ok(auditRows.join() === "plan,grant,audit,grant,audit,user,flag_clear", `every admin command wrote a BillingAudit row (${auditRows.join()})`);
   ok(auditOk(), "admin audit over everyone: the invariants hold");
 
-  console.log("run timeout and an interrupted run (an API of our own on :3013)");
+  console.log("run timeout and an interrupted run (an API of our own)");
   // RUN_TIMEOUT_MIN=0.05: 3 s, less than the fake run's 5.3 s, so every build times out.
   const T = `dev:e2e-${stamp}-t@test.local`;
-  const slow = await spawnApi(3013, { RUN_TIMEOUT_MIN: "0.05" });
+  const slow = await spawnApi({ RUN_TIMEOUT_MIN: "0.05" });
   let tGame = null;
   try {
     const tApi = (method, path, body) => api(T, method, path, body).catch(() => ({ status: 0, body: null }));
@@ -1649,7 +1658,7 @@ async function main() {
     await db.query(`UPDATE "Message" SET status = 'running', text = '' WHERE id = $1`, [last.id]);
     slow.kill();
     await new Promise((r) => setTimeout(r, 1500));
-    const again = await spawnApi(3013, { RUN_TIMEOUT_MIN: "0.05" });
+    const again = await spawnApi({ RUN_TIMEOUT_MIN: "0.05" }, slow.port);
     try {
       const after = (await send("GET", `/projects/${tGame.id}`)).body;
       const recovered = after?.messages.at(-1);
@@ -1673,7 +1682,7 @@ async function main() {
 
   // The Supabase sign-in record: the API deletes it with this statement (account.service.ts). Real
   // Google users can't sign in here, so try it on a throwaway Supabase user made with the admin API.
-  // Only where the database is a Supabase project's (the online test environment, later): typeplay_autotest on this PC
+  // Only where the database is a Supabase project's (the online test environment, later): a run's database on this PC
   // has no auth schema, and the tests never touch the live project's sign-ins (docs/environments.md).
   const supabaseDb = (await db.query("SELECT to_regclass('auth.users') AS t")).rows[0].t !== null;
   if (!supabaseDb) {

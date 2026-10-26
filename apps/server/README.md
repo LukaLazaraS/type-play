@@ -29,7 +29,7 @@ it starts inherit that.
 ## Env keys (root `.env`, git-ignored; names only)
 
 - `DATABASE_URL` (transaction pooler, the app), `DIRECT_URL` (session pooler, migrations): the live values in `.env`;
-  on this PC `.env.development` / `.env.autotest` set them to `typeplay_dev` / `typeplay_autotest` first (`src/env-files.ts`)
+  on this PC `.env.development` / `.env.autotest` set them to `typeplay_dev` / this PC's Postgres first (`src/env-files.ts`; each test run then sets its own database)
 - `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` (sign-in check; `docs/auth.md`)
 - Optional: `PORT` (3002), `HOST` (127.0.0.1), `DATA_DIR` (`<repo>/data`), `GAMES_BUILDS_DIR`
   (`apps/games/builds`), `GODOT_VERSION` (4.7.2), `GODOT_EXE`, `MAX_RUNS` (3), `RUN_TIMEOUT_MIN` (40),
@@ -82,25 +82,26 @@ build publishes without a poster; `FILL` on a change makes the game fill every s
 the agent does when asked to make a game fit other screens too); a first build sets them for the request's platform; a build that works brings nine fixed next-step ideas; with `FAKE_METER=1`, `METER:<n>` makes one Haiku call through the key proxy at the
 start, whose (mock) answer reports `<n>` output tokens. Real git commits, real builds, real ledger entries.
 
-The database tests run on `typeplay_autotest` (`.env.autotest`; `test/test-db.mjs` starts this PC's Postgres if needed,
-brings the database up to date and empties it first), so they can run any time, beside the live beta and `npm run dev`;
-nothing else may use that database (a run empties it).
+Each database test run gets a database of its own, `typeplay_autotest_<script>_<id>` (`test/test-db.mjs` starts this
+PC's Postgres if needed, makes it from this checkout's migrations and drops it when the run ends), and every API it
+starts takes a port picked free for the run (`scripts/test-run.mjs`; `docs/environments.md` "The automated tests"). So
+any number of runs, from any checkout, go at the same time, beside the live beta, `npm run dev` and the local site.
 
 ```
-npm run test:e2e -w @typeplay/server          # 434 checks (2026-10-26); starts its own API on :3023 with DEV_AUTH=1 AGENT_FAKE=1 (API_URL to use yours);
+npm run test:e2e -w @typeplay/server          # 434 checks (2026-10-26); starts its own API with DEV_AUTH=1 AGENT_FAKE=1 (API_URL to use yours);
                                               # makes and deletes its own test users; the Supabase sign-in record check runs only where
                                               # the database is a Supabase project's (the online test environment, later); starts
-                                              # a second API on :3013 of its own for the run timeout and the interrupted-run recovery,
-                                              # one on :3016 with MAX_RUNS=1 for the build queue (and a restart of it),
-                                              # one on :3019 with TRUST_PROXY=1 for the gallery (several visitors, fresh limits),
-                                              # one on :3021 with BETA_INVITE_ONLY=1 for the closed beta, and one on :3033 (its key
-                                              # proxy on :8797) with AGENT_AUTH=api FAKE_METER=1 and a mock Anthropic ("Security review 10-20")
+                                              # a second API of its own for the run timeout and the interrupted-run recovery,
+                                              # one with MAX_RUNS=1 for the build queue (and a restart of it),
+                                              # one with TRUST_PROXY=1 for the gallery (several visitors, fresh limits),
+                                              # one with BETA_INVITE_ONLY=1 for the closed beta, and one (with its key
+                                              # proxy) with AGENT_AUTH=api FAKE_METER=1 and a mock Anthropic ("Security review 10-20")
 npm run test:ledger -w @typeplay/server       # the ledger's arithmetic (53 checks, no database; after a build)
 npm run test:queue -w @typeplay/server        # the build queue's order and rough waits (21 checks, no database; after a build)
 npm run test:proxy -w @typeplay/server        # the key proxy's metering against a mock Anthropic (11 checks, no key, no network)
-npm run test:billing -w @typeplay/server      # Paddle webhooks, inbox, handlers, admin and services against a stub (233 checks; starts its own API on :3014, :3025-3028)
+npm run test:billing -w @typeplay/server      # Paddle webhooks, inbox, handlers, admin and services against a stub (233 checks; starts its own APIs)
 npm run test:android -w @typeplay/server      # Android export's pure parts: preset, names, crypto, manifest check, zip/ELF, the phone link, a Stop against the queue (133 checks, no database)
-npm run test:android:e2e -w @typeplay/server  # Android export end to end with a fake job + signer, the icon route (a 1 MB icon included), a fake R2 bucket (96 checks; starts its own API on :3015)
+npm run test:android:e2e -w @typeplay/server  # Android export end to end with a fake job + signer, the icon route (a 1 MB icon included), a fake R2 bucket (96 checks; starts its own API)
 ```
 
 ## Account, game management, share pages (added 2026-10-18)
@@ -196,7 +197,7 @@ npm run admin -w @typeplay/server -- gallery unshare <gameId> [reason]   # stops
   Reports' words are printed as one line without control characters: strangers wrote them, read them as data.
 - Migration `20261023000000_gallery` (applied to the dev database 10-18): `Project.listed`, `listedAt`, `hiddenAt`,
   `hiddenReason`, the tables `PlayCount` and `GameReport` (enum `ReportReason`). Plays and reports go with their game.
-- Tests: `test/e2e.mjs`, "the gallery" (its own API on :3019 with `TRUST_PROXY=1`, so one test is many visitors): the
+- Tests: `test/e2e.mjs`, "the gallery" (its own API with `TRUST_PROXY=1`, so one test is many visitors): the
   opt-in rules (share first, unsharing takes it out, `listedAt` kept), plays (a private game counts nothing, 3 an hour per
   game and address, an IPv6 /64 as one address, 60 an hour per address, 120 a minute per game, the counts the maker and the
   share page get, the tables hold no visitor column), the gallery's pages (Popular by the week's plays with all-time plays on
@@ -265,7 +266,7 @@ npm run admin -w @typeplay/server -- feedback done <id>            # dealt with:
   `BetaCodeTry`, and `Invite.code` (the code that made an invite; `invite list` says "by code").
 - Tests: `test/e2e.mjs` "feedback" (against the API it runs on: 14 refusals that store nothing, what a note keeps, 4,000
   Georgian letters, the 11th of a day, the export, `admin feedback …` and its audit rows, a deleted game, a closed
-  account) and "the closed beta" (its own API on :3021 with `BETA_INVITE_ONLY=1`: 403 `invite_only` on 19 signed-in
+  account) and "the closed beta" (its own API with `BETA_INVITE_ONLY=1`: 403 `invite_only` on 19 signed-in
   routes with no user made, the public routes and 401 unchanged, `ADMIN_EMAILS`, an invite written with dots, a +tag and
   capitals, `grant` for the invited tester, `invite list`, a removal locking the account out again, the audit rows); the
   main API runs with the closed beta off, so the rest of the file is "as today".
@@ -445,8 +446,8 @@ Every command writes `BillingAudit`.
 **Tests**: `npm run test:billing -w @typeplay/server` (after a build): `test/billing.mjs` starts `test/paddle-stub.mjs`
 (every endpoint of §5's table, Paddle's shapes, recorded calls, switches for a 409 customer, timeouts, a down
 Paddle, a declined card, the renewal lock, a cancel refused with another code, a refused key, a wrong price) and an
-API of its own on :3014 pointed at it (more on :3025-3028 for the start-up cases; a port something else answers on
-fails loudly); 233 checks (191 for parts 1-2, 42 for part 3's endpoints, "Billing endpoints" below):
+API of its own on a free port pointed at it (more for the start-up cases; a port something else answers on fails
+loudly); 233 checks (191 for parts 1-2, 42 for part 3's endpoints, "Billing endpoints" below):
 the signature cases (good, bad, stale, two `h1`, the previous secret, tampered body, no header, bad JSON, bad
 envelope), duplicates and replays, the simulator's sequence in order and shuffled (plan + 100 credits exactly once),
 the verify pull, renewals with the cap, an upgrade's prorated credits, a declined card, a pending downgrade (undo,
@@ -634,7 +635,7 @@ When every builder is busy (`MAX_RUNS` agent runs going; an Android build counts
 - `/health` gains `queued`. A restart keeps the line, but it still stops the builds going, so `deploy.mjs api` still
   checks `runs`.
 
-Tests: `npm run test:queue` (the order and the waits, no database) and the e2e's "the build queue" (its own API on :3016
+Tests: `npm run test:queue` (the order and the waits, no database) and the e2e's "the build queue" (its own API
 with one builder, a 3 s free delay and a 15 s wait limit): paid before free, no starvation, nothing charged while
 waiting and charged once it ran, Stop and deleting the game, the wait limit, the kill switch at a build's turn, a
 restart that keeps the line.
@@ -851,7 +852,7 @@ and the phone link: its shape (79 characters against a presigned URL's 429 and m
 with a stubbed database and a clock moved by hand: the redirect for an R2 path, a URL cut to what is left of the link's
 life, a token refused past its 10 minutes, for another game's row, with the build swept or the game deleted, an unknown
 token; and a Stop against the queue: stopped with one conditional update, sent to the job when the queue claimed the row
-first, and a row stopped after it was picked up is not started); `test/android-e2e.mjs` (its own API on :3015, `AGENT_FAKE` + `ANDROID_FAKE`: Free 403, setup and its 409s, queued →
+first, and a row stopped after it was picked up is not started); `test/android-e2e.mjs` (its own API, `AGENT_FAKE` + `ANDROID_FAKE`: Free 403, setup and its 409s, queued →
 running → signing → done on the stream with matching rows and green checks, download, the phone link without sign-in,
 the key zip and its counter, the AAB locking the package, a tampered manifest → `mismatch`, a game error → `game`, the
 one-a-minute 429, chat during a build → 409, cancel, `/me/export`, an interrupted build failed at the next start, delete
@@ -907,7 +908,7 @@ without sign-in, ownership on every game route, secrets, the site's redirects an
 1. **The Free kill switch ignored the key proxy's meter** (`runs.service.ts` `aiSpentUsd`). On the live server a Stop, a
    timeout or a crash leaves the agent without its record, so it reports $0 although the model was paid: the $20 a day
    of Free AI (every beta tester is on Free) counted nothing for those, and Stops could spend without limit. Now a run
-   counts the larger of what it reported and what the proxy metered. e2e "security review 10-20" (its API on :3033 with
+   counts the larger of what it reported and what the proxy metered. e2e "security review 10-20" (its own API with
    `AGENT_AUTH=api FAKE_METER=1`, a mock Anthropic): a Stop after one $3.00 call is charged 0 credits, stores $3.00
    metered and adds $3.00 to `FreeSpend`; a build with $0.30 metered is charged 5 credits and adds $0.30, not the
    reported $0.14; only our key reaches the model API.

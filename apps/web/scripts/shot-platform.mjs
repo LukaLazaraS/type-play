@@ -1,6 +1,7 @@
-// The platform choice (10-25), end to end with screenshots, on a stack of its own on spare ports so the local site on
-// 3000-3002 is never touched: the API on :3051 (DEV_AUTH=1, AGENT_FAKE=1), the games origin on :3052, the site on :3050
-// (`next dev` with its own NEXT_DIST_DIR, .next/platform; tsconfig.json is put back afterwards). Build the API first
+// The platform choice (10-25), end to end with screenshots, on a stack of its own on ports picked free and a database of
+// its own (dev-env.mjs useOwnStack), so the local site and other runs are never touched: the API (DEV_AUTH=1,
+// AGENT_FAKE=1), the games origin, the site (`next dev` with its own NEXT_DIST_DIR, .next/platform; tsconfig.json is put
+// back afterwards). Build the API first
 // (npm run build -w @typeplay/server), then, through the CPU limiter:
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-platform.mjs [outDir]
 // Shots in .impeccable/review/platform/. Checks: /create's Made for (Best fit / Phone / Computer / Any screen) starting
@@ -17,19 +18,16 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
-import { useDevEnv } from "./dev-env.mjs";
+import { useOwnStack } from "./dev-env.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
 const serverDir = join(root, "apps/server");
 const out = process.argv[2] ?? join(root, ".impeccable/review/platform");
-const SITE_PORT = 3050;
-const API_PORT = 3051;
-const GAMES_PORT = 3052;
+mkdirSync(out, { recursive: true });
+const [SITE_PORT, API_PORT, GAMES_PORT] = await useOwnStack("platform", 3);
 const base = `http://localhost:${SITE_PORT}`;
 const apiBase = `http://127.0.0.1:${API_PORT}`;
-mkdirSync(out, { recursive: true });
-await useDevEnv();
 
 const stamp = Date.now().toString(36);
 const maker = `platform-${stamp}@dev.test`;

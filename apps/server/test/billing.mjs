@@ -1,12 +1,13 @@
 // Payments part 2 end to end (docs/payments-design.md §12): the Paddle webhook, the inbox and its
-// handlers, the billing services and the admin's Paddle commands, against an API of our own on :3014
-// (DEV_AUTH=1 AGENT_FAKE=1, billing in sandbox mode pointed at test/paddle-stub.mjs) and the tests' database
-// (typeplay_autotest, emptied first: test/test-db.mjs).
+// handlers, the billing services and the admin's Paddle commands, against an API of our own on a free port
+// (DEV_AUTH=1 AGENT_FAKE=1, billing in sandbox mode pointed at test/paddle-stub.mjs) and a database of the run's own
+// (typeplay_autotest_billing_<id>, made fresh: test/test-db.mjs).
 //   npm run build -w @typeplay/server && npm run test:billing -w @typeplay/server
 // Makes its own users (dev:bill-<time>-*@test.local), events (evt_bill<time>_*) and payments, and removes them.
 import { spawn, spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import pg from "pg";
+import { freePort } from "../../../scripts/test-run.mjs";
 import { PRICE_IDS, startStub } from "./paddle-stub.mjs";
 import { useTestDatabase } from "./test-db.mjs";
 
@@ -14,7 +15,7 @@ const here = resolve(import.meta.dirname, "..");
 const root = resolve(here, "../..");
 await useTestDatabase();
 
-const PORT = 3014;
+const PORT = await freePort();
 const API = `http://127.0.0.1:${PORT}`;
 const SECRET = "pdl_ntfset_test_secret_current_0000000000000000";
 const PREVIOUS = "pdl_ntfset_test_secret_previous_000000000000000";
@@ -147,7 +148,7 @@ const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
 await db.connect();
 
 async function spawnApi(port, extraEnv = {}) {
-  // Another test's API on this port (the Android e2e uses :3015, the e2e :3013) would answer our health polls as if ours had started.
+  // Something else on this port would answer our health polls as if ours had started (the ports are picked free: a check).
   if (await fetch(`http://127.0.0.1:${port}/health`).then(() => true).catch(() => false)) throw new Error(`port ${port} is busy: something else answers /health there; pick another port`);
   const child = spawn(process.execPath, ["dist/main.js"], { cwd: here, env: { ...process.env, ...paddleEnv, PORT: String(port), ...extraEnv }, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
   let output = "";
@@ -939,7 +940,7 @@ async function main() {
   );
   ok(expI.body.billing?.subscriptionStatus === "active" && expI.body.billing.paymentMethod === "Visa ending 4242" && expI.body.notes.some((n) => /payments/.test(n)), "and the subscription as our rows have it, with a note on where the invoices are");
   // No keys at all: every billing route is 503 billing_off, and the rest of the API works.
-  const offApi = await spawnApi(3026, { PADDLE_ENV: "", PADDLE_API_KEY: "" });
+  const offApi = await spawnApi(await freePort(), { PADDLE_ENV: "", PADDLE_API_KEY: "" });
   ok(offApi.health?.billing?.mode === "off", "an API without Paddle keys: billing off");
   const offHeaders = { Authorization: `Bearer ${I}`, "content-type": "application/json" };
   const offInfo = await fetch(`${offApi.url}/billing`, { headers: offHeaders });
@@ -966,13 +967,13 @@ async function main() {
   // ---- The start-up guards -----------------------------------------------------------------------------------
   console.log("start-up: a catalog mismatch refuses to start; Paddle down means 503 until it answers");
   stub.state.fail.priceMismatch = { [PRICE_IDS.high]: { unit_price: { amount: "4500", currency_code: "USD" } } };
-  const bad = await spawnApi(3025);
+  const bad = await spawnApi(await freePort());
   stub.state.fail.priceMismatch = null;
   ok(bad.exited !== null && bad.exited !== 0 && /does not match credits\.ts/.test(bad.output()) && /high .*amount 4500 \(want 5000\)/.test(bad.output()), `a price that doesn't match credits.ts: the API refuses to start and says which (exit ${bad.exited})`);
   bad.kill();
   // A key Paddle refuses (403: expired, revoked, a permission missing) must not take the API down.
   stub.state.fail.unauthorized = true;
-  const refusedKey = await spawnApi(3027);
+  const refusedKey = await spawnApi(await freePort());
   stub.state.fail.unauthorized = false;
   ok(refusedKey.exited === null && refusedKey.health?.billing?.mode === "sandbox" && refusedKey.health.billing.ready === false && /key was refused \(403 forbidden\)/.test(refusedKey.health.billing.problem ?? ""), `a key Paddle refuses: the API starts, GET /health says why (${refusedKey.health?.billing?.problem})`);
   const refusedHeaders = { Authorization: `Bearer ${I}` };
@@ -981,7 +982,7 @@ async function main() {
   ok(/ERROR.*catalog check: the key was refused/.test(refusedKey.output()), "the log says so loudly (ERROR)");
   refusedKey.kill();
   // A simulated event (ntfsimevt_…) on the live account is ignored; on the sandbox it is an event like any other.
-  const liveApi = await spawnApi(3028, { PADDLE_ENV: "live", PADDLE_API_KEY: "pdl_live_apikey_test00000000000000000000000_test0000000000000000000_000" });
+  const liveApi = await spawnApi(await freePort(), { PADDLE_ENV: "live", PADDLE_API_KEY: "pdl_live_apikey_test00000000000000000000000_test0000000000000000000_000" });
   ok(liveApi.exited === null && liveApi.health?.billing?.mode === "live" && liveApi.health.billing.ready === true, "an API in live mode against the stub (a live key; PADDLE_API_URL is allowed off production)");
   const sim = ev("transaction.completed", { ...tB, custom_data: { userId: devId(B) } }, { id: `ntfsimevt_bill${stamp}_live` });
   ok((await hook(sim, { base: liveApi.url })).status === 200, "a ntfsimevt_ event on live: 200 (Paddle must not retry it)");
