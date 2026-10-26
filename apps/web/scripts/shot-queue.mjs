@@ -1,8 +1,8 @@
-// The build queue (2026-10-26), end to end with screenshots, on a stack of its own on spare ports so the local site on
-// 3000-3002 is never touched: the API on :3081 with one builder (MAX_RUNS=1, DEV_AUTH=1, AGENT_FAKE=1), the games origin
-// on :3082, the site on :3080 (`next dev` with its own NEXT_DIST_DIR, .next/queue; tsconfig.json is put back afterwards).
-// Build the API first (npm run build -w @typeplay/server) and bring the dev database up to date (node scripts/local-db.mjs
-// start), then, through the CPU limiter:
+// The build queue (2026-10-26), end to end with screenshots, on a stack of its own on ports picked free and a database of
+// its own (dev-env.mjs useOwnStack), so the local site and other runs are never touched: the API with one builder
+// (MAX_RUNS=1, DEV_AUTH=1, AGENT_FAKE=1), the games origin, the site (`next dev` with its own NEXT_DIST_DIR, .next/queue;
+// tsconfig.json is put back afterwards). Build the API first (npm run build -w @typeplay/server), then, through the CPU
+// limiter:
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-queue.mjs [outDir]
 // Shots in .impeccable/review/queue/. A "HOLD" build keeps the one builder busy, so the next builds wait in line. Checks: a
 // free first build waits (the chat's answer, the stage's still sky with its place and rough wait, the line that paid builds
@@ -16,19 +16,16 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
-import { useDevEnv } from "./dev-env.mjs";
+import { useOwnStack } from "./dev-env.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
 const serverDir = join(root, "apps/server");
 const out = process.argv[2] ?? join(root, ".impeccable/review/queue");
-const SITE_PORT = 3080;
-const API_PORT = 3081;
-const GAMES_PORT = 3082;
+mkdirSync(out, { recursive: true });
+const [SITE_PORT, API_PORT, GAMES_PORT] = await useOwnStack("queue", 3);
 const base = `http://localhost:${SITE_PORT}`;
 const apiBase = `http://127.0.0.1:${API_PORT}`;
-mkdirSync(out, { recursive: true });
-await useDevEnv();
 
 const stamp = Date.now().toString(36);
 const holder = `queue-hold-${stamp}@dev.test`; // Medium: keeps the builder busy

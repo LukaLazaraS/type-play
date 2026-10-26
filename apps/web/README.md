@@ -35,7 +35,10 @@ Run it alongside the site in dev: `cd ../games && npm run build-demo && npm run 
 - `scripts/`: dev tooling only (screenshots, posters); not shipped. `shot-compare.mjs` shoots every page and popup at
   phone and desktop width on a base commit and on the working tree, with the same fixtures, and lists the pairs that
   differ (`node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-compare.mjs --base <ref>`, from the repo root;
-  shots and the list in `.impeccable/review/compare/`).
+  shots and the list in `.impeccable/review/compare/`). The walk-throughs that start a stack of their own (`shot-beta`,
+  `shot-compare`, `shot-platform`, `shot-queue`) take ports picked free and a database of the run's own, so any number
+  run at once beside the local site and the tests; two in one checkout take turns, as their `next dev` share
+  `tsconfig.json` (`scripts/dev-env.mjs`, `docs/environments.md` "The automated tests").
 
 Design authorities: `../../PRODUCT.md` (product record) and `../../DESIGN.md` (the design system).
 
@@ -199,7 +202,7 @@ builds only and talks to the API's `/billing` routes (`apps/server/README.md` "B
   coins or gifts. Prices in US dollars; "plus tax" where Paddle adds it; an upgrade's charge is shown tax
   included because that is the number Paddle's preview gives and the card is charged.
 - **Tests.** `scripts/shot-app.mjs` first checks `/billing` and the checkout with billing off against the
-  API it was given, then starts a sandbox API of its own on :3017 pointed at the Paddle stub
+  API it was given, then starts a sandbox API of its own (on a port picked free) pointed at the Paddle stub
   (`apps/server/test/paddle-stub.mjs`), sends the browser's API calls there and replaces `window.Paddle`
   with a stand-in that completes the transaction at the stub (the real paddle.js can't pay against a
   stub): the Free card and picker, pricing → `/create?plan=medium` → the checkout, the tick box, the
@@ -413,9 +416,9 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   The API's refusals show in the dialog with the words kept; after the day's 10 Send stays off. On phones the boxes stop
   at 160px and Send sticks to the dialog's foot. Limits in `content/beta.ts`; the privacy policy names the notes
   (`content/legal.ts`, "What we collect").
-- **Tests:** `scripts/shot-beta.mjs` starts a stack of its own on spare ports (the API on :3041 with the closed beta on,
-  the games origin on :3042, the site on :3040 as `next dev` with `NEXT_DIST_DIR=.next/beta`; tsconfig.json is put back
-  afterwards), so it never touches the dev stack:
+- **Tests:** `scripts/shot-beta.mjs` starts a stack of its own on ports picked free (the API with the closed beta on,
+  the games origin, the site as `next dev` with `NEXT_DIST_DIR=.next/beta`; tsconfig.json is put back afterwards) on a
+  database of its own, so it never touches the dev stack:
   `node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-beta.mjs [outDir]` (build the API first; shots in
   `.impeccable/review/beta/`). It signs in uninvited (the page on /create, /games, /account and /billing, one hot action,
   the account menu, no user row, the public pages as before, Sign out and the closed beta said before sign-in), then
@@ -473,7 +476,7 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   without starting says "Didn't start, not charged". One `sr-only` announcer in the game page reads out the place when it
   changes, the start and why a build left the line (the panels aren't live meanwhile: each change is heard once). Each
   part of the place stays on one line (non-breaking spaces): a line breaks only after a "·". Walk-through:
-  `scripts/shot-queue.mjs` (its own stack on :3080-3082 with one builder; 46 checks; shots in `.impeccable/review/queue/`).
+  `scripts/shot-queue.mjs` (its own stack with one builder; 46 checks; shots in `.impeccable/review/queue/`).
 
 ## Known trap
 

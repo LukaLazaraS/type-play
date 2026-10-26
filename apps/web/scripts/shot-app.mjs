@@ -11,7 +11,7 @@
 // download my data, delete-account asking first), the phone layouts, and finally closes a second
 // test account for good.
 // Payments (part 3): /billing with billing off on the API above, then a sandbox API of this script's
-// own on :3017 pointed at the Paddle stub (apps/server/test/paddle-stub.mjs), with the browser's API
+// own on a port picked free (scripts/test-run.mjs) pointed at the Paddle stub (apps/server/test/paddle-stub.mjs), with the browser's API
 // calls sent there and window.Paddle replaced by a stand-in that completes the transaction at the
 // stub: the checkout page up to the overlay and the done state, the plan picker and its preview, a
 // downgrade and its undo, cancel and keep, the portal, the game page's credit panels (a Free user and
@@ -22,6 +22,7 @@ import { chromium } from "playwright";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { freePort } from "../../../scripts/test-run.mjs";
 import { androidPart, droidEmail } from "./shot-android.mjs";
 import { galleryEmail, galleryPart } from "./shot-gallery.mjs";
 
@@ -32,7 +33,7 @@ mkdirSync(out, { recursive: true });
 
 // ---- Payments on: a sandbox API + the Paddle stub, and a window.Paddle stand-in ---------------------
 const serverDir = join(import.meta.dirname, "../../server");
-const SANDBOX_PORT = 3017;
+const SANDBOX_PORT = await freePort();
 const SECRET = "pdl_ntfset_shots_secret_0000000000000000000000";
 let sandbox = null;
 /** The server in sandbox mode against the stub, like apps/server/test/billing.mjs starts it. */

@@ -3,10 +3,11 @@
 // shared components (10-26: "nothing changes except the differences listed"); any UI change can be checked the same way.
 //   base:  apps/web at a git commit (--base, default HEAD), exported once to data/shots/base-<sha> (git-ignored)
 //   after: this checkout's apps/web as it is now, uncommitted changes included
-// Both run `next dev` (dev sign-in needs it) on a stack of their own on spare ports: the API on :3071 (DEV_AUTH,
-// AGENT_FAKE, the closed beta, the Android fake) on a database of its own, typeplay_shots (made fresh each run, dropped at
-// the end; its game folders in data/shots/api-data), the games origin on :3072, the base site on :3073, this checkout's
-// on :3074. Each scenario runs on both sites, one after the other, with the same data, the same frozen clock and reduced
+// Both run `next dev` (dev sign-in needs it) on a stack of their own on ports picked free (scripts/test-run.mjs): the API
+// (DEV_AUTH, AGENT_FAKE, the closed beta, the Android fake) on a database of the run's own, typeplay_autotest_shot_compare_<id>
+// (made fresh each run, dropped at the end; its game folders in data/shots/api-data), the games origin, the base site and
+// this checkout's. Another walk-through in this checkout waits for it (their `next dev` share tsconfig.json; dev-env.mjs);
+// other checkouts' runs go at the same time. Each scenario runs on both sites, one after the other, with the same data, the same frozen clock and reduced
 // motion; states the fake API can't make (billing, Android builds, some errors) are its answers replaced in the browser,
 // the same for both. No game ever starts (play.html answers a blank page), so nothing on the screen moves. Pictures
 // resized by each site's own image optimizer differ by a few pixels between runs, and the Share menu's link shows each
@@ -18,10 +19,11 @@
 import { chromium } from "playwright";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { createServer } from "node:net";
 import { join } from "node:path";
 import pg from "pg";
-import { createDatabase, migrate, startServer, urlOf } from "../../../scripts/local-db.mjs";
+import { urlOf } from "../../../scripts/local-db.mjs";
+import { endedRunDatabases, freePorts, runDatabase } from "../../../scripts/test-run.mjs";
+import { ownNextDev } from "./dev-env.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
@@ -37,11 +39,14 @@ for (let i = 2; i < process.argv.length; i++) {
 const out = opts.out;
 for (const d of ["shots", "diff", "logs"]) mkdirSync(join(out, d), { recursive: true });
 
-const PORT = { api: 3071, games: 3072, base: 3073, after: 3074, proxy: 3079 };
+const DATA = join(root, "data/shots/api-data");
+await ownNextDev();
+await cleanLeftovers();
+const DB = (await runDatabase("shot_compare")).name;
+const [api0, games0, base0, after0, proxy0] = await freePorts(5);
+const PORT = { api: api0, games: games0, base: base0, after: after0, proxy: proxy0 };
 const apiBase = `http://127.0.0.1:${PORT.api}`;
 const gamesBase = `http://127.0.0.1:${PORT.games}`;
-const DB = "typeplay_shots";
-const DATA = join(root, "data/shots/api-data");
 const IDEA = "Make an endless runner where a little robot jumps over cactuses and it gets faster over time.";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const t0 = Date.now();
@@ -98,14 +103,6 @@ async function until(what, test, seconds, proc) {
   }
   throw new Error(`${what} did not start: ${proc?.tail() ?? ""}`);
 }
-const portFree = (port) =>
-  new Promise((resolve) => {
-    const s = createServer();
-    s.once("error", () => resolve(false));
-    s.once("listening", () => s.close(() => resolve(true)));
-    s.listen(port, "127.0.0.1");
-  });
-
 const apiEnv = {
   PORT: String(PORT.api),
   DATABASE_URL: urlOf(DB),
@@ -149,11 +146,15 @@ const admin = (...args) => {
   return r.stdout;
 };
 async function api(email, method, path, body) {
-  const r = await fetch(`${apiBase}${path}`, {
-    method,
-    headers: { Authorization: `Bearer dev:${email}`, ...(body ? { "Content-Type": "application/json" } : {}) },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const send = () =>
+    fetch(`${apiBase}${path}`, {
+      method,
+      headers: { Authorization: `Bearer dev:${email}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  // The API closes idle keep-alive sockets after 5 s; a request that picks one up just then is reset before it reaches
+  // the API (after the admin CLI's pauses): send it again once, as the e2e's api() does.
+  const r = await send().catch((e) => (e?.cause?.code === "ECONNRESET" ? send() : Promise.reject(e)));
   const json = await r.json().catch(() => null);
   if (!r.ok) throw new Error(`${method} ${path} as ${email}: ${r.status} ${JSON.stringify(json)}`);
   return json;
@@ -192,27 +193,29 @@ const minutes = (n) => new Date(FROZEN.getTime() + n * 60_000).toISOString();
 
 const tsconfig = join(webDir, "tsconfig.json");
 const nextEnv = join(webDir, "next-env.d.ts");
-const kept = { [tsconfig]: readFileSync(tsconfig, "utf8"), [nextEnv]: readFileSync(nextEnv, "utf8") };
+// next-env.d.ts is git-ignored: a new checkout has none until `next` first runs in it (then there is nothing to put back).
+const kept = Object.fromEntries([tsconfig, nextEnv].filter((f) => existsSync(f)).map((f) => [f, readFileSync(f, "utf8")]));
 const putBack = () => {
   for (const [file, text] of Object.entries(kept)) if (readFileSync(file, "utf8") !== text) writeFileSync(file, text);
 };
 
-/** A run that was stopped hard (taskkill) left typeplay_shots and the builds its games published: those go first. */
+/** A run that was stopped hard (taskkill) left its database and the builds its games published: the builds go first
+ * (the database goes with this run's start, scripts/test-run.mjs). */
 async function cleanLeftovers() {
-  const exists = (await db.query("SELECT 1 FROM pg_database WHERE datname = $1", [DB])).rowCount;
-  if (!exists) return;
-  const old = new pg.Client({ connectionString: urlOf(DB) });
-  await old.connect();
-  try {
-    const builds = join(root, "apps/games/builds");
-    const ids = (await old.query('SELECT id FROM "Project"')).rows.map((r) => r.id);
-    for (const name of existsSync(builds) ? readdirSync(builds) : []) {
-      if (ids.some((id) => name.startsWith(`${id}-`))) rmSync(join(builds, name), { recursive: true, force: true });
+  for (const left of await endedRunDatabases("shot_compare")) {
+    const old = new pg.Client({ connectionString: urlOf(left) });
+    try {
+      await old.connect();
+      const builds = join(root, "apps/games/builds");
+      const ids = (await old.query('SELECT id FROM "Project"')).rows.map((r) => r.id);
+      for (const name of existsSync(builds) ? readdirSync(builds) : []) {
+        if (ids.some((id) => name.startsWith(`${id}-`))) rmSync(join(builds, name), { recursive: true, force: true });
+      }
+    } catch {
+      // no tables yet, or another run's start dropped it meanwhile
+    } finally {
+      await old.end().catch(() => {});
     }
-  } catch {
-    // no tables yet
-  } finally {
-    await old.end();
   }
 }
 
@@ -846,17 +849,8 @@ function report(results) {
 
 // ---- Run ------------------------------------------------------------------------------------------------------------
 const results = [];
-let db = null;
 try {
-  for (const [name, port] of Object.entries(PORT)) if (!(await portFree(port))) throw new Error(`port ${port} (${name}) is in use: is another shot-compare running?`);
-  log(`base ${sha} in ${SITES[0].dir}`);
-  await startServer();
-  db = new pg.Client({ connectionString: urlOf("postgres") });
-  await db.connect();
-  await cleanLeftovers();
-  await db.query(`DROP DATABASE IF EXISTS ${DB} WITH (FORCE)`);
-  await createDatabase(DB);
-  migrate(DB);
+  log(`base ${sha} in ${SITES[0].dir}; database ${DB}; ports ${Object.entries(PORT).map(([k, v]) => `${k} ${v}`).join(", ")}`);
   rmSync(DATA, { recursive: true, force: true });
   const apiProc = start("api", ["dist/main.js"], serverDir, apiEnv);
   await until("the API", async () => (await (await fetch(`${apiBase}/health`)).json()).agent === "fake", 90, apiProc);
@@ -929,12 +923,7 @@ try {
   for (const u of [USERS.maker, USERS.free, USERS.fresh]) await api(u.email, "DELETE", "/me", { confirm: "DELETE" }).catch(() => {});
   stopAll();
   putBack();
-  try {
-    await db?.query(`DROP DATABASE IF EXISTS ${DB} WITH (FORCE)`);
-  } catch (e) {
-    console.log("drop:", e instanceof Error ? e.message : e);
-  }
-  await db?.end().catch(() => {});
+  // The run's database is dropped as the process exits (scripts/test-run.mjs).
   rmSync(DATA, { recursive: true, force: true });
   report(results);
   const differing = results.filter((r) => r.pixels);
