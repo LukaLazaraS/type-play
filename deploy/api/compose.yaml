@@ -107,8 +107,8 @@ services:
       RUN_TIMEOUT_MIN: "40"
       ASSET_LIBRARY: /assets
       # Passed on to every job (runner.mjs jobEnv): two malloc arenas grown in 64 MB steps. Godot's default per-thread
-      # heaps grow by ~20,000 mprotect calls an import, slow under gVisor: a web export takes 7 s with this, 12 without
-      # (5 s on plain runc either way; apps/server/test/gvisor/RESULTS.md).
+      # heaps grow by ~20,000 mprotect calls an import, slow under gVisor: the export job takes 8.5 s with this, 13 s
+      # without (6.3 s on plain runc either way; apps/server/test/gvisor/RESULTS.md).
       GLIBC_TUNABLES: "glibc.malloc.arena_max=2:glibc.malloc.top_pad=67108864"
       # Android jobs (one at a time): Godot's exporter finds the JDK and SDK through these on a fresh
       # home; the Gradle seed is copied into each job's home. No keystore, password or socket is here.
