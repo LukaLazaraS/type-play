@@ -148,6 +148,8 @@ export async function openPage(url, { width = 1152, height = 648, viewport, touc
     '--headless=new', '--in-process-gpu', '--remote-debugging-pipe', `--user-data-dir=${profile}`,
     '--no-first-run', '--enable-unsafe-swiftshader', '--use-angle=swiftshader',
     `--window-size=${width},${height}`, '--autoplay-policy=no-user-gesture-required',
+    // The games it checks make sounds: never out of this PC's speakers (10-27: heard at night during test builds).
+    '--mute-audio',
     // BROWSER_ARGS: extra flags, e.g. --no-sandbox in the server's container (Chromium on Linux).
     ...(process.env.BROWSER_ARGS || '').split(' ').filter(Boolean), 'about:blank',
   ];
