@@ -9,6 +9,9 @@ the server. The summaries are in [build-capacity-2026-10-26/](build-capacity-202
 
 **`MAX_RUNS` 3, once one bug is fixed. As deployed today, only 1 is safe.**
 
+Done 2026-10-27 on branch ux-fixes (live with the next `deploy.mjs api`): the pinning is fixed (`TYPEPLAY_SERVER=1` on the
+runner, below) and `MAX_RUNS` is 3 in `deploy/api/compose.yaml`.
+
 - **What limits it: CPU while checks overlap.** At about 3 vCPU, three 2D checks at once still pass (each 1.5-2× slower);
   four at once lose screenshots and give false "the game froze" failures. Builds going: 3 → three or more checks at once
   13-34% of the busy time; 4 → four at once 6-24%. Memory: 3 builds 2.8-4.7 GB of the 5.5 GB cap, 4 builds 3.8-6.2 GB
@@ -18,8 +21,10 @@ the server. The summaries are in [build-capacity-2026-10-26/](build-capacity-202
   Node sees the host's 4 CPUs, so it is 1, and `check.mjs` and `web.mjs` call `limitThisProcess()`, whose Linux branch
   runs `taskset -pc 3-3`: every run's Godot and hidden browser share vCPU 3 (taskset is in Debian's base system, in the
   image). At about 1 vCPU one 2D check passes, but one 3D check, or any two checks at once, come out broken (the 0.75-core
-  rows below). Found by reading the code, not run on the server. Fix (not made: the brief was measure only): skip the
-  pinning in the runner, e.g. an env flag the runner sets for its jobs, so its `cpus: 3.0` does the capping.
+  rows below). Found by reading the code, not run on the server. Fix (10-27): the runner container sets `TYPEPLAY_SERVER=1`
+  and hands it to every job; with it `cpu.mjs` pins nothing (priority stays below normal), so its `cpus: 3.0` does the
+  capping. Checked in Docker with `--cpus 3`: Node sees 3 cores there, so the old rule pinned to 1 core; with the flag all
+  stay allowed (`packages/agent/tests/cpu.mjs`).
 - **Builds are not mostly waiting on the AI.** Edits spend 60-80% of their wall time in checks (a Haiku edit: median
   2.3 min, 2 checks); new games 16-48% (Opus least, Sonnet most).
 

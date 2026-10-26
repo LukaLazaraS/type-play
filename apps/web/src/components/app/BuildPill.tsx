@@ -73,7 +73,7 @@ export function BuildPill() {
           <span className="buildpill__text">
             <b>{inLine.pill}</b>
             {/* The place is read out when it changes; the wait (every minute) only shows. A phone keeps the words alone:
-                beside "Your game is in line" and the two buttons there is no room for them (the game's page has them). */}
+                beside "Your game is in the queue" and the two buttons there is no room for them (the game's page has them). */}
             {seen.place && (
               <span className="buildpill__line figures">
                 {aheadWord(seen.place.ahead)}

@@ -43,7 +43,9 @@ it starts inherit that.
   bucket behind typeplay.dev; needs `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`)
 - Live server only: `RUNNER_SOCKET` (runs go to the runner container, "Live mode"). The runner's own:
   `RUNNER_MAX_PROJECT_MB` (512: a game folder bigger than this after an agent job fails the job),
-  `RUNNER_MAX_PROCS` (512: processes per job, `prlimit --nproc`)
+  `RUNNER_MAX_PROCS` (512: processes per job, `prlimit --nproc`), `TYPEPLAY_SERVER` (`1` in `compose.yaml`, handed to
+  every job: the check's Godot and browser use the container's whole CPU cap instead of keeping a developer PC's 4 cores
+  free, `packages/agent/tools/cpu.mjs`)
 - The closed beta: `BETA_INVITE_ONLY` (on in production unless `0`, off on this PC unless `1`): section "The closed
   beta and feedback" below
 - Dev only: `DEV_AUTH=1` (sign in as `Bearer dev:<email>`, user id `dev-<slug>`; the server refuses
@@ -612,7 +614,7 @@ When every builder is busy (`MAX_RUNS` agent runs going; an Android build counts
   whoever deletes the row has the build (one conditional delete, as the Android queue's claim); when the turn won, the
   build starts and the Stop then stops the run.
 - **The wait limit:** a build still waiting `QUEUE_WAIT_MIN` (30) after its turn leaves the line, 0 credits ("This waited
-  too long for its turn, so it left the line…"): a paid build 30 minutes after it was sent, a free one 40. Counted from the
+  too long for its turn, so it left the queue…"): a paid build 30 minutes after it was sent, a free one 40. Counted from the
   turn so that, under a load paid builds alone fill, a free build fares as a paid one sent 10 minutes later would, rather
   than always being the one dropped.
 - **What the site sees:** `ProjectSummary.status` `queued` with `queue: { ahead, waitMin, lane, leavesAt }` (`leavesAt`:
@@ -720,7 +722,8 @@ PC the agent runs on the Max login and never goes through the proxy, so `metered
   (`TYPEPLAY_BROWSER_LOCK=0`: the container caps CPU, and a lock a dead job left in a shared folder
   would be one no other job's user could remove).
 - Builds starving the API: the runner is capped at 3 of 4 vCPUs and 5.5 of 8 GB; one job at 512
-  processes, one game folder at 512 MB.
+  processes, one game folder at 512 MB. Inside that cap the checks pin no cores (`TYPEPLAY_SERVER=1`; until 2026-10-27
+  they kept a PC's 4 cores "free" and every check shared one vCPU).
 - Spending through the proxy on the side: metered and charged (above).
 - The Max login reaching the server: the guards above, and `deploy.mjs api` copies only named keys.
 

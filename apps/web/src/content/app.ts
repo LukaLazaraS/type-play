@@ -87,20 +87,20 @@ export const inLine = {
   /** Under the first build's waiting tile. */
   note: "Yours starts by itself, and nothing is charged while it waits. You can leave this page.",
   /** When the rough wait runs past the moment it would leave the line (`time`: that moment, e.g. "14:32"). */
-  long: (time: string) => `The line is long right now: if yours hasn't started by ${time}, it leaves the line and nothing is charged.`,
+  long: (time: string) => `The queue is long right now: if yours hasn't started by ${time}, it leaves the queue and nothing is charged.`,
   /** Free builds only: why their place can move back. */
   paidFirst: "Builds on paid plans go first.",
   /** The stage's line over a game whose change waits (n: the version it will make). */
   version: (n: number) => `Version ${n} is waiting for its turn`,
   /** Away from the game (the build pill) and over a game played while the first build waits: who is waiting. */
-  pill: "Your game is in line",
+  pill: "Your game is in the queue",
   /** Read out when a build that waited starts (the page's announcer). */
   started: "It's your turn: building now.",
   /** The stage when a first build left the line without starting (stopped, waited too long, not allowed at its turn). */
   firstNotStarted: "The first build didn't start, so nothing was charged. The chat says why. Try again when you like.",
-  composer: "Waiting for its turn. Type your next change meanwhile, or Stop to take this one out of the line.",
+  composer: "Waiting for its turn. Type your next change meanwhile, or Stop to take this one out of the queue.",
   /** The game's icon on /games and its row in Manage. */
-  tile: "in line",
+  tile: "in the queue",
 };
 
 /** The game page's hint on a screen the game isn't made for: what it's made for, the button, and the request its one

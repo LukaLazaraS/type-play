@@ -451,8 +451,8 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   state, the place on its own line, what happens ("Yours starts by itself, and nothing is charged while it waits"; on Free
   also "Builds on paid plans go first.") and the games to play meanwhile; a change's stage line says "Version 2 is waiting
   for its turn: 2 builds ahead, about 30 min" over the game; a rough wait past the moment it would leave the line says when
-  ("The line is long right now: if yours hasn't started by 14:32…"). The composer has Stop (it takes the build out of the
-  line) and says so; the build pill says "Your game is in line", the /games tile "in line"; a build that left the line
+  ("The queue is long right now: if yours hasn't started by 14:32…"). The composer has Stop (it takes the build out of the
+  line) and says so; the build pill says "Your game is in the queue", the /games tile "in the queue"; a build that left the line
   without starting says "Didn't start, not charged". One `sr-only` announcer in the game page reads out the place when it
   changes, the start and why a build left the line (the panels aren't live meanwhile: each change is heard once). Each
   part of the place stays on one line (non-breaking spaces): a line breaks only after a "·". Walk-through:

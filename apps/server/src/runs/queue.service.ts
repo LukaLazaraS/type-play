@@ -28,7 +28,7 @@ const NOT_STARTED: Partial<Record<ApiErrorCode, string>> = {
   model_not_in_plan: "Your plan changed while this waited, and the Free plan builds with Fast. Nothing was charged. Send it again on Fast.",
   billing_hold: "A payment was disputed with your bank, so building is paused and this didn't start. Nothing was charged. Write to hello@typeplay.app.",
 };
-const EXPIRED_TEXT = "This waited too long for its turn, so it left the line. Your game is unchanged, and nothing was charged. Send it again in a few minutes.";
+const EXPIRED_TEXT = "This waited too long for its turn, so it left the queue. Your game is unchanged, and nothing was charged. Send it again in a few minutes.";
 const TAKEN_TEXT = "This build was interrupted by a restart on our side just as it started. Your game is unchanged, and nothing was charged.";
 
 /** What a new build in line needs written: QueuedRun's columns (nested under its agent message, in the same write). */

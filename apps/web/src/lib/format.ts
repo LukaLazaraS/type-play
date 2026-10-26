@@ -41,10 +41,10 @@ export function untilUtcMidnight(now = Date.now()): string {
 /** Words that stay on one line ("37 builds ahead", "about 1 h 35 min"): a line breaks only between them. */
 const unbroken = (s: string) => s.replace(/ /g, "\u00a0");
 
-/** "next in line", "1 build ahead", "12 builds ahead": a build's place while it waits for its turn (QueuePlace.ahead);
- * "in line" when the number is missing. */
+/** "1st in the queue", "1 build ahead", "12 builds ahead": a build's place while it waits for its turn (QueuePlace.ahead);
+ * "in the queue" when the number is missing. */
 export const aheadWord = (n: number) =>
-  !Number.isFinite(n) ? "in line" : unbroken(n <= 0 ? "next in line" : n === 1 ? "1 build ahead" : `${n.toLocaleString("en-US")} builds ahead`);
+  !Number.isFinite(n) ? "in the queue" : unbroken(n <= 0 ? "1st in the queue" : n === 1 ? "1 build ahead" : `${n.toLocaleString("en-US")} builds ahead`);
 
 /**
  * "any minute now", "about 6 min", "about 1 h", "about 1 h 20 min": the rough wait until a build in line starts

@@ -161,22 +161,22 @@ try {
   await page.getByRole("button", { name: "Build my game" }).click();
   await page.waitForURL(/\/games\/[a-z0-9]+$/, { timeout: 60_000 });
   const gameId = page.url().split("/").pop();
-  await page.locator(".msg--agent .msg__meta", { hasText: "next in line" }).waitFor({ timeout: 60_000 });
+  await page.locator(".msg--agent .msg__meta", { hasText: "1st in the queue" }).waitFor({ timeout: 60_000 });
   await page.waitForTimeout(800);
   check("the chat's answer: 'Waiting for its turn', the still dot", (await answer(page)) === "Waiting for its turn" && (await page.locator(".msg--agent .pulse--still").count()) === 1, await answer(page));
-  check("a screen reader hears the state and the place, from one announcer (not the bubble, not the stage)", (await heard(page)) === "Waiting for its turn: next in line" && (await page.locator(".msg--agent [role=status], .stage__line[role=status]").count()) === 0, await heard(page));
-  check("its line: the model, next in line, a rough wait", /^Fast · next in line · about \d+ min$/.test(await answerMeta(page)), await answerMeta(page));
+  check("a screen reader hears the state and the place, from one announcer (not the bubble, not the stage)", (await heard(page)) === "Waiting for its turn: 1st in the queue" && (await page.locator(".msg--agent [role=status], .stage__line[role=status]").count()) === 0, await heard(page));
+  check("its line: the model, 1st in the queue, a rough wait", /^Fast · 1st in the queue · about \d+ min$/.test(await answerMeta(page)), await answerMeta(page));
   check("the stage: the empty sky standing still (nothing built yet)", (await page.locator(".stage__build.build--waiting").count()) === 1);
-  check("the stage's line: the state, and the place on a line of its own", /^Waiting for its turn next in line · about \d+ min$/.test(await text(page, ".stage__line")) && (await page.locator(".stage__line .stage__place").evaluate((el) => getComputedStyle(el).display)) === "block", await text(page, ".stage__line"));
+  check("the stage's line: the state, and the place on a line of its own", /^Waiting for its turn 1st in the queue · about \d+ min$/.test(await text(page, ".stage__line")) && (await page.locator(".stage__line .stage__place").evaluate((el) => getComputedStyle(el).display)) === "block", await text(page, ".stage__line"));
   check("the waiting tile: the sky and the ground, standing still (the sun and the robot not yet)", (await page.locator(".stage__build.build--waiting .build__layer").evaluateAll((els) => els.map((e) => getComputedStyle(e).visibility).join())) === "visible,visible,hidden,hidden");
   check("the note says it starts by itself, nothing is charged, and paid builds go first (a free build)", /starts by itself.*nothing is charged.*Builds on paid plans go first\.$/.test(await text(page, ".stage__note")), await text(page, ".stage__note"));
   check("games to play while it waits", (await page.locator(".wait__games .gamecard, .wait__games li").count()) >= 3);
-  check("the composer: Stop, what Stop does, and (Free) why the place can move back", (await page.locator(".composer button", { hasText: "Stop" }).count()) === 1 && /^Waiting for its turn\. .*Stop to take this one out of the line\. Builds on paid plans go first\.$/.test(await text(page, "#say-tip")), await text(page, "#say-tip"));
+  check("the composer: Stop, what Stop does, and (Free) why the place can move back", (await page.locator(".composer button", { hasText: "Stop" }).count()) === 1 && /^Waiting for its turn\. .*Stop to take this one out of the queue\. Builds on paid plans go first\.$/.test(await text(page, "#say-tip")), await text(page, "#say-tip"));
   await shot(page, "first-waiting-desktop");
 
   // A paid build sent after it goes ahead: the page hears it, no reload.
   const ahead = (await api(paid, "POST", "/projects", { prompt: "Make a racer on a beach track", model: "fast" })).body;
-  check("a paid build sent now waits too, next in line (ahead of the free one)", ahead?.status === "queued" && ahead.queue?.ahead === 0 && ahead.queue.lane === "paid");
+  check("a paid build sent now waits too, 1st in the queue (ahead of the free one)", ahead?.status === "queued" && ahead.queue?.ahead === 0 && ahead.queue.lane === "paid");
   await page.locator(".msg--agent .msg__meta", { hasText: "1 build ahead" }).waitFor({ timeout: 15_000 }).catch(() => {});
   check("the free build's page says it live: 1 build ahead", /^Fast · 1 build ahead · about \d+ min$/.test(await answerMeta(page)) && /1 build ahead/.test(await text(page, ".stage__line")), await answerMeta(page));
   check("…and the announcer says the new place", (await heard(page)) === "Waiting for its turn: 1 build ahead", await heard(page));
@@ -217,7 +217,7 @@ try {
     if (w === 390) {
       // /games: the waiting first build's icon.
       await p.goto(`${base}/games`, { waitUntil: "domcontentloaded" });
-      await p.locator(".mine__grid .app__stat", { hasText: "in line" }).waitFor({ timeout: 60_000 });
+      await p.locator(".mine__grid .app__stat", { hasText: "in the queue" }).waitFor({ timeout: 60_000 });
       await shot(p, "games-390");
       // The editor's waiting change on a phone (an account of its own): the line over the game.
       const other = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
@@ -236,16 +236,16 @@ try {
 
   // ---- /games and the build pill (desktop) --------------------------------------------------------------
   await page.goto(`${base}/games`, { waitUntil: "domcontentloaded" });
-  await page.locator(".mine__grid .app__stat", { hasText: "in line" }).waitFor({ timeout: 60_000 });
-  check("/games: the waiting game's icon is the still sky and ground, 'in line'", (await page.locator(".mine__grid .build--waiting").count()) === 1);
+  await page.locator(".mine__grid .app__stat", { hasText: "in the queue" }).waitFor({ timeout: 60_000 });
+  check("/games: the waiting game's icon is the still sky and ground, 'in the queue'", (await page.locator(".mine__grid .build--waiting").count()) === 1);
   await shot(page, "games-desktop");
   await page.goto(`${base}/games/${gameId}`, { waitUntil: "domcontentloaded" });
   await page.locator(".wait__more").waitFor({ timeout: 60_000 });
   await page.locator(".wait__more").click();
   await page.waitForURL(/\/explore/, { timeout: 60_000 });
-  await page.locator(".buildpill", { hasText: "Your game is in line" }).waitFor({ timeout: 60_000 });
+  await page.locator(".buildpill", { hasText: "Your game is in the queue" }).waitFor({ timeout: 60_000 });
   await page.waitForTimeout(500);
-  check("away from the game: the pill says your game is in line, with its place", /^Your game is in line ?1 build ahead · ?about \d+ min ?Back to it/.test(await text(page, ".buildpill")), await text(page, ".buildpill"));
+  check("away from the game: the pill says your game is in the queue, with its place", /^Your game is in the queue ?1 build ahead · ?about \d+ min ?Back to it/.test(await text(page, ".buildpill")), await text(page, ".buildpill"));
   await shot(page, "pill-desktop");
   {
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
@@ -255,9 +255,9 @@ try {
     await p.locator(".wait__more").waitFor({ timeout: 60_000 });
     await p.locator(".wait__more").tap();
     await p.waitForURL(/\/explore/, { timeout: 60_000 });
-    await p.locator(".buildpill", { hasText: "Your game is in line" }).waitFor({ timeout: 60_000 });
+    await p.locator(".buildpill", { hasText: "Your game is in the queue" }).waitFor({ timeout: 60_000 });
     await p.waitForTimeout(500);
-    check("the pill on a 390 px phone: nothing wider than the screen, 'Your game is in line' whole (no ellipsis)", (await fits(p)) && (await p.locator(".buildpill__text").evaluate((el) => el.scrollWidth <= el.clientWidth + 1)), await text(p, ".buildpill"));
+    check("the pill on a 390 px phone: nothing wider than the screen, 'Your game is in the queue' whole (no ellipsis)", (await fits(p)) && (await p.locator(".buildpill__text").evaluate((el) => el.scrollWidth <= el.clientWidth + 1)), await text(p, ".buildpill"));
     await shot(p, "pill-390");
     await phone.close();
   }
@@ -276,8 +276,8 @@ try {
   await page.goto(`${base}/games/${gameId}`, { waitUntil: "domcontentloaded" });
   await page.locator(".stage__line", { hasText: "Waiting for its turn" }).waitFor({ timeout: 60_000 });
   await api(holder, "POST", `/projects/${hold.id}/cancel`);
-  await page.locator(".msg--agent .msg__meta", { hasText: "next in line" }).waitFor({ timeout: 15_000 }).catch(() => {});
-  check("the builder free: the paid build starts, the free one is next", /next in line/.test(await answerMeta(page)), await answerMeta(page));
+  await page.locator(".msg--agent .msg__meta", { hasText: "1st in the queue" }).waitFor({ timeout: 15_000 }).catch(() => {});
+  check("the builder free: the paid build starts, the free one is 1st in the queue", /1st in the queue/.test(await answerMeta(page)), await answerMeta(page));
   await page.locator(".msg--agent .bubble--live .pulse:not(.pulse--still)").waitFor({ timeout: 30_000 });
   await page.waitForTimeout(700);
   check("its turn: the answer is the building one (the breathing dot, the clock)", /building \d+:\d\d$/.test(await answerMeta(page)) && (await page.locator(".stage__build.build:not(.build--waiting)").count()) === 1, await answerMeta(page));
@@ -298,7 +298,7 @@ try {
     buildId: null,
     currentVersion: null,
     versions: [],
-    // It would leave the line in 30 minutes, long before its rough wait: the page says the line is long.
+    // It would leave the queue in 30 minutes, long before its rough wait: the page says the queue is long.
     queue: { ahead: 37, waitMin: 95, lane: "free", leavesAt: new Date(Date.now() + 30 * 60_000).toISOString() },
     messages: [
       { ...project.messages[0], text: "Make a huge open world where a knight rides a dragon across seven kingdoms, with a shop, a map, boss fights and a day and night cycle." },
@@ -324,7 +324,7 @@ try {
     await p.waitForTimeout(800);
     check(`worst case at ${w} px: '37 builds ahead · about 1 h 35 min'`, /37 builds ahead · about 1 h 35 min/.test(await text(p, ".stage__line")), await text(p, ".stage__line"));
     check(`worst case at ${w} px: nothing wider than the screen`, await fits(p));
-    check(`worst case at ${w} px: the line is long, and when it would leave it is said`, /^The line is long right now: if yours hasn't started by \d\d:\d\d, it leaves the line and nothing is charged\. Builds on paid plans go first\.$/.test(await text(p, ".stage__note")), await text(p, ".stage__note"));
+    check(`worst case at ${w} px: the queue is long, and when it would leave it is said`, /^The queue is long right now: if yours hasn't started by \d\d:\d\d, it leaves the queue and nothing is charged\. Builds on paid plans go first\.$/.test(await text(p, ".stage__note")), await text(p, ".stage__note"));
     await shot(p, `worst-${w}${phoneLike ? "-play" : ""}`);
     if (phoneLike) {
       await p.locator("#ws-tab-chat").tap();

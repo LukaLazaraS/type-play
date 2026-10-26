@@ -157,7 +157,7 @@ function AgentMessage({
         </p>
         <span className="msg__meta figures">
           {model ? `${model}\u00a0· ` : ""}
-          {queue ? placeWords(queue) : "in line"}
+          {queue ? placeWords(queue) : "in the queue"}
         </span>
       </li>
     );

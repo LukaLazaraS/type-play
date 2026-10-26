@@ -386,6 +386,9 @@ function jobEnv(slot, home, extra, kind) {
     // In a container Chromium's own sandbox can't start; the job's user and container are the sandbox.
     BROWSER_ARGS: env.BROWSER_ARGS ?? '--no-sandbox --disable-dev-shm-usage',
     ...BROWSER_LOCK_ENV,
+    // The live server (compose.yaml): the check uses every core the container gives it (packages/agent/tools/cpu.mjs).
+    // Without it, as in the WSL tests, the check keeps cores free as on a developer PC.
+    ...(env.TYPEPLAY_SERVER ? { TYPEPLAY_SERVER: env.TYPEPLAY_SERVER } : {}),
     ASSET_LIBRARY: env.ASSET_LIBRARY || '/assets',
     AGENT_LOG_DIR: join(home, 'logs'),
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',

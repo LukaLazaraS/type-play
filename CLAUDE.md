@@ -127,6 +127,8 @@ open the API account just before beta 1.
   froze the PC and outlived their parents).** Heavy work uses at most 12 of the 16 cores at
   below-normal priority: `packages/agent/tools/cpu.mjs` (`limitThisProcess()` in scripts, or
   `node packages/agent/tools/cpu.mjs <command>` for Lighthouse, `next build`, Playwright, Godot).
+  That is a developer PC's rule: the live server's runner sets `TYPEPLAY_SERVER=1` and its container's CPU cap
+  limits the checks instead (until 10-27 it kept 4 of the server's 4 vCPUs "free": every check on one vCPU).
   The check's hidden browser (`tools/web.mjs`) is capped, runs **one at a time across all
   processes** (lock), keeps its software renderer in-process (`--in-process-gpu`: Edge's own GPU
   process resets itself to all cores, above normal), and is killed as a whole tree. Agents stop

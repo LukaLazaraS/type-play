@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { serve, openPage, sleep } from './web.mjs';
 import { limitThisProcess } from './cpu.mjs';
 
-limitThisProcess(); // Godot and the hidden browser: 4 cores always stay free, low priority (tools/cpu.mjs)
+limitThisProcess(); // Godot and the hidden browser: 4 cores stay free on a PC (on the server its container caps them), low priority (tools/cpu.mjs)
 
 const GODOT = process.env.GODOT_EXE || 'C:/Users/lazar/Godot/4.7.2/Godot_v4.7.2-stable_win64.exe';
 const project = resolve(process.cwd());
