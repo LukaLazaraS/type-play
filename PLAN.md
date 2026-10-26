@@ -57,7 +57,8 @@
   `docs/beta/runbook.md`); **Android off for beta 1** (`ANDROID_EXPORT: "0"`; `deploy.mjs api` needs no
   Android key while off); **six Opus showcase games** (`packages/agent/RESULTS.md` "2026-10-19: showcase",
   gallery group "Showcase (Opus)", ready in `apps/games/builds/show-*`; on the home page since 10-27, the six
-  polished copies in the order Island Rush, Sky Stack, Gingerbread Guard, Petal Pop, Rooftop Ninja, Sky Hopper); **chat edits on big games** (27/27 Fast edits passed, median 0.3 credits as
+  polished copies in the order Island Rush, Sky Stack, Gingerbread Guard, Petal Pop, Rooftop Ninja, Sky Hopper, then the
+  eight earlier test games); **chat edits on big games** (27/27 Fast edits passed, median 0.3 credits as
   priced, range 0.2-1.4; Smart ~6× the credits for the same result; EDIT.md rules tightened; the chat no
   longer looks stuck while the model plans: `RESULTS.md` "2026-10-19: chat edits"); **launch docs**
   (`docs/launch/demo-video.md`, `docs/launch/page-copy-proposals.md`). The runner isolation test is dropped

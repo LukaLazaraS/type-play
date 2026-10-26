@@ -87,6 +87,8 @@ Claude made each call below for now; Luka confirms or changes them in that revie
   games in `apps/web/src/content/games.ts`, in the order Island Rush, Sky Stack, Gingerbread Guard, Petal Pop, Rooftop Ninja,
   Sky Hopper (Best, 11.5-23.2 min, each with its 1-3 polish edits); Play opens the builds `show-*-polished`, live on
   typeplay.dev since 10-20. The old builds stay on typeplay.dev. Branch `home-showcase`; live with the next `deploy.mjs site`.
+  The same day (Luka: more games on the home screen, no new ones yet) the eight old test games came back after the six, so
+  the 7-column home grid is full; "Your game" is its last tile. Branch `home-layout`.
 
 - **#1 deploy, #2 commit, #6 + #7 + #10 server and API key** (10-24, beta 1 go-live): commit `3c7bdcc` pushed (everything since
   10-16); the site live with Next.js 16.4.3, first public (10-24 night), then with the app on in the closed beta; the API on a

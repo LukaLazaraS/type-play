@@ -1,7 +1,11 @@
-// The home page's games (since 2026-10-27): the six showcase games, each built on Best (Opus high) from one
-// sentence, then polished by 1-3 chat edits (packages/agent/RESULTS.md "2026-10-19: showcase candidates (Opus)" and
-// "2026-10-20: showcase polish"; agent/runs.jsonl). Prompts, minutes and edits are the measured facts, as typed; the
-// slug is the build on the games origin (apps/games/builds/<slug>, from `build-demo.mjs --showcase`).
+// The home page's games, in the home screen's order. First the six showcase games (since 2026-10-27), each built on Best
+// (Opus high) from one sentence, then polished by 1-3 chat edits (packages/agent/RESULTS.md "2026-10-19: showcase
+// candidates (Opus)" and "2026-10-20: showcase polish"; agent/runs.jsonl). Then the eight earlier test games, back the
+// same day to fill the home screen: built from one sentence each, mostly on Smart, Night Runner then changed by chat
+// (agent/output, agent/runs.jsonl). Prompts, minutes and edits are the measured facts, as typed; names are display
+// names given here; the slug is the build on the games origin (apps/games/builds/<slug>, from `build-demo.mjs`).
+
+import { demoEdits } from "./demo";
 
 export type Tier = "Fast" | "Smart" | "Best";
 
@@ -116,6 +120,101 @@ export const games: Game[] = [
       "From behind my character looks like a plain white ball. Please give it ears, a tail and a little backpack so it looks like a real character.",
       "The grass on the islands looks pale and washed out. Please make it a richer, greener green.",
     ],
+  },
+  {
+    slug: "robot-runner",
+    name: "Robot Runner",
+    prompt:
+      "Make an endless runner where a little robot jumps over cactuses and it gets faster over time.",
+    tier: "Smart",
+    minutes: 1.6,
+    genre: "Endless runner",
+    orientation: "landscape",
+    image: "/games/runner_sunset.jpg",
+    icon: "/games/runner_sunset_sq.jpg",
+  },
+  {
+    slug: "fruit-match",
+    name: "Fruit Match",
+    prompt: "Make a match-3 puzzle game with cute fruit.",
+    tier: "Smart",
+    minutes: 2.2,
+    genre: "Puzzle",
+    orientation: "landscape",
+    image: "/games/match3.jpg",
+    icon: "/games/match3_sq.jpg",
+  },
+  {
+    slug: "town-driver",
+    name: "Town Driver 3D",
+    prompt:
+      "Make a 3D game where I drive a little car around a small town and collect coins before the time runs out.",
+    tier: "Best",
+    minutes: 7.6,
+    genre: "3D driving",
+    orientation: "landscape",
+    image: "/games/car_city.jpg",
+    icon: "/games/car_city_sq.jpg",
+  },
+  {
+    slug: "night-runner",
+    name: "Night Runner",
+    prompt:
+      "Make an endless runner where a little robot jumps over cactuses and it gets faster over time.",
+    tier: "Smart",
+    minutes: 1.6,
+    genre: "Endless runner",
+    orientation: "landscape",
+    image: "/games/runner_night.jpg",
+    icon: "/games/runner_night_sq.jpg",
+    edits: demoEdits,
+  },
+  {
+    slug: "fruit-match-night",
+    name: "Fruit Match Night",
+    prompt: "Make a match-3 puzzle game with cute fruit.",
+    tier: "Fast",
+    minutes: 10.5,
+    genre: "Puzzle",
+    orientation: "landscape",
+    image: "/games/match3_dark.jpg",
+    icon: "/games/match3_dark_sq.jpg",
+  },
+  {
+    slug: "desert-dash",
+    name: "Desert Dash",
+    prompt:
+      "Make an endless runner where a little robot jumps over cactuses and it gets faster over time.",
+    tier: "Smart",
+    minutes: 4.1,
+    genre: "Endless runner",
+    orientation: "landscape",
+    image: "/games/runner_day.jpg",
+    icon: "/games/runner_day_sq.jpg",
+  },
+  {
+    slug: "box-push",
+    name: "Box Push",
+    prompt:
+      "Make a puzzle game where you push boxes onto targets, with 5 levels that get harder.",
+    tier: "Smart",
+    minutes: 8.8,
+    genre: "Puzzle",
+    orientation: "landscape",
+    image: "/games/boxpush.jpg",
+    icon: "/games/boxpush_sq.jpg",
+  },
+  {
+    slug: "little-car",
+    name: "Little Car",
+    prompt:
+      "Make a 3D game where I drive a little car around a small town and collect coins before the time runs out.",
+    tier: "Smart",
+    minutes: 4.4,
+    genre: "3D driving",
+    orientation: "landscape",
+    image: "/games/car_sonnet.jpg",
+    icon: "/games/car_sonnet_sq.jpg",
   },
 ];
 
