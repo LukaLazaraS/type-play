@@ -52,6 +52,29 @@ key-only SSH, Docker with rotating logs), `server/compose.yaml`, `server/Dockerf
 - **Never** turn on Cloudflare's "Always Use HTTPS" for typeplay.app or block port 80 at the firewall:
   Caddy needs plain http on port 80 to renew its certificate (it redirects visitors to HTTPS itself).
 
+## Security updates (checked on both servers 2026-10-26, read only)
+
+Both servers (Ubuntu 24.04.5) install Ubuntu's security updates by themselves, daily: `unattended-upgrades` is
+on (`/etc/apt/apt.conf.d/20auto-upgrades`, the `apt-daily` and `apt-daily-upgrade` timers) for the noble,
+noble-security and ESM pockets; the web server's log shows git, xz, zlib, ca-certificates installed that way
+in the week before. What does not happen by itself:
+
+- **Reboots.** `Unattended-Upgrade::Automatic-Reboot` is off, so a new kernel or libc waits for a restart. Both
+  servers have `/var/run/reboot-required` (linux-image 6.8.0-147, libc6, linux-base, installed by cloud-init's
+  first-boot upgrade) and still run kernel 6.8.0-138: the web server since 10-15, the API server since 10-23. On
+  the API server the kernel is what the runner's jobs share (without gVisor), so that reboot is a security
+  update. A reboot restarts the containers (about a minute; builds running then end "interrupted", unpaid).
+  Either reboot by hand after kernel updates, or set `Unattended-Upgrade::Automatic-Reboot "true";` with an
+  `Automatic-Reboot-Time` in a quiet hour.
+- **Docker itself** (docker-ce, containerd from download.docker.com, origin `Docker`, not an allowed origin): the
+  web server has 29.9.1 with 29.9.2 waiting. `apt-get upgrade` by hand, or add `"Docker:${distro_codename}";` to
+  the allowed origins (an upgrade restarts dockerd and with it the containers).
+- **The packages inside the images** (Debian's Chromium, git, OpenSSL in `typeplay-api`; the Node base images):
+  they change only when an image is rebuilt without its cache, and `site` / `api` reuse cached layers. The
+  runner's Chromium, which runs every player's game, is as old as the last uncached build (the live image: 10-24).
+  A monthly `docker compose build --pull --no-cache` (then `up -d`) keeps them current.
+- **gVisor** (with the runner on it): pinned in `api/gvisor.sh`, updated by hand.
+
 ## The API (api.typeplay.app): ready, not live yet
 
 Written and tested 2026-10-17 (package 5); nothing is bought or created yet. Going live:
@@ -88,6 +111,7 @@ api → Supabase Postgres (data), R2 typeplay-games (builds, served at typeplay.
 | DNS | `api.typeplay.app` A + AAAA, proxied (zone settings Full strict / TLS 1.2 are the site's) |
 | Files | `/opt/typeplay-api`: `compose.yaml`, `caddy/`, `src/` (pruned source), `api.env` (mode 600), **`data/`** (every game's git repo, run logs: the only state on this box; turn on Hetzner backups, +20%), `assets/` (3D library, read-only to runs) |
 | Image | `api/Dockerfile`: Node 22, git, Chromium, Godot 4.7.2 Linux + web and Android release templates from the official release (SHA-512 checked), Prisma; `prisma migrate deploy` on every start. **Android toolchain** (package 7, stages `android-sdk` → `gradle-seed` → `self-test`, kept across deploys): Temurin JDK 17 (318 MB), the SDK pieces the Godot template names (command-line tools 175, build-tools 36.1.0 150, platforms android-36 146, platform-tools 22 MB), bundletool 1.18.3 (32 MB), the two Android templates (305 MB), and the warmed Gradle seed (1.18 GB), every download pinned by hash: **about +2.2 GB on the image, +10-15 min on the first build** (measured sizes from the WSL run; the seed warm-up took 1 min 54 s on this PC). The `self-test` stage exports the blank template to APK and AAB with `--network=none` and checks target SDK 36, 16 KB pages, not debuggable, no permissions: a broken toolchain fails the deploy, never a user's export. `deploy.mjs api` copies `api/android/` (the seed's `gradle.properties`, the offline init script, the placeholder icons, `steps.sh`) next to the Dockerfile |
+| gVisor | The runner runs under gVisor (`runtime: runsc` in `api/compose.yaml`, the runner only). `api/gvisor.sh`, which `api` runs before `docker compose up`, installs runsc 20261019.0 (pinned by SHA-512 from gVisor's signed apt index) and registers it in `/etc/docker/daemon.json` with `--platform=systrap` (a CPX has no nested virtualization: no `/dev/kvm`) and `--host-uds=create` (the runner's socket in the shared volume); it does nothing when that is in place, and reloads Docker (no container restarts) only when daemon.json changed. With it: the api's fixed address on the internal network (10.200.0.2: gVisor can't use Docker's DNS) and `GLIBC_TUNABLES` on the runner. The first `api` after the switch recreates the agents network and the runner (rehearsed in WSL: `apps/server/test/gvisor/upgrade-check.sh`, 7.6 s). Back to runc: delete the `runtime: runsc` line and run `api`. Trial numbers: `apps/server/test/gvisor/RESULTS.md` |
 | CPU / memory / disk | runner ≤ 3 vCPU / 5.5 GB, api ≤ 1 vCPU / 1 GB: builds can't starve the API. At most 4 runs (`MAX_RUNS`), 6 runner slots; each run's hidden browser runs under that CPU cap (no cross-run lock there). A game folder is capped at 512 MB per agent job; the engine files are removed after each publish; a game is only freed by deleting it (`apps/server/README.md`, "Where data lives") |
 | Secrets | `api.env`, written by `api` from the root `.env`: `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `ANTHROPIC_API_KEY`, `ANDROID_KEY_MASTER` (the key every game's Android upload keystore is encrypted under; `android-key` makes it; `api` requires it only while `ANDROID_EXPORT: "1"` is set in `api/compose.yaml`, which is `"0"` (off) for beta 1), and when present `ANDROID_KEY_MASTER_PREV`; and with billing on, the Paddle keys `PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_WEBHOOK_SECRET_PREVIOUS`, taken from the root `.env`'s `PADDLE_LIVE_*` (or `PADDLE_SANDBOX_*`) names (row below). Never the Hetzner or Cloudflare tokens, the Supabase secret key, the DB password or the Google secret. Only the api container gets them: the runner refuses to start with any of them, the signer too |
 | Paddle | `api/compose.yaml` names the environment and the catalog: `PADDLE_ENV` (empty = billing off; `sandbox` while testing, usable on the live site only by `ADMIN_EMAILS`; `live` after Paddle's approval), the five `PADDLE_PRICE_*` ids (from `npm run paddle:catalog`), `ADMIN_EMAILS`. The keys go to the server only with billing on: `PADDLE_ENV: "live"` takes `PADDLE_LIVE_API_KEY`, `PADDLE_LIVE_WEBHOOK_SECRET` (and `PADDLE_LIVE_WEBHOOK_SECRET_PREVIOUS`) from the root `.env` and writes them into `api.env` under the plain names; `"sandbox"` takes `PADDLE_SANDBOX_*` the same way; `""` (off) sends none (2026-10-25: names no code on this PC reads, so development, whose own sandbox keys are the plain names in `.env.local`, and the tests never get a real key). `api` refuses a missing key or webhook secret and a key whose prefix (`pdl_sdbx_` / `pdl_live_`) disagrees with `PADDLE_ENV`; the API checks the same at start and compares the prices with `credits.ts`. The site's build args `NEXT_PUBLIC_PADDLE_ENV` and `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` are in `server/compose.yaml` (part 3). **At go-live, a Cloudflare WAF skip rule**: Security > WAF > Custom rules, "Paddle webhooks": `(http.host eq "api.typeplay.app" and http.request.uri.path eq "/webhooks/paddle")` → Skip all remaining custom rules, Bot Fight Mode and the managed challenge (Paddle asks for bot checks to be bypassed on the webhook path). No IP allowlist: the origin only sees Cloudflare's addresses, the signature is the check. Set the destination's URL to `https://api.typeplay.app/webhooks/paddle`, API version 1, the 11 events of `docs/payments-design.md` §6 |
@@ -110,6 +134,9 @@ How the agent is kept away from secrets, and what that doesn't cover: `apps/serv
 
 - **A deploy restarts the runner**, which stops running builds (players are not charged; they see
   "interrupted"). `api` refuses while builds run; `--force` overrides.
+- **gVisor in WSL** (the trial, no server needed): `apps/server/test/gvisor/setup-wsl.sh` installs the server's
+  Docker version and runs `api/gvisor.sh`; `compose-check.sh` starts this folder's `api/compose.yaml` and checks the
+  runner under gVisor; `upgrade-check.sh` rehearses the step from main's stack; `bench.mjs` measures (its RESULTS.md).
 - **Launch (~11-02):** rescale to CPX42 in the Hetzner console ("CPU and RAM only"), then raise the
   runner's `cpus`/`mem_limit` and `MAX_RUNS` in `api/compose.yaml` and run `api`.
 - **The browser:** Debian's Chromium is the one part not yet run in this exact image (its SwiftShader,

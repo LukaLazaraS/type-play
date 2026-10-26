@@ -4,10 +4,12 @@
 #   caddy   HTTPS for api.typeplay.app (behind Cloudflare) → api
 #   api     NestJS + the key proxy. Holds the secrets. Never runs anything inside a game folder.
 #   runner  Game agent runs, Godot (web and Android exports), the hidden browser, git in game folders,
-#           each job as a throwaway user. No secrets; its only network is "agents" (internal: no
-#           internet), where it reaches the api container alone: the key proxy (8787), and the REST
-#           API (3002), whose routes need a sign-in token (the share pages' GET /public/* aside).
-#           Later: pin the api's addresses per network (ipam) so only the proxy is reachable from here.
+#           each job as a throwaway user, all under gVisor (runtime: runsc). No secrets; its only network
+#           is "agents" (internal: no internet), where it reaches the api container alone: the key proxy
+#           (8787), and the REST API (3002), whose routes need a sign-in token (the share pages' GET
+#           /public/* aside). The api has a fixed address there (10.200.0.2): under gVisor the runner
+#           can't use Docker's DNS, so it finds `api` in /etc/hosts (extra_hosts).
+#           Later: bind the REST API to the web network's address only, so only the proxy is reachable from here.
 #   signer  Signs Android builds with the game's upload key (apps/server/signer/signer.mjs): the one
 #           process that ever holds a keystore in the clear, for seconds, in its tmpfs. No network at
 #           all, a read-only root, no secrets, no /data; it shares only the exports volume with the api.
@@ -69,7 +71,10 @@ services:
       - runner-socket:/run/typeplay
       - exports:/exports
       - signer-socket:/run/typeplay-signer
-    networks: [web, agents]
+    networks:
+      web: {}
+      agents:
+        ipv4_address: 10.200.0.2
     depends_on:
       runner:
         condition: service_healthy
@@ -88,6 +93,10 @@ services:
   runner:
     build: ./src
     image: typeplay-api
+    # gVisor (deploy/api/gvisor.sh, which `deploy.mjs api` runs first): the runner and every job in it talk to
+    # gVisor's own kernel, written in Go, not to the server's Linux kernel. Platform systrap (no KVM on a CPX).
+    # The trial's numbers: apps/server/test/gvisor/RESULTS.md.
+    runtime: runsc
     init: true
     restart: unless-stopped
     command: ["node", "apps/server/runner/runner.mjs"]
@@ -97,6 +106,10 @@ services:
       RUNNER_SLOTS: "6"
       RUN_TIMEOUT_MIN: "40"
       ASSET_LIBRARY: /assets
+      # Passed on to every job (runner.mjs jobEnv): two malloc arenas grown in 64 MB steps. Godot's default per-thread
+      # heaps grow by ~20,000 mprotect calls an import, slow under gVisor: a web export takes 7 s with this, 12 without
+      # (5 s on plain runc either way; apps/server/test/gvisor/RESULTS.md).
+      GLIBC_TUNABLES: "glibc.malloc.arena_max=2:glibc.malloc.top_pad=67108864"
       # Android jobs (one at a time): Godot's exporter finds the JDK and SDK through these on a fresh
       # home; the Gradle seed is copied into each job's home. No keystore, password or socket is here.
       MAX_ANDROID_JOBS: "1"
@@ -109,6 +122,10 @@ services:
       - ./assets:/assets:ro
       - runner-socket:/run/typeplay
     networks: [agents]
+    # gVisor's own network stack never reaches Docker's DNS (127.0.0.11 is answered inside the container's
+    # network namespace, which the sandbox doesn't use), so the key proxy's name comes from /etc/hosts.
+    extra_hosts:
+      - "api:10.200.0.2"
     cpus: 3.0
     mem_limit: 5632m
     memswap_limit: 5632m
@@ -177,6 +194,12 @@ networks:
   web: {}
   agents:
     internal: true
+    # Fixed, so the api can keep 10.200.0.2 (the runner's extra_hosts); containers that start first (the runner)
+    # get their address from the upper half, never the api's.
+    ipam:
+      config:
+        - subnet: 10.200.0.0/24
+          ip_range: 10.200.0.128/25
 
 volumes:
   runner-socket:

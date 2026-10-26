@@ -604,7 +604,12 @@ two containers:
   secrets (it refuses to start if one is in its environment), runs with only the Linux capabilities
   that switching users needs, and its network is internal: no internet; it reaches the api container
   alone, i.e. the key proxy and the REST API, whose routes need a sign-in token (the share pages'
-  `GET /public/*` aside).
+  `GET /public/*` aside). **It runs under gVisor** (compose `runtime: runsc`, platform systrap,
+  installed by `deploy/api/gvisor.sh`; section "gVisor" below): the runner and every job talk to
+  gVisor's own kernel, not the server's. Two things follow from it: the api has a fixed address on the
+  internal network (10.200.0.2, `api` in the runner's /etc/hosts), since gVisor's network stack can't
+  use Docker's DNS; and the runner passes `GLIBC_TUNABLES` (compose) to every job, a malloc setting
+  without which Godot runs about twice as slow under gVisor.
 
 The production guards (`src/env.ts`, `assertSafeConfig`): the API refuses to start with
 `NODE_ENV=production` unless `AGENT_AUTH=api`, `RUNNER_SOCKET` and `GAMES_PUBLISH=r2` are set, or if
@@ -651,10 +656,15 @@ PC the agent runs on the Max login and never goes through the proxy, so `metered
   processes, one game folder at 512 MB.
 - Spending through the proxy on the side: metered and charged (above).
 - The Max login reaching the server: the guards above, and `deploy.mjs api` copies only named keys.
+- A Linux kernel bug reached from an agent's shell (gVisor, 2026-10-26): a job's system calls are
+  handled by gVisor's Sentry, a kernel written in Go, inside the sandbox; the server's kernel sees only
+  the narrow set of calls the Sentry itself makes, behind its own seccomp filter. Breaking out now
+  takes a gVisor bug and then a host kernel bug reachable through that set.
 
-**What it does not protect against yet** (next step: a container or a gVisor/Firecracker sandbox per run):
-- A Linux kernel bug: all jobs share the server's kernel. An exploit from the agent's shell could become
-  root in the runner and then read every game folder (still no secrets: those are in the other container).
+**What it does not protect against yet** (next step, if ever needed: a sandbox per run, e.g. a Firecracker VM):
+- Jobs share one sandbox: an escape from a job's user to root inside it (a gVisor bug, not a host
+  kernel one) could read every game folder (still no secrets: those are in the other containers).
+  gVisor is pinned in `deploy/api/gvisor.sh` and updated by hand (gVisor releases weekly).
 - Runs crowding each other: they share the runner's 5.5 GB (the kernel kills game work first), so one
   runaway run can fail another run, but not the API; and a job can fill the disk for as long as it
   runs (no quota on its home).
@@ -869,11 +879,40 @@ without sign-in, ownership on every game route, secrets, the site's redirects an
   webhook inbox's counts (no secrets). Unsharing a game stops its share page, but its builds stay at
   `typeplay.dev/builds/<id>-v<n>/` for whoever kept the address.
 
+## gVisor (the runner's sandbox, tried 2026-10-26)
+
+On branch `gvisor` the runner runs under gVisor; Luka decides from the trial (`test/gvisor/RESULTS.md`: the live runner
+container in WSL on his PC, under runc and under runsc, the same jobs). What it buys: a job's system calls go to gVisor's
+Sentry, not to the server's kernel. Without it, a Linux bug reached from an agent's shell gives control of the whole
+server, not just the runner: every game folder and the api container's keys (`api.env` is on the same machine).
+
+What it costs (medians, runc → runsc):
+- **A build, what the player waits**: Fast 13.0 → 15.0 min, Smart 5.7 → 5.8 min. Pairs started together (same prompt and
+  model): Fast +12%, Smart +3%, gVisor slower in 12 of 18 pairs; the 2D games' 12 pairs +7.5%. One build differs from
+  the next by ±30-50% (the model's path), so no single figure is outside the noise; the pairs and the fixed jobs agree.
+- **Godot's own work** +35-40% (web export 6.3 → 8.5 s, Android APK 9.6 → 12.9 s, AAB 38.7 → 54.4 s) with the malloc
+  setting below; +100-110% without it. The check: 2D +6% as on the server today, +11% like for like; 3D -25% as on the
+  server (the pin in "Left for later": gVisor ignores it), +19% like for like.
+- A job's own start +24-40 ms, the runner's start +72 ms, idle memory 15 → 30 MB, about twice the CPU per build (the
+  Sentry's work); peak memory as the cgroup counts it (page cache included) is lower.
+
+What it needed, all on the branch: `deploy/api/gvisor.sh` (runsc pinned by SHA-512, Docker runtime `--platform=systrap
+--host-uds=create`), `runtime: runsc` on the runner, the api's fixed address on the internal network (gVisor can't use
+Docker's DNS), `GLIBC_TUNABLES` for the jobs. Checked: `test/gvisor/compose-check.sh` (8 checks on the live compose file),
+`upgrade-check.sh` (the live server's way onto it), 54 real builds and every fixed job under both runtimes, none failing.
+gVisor releases about weekly: bump `VERSION` and `SHA512` in `gvisor.sh` (from the signed index), then `deploy.mjs api`.
+
 ## Left for later
 
-- A container or VM per run (above). Until then: pin the api container's addresses per network
-  (compose `ipam`) and bind the REST API to the web network's address only, so the runner reaches
-  nothing but the key proxy.
+- **The check runs on one CPU on the live server** (found in the gVisor trial): `packages/agent/tools/cpu.mjs`, written
+  for Luka's PC, pins every check with `taskset -pc 2-2`, because Node counts the runner's 3-CPU cap as 3 CPUs; Godot's
+  runs and the hidden browser then share one CPU. A 3D check takes 58 s instead of 37 s (the browser draws 1 frame a
+  second, not 3), the agent sees poor screenshots and checks again: the trial's 3D builds on Smart took 13 min in 2 of 3
+  runs, 4-5 min without the pin. Not fixed here: skip the pin inside the runner (an env switch the runner sets, like
+  `TYPEPLAY_BROWSER_LOCK=0`). Unpinned checks use their 3 CPUs, so builds running at once share them more.
+- A sandbox per run (above). The api's address on the internal network is fixed since the gVisor switch
+  (10.200.0.2, compose `ipam`); still open: bind the REST API to the web network's address only, so the
+  runner reaches nothing but the key proxy.
 - **A test for the runner** (nothing checks it before a deploy; it was tried by hand in WSL on
   10-17): `apps/server/test/runner.mjs`, run as root in WSL with a temporary `DATA_DIR`,
   `RUNNER_SOCKET` and `RUNNER_HOMES` and a probe `AGENT_SCRIPT` that prints its environment and tries
@@ -885,6 +924,17 @@ without sign-in, ownership on every game route, secrets, the site's redirects an
   check while writing the probe script. **10-19:** tried once more on Luka's request and stopped again:
   dropped for good here. Instead: an outside security review of the runner's isolation before the paid
   launch (docs/parked.md), with the 10-17 hand check in WSL and the fixes below meanwhile.
+  **10-26** (Luka chose our own testing over an outside reviewer; HQ asked for this test once more, with
+  and without gVisor, and "if the safety check blocks it again, stop that part and write exactly what was
+  blocked"): blocked a third time, before any of it was written. What was blocked, exactly: one of the
+  session's replies, which Claude Code's safety classifier stopped and withheld ("not a tool or API error
+  ... the rest of it was withheld, and tool calls in it that had not finished did not run"). The session
+  can't see the withheld text; it came right after the runner's `runtime: runsc` line went into
+  compose.yaml, with this test on the session's plan, and the session took it as the block HQ foresaw. So the
+  part was dropped as asked: no `test/runner.mjs`, no probe script, nothing run. Checked under gVisor instead, by
+  `test/gvisor/compose-check.sh`: the runner under runsc turns healthy, the api container (runc, uid 1000,
+  no capabilities) reaches its socket, `api:8787` answers from inside the sandbox and the internet
+  (1.1.1.1) does not.
   What it found by reading the code was fixed the same day: the runner now refuses `PADDLE_*` in its
   environment (as `deploy/README.md` says); a job whose stdout or stderr passes 50 MB is stopped, not
   left running to its time limit; a runner restart closes every game folder to 0700 again; the prompt

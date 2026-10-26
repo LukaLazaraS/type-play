@@ -465,6 +465,7 @@ async function api() {
   cpSync(join(import.meta.dirname, "api", "Dockerfile"), join(API_BUILD, "src", "Dockerfile"));
   cpSync(join(import.meta.dirname, "api", "android"), join(API_BUILD, "src", "android"), { recursive: true }); // the seed's files, next to the Dockerfile
   cpSync(join(import.meta.dirname, "api", "compose.yaml"), join(API_BUILD, "compose.yaml"));
+  cpSync(join(import.meta.dirname, "api", "gvisor.sh"), join(API_BUILD, "gvisor.sh")); // the runner's runtime (compose `runtime: runsc`)
   cpSync(join(import.meta.dirname, "api", "caddy"), join(API_BUILD, "caddy"), { recursive: true });
   const tgz = join(import.meta.dirname, "release-api.tgz");
   run("tar", ["-czf", "../release-api.tgz", "."], { cwd: API_BUILD });
@@ -480,6 +481,8 @@ async function api() {
     `cd ${API_DIR}`,
     "rm -rf src && tar -xzf release.tgz && rm release.tgz",
     "mkdir -p data assets",
+    // gVisor for the runner: installs the pinned runsc and registers it with Docker; does nothing when it is in place.
+    "sh gvisor.sh",
     "docker compose up -d --build --remove-orphans --wait",
     "docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile",
     "docker image prune -f >/dev/null",

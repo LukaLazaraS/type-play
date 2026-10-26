@@ -390,6 +390,9 @@ function jobEnv(slot, home, extra, kind) {
     AGENT_LOG_DIR: join(home, 'logs'),
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
     DISABLE_AUTOUPDATER: '1',
+    // glibc's malloc as compose.yaml sets it for gVisor: Godot's per-thread heaps otherwise grow by ~20,000
+    // mprotect calls an import, each one slow under gVisor (apps/server/test/gvisor/RESULTS.md).
+    ...(env.GLIBC_TUNABLES ? { GLIBC_TUNABLES: env.GLIBC_TUNABLES } : {}),
   };
   for (const [k, v] of Object.entries(extra ?? {})) if (PASS_ENV.has(k) && typeof v === 'string') e[k] = v;
   if (kind === 'android') {
