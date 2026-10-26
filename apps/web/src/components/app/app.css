@@ -138,14 +138,34 @@ body:has(.ws) .ground-band {
 .account__menu .button {
   align-self: flex-start;
 }
+/* The bar never outgrows a narrow screen (10-27). What gives way, in this order, when signed in: Pricing on phones (it is
+   in the account menu, "Plans and credits", and in the footer); then the word "credits" (screen readers keep it); then,
+   under 340px, the number too (the account menu shows it). Games stays. Signed out, Pricing goes under 380px (globals.css).
+   The 641-680px band is a tablet with every link and the longest credits: there the word steps aside as well. */
 @media (max-width: 640px) {
   .account__credits {
     font-size: 13px;
   }
-}
-@media (max-width: 380px) {
-  .statusbar nav .statusbar__keep[href="/pricing"] {
+  .statusbar nav:has(.account__credits) .statusbar__keep[href="/pricing"] {
     display: none;
+  }
+}
+@media (max-width: 420px), (min-width: 641px) and (max-width: 680px) {
+  .account__unit {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+@media (max-width: 340px) {
+  .account__credits {
+    display: none;
+  }
+  .account__wait {
+    width: 44px;
   }
 }
 
@@ -3472,6 +3492,27 @@ body:has(main.play-gone) > .ground-band {
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+  }
+}
+/* And wherever the words still don't fit (10-27: at 1440px with Android and Shared beside the device pill and Turn, the
+   name had 0px and More was cut off): Stage.tsx measures the bar with every pill in it and sets data-fit when the name
+   would be left less than its first word with "…", or More would run past the edge. "icons": the pills keep their icons
+   only; "tight": the version line goes too. The phone layout keeps its own rules. */
+@media (min-width: 601px) {
+  .stage__bar[data-fit] .inkpill:not(.inkpill--small) {
+    width: 44px;
+    padding: 0;
+  }
+  .stage__bar[data-fit] .inkpill__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .stage__bar[data-fit="tight"] .stage__version {
+    display: none;
   }
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { AndroidLogo, ArrowClockwise, ChatCircleText, DeviceRotate, X } from "@phosphor-icons/react";
 import type { Project } from "@typeplay/shared";
 import { BuildLayers } from "@/components/BuildingIcon";
@@ -32,6 +32,71 @@ const PHONE = `${TOUCH} and (max-width: 599px), ${TOUCH} and (max-height: 599px)
 
 /** Room kept around a device's drawn bezel (the widest, a tablet's, is 16 px). */
 const BEZEL = 16;
+
+/** The bar's steps when it runs out of room (app.css `.stage__bar[data-fit]`): the pills' words go, then the version line. */
+const FIT_STEPS = ["icons", "tight"] as const;
+
+let measurer: CanvasRenderingContext2D | null = null;
+/** The least of the name that must show: its first word and "…" (a one-word name whole), at most 12em (a 60-letter word
+ * can't have that much). Measured in the name's own font, as the words would be drawn. */
+function nameFloor(name: HTMLElement) {
+  const text = (name.textContent ?? "").trim();
+  const word = text.split(/\s+/)[0] ?? "";
+  const style = getComputedStyle(name);
+  measurer ??= document.createElement("canvas").getContext("2d");
+  if (!measurer) return 0;
+  measurer.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  if ("letterSpacing" in measurer) measurer.letterSpacing = style.letterSpacing === "normal" ? "0px" : style.letterSpacing;
+  return Math.min(measurer.measureText(word === text ? word : `${word}…`).width, 12 * parseFloat(style.fontSize));
+}
+
+/** The name is left less than its floor, or the pills run past the bar's edge (More cut off). */
+function cramped(bar: HTMLElement) {
+  const name = bar.querySelector<HTMLElement>(".stage__name");
+  const actions = bar.querySelector<HTMLElement>(".stage__actions");
+  if (!name || !actions) return false; // renaming: the box has the whole bar
+  const edge = bar.getBoundingClientRect().right - parseFloat(getComputedStyle(bar).paddingRight);
+  if (actions.getBoundingClientRect().right > edge + 0.5) return true;
+  return name.scrollWidth > name.clientWidth && name.getBoundingClientRect().width + 0.5 < nameFloor(name);
+}
+
+/**
+ * Keeps the game's name readable and More whole whatever is in the bar (10-27: at 1440 px the device pill, Turn, Shared,
+ * Android, Full screen and New tab left the name 0 px and cut More off). Measured, not a breakpoint, so a pill added later
+ * is counted too: the bar as the page's own rules have it first; while it is cramped, the next step. Again whenever the
+ * bar's width, its contents (a pill, a word, the name) or the fonts change. Each pass sets the attribute and reads the
+ * layout in one go, before the browser paints, so nothing flickers. Returns the ref for the bar.
+ */
+function useFit() {
+  const bar = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = bar.current;
+    if (!el) return;
+    const fit = () => {
+      delete el.dataset.fit;
+      for (const step of FIT_STEPS) {
+        if (!cramped(el)) return;
+        el.dataset.fit = step;
+      }
+    };
+    fit();
+    const size = new ResizeObserver(fit);
+    size.observe(el);
+    // What changes inside an open menu (its panel sits in the bar: "Copied", a busy switch) changes nothing in the bar.
+    const inMenu = (r: MutationRecord) => !!(r.target instanceof Element ? r.target : r.target.parentElement)?.closest(".pop");
+    const contents = new MutationObserver((records) => {
+      if (!records.every(inMenu)) fit();
+    });
+    contents.observe(el, { childList: true, subtree: true, characterData: true });
+    document.fonts.addEventListener("loadingdone", fit);
+    return () => {
+      size.disconnect();
+      contents.disconnect();
+      document.fonts.removeEventListener("loadingdone", fit);
+    };
+  }, []);
+  return bar;
+}
 
 /** The game side of the game page: the playable frame, or the build on its way, and the versions. */
 export function Stage({
@@ -150,10 +215,11 @@ export function Stage({
   });
 
   const readyLine = <ReadyLine name={project.name} onPlay={playOwn} />;
+  const bar = useFit();
 
   return (
     <section className="stage" aria-label="Your game">
-      <header className="stage__bar">
+      <header ref={bar} className="stage__bar">
         {renaming ? (
           <RenameForm project={project} onDone={() => setRenaming(false)} onChange={onChange} />
         ) : (

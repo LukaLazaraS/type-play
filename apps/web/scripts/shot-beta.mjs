@@ -54,8 +54,9 @@ const api = (email, method, path, body) =>
     body: await r.json().catch(() => null),
   }));
 const devId = (email) => `dev-${email.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
-/** No sideways scrolling on a phone: the page is no wider than the screen. */
-const fits = (page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+/** No sideways scrolling on a phone: the page no wider than the viewport the context was given. Not window.innerWidth: a phone
+ * context lets the page grow to fit what overflows, and innerWidth with it (the 10-27 header bug passed that check). */
+const fits = (page) => page.evaluate((vw) => document.documentElement.scrollWidth <= vw + 1, page.viewportSize().width);
 
 // ---- The stack ------------------------------------------------------------------------------------
 const children = [];
@@ -381,7 +382,7 @@ try {
     await p.waitForTimeout(800);
     await openFeedback(p, fromMore(p, gameId));
     const d = p.locator("dialog.feedback[open]");
-    check(`feedback at ${w} px: the dialog fits the screen`, await d.evaluate((el) => el.getBoundingClientRect().width <= window.innerWidth - 16));
+    check(`feedback at ${w} px: the dialog fits the screen`, await d.evaluate((el, vw) => el.getBoundingClientRect().width <= vw - 16, d.page().viewportSize().width));
     check(`feedback at ${w} px: the empty box is three lines tall (its two-line hint fits)`, (await d.locator("textarea").first().evaluate((el) => el.getBoundingClientRect().height)) >= 88);
     await shot(p, `feedback-game-${w}`);
     await d.locator("textarea").first().fill(note);

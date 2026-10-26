@@ -94,7 +94,7 @@ function Row({ game, onChange, onRemoved }: { game: ProjectSummary; onChange: (g
 
   return (
     <li className="manage__row" data-mode={mode}>
-      <AppTile className="manage__icon" waiting={queued && !game.buildId}>
+      <AppTile className="manage__icon" building={running && !game.buildId} waiting={queued && !game.buildId}>
         <GameTile id={game.id} name={game.name} building={(running || queued) && !game.buildId} poster={game.buildId && game.poster ? posterUrl(game.buildId) : null} />
       </AppTile>
 

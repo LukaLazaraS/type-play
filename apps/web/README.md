@@ -36,9 +36,12 @@ Run it alongside the site in dev: `cd ../games && npm run build-demo && npm run 
   phone and desktop width on a base commit and on the working tree, with the same fixtures, and lists the pairs that
   differ (`node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-compare.mjs --base <ref>`, from the repo root;
   shots and the list in `.impeccable/review/compare/`). The walk-throughs that start a stack of their own (`shot-beta`,
-  `shot-compare`, `shot-platform`, `shot-queue`) take ports picked free and a database of the run's own, so any number
-  run at once beside the local site and the tests; two in one checkout take turns, as their `next dev` share
-  `tsconfig.json` (`scripts/dev-env.mjs`, `docs/environments.md` "The automated tests").
+  `shot-compare`, `shot-header`, `shot-platform`, `shot-queue`) take ports picked free and a database of the run's own, so
+  any number run at once beside the local site and the tests; two in one checkout take turns, as their `next dev` share
+  `tsconfig.json` (`scripts/dev-env.mjs`, `docs/environments.md` "The automated tests"). `shot-header.mjs` checks the
+  status bar on phones (280-430px, signed in with 20, 1,299.1 and 12,345.6 credits, and signed out, on the pages it is on;
+  a few minutes). "Nothing wider than the screen" is measured against the viewport the context was given, never
+  `window.innerWidth`: a phone context (`isMobile`) lets the page grow to fit what overflows, and innerWidth with it.
 
 Design authorities: `../../PRODUCT.md` (product record) and `../../DESIGN.md` (the design system).
 
@@ -447,6 +450,13 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   when the stage is smaller, in a flat bezel; phones and tablets open the game's own way up, with Turn beside the pill.
   The same frame is resized, so the game keeps running. Hidden on phones and tablets and in windows under 700 px; a bar
   under 620 px wide drops its version line so the name keeps room. It opens on the device the game is made for.
+  **The bar keeps the name readable and More whole** (10-27): `useFit` in `Stage.tsx` measures the bar with whatever
+  pills are in it and, when the name would be left less than its first word with "…" or More would run past the edge,
+  drops the pills' words, then the version line (`data-fit`). A menu open meanwhile follows its pill (`ui/Popover.tsx`
+  places it again when its trigger changes size). Walk-through: `scripts/shot-bar.mjs` (every mix of device, Turn,
+  Android, Shared and a 60-letter name from 1024 to 1920 px, every 16 px and each change of step to the pixel, and the
+  Share menu while sharing turns on; `--base <ref>` also checks that wherever the bar already fit it is laid out exactly
+  as before; `--menu` only the menu; mocked API, its own site on a port picked free; 5.4 min with `--base`).
 - **Made for** (the platform choice, 10-25; `components/app/PlatformSwitch.tsx`, words in `content/app.ts` `platforms`):
   **Best fit** (first and picked, Luka 10-26: nothing is sent, the agent picks one shape under its base rules and the
   game records it after the first build), Phone, Computer or Any screen. The game page opens the preview on the

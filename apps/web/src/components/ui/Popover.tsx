@@ -31,14 +31,23 @@ function usePlacement(
       const left = vw - right - width;
       el.style.setProperty("--pop-origin", `${Math.round(Math.min(width, Math.max(0, r.left + r.width / 2 - left)))}px 0`);
     };
+    // Its trigger can change size while it is open, and move with it (the game page's bar dropping its words when turning
+    // sharing on makes "Shared" too wide: Stage.tsx useFit): it follows.
+    let resized: ResizeObserver | null = null;
     const before = (e: Event) => {
       if ((e as ToggleEvent).newState === "open") {
         if (place) {
           position();
           window.addEventListener("resize", position);
+          if (trigger.current) {
+            resized = new ResizeObserver(position);
+            resized.observe(trigger.current);
+          }
         }
       } else {
         window.removeEventListener("resize", position);
+        resized?.disconnect();
+        resized = null;
         onClose?.();
       }
     };
@@ -51,6 +60,7 @@ function usePlacement(
       el.removeEventListener("beforetoggle", before);
       el.removeEventListener("toggle", after);
       window.removeEventListener("resize", position);
+      resized?.disconnect();
     };
   }, [trigger, panel, place, onOpen, onClose]);
 }

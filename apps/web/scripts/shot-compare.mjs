@@ -371,6 +371,15 @@ const openAccount = async (p) => {
   await p.locator("#account-menu").waitFor({ state: "visible" });
 };
 const dialogOpen = (p) => p.locator("dialog[open]").waitFor({ timeout: T });
+/** Clicks `target` until `opened` shows: a click that lands before the page has woken up (hydrated) does nothing, as
+ * shot-gallery's openReport found. Once it is open no further click is made. */
+const clickUntilOpen = async (target, opened) => {
+  for (let i = 0; i < 10; i++) {
+    await target.click({ timeout: 10_000 }).catch(() => {});
+    if (await opened.waitFor({ timeout: 1500 }).then(() => true, () => false)) return;
+  }
+  throw new Error("it didn't open after 10 clicks");
+};
 const pop = (p) => p.locator(":popover-open").first();
 const gamePage = (key, name) => ({ who: "maker", path: () => `/games/${G[key].id}`, ready: (p) => p.locator("h1", { hasText: name }).first().waitFor({ state: "attached", timeout: T }) });
 
@@ -380,8 +389,7 @@ add({ name: "home", path: "/", full: true, ready: heading(/Type it/), act: async
   await p.getByRole("button", { name: "Play it again" }).waitFor({ timeout: T });
 } });
 add({ name: "home-launcher", path: "/", ready: heading(/Type it/), act: async (p) => {
-  await p.getByRole("button", { name: /^Open / }).first().click();
-  await p.getByRole("dialog").waitFor();
+  await clickUntilOpen(p.getByRole("button", { name: /^Open / }).first(), p.getByRole("dialog"));
   await p.waitForTimeout(500);
 } });
 add({ name: "pricing", path: "/pricing", full: true, ready: heading(/Pay for what/) });
@@ -400,8 +408,7 @@ step("share four games and put them in the gallery", async () => {
 add({ name: "explore", path: "/explore", full: true, ready: heading("Every game.") });
 add({ name: "explore-new", path: "/explore?sort=new", full: true, ready: heading("Every game.") });
 add({ name: "explore-report", path: "/explore", ready: heading("Every game."), act: async (p) => {
-  await click(p, "Report Desert Racer");
-  await dialogOpen(p);
+  await clickUntilOpen(p.getByRole("button", { name: "Report Desert Racer" }).first(), p.locator("dialog[open]"));
   await p.locator("dialog[open] label").nth(2).click();
 } });
 add({ name: "play", path: () => `/play/${G.runner.id}`, full: true, ready: heading("Robot Runner") });
