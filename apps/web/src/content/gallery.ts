@@ -1,4 +1,4 @@
-// The public gallery's words (/explore; PLAN.md "Better than the competitors" #9): the two sorts, the genre
+// The public gallery's words (/explore; PLAN.md "Better than the competitors" #9): the three orders, the genre
 // names, the report reasons (the terms' "What you may not do" in player words) and the maker's gallery switch.
 import type { GallerySort, Genre, ReportReason } from "@typeplay/shared";
 
@@ -10,13 +10,12 @@ export const genreName: Record<Genre, string> = {
   towerdefence: "Tower defence",
 };
 
-export const sorts: { id: GallerySort; name: string; href: string }[] = [
-  { id: "popular", name: "Popular", href: "/explore" },
-  { id: "new", name: "New", href: "/explore?sort=new" },
+/** The library's orders (Luka, 10-27: Popular / New / All): the week's most played, the newest, every game A to Z. */
+export const sorts: { id: GallerySort; name: string }[] = [
+  { id: "popular", name: "Popular" },
+  { id: "new", name: "New" },
+  { id: "all", name: "All" },
 ];
-
-/** Why the game at the top of New is there (on Popular, its plays this week say it). */
-export const NEWEST = "Newest in the gallery";
 
 export const reportReasons: { id: ReportReason; name: string }[] = [
   { id: "sexual", name: "Sexual content" },

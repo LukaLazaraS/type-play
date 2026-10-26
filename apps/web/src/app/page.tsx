@@ -3,6 +3,7 @@ import type { ModelChoice } from "@typeplay/shared";
 import { JsonLd } from "@/components/JsonLd";
 import { structuredData } from "@/content/seo";
 import { Demo } from "@/components/Demo";
+import { demoEdits } from "@/content/demo";
 import { games } from "@/content/games";
 import { plans } from "@/content/site";
 import { GameIcon, Listing } from "@/components/GameIcon";
@@ -20,14 +21,13 @@ const game = (slug: string) => {
   if (!g) throw new Error(`No game "${slug}" in content/games.ts`);
   return g;
 };
-const robot = game("robot-runner");
-const night = game("night-runner");
+const islandRush = game("show-racer-polished");
 const free = plans.find((p) => p.id === "free")!;
 const medium = plans.find((p) => p.id === "medium")!;
 // The home screen's icon order: two left of the widget, two right, then the second row.
-const row1 = [game("robot-runner"), game("fruit-match")];
-const row1Right = [game("town-driver"), game("box-push")];
-const row2 = [night, game("fruit-match-night"), game("little-car"), game("desert-dash")];
+const row1 = [islandRush, game("show-arcade-polished")];
+const row1Right = [game("show-td-polished"), game("show-match3-polished")];
+const row2 = [game("show-runner-polished"), game("show-3d-polished")];
 // The AIs as a settings list: what each is for, and what our test builds measured.
 const ais: { id: ModelChoice; name: string; text: string; figures: [string, string] }[] = [
   {
@@ -36,8 +36,8 @@ const ais: { id: ModelChoice; name: string; text: string; figures: [string, stri
     text: "The cheapest. Good for small edits; describe exactly what you want. New games come out in two short steps.",
     figures: ["new game 8 to 12 min", "edit 1 to 3 min"],
   },
-  { id: "smart", name: "Smart", text: "The default for new games. Most of the games on this page are Smart builds.", figures: ["new game 1.6 to 9 min", "more credits than Fast"] },
-  { id: "best", name: "Best", text: "The strongest model, with better character art. Costs the most credits.", figures: ["new game about 8 min", "most credits"] },
+  { id: "smart", name: "Smart", text: "The default for new games. The robot runner above is a Smart build.", figures: ["new game 1.6 to 9 min", "more credits than Fast"] },
+  { id: "best", name: "Best", text: "The strongest model, with better character art. The games on this page are Best builds. Costs the most credits.", figures: ["new game 8 to 23 min", "most credits"] },
 ];
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
@@ -49,7 +49,7 @@ export default function Home() {
       {/* The home screen */}
       <section className="home" aria-label="Type it, play it">
         <Ground className="home__ground" />
-        <Notice game={robot} />
+        <Notice game={islandRush} />
         <div className="home__grid">
           {row1.map((g) => (
             <GameIcon game={g} key={g.slug} />
@@ -66,7 +66,7 @@ export default function Home() {
             <GameIcon game={g} key={g.slug} />
           ))}
           {row2.map((g) => (
-            <GameIcon game={g} key={g.slug} stat={g.edits ? `+${g.edits.length} edits by chat` : undefined} />
+            <GameIcon game={g} key={g.slug} />
           ))}
           <div className="home__build">
             <BuildingIcon />
@@ -87,9 +87,9 @@ export default function Home() {
         </p>
         <Demo />
         <p className="lead lead--after">
-          The same robot runner got {night.edits!.length} edits by chat in all, each a new version
+          The same robot runner got {demoEdits.length} edits by chat in all, each a new version
           that keeps the old one, so any change can be undone:{" "}
-          {night.edits!.map((e, i) => (
+          {demoEdits.map((e, i) => (
             <span key={e}>
               {i > 0 ? " " : ""}
               <q>{e}</q>
@@ -104,8 +104,8 @@ export default function Home() {
           Made from one sentence each.
         </h2>
         <p className="lead">
-          Test games from our builds, exactly as the AI made them, with the sentence that made
-          each one. Tap one to see it.
+          Test games from our builds, exactly as the AI made them: the sentence that made each
+          one, then one to three small fixes asked for by chat. Tap one to see it.
         </p>
         <div className="strip">
           {games.map((g) => (

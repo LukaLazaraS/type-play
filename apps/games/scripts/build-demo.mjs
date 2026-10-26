@@ -7,8 +7,8 @@
 //
 // Showcase candidates (2026-10-19): `node scripts/build-demo.mjs --showcase` assembles only the
 // six Opus-built games listed in `showcase` below, plus their `-polished` copies (2026-10-20; not the
-// demo games, not the history), see "Showcase candidates" further down. Nothing there is on the live
-// home page until Luka picks.
+// demo games, not the history), see "Showcase candidates" further down. The home page lists the six
+// `-polished` ones since 2026-10-27 (Luka's pick; apps/web/src/content/games.ts).
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -20,7 +20,8 @@ const GODOT = process.env.GODOT_EXE || "C:/Users/lazar/Godot/4.7.2/Godot_v4.7.2-
 const ENGINE_VERSION = process.env.GODOT_VERSION || "4.7.2"; // the version the test projects were exported with
 const today = new Date().toISOString().slice(0, 10);
 
-// id -> { folder in agent/output, display name }  (the eight games in web/src/content/games.ts)
+// id -> { folder in agent/output, display name }  (the eight games on the home page until 2026-10-27; their builds stay
+// on the games origin, and robot-runner is also the fake agent's pack and deploy.mjs's check)
 const games = {
   "robot-runner": ["runner-iso-sonnet-playtest", "Robot Runner"],
   "fruit-match": ["match3-sonnet-medium", "Fruit Match"],
@@ -52,6 +53,9 @@ const showcase = {
   "show-3d-polished": "3D platformer",
   "show-arcade-polished": "Arcade",
 };
+// Where a wide picture's square icon is cut: 0 the left edge, 0.5 the centre (the default), 1 the right edge.
+// The runner's ninja cat runs near the left edge, so a centred square shows only rooftops.
+const iconAt = { "show-runner": 0, "show-runner-polished": 0 };
 const onlyShowcase = process.argv.includes("--showcase");
 
 // The runner's versions for the "say what to change" demo: commit -> id.
@@ -164,7 +168,7 @@ if (onlyShowcase) {
     await card.jpeg({ quality: 82 }).toFile(join(out, "card.jpg"));
     const side = Math.min(w, h);
     await sharp(shot)
-      .extract({ left: Math.round((w - side) / 2), top: Math.round((h - side) / 2), width: side, height: side })
+      .extract({ left: Math.round((w - side) * (iconAt[id] ?? 0.5)), top: Math.round((h - side) / 2), width: side, height: side })
       .resize(240, 240)
       .jpeg({ quality: 82 })
       .toFile(join(out, "icon.jpg"));

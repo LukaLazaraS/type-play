@@ -35,6 +35,15 @@ enum Platform {
   fill
 }
 
+/// The genre skill a game was built with (packages/agent/genres/; the game folder's GENRE file, copied here after each build so
+/// the gallery can filter by it). null: none of them, or not known.
+enum Genre {
+  runner
+  puzzle
+  racer
+  towerdefence
+}
+
 enum Role {
   user
   agent
@@ -241,6 +250,8 @@ model Project {
   /// An admin took it out of the gallery (`admin gallery hide`, or 3 open reports); its share link keeps working.
   hiddenAt       DateTime?
   hiddenReason   String?
+  /// The genre skill it was built with (its folder's GENRE file after each build): the gallery's genre filter.
+  genre          Genre?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   messages       Message[]

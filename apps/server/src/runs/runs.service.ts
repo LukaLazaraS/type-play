@@ -9,6 +9,7 @@ import { CreditsService, type CreditHold } from "../credits/credits.service.js";
 import { LedgerService, TX_OPTIONS } from "../credits/ledger.service.js";
 import { config } from "../env.js";
 import { EventBus } from "../events/event-bus.js";
+import { genreOf } from "../gallery/gallery.service.js";
 import { headOf, settleFolder } from "../games/git.js";
 import { readPlatformWord, readProjectGodot } from "../games/files.js";
 import { exportWeb, gameNameOf, orientationOf, platformOf } from "../games/godot.js";
@@ -223,6 +224,8 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     const name = project.renamed ? project.name : (gameNameOf(projectGodot) ?? project.name);
     const orientation = orientationOf(projectGodot);
     const platform = platformOf(readPlatformWord(dir), orientation);
+    // The genre skill it was built with (the GENRE file run.mjs keeps): the gallery's genre filter.
+    const genre = genreOf(run.projectId);
     if (run.cancelled) throw new CancelledLate();
     // After a rolled-back step the check's pictures are of that step, not of this build: no poster.
     // The Free plan's mark goes by the owner's plan now, as the build is published (game.json `badge`).
@@ -257,7 +260,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
         if (message.plan === "free") await this.ledger.addFreeSpend(tx, aiSpentUsd(result, metered));
         // A rename while this run was going wins over the game agent's name.
         const now = await tx.project.findUniqueOrThrow({ where: { id: run.projectId }, select: { renamed: true } });
-        await tx.project.update({ where: { id: run.projectId }, data: { currentVersion: n, orientation, platform, ...(now.renamed ? {} : { name }) } });
+        await tx.project.update({ where: { id: run.projectId }, data: { currentVersion: n, orientation, platform, genre, ...(now.renamed ? {} : { name }) } });
         await this.ledger.chargeIn(tx, run.userId, toTenths(credits), { messageId: run.messageId, note: `${run.kind} on ${run.model}` });
         return [message, version] as const;
       }, TX_OPTIONS);
