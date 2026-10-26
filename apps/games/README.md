@@ -13,7 +13,7 @@ apps/games/
   scripts/serve.mjs    dev server on http://127.0.0.1:3001
   scripts/build-demo.mjs   assembles the site's demo games from packages/agent/output (dev + marketing)
                        --showcase: only the six Opus-built showcase candidates (builds/show-*: pack, game.json, poster pictures,
-                       card.jpg + icon.jpg for the home page) and a games.ts entry for each, nothing on the live home page until one is added
+                       card.jpg + icon.jpg for the home page) and a games.ts entry for each; the home page lists the six -polished ones (10-27)
   scripts/publish.mjs  uploads this folder to the live bucket (changed files only)
 ```
 

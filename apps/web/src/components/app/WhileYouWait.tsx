@@ -29,7 +29,7 @@ export type WaitGame = {
   genre: Genre | null;
 };
 
-const HOME_GENRE: Record<string, Genre> = { "Endless runner": "runner", Puzzle: "puzzle", "3D driving": "racer" };
+const HOME_GENRE: Record<string, Genre> = { "Endless runner": "runner", Puzzle: "puzzle", Racing: "racer", "Tower defence": "towerdefence" };
 const homeGames: WaitGame[] = showcase.map((g) => ({
   key: `home-${g.slug}`,
   slug: g.slug,
@@ -50,7 +50,7 @@ export const guessGenre = (prompt: string): Genre | null => CLUES.find(([, re]) 
 
 /**
  * Three to play: the gallery's most played this week, then the home page's games; one of the kind asked for first,
- * then other kinds (the home page has three takes on one robot runner: three of those would be one game).
+ * then other kinds (three games of one kind would feel like one game).
  */
 export function pickWaitGames(gallery: WaitGame[], prompt: string): WaitGame[] {
   const genre = guessGenre(prompt);

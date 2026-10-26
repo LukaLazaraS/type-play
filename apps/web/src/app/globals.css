@@ -1301,6 +1301,9 @@ q {
 }
 .listing {
   flex: none;
+  /* A button centres its content: the strip stretches every card to the tallest, so start at the top instead. */
+  display: flex;
+  flex-direction: column;
   width: min(420px, 82vw);
   scroll-snap-align: start;
   background: var(--paper);
