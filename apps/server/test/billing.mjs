@@ -456,11 +456,11 @@ async function main() {
   // A refund means they don't want the plan any more (Luka, 2026-10-25): the month's payment cancels its subscription now.
   const adjD = (await db.query(`SELECT * FROM "Adjustment" WHERE id = $1`, [refundRowD.adjustmentId])).rows[0];
   ok(adjD.cancelSubscription === "immediately" && adjD.cancelSubscriptionId === tD.subscription_id && adjD.canceledAt === null && (await userRow(D)).subscriptionStatus === "active", "the approved refund of the month's payment marks its subscription to cancel now (Paddle is called after the lock)");
-  const cancelsD = await billing.refundCancels(undefined, "admin:billtest");
+  const cancelsD = await billing.adjustmentCancels(devId(D), "admin:billtest");
   const cancelCallD = stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).at(-1);
   const uD = await userRow(D);
-  ok(cancelsD.length === 1 && cancelCallD?.path === `/subscriptions/${tD.subscription_id}/cancel` && cancelCallD.body.effective_from === "immediately" && uD.subscriptionStatus === "canceled" && uD.plan === "free", `refundCancels: POST /subscriptions/:id/cancel immediately; D canceled, on Free (${cancelsD.join(" | ")})`);
-  ok((await db.query(`SELECT "canceledAt" FROM "Adjustment" WHERE id = $1`, [refundRowD.adjustmentId])).rows[0].canceledAt !== null && (await billing.refundCancels(undefined, "admin:billtest")).length === 0, "done once: canceledAt set, a second pass has nothing to do");
+  ok(cancelsD.length === 1 && cancelCallD?.path === `/subscriptions/${tD.subscription_id}/cancel` && cancelCallD.body.effective_from === "immediately" && uD.subscriptionStatus === "canceled" && uD.plan === "free", `adjustmentCancels: POST /subscriptions/:id/cancel immediately; D canceled, on Free (${cancelsD.join(" | ")})`);
+  ok((await db.query(`SELECT "canceledAt" FROM "Adjustment" WHERE id = $1`, [refundRowD.adjustmentId])).rows[0].canceledAt !== null && (await billing.adjustmentCancels(devId(D), "admin:billtest")).length === 0, "done once: canceledAt set, a second pass has nothing to do");
   ok(await auditOk(emailOf(D)), "audit holds after the cancel");
   // $0: every credit used.
   const E = token("e");
@@ -546,6 +546,12 @@ async function main() {
   await waitIdle(C, projects.at(-1));
   ok((await history(C, 2)).some((h) => h.what === "Removed after a chargeback" && h.amount === -100), 'history: "Removed after a chargeback" -100');
   ok(await auditOk(emailOf(C)), "audit holds after the chargeback");
+  // A chargeback cancels the subscription too (Luka, 2026-10-26): no second charge, no second dispute.
+  ok((await db.query(`SELECT "cancelSubscription" FROM "Adjustment" WHERE id = $1`, [cb.id])).rows[0].cancelSubscription === "immediately", "the chargeback on the month's payment marks its subscription to cancel now");
+  const cancelsC = await billing.adjustmentCancels(devId(C), "admin:billtest");
+  const uC = await userRow(C);
+  ok(cancelsC.length === 1 && stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).at(-1)?.body.effective_from === "immediately" && uC.subscriptionStatus === "canceled" && uC.plan === "free", `adjustmentCancels: C's subscription cancelled at Paddle now, C on Free (${cancelsC.join(" | ")})`);
+  ok(await auditOk(emailOf(C)), "audit holds after the chargeback's cancel");
 
   // ---- A renewal while a build holds credits ----------------------------------------------------------
   console.log("a renewal lands while a build is going");
@@ -694,7 +700,7 @@ async function main() {
   ok(uK.plan === "free" && uK.paddleSubscriptionId === subK.id && (await credits(K)) === 20 && (await api(K, "GET", "/me")).body.models.join() === "fast", "the month was given back, so the plan ended: Free (Fast only), the free 20 stay");
   ok((await db.query(`SELECT count(*)::int AS n FROM "BillingAudit" WHERE "userId" = $1 AND action = 'plan_ended' AND details->>'why' = 'refunded'`, [devId(K)])).rows[0].n === 1, "BillingAudit: plan_ended (refunded)");
   // A refund Paddle made itself cancels the subscription too: no renewal buys the plan again next month.
-  const cancelsK = await billing.refundCancels(undefined, "admin:billtest");
+  const cancelsK = await billing.adjustmentCancels(devId(K), "admin:billtest");
   const uK2 = await userRow(K);
   ok(
     cancelsK.length === 1 && stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).at(-1)?.path === `/subscriptions/${subK.id}/cancel` && stub.state.subscriptions.get(subK.id).status === "canceled" && uK2.subscriptionStatus === "canceled" && uK2.plan === "free" && (await credits(K)) === 20,
@@ -717,7 +723,7 @@ async function main() {
   const uL = await userRow(L);
   ok((await db.query(`SELECT status FROM "Refund" WHERE id = $1`, [refundRowL.id])).rows[0].status === "approved" && payL.refundedCents === 2000 && payL.status === "refunded" && uL.plan === "free" && uL.billingFlag === null && (await credits(L)) === 0, "approved: Payment refunded in full, the plan ended (Free), no flag, 0 credits to spend");
   ok((await history(L, 1))[0].what === "Refunded" && (await history(L, 1))[0].amount === -100, 'history: "Refunded" -100');
-  const cancelsL = await billing.refundCancels(undefined, "admin:billtest");
+  const cancelsL = await billing.adjustmentCancels(devId(L), "admin:billtest");
   ok(cancelsL.length === 1 && stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).at(-1)?.body.effective_from === "immediately" && (await userRow(L)).subscriptionStatus === "canceled", `admin refund of the month: the subscription cancelled at Paddle now (${cancelsL.join(" | ")})`);
   ok(await auditOk(emailOf(L)), "audit holds for L");
 
@@ -735,7 +741,7 @@ async function main() {
   const refundRowO = (await db.query(`SELECT * FROM "Refund" WHERE "userId" = $1`, [devId(O)])).rows[0];
   stub.settleAdjustment(refundRowO.adjustmentId, "approved");
   await deliver(ev("adjustment.updated", stub.state.adjustments.get(refundRowO.adjustmentId)));
-  const cancelsO = await billing.refundCancels(undefined, "admin:billtest");
+  const cancelsO = await billing.adjustmentCancels(devId(O), "admin:billtest");
   const payO = (await db.query(`SELECT * FROM "Payment" WHERE id = $1`, [tO.id])).rows[0];
   const uO = await userRow(O);
   ok(payO.refundedCents === 200 && payO.status === "partly_refunded" && cancelsO.length === 1 && uO.subscriptionStatus === "canceled" && uO.plan === "free" && (await credits(O)) === 0, `approved: $2.00 back, the subscription cancelled now, Free with nothing left (no second free 20 this month) (${await credits(O)})`);
@@ -756,7 +762,7 @@ async function main() {
   stub.settleAdjustment(refundRowP.adjustmentId, "approved");
   await deliver(ev("adjustment.updated", stub.state.adjustments.get(refundRowP.adjustmentId)));
   const cancelCallsP = stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).length;
-  const cancelsP = await billing.refundCancels(undefined, "admin:billtest");
+  const cancelsP = await billing.adjustmentCancels(devId(P), "admin:billtest");
   const uP = await userRow(P);
   ok(
     cancelsP.length === 0 && stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).length === cancelCallsP && uP.plan === "medium" && uP.subscriptionStatus === "active" && (await db.query(`SELECT "cancelSubscription" FROM "Adjustment" WHERE id = $1`, [refundRowP.adjustmentId])).rows[0].cancelSubscription === null,
@@ -781,13 +787,48 @@ async function main() {
   const refundRowQ = (await db.query(`SELECT * FROM "Refund" WHERE "userId" = $1`, [devId(Q)])).rows[0];
   stub.settleAdjustment(refundRowQ.adjustmentId, "approved");
   await deliver(ev("adjustment.updated", stub.state.adjustments.get(refundRowQ.adjustmentId)));
-  const cancelsQ = await billing.refundCancels(undefined, "admin:billtest");
+  const cancelsQ = await billing.adjustmentCancels(devId(Q), "admin:billtest");
   const uQ = await userRow(Q);
   ok(
     refundQ.status === 0 && cancelsQ.length === 1 && stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).at(-1)?.body.effective_from === "next_billing_period" && uQ.subscriptionStatus === "active" && uQ.cancelsAt?.toISOString() === subQ.current_billing_period.ends_at && (await buckets(Q, `AND source = 'upgrade'`))[0].remainingTenths === 0 && (await buckets(Q, `AND source = 'plan' AND "closedAt" IS NULL`)).length === 1,
     `an upgrade's refund: its 87.5 credits gone, the subscription ends at the period's end, the month's plan credits stay (${cancelsQ.join(" | ")})`,
   );
   ok(await auditOk(emailOf(Q)), "audit holds for Q");
+  // An upgrade with every credit used: the 14-day rule gives nothing back (Luka, 2026-10-26: the same rule for upgrades).
+  const S = token("s");
+  await api(S, "GET", "/me");
+  const coS = await billing.createCheckout(await fresh(S), parseItem("plan:medium"), consent());
+  const tS = stub.complete(coS.transactionId);
+  await deliver(ev("transaction.completed", tS));
+  const subS = stub.state.subscriptions.get(tS.subscription_id);
+  await billing.applyPlanChange(await fresh(S), "high");
+  const upS = stub.makeTransaction({ origin: "subscription_update", customerId: tS.customer_id, subscriptionId: subS.id, customData: tS.custom_data, lines: [{ price_id: PRICE_IDS.high, rate: 0.5 }, { price_id: PRICE_IDS.medium, rate: 0.5, negative: true }] });
+  await deliver(ev("transaction.completed", upS));
+  ok((await admin("grant", emailOf(S), "-207.5", "every credit used")).status === 0 && (await credits(S)) === 0, "S: Medium, then High, all 207.5 credits used");
+  const zeroS = await admin("refund", emailOf(S), upS.id);
+  ok(zeroS.status === 1 && /\$0 \(refused\)/.test(zeroS.stderr) && (await userRow(S)).cancelsAt === null, "the upgrade's refund with its credits all used: $0, refused, the subscription untouched");
+  // A chargeback on a pack cancels the subscription too, at the period's end (the month paid for stays; Luka, 2026-10-26).
+  const R = token("r");
+  await api(R, "GET", "/me");
+  const coR = await billing.createCheckout(await fresh(R), parseItem("plan:medium"), consent());
+  const tR = stub.complete(coR.transactionId);
+  await deliver(ev("transaction.completed", tR));
+  const coRPack = await billing.createCheckout(await fresh(R), parseItem("pack"), consent());
+  const tRPack = stub.complete(coRPack.transactionId);
+  await deliver(ev("transaction.completed", tRPack));
+  const cbR = { id: `adj_cbR_${stamp}`, action: "chargeback", type: "full", status: "approved", transaction_id: tRPack.id, customer_id: tRPack.customer_id, currency_code: "USD", items: [{ item_id: tRPack.details.line_items[0].id, type: "full", amount: null }], totals: { subtotal: "1000", tax: "100", total: "1100", fee: "0", earnings: "-1100", currency_code: "USD" }, payout_totals: { chargeback_fee: "1500" }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  const cbRRow = await deliver(ev("adjustment.created", cbR));
+  const cancelsR = await billing.adjustmentCancels(devId(R), "admin:billtest");
+  const uR = await userRow(R);
+  const subR = stub.state.subscriptions.get(tR.subscription_id);
+  ok(
+    cbRRow.status === "processed" && uR.billingFlag === "chargeback" && cancelsR.length === 1 && stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).at(-1)?.body.effective_from === "next_billing_period" && uR.plan === "medium" && uR.cancelsAt?.toISOString() === subR.current_billing_period.ends_at,
+    `a chargeback on a pack: the hold, and the subscription ends at the period's end, no renewal (${cancelsR.join(" | ")})`,
+  );
+  const warnAgain = { ...cbR, id: `adj_cbR2_${stamp}`, action: "chargeback_warning" };
+  await deliver(ev("adjustment.created", warnAgain));
+  ok((await billing.adjustmentCancels(devId(R), "admin:billtest")).length === 0 && (await db.query(`SELECT "cancelSubscription" FROM "Adjustment" WHERE id = $1`, [warnAgain.id])).rows[0].cancelSubscription === null, "a second chargeback event once the cancel is scheduled: nothing more to cancel");
+  ok(await auditOk(emailOf(R)), "audit holds for R");
 
   console.log("a chargeback on a payment whose credits are all used: no 'Removed 0' row");
   const cbE = { id: `adj_cbE_${stamp}`, action: "chargeback", type: "full", status: "approved", transaction_id: tE.id, customer_id: tE.customer_id, currency_code: "USD", items: [{ item_id: tE.details.line_items[0].id, type: "full", amount: null }], totals: { subtotal: "2000", tax: "200", total: "2200", fee: "0", earnings: "-2200", currency_code: "USD" }, payout_totals: { chargeback_fee: "2000" }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
@@ -797,6 +838,8 @@ async function main() {
   ok((await db.query(`SELECT count(*)::int AS n FROM "CreditEntry" WHERE "paddleAdjustmentId" = $1`, [cbE.id])).rows[0].n === 0 && (await history(E, 10)).every((h) => h.amount !== 0), "no reversal row of 0 in the history");
   ok((await buckets(E, `AND source = 'plan'`))[0].closedWhy === "charged_back", "the empty bucket is closed (charged_back)");
   ok(await auditOk(emailOf(E)), "audit holds for E");
+  const cancelsE = await billing.adjustmentCancels(devId(E), "admin:billtest");
+  ok(cancelsE.length === 1 && stub.callsTo("POST", /^\/subscriptions\/[^/]+\/cancel$/).at(-1)?.body.effective_from === "immediately" && (await userRow(E)).subscriptionStatus === "canceled", `the chargeback on E's month cancels the subscription now too (${cancelsE.join(" | ")})`);
 
   // ---- The billing endpoints (part 3) ------------------------------------------------------------------------
   console.log("the billing endpoints: info, checkout → status → verify, plan change, cancel / keep, portal, billing_off");

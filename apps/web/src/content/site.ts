@@ -26,7 +26,7 @@ export const site = {
   minAge: 13,
   paidAge: 18,
   refundDays: 14,
-  updated: "19 October 2026",
+  updated: "26 October 2026",
 } as const;
 
 // Only the web build exists today. The others say "coming" until they do (Luka, 2026-10-14):
