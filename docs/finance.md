@@ -13,7 +13,7 @@ of those changes, recompute the tables here.
 | Paddle's fee | 5% + $0.50 per sale, on the price including tax (average tax assumed 12%) |
 | Paddle pays out | monthly, by the 15th, for the previous month's sales; from $100 |
 | Our tax | 1% Small Business tax on what Paddle pays out (only up to 500,000 GEL a year) |
-| VAT on the AI bill | 18% Georgian reverse-charge VAT on the Anthropic bill, **if** the accountant confirms it (parked #2); the tables show it |
+| VAT on the AI bill | **18%, real.** Today Anthropic adds it at checkout (seen 10-26: $100 of credits = $118, a buyer in Georgia with no Georgian VAT number). Once Luka is an IE, Georgian law makes him pay it on foreign services anyway (reverse charge, `docs/payments.md`). Only VAT registration might let him reclaim it: the accountant's call (parked #2). The tables include it |
 | Free plan's safety cap | free builds stop for the day after $20 of AI (`FREE_DAILY_AI_USD`), ~280 credits a day, at most ~$600 a month |
 | Max plan API credit | $200 a month of API on the org whose key TypePlay uses (runbook step 4), so the first $200 of each month is covered |
 
@@ -27,6 +27,9 @@ of those changes, recompute the tables here.
 | Backups of the build server (recommended, +20%) | $8.40 |
 | Domains ($26 a year) | $2.20 |
 | Cloudflare R2, email | $0 at this size |
+
+Once Luka is an IE, the same 18% reverse-charge VAT applies to Hetzner, Supabase and Cloudflare too: about $15 more a
+month (`docs/payments.md`).
 
 ## Free users
 
@@ -108,12 +111,16 @@ TypePlay needs **Scale** before the open launch: platform.claude.com/usage/limit
 See it: the tier and limits at platform.claude.com/usage/limits, the cap, your own limit and the balance at
 platform.claude.com/settings/billing, the month's spend at platform.claude.com/usage.
 
+**TypePlay's org on 10-26: Start tier, $500 cap** (the Billing page refuses a limit above $500). The Billing page's
+"Spend limits" shows the month's spend as a progress bar, the reset date (the 1st, UTC), and can email at amounts you
+set (Add notification: set two, at $250 and $400).
+
 ## Costs that come per event
 
 | Event | Cost |
 |---|---|
 | Refund | Paddle keeps its fee ($1.06-11.70); used credits are never refunded (14-day unused-share rule) |
-| Chargeback | $20 fee (kept even if we win) + the payment pulled back + the AI already used. Buyers can dispute up to ~120 days after paying (card rules; PayPal 180). Ours: the subscription is cancelled, the payment's unused credits removed, and the account can't buy again until an admin clears it. Paddle suspends sellers above 0.65% chargebacks |
+| Chargeback | The bank takes the payment back, so we never get it, and we pay out of pocket: Paddle's **$20 dispute fee** (charged on every chargeback, win or lose), Paddle's sales fee, and the AI already used. An Ultra used up and then charged back: ~$69 out of pocket ($42.48 AI + VAT, $20, $6.10). **Window: up to 120 days after paying by card** (Visa and Mastercard rules; rare cases longer), 180 days by PayPal. Paid plans have no daily limit, so 600 credits can go in two days. Ours: the subscription is cancelled, the payment's unused credits removed, and the account can't buy again until an admin clears it. Paddle suspends sellers above 0.65% chargebacks |
 | Payout to a Georgian bank | ~$15 per SWIFT transfer |
 | More builds at once | today 4 builds at a time on one CPX32; another build server is ~$42 a month (billed by the hour) |
 | iOS later | Codemagic's free 500 Mac minutes a month, then per minute; charged to users in credits |
