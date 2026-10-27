@@ -29,9 +29,10 @@ visitor ── Cloudflare (DNS, HTTPS, cache, DDoS) ─┬─ typeplay.app ─�
 | Site | `/opt/typeplay` on the server: `compose.yaml`, `caddy/Caddyfile`, `src/` (pruned source, built into the `typeplay-web` image) | |
 | HTTPS | Visitor ↔ Cloudflare: Cloudflare's certificate. Cloudflare ↔ server: Let's Encrypt via Caddy, checked by Cloudflare ("Full (strict)"). Caddy renews by itself through the HTTP challenge on port 80 | free |
 | Games | R2 bucket `typeplay-games` (Western Europe) on the custom domain typeplay.dev; `apps/games/scripts/publish.mjs` | free at our size |
+| Updates (both servers) | Ubuntu's unattended-upgrades installs security updates every day; one that needs a restart (a new kernel, libc) reboots the server by itself at **04:00 UTC** (08:00 in Tbilisi): `/etc/apt/apt.conf.d/52typeplay-auto-reboot`, written by `server/cloud-init.yaml` on a new server (on both servers by hand since 2026-10-27). Docker starts the containers again; on the API server a reboot stops running builds as a deploy does (not charged, "interrupted"; the queue waits in Postgres) | free |
 
-Files here: `deploy.mjs` (the script), `server/cloud-init.yaml` (first boot: updates, 2 GB swap,
-key-only SSH, Docker with rotating logs), `server/compose.yaml`, `server/Dockerfile` (Next.js
+Files here: `deploy.mjs` (the script), `server/cloud-init.yaml` (first boot of both servers: updates, 2 GB swap,
+key-only SSH, Docker with rotating logs, the 04:00 security reboots), `server/compose.yaml`, `server/Dockerfile` (Next.js
 `standalone` build on `node:22`), `server/caddy/Caddyfile` (HTTPS, security headers, www → apex).
 
 ## Keys

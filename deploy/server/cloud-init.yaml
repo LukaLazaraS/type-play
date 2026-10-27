@@ -1,5 +1,5 @@
 #cloud-config
-# First boot of the web server (Ubuntu 24.04 on Hetzner); `deploy.mjs setup` passes it as user_data.
+# First boot of each server, web and API (Ubuntu 24.04 on Hetzner); `deploy.mjs setup` and `api-setup` pass it as user_data.
 package_update: true
 package_upgrade: true
 swap:
@@ -16,6 +16,12 @@ write_files:
   - path: /etc/docker/daemon.json
     content: |
       { "log-driver": "local" }
+  # Security updates (unattended-upgrades, on in Ubuntu by default): one that needs a restart reboots the server at 04:00 UTC.
+  - path: /etc/apt/apt.conf.d/52typeplay-auto-reboot
+    content: |
+      // TypePlay (deploy/README.md): a security update that needs a restart (a new kernel, libc) reboots the server at 04:00 UTC.
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "04:00";
 runcmd:
   - systemctl reload ssh
   - curl -fsSL https://get.docker.com | sh
