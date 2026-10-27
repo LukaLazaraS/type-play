@@ -171,7 +171,8 @@ PLAN.md "Better than the competitors" #9 with #4's share pages. `src/gallery/` (
   and `genres` (the whole gallery's games per genre, a genre with none left out), two counts beside the page's query. A
   `GalleryGame` is id, name, orientation, platform, buildId, poster, plays (all time), playsWeek, genre and listedAt,
   nothing about the maker.
-- **The genre** is the column `Project.genre` (enum `Genre`, 2026-10-27; migration `20261027000000_gallery_library`), copied
+- **The genre** is the column `Project.genre` (enum `Genre`, 2026-10-27; migration `20261027000000_gallery_library`; platformer,
+  shooter, arcade and adventure added the same day by `20261027180000_more_genres`, appended to the enum), copied
   from the game folder's `GENRE` file (run.mjs writes it; read as untrusted data: a plain file of at most 64 bytes, never a
   link or a pipe, a word that names a genre skill or nothing) after every build that makes a version and whenever the game
   goes into the gallery. Games listed before the column existed get theirs when the API starts (`backfillGenres`, logged

@@ -16,9 +16,10 @@ export type Orientation = "portrait" | "landscape";
  * shape scaled to fit any screen with bars; fill: the layout adapts to every shape. null: made before the choice. */
 export type Platform = "phone" | "computer" | "fill";
 /** What the player can add to a new game beside its genre (/create's Tags, 2026-10-27), several at once: 2d or 3d (not
- * both), retro (big pixels, few colours, chip sounds), cute, cozy (no rush, no losing) or hard (not both). Each is a rule
- * the game agent gets (packages/agent/tags/). */
-export type GameTag = "2d" | "3d" | "retro" | "cute" | "cozy" | "hard";
+ * both), retro (big pixels, few colours, chip sounds), cute, cozy (no rush, no losing) or hard (not both). Added later on
+ * 10-27: firstperson (always 3d, so never with 2d), scifi, fantasy, roguelike, turnbased, 2players (two on one screen, never
+ * online). Each is a rule the game agent gets (packages/agent/tags/). */
+export type GameTag = "2d" | "3d" | "firstperson" | "retro" | "cute" | "scifi" | "fantasy" | "cozy" | "hard" | "roguelike" | "turnbased" | "2players";
 
 /** Credits are numbers with one decimal (a message costs at least 0.1). */
 export interface CreditBalance {
@@ -452,7 +453,7 @@ export interface AndroidLink {
 // not hidden by an admin, with a build. Nothing here needs a sign-in.
 
 /** The genre skill the game was built with (its folder's GENRE file); null when none fitted. */
-export type Genre = "runner" | "puzzle" | "racer" | "towerdefence";
+export type Genre = "runner" | "platformer" | "puzzle" | "racer" | "shooter" | "towerdefence" | "arcade" | "adventure";
 /** popular: most played in the last 7 days first; new: the latest to join the gallery first; all: every game A to Z (2026-10-27). */
 export type GallerySort = "popular" | "new" | "all";
 
@@ -509,7 +510,7 @@ export interface CreateProjectBody {
   platform?: Platform;
   /** The genre to build it as (one at most). Left out: the AI picks one from the idea, or none. Added 2026-10-27. */
   genre?: Genre;
-  /** Tags to build it with, several at once (not both 2d and 3d, nor cozy and hard). Left out or []: none. Added 2026-10-27. */
+  /** Tags to build it with, several at once (not both 2d and 3d, nor cozy and hard, nor 2d and firstperson). Left out or []: none. Added 2026-10-27. */
   tags?: GameTag[];
 }
 
@@ -711,6 +712,9 @@ export interface FeedbackBody {
 //                                 q=<words> (names containing them, any case; up to 60 letters); a first page (no cursor) also
 //                                 says `total` (games matching genre and q) and `genres` (games per genre in the whole gallery).
 //                                 The cursor belongs to its sort, genre and q (400 bad_request for another genre or a bad one).
+//
+// Added 2026-10-27 (more genres and tags): Genre gains platformer, shooter, arcade and adventure; GameTag gains firstperson,
+// scifi, fantasy, roguelike, turnbased and 2players. POST /projects refuses firstperson with 2d (400), as it refuses the pairs.
 
 export type ApiErrorCode =
   | "unauthorized" // no or bad token

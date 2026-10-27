@@ -1151,10 +1151,11 @@ async function pickChecks(db) {
   await api(K, "GET", "/me");
   ok(admin("plan", emailOf(K), "medium").status === 0 && admin("grant", emailOf(K), "40").status === 0, "a maker on Medium + 40 credits (several builds)");
   for (const [body, what] of [
-    [{ genre: "shooter" }, "a genre with no skill"],
+    [{ genre: "moba" }, "a genre with no skill"],
     [{ genre: ["puzzle", "runner"] }, "two genres"],
     [{ tags: ["2d", "3d"] }, "2D and 3D together"],
     [{ tags: ["cozy", "hard"] }, "Cozy and Hard together"],
+    [{ tags: ["2d", "firstperson"] }, "First-person and 2D together (First-person is 3D)"],
     [{ tags: ["sparkly"] }, "a tag that isn't one"],
     [{ tags: "3d" }, "tags that aren't a list"],
     [{ tags: ["3d", "3d"] }, "a tag twice"],
@@ -1198,6 +1199,22 @@ async function pickChecks(db) {
   ok(none?.made.pickedGenre === null && none.made.tags.length === 0 && none.end.type === "done" && file(none.id, "TAGS") === null, "nothing picked: no genre, no tags (the agent picks a genre itself)");
   const tagOnly = await build({ prompt: "A game in 3D with no genre picked", tags: ["3d"] });
   ok(tagOnly?.made.pickedGenre === null && tagOnly.end.type === "done" && file(tagOnly.id, "TAGS") === "3d", "a tag without a genre: TAGS 3d, the genre left to the agent");
+  // The genres and tags added later on 10-27: each new genre (the library's Genre type got them in 20261027180000_more_genres)
+  // and every new tag, accepted, recorded (in the list's order) and given to the build.
+  for (const [genre, tags, order] of [
+    ["shooter", ["2players", "scifi", "firstperson", "3d"], "3d,firstperson,scifi,2players"],
+    ["platformer", ["cozy", "2d"], "2d,cozy"],
+    ["arcade", ["hard", "retro"], "retro,hard"],
+    ["adventure", ["turnbased", "fantasy", "roguelike"], "fantasy,roguelike,turnbased"],
+  ]) {
+    const g = await build({ prompt: `A new kind of game: ${genre}`, genre, tags });
+    const r = g && (await row(g.id));
+    const shown = g && (await db.query(`SELECT genre::text AS genre FROM "Project" WHERE id = $1`, [g.id])).rows[0]?.genre;
+    ok(g?.made.pickedGenre === genre && g.made.tags.join() === order, `${genre} + ${tags.join(", ")}: accepted, the tags in the list's order (${order})`);
+    ok(g?.end.type === "done" && file(g.id, "GENRE") === genre && file(g.id, "TAGS") === order.replaceAll(",", " ") && r?.pickedGenre === genre && r.tags.join() === order && shown === genre,
+      `…the build got them (GENRE ${genre}, TAGS ${order.replaceAll(",", " ")}), the project and the gallery's genre say ${genre}`);
+  }
+  ok((await api(null, "GET", "/public/gallery?sort=new&genre=adventure")).status === 200, "the gallery's filter takes a new genre (adventure)");
   const list = (await api(K, "GET", "/projects")).body;
   ok(Array.isArray(list) && list.find((g) => g.id === racer?.id)?.tags.join() === "3d", "the games list carries the tags");
 

@@ -669,6 +669,13 @@ body:has(.ws) .ground-band {
   font-weight: 600;
   line-height: 1.1;
 }
+/* A folded phone (280px): at 14px "Platformer" and "Adventure" (eight genres since 10-27) ran into their neighbours. */
+@media (max-width: 300px) {
+  .iconchoice__name {
+    font-size: 12px;
+    letter-spacing: -0.01em;
+  }
+}
 /* Disabled (the form is sending): the pick stays, the others fade, no pointer. */
 .iconchoice:disabled .iconchoice__opt {
   cursor: default;

@@ -114,14 +114,19 @@ export const fitHint: Record<"phone" | "computer", { made: string; button: strin
 
 /**
  * /create's Genre (Luka, 10-27; itch.io's way: one genre, then tags): the game agent's genre skills as pictures, one at
- * most. None picked: the AI goes by the idea (it picks a skill itself, or none). Each line says what the genre covers,
- * as its skill does (packages/agent/genres/), and how to let the AI pick again. No icon: the page draws one.
+ * most, two rows of four. None picked: the AI goes by the idea (it picks a skill itself, or none). Each line says what
+ * the genre covers, as its skill does (packages/agent/genres/), and how to let the AI pick again. The pictures are drawn
+ * (public/genres/), except Puzzle's photo until Luka picks between it and public/genres/puzzle.svg.
  */
-export const genres: { id: Genre; icon?: string; line: string }[] = [
-  { id: "runner", icon: "/games/runner_sunset_sq.jpg", line: "Run, jump and dodge as it speeds up." },
+export const genres: { id: Genre; icon: string; line: string }[] = [
+  { id: "runner", icon: "/genres/runner.svg", line: "Run, jump and dodge as it speeds up." },
+  { id: "platformer", icon: "/genres/platformer.svg", line: "Jump between platforms and stomp enemies." },
   { id: "puzzle", icon: "/games/match3_sq.jpg", line: "Match, push or slide pieces on a board." },
-  { id: "racer", icon: "/games/car_city_sq.jpg", line: "Race cars or the clock around a track." },
-  { id: "towerdefence", line: "Build towers by a road to stop the waves." },
+  { id: "racer", icon: "/genres/racer.svg", line: "Race cars or the clock around a track." },
+  { id: "shooter", icon: "/genres/shooter.svg", line: "Shoot waves of enemies and dodge their fire." },
+  { id: "towerdefence", icon: "/genres/towerdefence.svg", line: "Build towers by a road to stop the waves." },
+  { id: "arcade", icon: "/genres/arcade.svg", line: "Quick score chasers: flappy, snake, stacker." },
+  { id: "adventure", icon: "/genres/adventure.svg", line: "Explore, talk, take quests and find items." },
 ];
 /** None picked (two sentences, as long as a picked genre's line: the line under the row keeps the same room either way). */
 export const genreNone = "None picked: the AI decides from your idea. Pick one to choose it yourself.";
@@ -132,14 +137,21 @@ export const genreAbout = "Optional. With none picked, the AI decides from your 
 /**
  * /create's Tags (Luka, 10-27), after the genre: several at once, each a rule the game agent follows
  * (packages/agent/tags/); 2D or 3D, and Cozy or Hard, never both of a pair (picking one unpicks the other: their
- * rules contradict). A tag's line says what it does to the game.
+ * rules contradict); First-person is always 3D (picking it picks 3D, so 2D goes). In groups: the view, the look, the
+ * feel, the way it plays. A tag's line says what it does to the game.
  */
 export const gameTags: { id: GameTag; name: string; line: string }[] = [
   { id: "2d", name: "2D", line: "Flat, seen from the side or from above." },
   { id: "3d", name: "3D", line: "A 3D world with real models and a camera that follows." },
+  { id: "firstperson", name: "First-person", line: "Seen through the hero's eyes, always in 3D." },
   { id: "retro", name: "Retro", line: "Big pixels, a few bold colours and chip sounds, like an old arcade game." },
   { id: "cute", name: "Cute", line: "Round, friendly characters with big eyes and bouncy moves." },
+  { id: "scifi", name: "Sci-fi", line: "Space, robots, lasers and neon lights." },
+  { id: "fantasy", name: "Fantasy", line: "Knights, magic, dragons and castles." },
   { id: "cozy", name: "Cozy", line: "Calm and kind: no timer, no losing, warm colours." },
   { id: "hard", name: "Hard", line: "A real challenge that gets tough fast, and one tap to try again." },
+  { id: "roguelike", name: "Roguelike", line: "A new run every time, with upgrades to pick along the way." },
+  { id: "turnbased", name: "Turn-based", line: "Take your time: you move, then the game answers." },
+  { id: "2players", name: "2 players", line: "Two people on one screen: split keys, or half the phone each." },
 ];
 export const tagsNone = "Pick any that fit, or none. 2D or 3D, Cozy or Hard: never both.";

@@ -72,8 +72,8 @@ if (!isEdit && !PLATFORMS.includes(opt('platform', 'auto'))) { console.error(`--
 // a short rule file, tags/<name>.md, that the agent gets after the genre skill.
 const TAGS = readdirSync(join(HERE, 'tags')).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3));
 const pickedTags = isEdit ? [] : [...new Set(opt('tags', '').split(',').map((t) => t.trim()).filter(Boolean))];
-// Pairs that contradict each other: one of each at most.
-const EITHER = [['2d', '3d'], ['cozy', 'hard']];
+// Pairs that contradict each other: one of each at most (first-person is always 3D).
+const EITHER = [['2d', '3d'], ['cozy', 'hard'], ['2d', 'firstperson']];
 if (pickedTags.some((t) => !TAGS.includes(t)) || EITHER.some((pair) => pair.every((t) => pickedTags.includes(t)))) {
   console.error(`--tags: any of ${TAGS.join(', ')}, comma-separated; not both of ${EITHER.map((p) => p.join(' and ')).join(', nor ')}`);
   process.exit(2);

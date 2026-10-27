@@ -42,6 +42,10 @@ enum Genre {
   puzzle
   racer
   towerdefence
+  platformer
+  shooter
+  arcade
+  adventure
 }
 
 enum Role {

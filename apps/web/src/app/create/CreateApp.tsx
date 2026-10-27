@@ -51,10 +51,12 @@ function picksFrom(raw: string | null): Picks {
   try {
     const p = JSON.parse(raw ?? "null") as { genre?: unknown; tags?: unknown } | null;
     const kept = Array.isArray(p?.tags) ? (p.tags as unknown[]) : [];
-    // Ours only, in the list's order; of a pair that can't go together (an older page's, or a hand-made value) the second.
+    // Ours only, in the list's order; of a pair that can't go together (an older page's, or a hand-made value) the second,
+    // with the tag it needs (First-person's 3D).
     const ids = gameTags.map((t) => t.id);
-    const beaten = (t: GameTag) => !!OTHER_SIDE[t] && kept.includes(OTHER_SIDE[t]) && ids.indexOf(t) < ids.indexOf(OTHER_SIDE[t]);
-    const tags = ids.filter((t) => kept.includes(t) && !beaten(t));
+    const beaten = (t: GameTag) => ids.some((u) => kept.includes(u) && clash(t, u) && ids.indexOf(t) < ids.indexOf(u));
+    const left = ids.filter((t) => kept.includes(t) && !beaten(t));
+    const tags = ids.filter((t) => left.includes(t) || left.some((u) => NEEDS[u] === t));
     return { genre: genres.find((g) => g.id === p?.genre)?.id ?? null, tags };
   } catch {
     return NO_PICKS;
@@ -79,8 +81,12 @@ function savePicks(picks: Picks) {
     /* private mode: nothing to keep */
   }
 }
-/** 2D or 3D, Cozy or Hard: never both of a pair (their rules contradict), so picking one unpicks the other. */
-const OTHER_SIDE: Partial<Record<GameTag, GameTag>> = { "2d": "3d", "3d": "2d", cozy: "hard", hard: "cozy" };
+/** 2D or 3D, Cozy or Hard: never both of a pair (their rules contradict), so picking one unpicks the other; First-person
+ * is always 3D, so it never goes with 2D either. */
+const CLASHES: [GameTag, GameTag][] = [["2d", "3d"], ["cozy", "hard"], ["2d", "firstperson"]];
+const clash = (a: GameTag, b: GameTag) => CLASHES.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+/** A tag that needs another: picking it picks that one too, and unpicking that one unpicks it (First-person needs 3D). */
+const NEEDS: Partial<Record<GameTag, GameTag>> = { firstperson: "3d" };
 
 const SHORT = "Say a little more: what kind of game, and what you do in it.";
 const SHORT_PICKED = "Say a little more: what you do in your game.";
@@ -106,10 +112,12 @@ export function CreateApp() {
   };
   const toggleTag = (tag: GameTag) => {
     const on = picks.tags.includes(tag);
-    // Off: it goes. On: it joins in the list's order, and 2D or 3D takes the other one's place.
+    // Off: it goes, with a tag that needs it. On: it joins in the list's order with the tag it needs, and takes the place
+    // of what can't go with them (2D or 3D, Cozy or Hard; First-person brings 3D, so 2D goes).
+    const adding = NEEDS[tag] ? [tag, NEEDS[tag]] : [tag];
     const next = on
-      ? picks.tags.filter((t) => t !== tag)
-      : gameTags.map((t) => t.id).filter((t) => t === tag || (picks.tags.includes(t) && t !== OTHER_SIDE[tag]));
+      ? picks.tags.filter((t) => t !== tag && NEEDS[t] !== tag)
+      : gameTags.map((t) => t.id).filter((t) => adding.includes(t) || (picks.tags.includes(t) && !adding.some((a) => clash(a, t))));
     choose({ ...picks, tags: next });
     setLastTag(on ? null : tag);
   };
@@ -247,12 +255,8 @@ export function CreateApp() {
           options={genres.map((g) => ({
             value: g.id,
             name: genreName[g.id],
-            picture: g.icon ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={g.icon} alt="" width={240} height={240} loading="lazy" />
-            ) : (
-              <TowerArt />
-            ),
+            // eslint-disable-next-line @next/next/no-img-element
+            picture: <img src={g.icon} alt="" width={240} height={240} loading="lazy" />,
             about: g.line,
           }))}
         >
@@ -351,22 +355,5 @@ export function CreateApp() {
         )}
       </form>
     </PageWidget>
-  );
-}
-
-/** Tower defence has no picture of a game yet: a flat tower on the dusk sky, drawn like the rest. */
-function TowerArt() {
-  return (
-    <svg viewBox="0 0 112 112" aria-hidden="true">
-      <rect width="112" height="112" fill="#2a1858" />
-      <path d="M0 84 C30 76 70 92 112 80 V112 H0Z" fill="#a63e68" />
-      <rect x="40" y="40" width="32" height="50" fill="#8fd3ff" />
-      <rect x="36" y="32" width="8" height="10" fill="#8fd3ff" />
-      <rect x="52" y="32" width="8" height="10" fill="#8fd3ff" />
-      <rect x="68" y="32" width="8" height="10" fill="#8fd3ff" />
-      <rect x="51" y="66" width="10" height="24" rx="5" fill="#170d33" />
-      <rect x="55" y="14" width="2" height="18" fill="#170d33" />
-      <path d="M57 14 L72 19 L57 24Z" fill="#ff5a36" />
-    </svg>
   );
 }

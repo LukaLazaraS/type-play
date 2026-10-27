@@ -12,7 +12,7 @@ import { PrismaService } from "../prisma.js";
 import { Limit, takeAll } from "./limits.js";
 
 const ID = /^[a-z0-9]{4,40}$/;
-export const GENRES: Genre[] = ["runner", "puzzle", "racer", "towerdefence"];
+export const GENRES: Genre[] = ["runner", "platformer", "puzzle", "racer", "shooter", "towerdefence", "arcade", "adventure"];
 export const REASONS: ReportReason[] = ["sexual", "hate", "copied", "scam", "other"];
 const PAGE = 24;
 const MAX_PAGE = 48;

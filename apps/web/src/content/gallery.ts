@@ -5,9 +5,13 @@ import type { GallerySort, Genre, ReportReason } from "@typeplay/shared";
 /** The genre skills' names, as the starters on /create say them. */
 export const genreName: Record<Genre, string> = {
   runner: "Runner",
+  platformer: "Platformer",
   puzzle: "Puzzle",
   racer: "Racer",
+  shooter: "Shooter",
   towerdefence: "Tower defence",
+  arcade: "Arcade",
+  adventure: "Adventure",
 };
 
 /** The library's orders (Luka, 10-27: Popular / New / All): the week's most played, the newest, every game A to Z. */
