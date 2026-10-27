@@ -1020,13 +1020,55 @@ async function codeChecks(db) {
     ok((await redeem(BOSS, "424242")).body?.credits === 0 && (await me(BOSS)).status === 200, "an admin: let through without using a code");
     ok(admin("invite", "add", emailOf(D)).status === 0 && (await me(D)).status === 200 && (await redeem(D, "424242")).body?.credits === 0, "invite add as before; an invited account passes without using a code");
 
+    // A code with a plan (Luka, 10-27): the account gets the plan once, if its plan is below; never lowered; audited.
+    const planOf = async (token) => (await db.query(`SELECT plan FROM "User" WHERE email = $1`, [emailOf(token)])).rows[0]?.plan;
+    const addP = admin("code", "add", "535353", "--uses", "5", "--credits", "300", "--plan", "ultra", "ultra", "testers");
+    ok(addP.status === 0 && /535353: lets in 5 accounts, 300 credits each, plan ultra/.test(addP.stdout), "admin code add --plan ultra");
+    ok(admin("code", "add", "--plan", "gold").status === 1 && admin("code", "add", "--plan").status === 1, "a plan that doesn't exist, or none after --plan: exit 1");
+    ok(/535353 .*300 credits each, plan ultra/.test(admin("code", "list").stdout), "admin code list shows the plan");
+    const [P, Q, R, T] = ["p", "q", "r", "t"].map(tok);
+    const inP = await redeem(P, "535353");
+    ok(inP.status === 200 && inP.body?.credits === 300 && (await planOf(P)) === "ultra", "a new account with the code: 300 credits and the Ultra plan");
+    const meP = await me(P);
+    ok(meP.status === 200 && meP.body?.credits?.available === 320 && meP.body?.credits?.todayLeft === null, `... no Free daily limit (${meP.body?.credits?.available} credits)`);
+    const againP = await redeem(P, "535353");
+    ok(againP.status === 200 && againP.body?.credits === 0, "the same account and code again: let through, nothing added");
+    ok((await planOf(P)) === "ultra" && (await me(P)).body?.credits?.available === 320, "... the plan and the credits stay");
+    // An account on a higher plan keeps it; one on a lower plan goes up. (Existing accounts get here with their invite removed.)
+    ok(admin("code", "add", "646464", "--credits", "10", "--plan", "medium").status === 0, "a Medium code");
+    const exist = async (token, plan) => {
+      admin("invite", "add", emailOf(token));
+      await me(token);
+      admin("plan", emailOf(token), plan);
+      admin("invite", "remove", emailOf(token));
+    };
+    await exist(R, "ultraplus");
+    ok((await redeem(R, "646464")).body?.credits === 10 && (await planOf(R)) === "ultraplus", "an Ultra+ account types a Medium code: credits added, the plan is not lowered");
+    await exist(Q, "medium");
+    ok((await redeem(Q, "535353")).body?.credits === 300 && (await planOf(Q)) === "ultra", "a Medium account types the Ultra code: raised to Ultra");
+    // code set: the next accounts get the new numbers; the ones in keep theirs.
+    ok(
+      admin("code", "set", "535353").status === 1 && admin("code", "set", "12345", "--credits", "5").status === 1 && admin("code", "set", "535353", "--uses", "1").status === 1 && admin("code", "set", "535353", "--plan", "gold").status === 1,
+      "code set: nothing to change, a bad code, fewer uses than taken, a bad plan: exit 1",
+    );
+    const set = admin("code", "set", "535353", "--credits", "100", "--plan", "high", "--uses", "7");
+    ok(set.status === 0 && /535353: 7 uses \(2 taken\), 100 credits each, plan high/.test(set.stdout), `admin code set: ${set.stdout.trim()}`);
+    ok((await redeem(T, "535353")).body?.credits === 100 && (await planOf(T)) === "high" && (await planOf(P)) === "ultra", "the next account gets 100 credits and High; the first stays on Ultra");
+    ok(admin("code", "set", "535353", "--plan", "free").status === 0 && !/535353 .*, plan /.test(admin("code", "list").stdout), "code set --plan free takes the plan off");
+    const planAudits = (await db.query(`SELECT action, details FROM "BillingAudit" WHERE action IN ('beta_code_plan', 'code_set') ORDER BY at`)).rows;
+    const raised = planAudits.filter((a) => a.action === "beta_code_plan").map((a) => `${a.details.from}>${a.details.to}`);
+    ok(
+      raised.join() === "free>ultra,medium>ultra,free>high" && planAudits.filter((a) => a.action === "code_set").length === 2 && !JSON.stringify(planAudits).includes("@"),
+      `audit rows: beta_code_plan for each raise (${raised.join(", ")}, none for Ultra+), code_set for each change`,
+    );
+
     // The overall limit: so far W 5, C 1 (used up), D 1 (removed) = 7 wrong this hour; two more from new accounts make 9.
     for (const name of ["e", "f"]) await redeem(tok(name), bad);
     const capped = await redeem(tok("g"), "424242");
     ok(capped.status === 429 && /typed on TypePlay this hour/.test(capped.body?.message), "the overall limit (9 here, 50 live): then 429 for every account");
     const audits = (await db.query(`SELECT action, details FROM "BillingAudit" WHERE action IN ('code_add', 'code_list', 'code_remove', 'beta_code') ORDER BY at`)).rows;
     ok(
-      audits.filter((a) => a.action === "beta_code").length === 2 && ["code_add", "code_list", "code_remove"].every((a) => audits.some((r) => r.action === a)) && !JSON.stringify(audits).includes("@"),
+      audits.filter((a) => a.action === "beta_code" && a.details.code === "424242").length === 2 && ["code_add", "code_list", "code_remove"].every((a) => audits.some((r) => r.action === a)) && !JSON.stringify(audits).includes("@"),
       "audit rows: code_add, code_list, code_remove, and beta_code for each account's credits (no email in them)",
     );
     ok(auditOk(), "admin audit: the ledger's invariants hold");

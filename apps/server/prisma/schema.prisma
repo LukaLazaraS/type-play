@@ -699,6 +699,8 @@ model BetaCode {
   used      Int           @default(0)
   /// Credits each account gets with it: an `admin` bucket (spent last, never expires).
   credits   Int
+  /// The plan an account gets with it, once, if its plan is below (never lowers one); null = credits only.
+  plan      Plan?
   /// Luka's own words about whom it is for, for `admin code list`.
   note      String?
   createdAt DateTime      @default(now())
@@ -716,6 +718,8 @@ model BetaCodeUse {
   /// The email as invites match it (src/beta/invites.ts `inviteMatch`).
   match     String
   credits   Int
+  /// The code's plan when it was used (a later `code set` changes only the next account).
+  plan      Plan?
   usedAt    DateTime  @default(now())
   grantedAt DateTime?
 

@@ -2,12 +2,14 @@
 // A right code works like an invite for the signed-in email (an Invite row with the code; the account is made then, as
 // at any first sign-in, with the Free plan's credits) and adds the code's credits once. Wrong codes are limited per email
 // and in all (config.betaCodeTriesPerHour, betaCodeTriesPerHourAll), so six digits can't be guessed from one account or
-// from many. `admin code add | list | remove` (admin-codes.ts); `admin invite add` works as before.
+// from many. `admin code add | set | list | remove` (admin-codes.ts); `admin invite add` works as before.
+// A code can carry a plan (Luka, 2026-10-27): the account gets it once, when its plan is below; a code never lowers one.
+// Nothing in billing lowers it either: it ends only with a Paddle subscription (cancel, lapse) the account bought itself.
 import { Injectable } from "@nestjs/common";
 import type { BetaCodeResult } from "@typeplay/shared";
 import { AuthService, type Identity } from "../auth/auth.service.js";
 import { ApiException, badRequest } from "../common/api-error.js";
-import { toTenths } from "../credits/credits.js";
+import { PLANS, toTenths } from "../credits/credits.js";
 import { LedgerService } from "../credits/ledger.service.js";
 import { config } from "../env.js";
 import { PrismaService } from "../prisma.js";
@@ -77,7 +79,7 @@ export class BetaCodeService {
       taken = await this.prisma.$transaction(async (tx) => {
         const n = await tx.$executeRaw`UPDATE "BetaCode" SET used = used + 1 WHERE code = ${code} AND "removedAt" IS NULL AND used < uses`;
         if (n !== 1) return false;
-        await tx.betaCodeUse.create({ data: { code, match, credits: row.credits } });
+        await tx.betaCodeUse.create({ data: { code, match, credits: row.credits, plan: row.plan } });
         await tx.invite.upsert({
           where: { match },
           create: { email: who.email, match, note: `code ${code}`, code, usedAt: new Date() },
@@ -101,11 +103,16 @@ export class BetaCodeService {
     const user = await this.auth.ensureUser(who);
     let added = 0;
     for (const use of due) {
-      await this.ledger.withUser(user.id, async (tx) => {
+      await this.ledger.withUser(user.id, async (tx, locked) => {
         const claimed = await tx.betaCodeUse.updateMany({ where: { id: use.id, grantedAt: null }, data: { grantedAt: new Date() } });
         if (claimed.count !== 1) return;
         if (use.credits > 0) await this.ledger.grantIn(tx, user.id, { source: "admin", tenths: toTenths(use.credits), expiresAt: null, note: BETA_CODE_NOTE });
         await this.ledger.audit(tx, { actor: "user", userId: user.id, action: "beta_code", details: { code: use.code, credits: use.credits } });
+        // The plan only goes up: a tester already on this plan or a higher one keeps theirs.
+        if (use.plan && PLANS.indexOf(use.plan) > PLANS.indexOf(locked.plan)) {
+          await tx.user.update({ where: { id: user.id }, data: { plan: use.plan } });
+          await this.ledger.audit(tx, { actor: "user", userId: user.id, action: "beta_code_plan", details: { code: use.code, from: locked.plan, to: use.plan } });
+        }
         added += use.credits;
       });
     }

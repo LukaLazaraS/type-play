@@ -112,12 +112,26 @@ Keep the API's log open: `node deploy/deploy.mjs api-ssh "cd /opt/typeplay-api &
 ## 8. Invite the testers [Luka, or Claude with Luka's list]
 
 **With a beta code** (Luka, 10-24): one code for a group; each tester signs in with any Google account and types the six
-digits on the closed-beta page. A right code lets the account in with the Free plan's 20 credits plus the code's.
+digits on the closed-beta page. A right code lets the account in with the Free plan's 20 credits plus the code's, and
+with `--plan <plan>` also gives the plan (once, only if theirs is lower; never lowers one). A code-given plan is just the
+account's plan: the Free cycle, kill switch and daily limit apply to Free only, and nothing in billing lowers it except a
+Paddle subscription of the tester's own ending (cancel or lapse). Decide before billing goes live whether it should end.
 
 ```bash
 npm run admin:live -w @typeplay/server -- code add --uses 20 --credits 50 "Beta 1"   # prints the code (random six digits)
 npm run admin:live -w @typeplay/server -- code list                                 # used of uses, the accounts it let in
 npm run admin:live -w @typeplay/server -- code remove <code>                        # it stops working; the accounts stay
+npm run admin:live -w @typeplay/server -- code set <code> [--credits N] [--plan P] [--uses N]   # for the next accounts only
+```
+
+Beta 1 (10-27): the beta code to 300 credits and Ultra, and the accounts that already used it brought up to the same.
+Run after deploying the code-plan branch (its migration adds the plan columns). For each account in `code list` (it
+got the code's old credits, say 50): the plan, then the difference (300 − 50 = 250):
+
+```bash
+npm run admin:live -w @typeplay/server -- code set <code> --credits 300 --plan ultra
+npm run admin:live -w @typeplay/server -- plan <email> ultra
+npm run admin:live -w @typeplay/server -- grant <email> 250 "Beta code top-up"
 ```
 
 A code is not a secret like a key, but treat it as a ticket: whoever has it gets in while uses are left. Wrong codes: 5
