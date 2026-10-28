@@ -307,21 +307,6 @@ export function CreateApp() {
               <EffortSwitch name="effort-create" value={effort} onChange={setEffort} disabled={busy} />
               <p className="field-hint">{effortLine(effort)}</p>
             </div>
-            {ask && (
-              <Ask
-                text={ask}
-                actions={
-                  <>
-                    <Button size="small" onClick={() => void build(true)}>
-                      Build it
-                    </Button>
-                    <Button look="quiet" size="small" onClick={() => setAsk(null)}>
-                      Not now
-                    </Button>
-                  </>
-                }
-              />
-            )}
             <div className="make__go">
               <p className="make__balance">
                 {me ? (
@@ -350,6 +335,22 @@ export function CreateApp() {
                 {short && <ButtonLink href="/billing?change=1">Get credits</ButtonLink>}
               </div>
             </div>
+            {ask && (
+              <Ask
+                reveal
+                text={ask}
+                actions={
+                  <>
+                    <Button size="small" onClick={() => void build(true)}>
+                      Build it
+                    </Button>
+                    <Button look="quiet" size="small" onClick={() => setAsk(null)}>
+                      Not now
+                    </Button>
+                  </>
+                }
+              />
+            )}
             {error && <ErrorLine>{error}</ErrorLine>}
           </>
         )}
