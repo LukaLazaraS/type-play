@@ -169,21 +169,6 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
           will try again for up to 30 days. You keep your credits until a day after your period ends; no new ones until a payment goes through.
         </Strip>
       )}
-      {ask && (
-        <Ask
-          text={ask}
-          actions={
-            <>
-              <Button size="small" onClick={() => void send(true)}>
-                Send it
-              </Button>
-              <Button look="quiet" size="small" onClick={() => setAsk(null)}>
-                Not now
-              </Button>
-            </>
-          }
-        />
-      )}
       {panel && <CreditPanel kind={panel} me={me} backTo={backTo} onClose={() => setPanel(null)} />}
       {error && <ErrorLine>{error}</ErrorLine>}
       <TextArea
@@ -231,6 +216,22 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
           </Button>
         )}
       </div>
+      {ask && (
+        <Ask
+          reveal
+          text={ask}
+          actions={
+            <>
+              <Button size="small" onClick={() => void send(true)}>
+                Send it
+              </Button>
+              <Button look="quiet" size="small" onClick={() => setAsk(null)}>
+                Not now
+              </Button>
+            </>
+          }
+        />
+      )}
       <div className="composer__foot">
         <EffortSwitch
           name={`effort-${kind}`}
