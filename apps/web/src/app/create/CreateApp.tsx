@@ -312,9 +312,29 @@ export function CreateApp() {
         {signedIn && (
           <>
             <PlatformSwitch value={platform} onChange={setPlatform} disabled={busy} />
-            <ModelRows kind="new" value={model} onChange={setPicked} allowed={allowed} estimates={estimates} disabled={busy} />
+            {/* The AI and the effort change the estimate: an open cost question was about the old one, so it goes (the
+                screens, genre and tags don't change it). */}
+            <ModelRows
+              kind="new"
+              value={model}
+              onChange={(m) => {
+                setPicked(m);
+                if (ask) setAsk(null);
+              }}
+              allowed={allowed}
+              estimates={estimates}
+              disabled={busy}
+            />
             <div className="make__effort">
-              <EffortSwitch name="effort-create" value={effort} onChange={setEffort} disabled={busy} />
+              <EffortSwitch
+                name="effort-create"
+                value={effort}
+                onChange={(e) => {
+                  setEffort(e);
+                  if (ask) setAsk(null);
+                }}
+                disabled={busy}
+              />
               <p className="field-hint">{effortLine(effort)}</p>
             </div>
             <div className="make__go">

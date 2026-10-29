@@ -282,9 +282,10 @@ export interface UsageEntry {
   amount: number;
   /** expire: credits that ended ("Free credits ended"); reversal: removed after a refund or chargeback. Both added 2026-10-20. */
   kind: "grant" | "charge" | "refund" | "expire" | "reversal";
-  /** Plain words: "New game on Smart", "Change on Fast", "Free plan credits", "Free credits ended", or the note of a grant. */
+  /** Plain words: "New game on Smart", "Change on Fast", "Change on Fast, stopped: too big for Fast" (the size check stopped
+   * it before the build, 2026-10-29), "Free plan credits", "Free credits ended", or the note of a grant. */
   what: string;
-  /** For a charge: what the player asked for (cut to 200 letters); null otherwise. */
+  /** For a charge: what the player asked for (cut to 200 letters), a stopped change's too; null otherwise. */
   prompt: string | null;
   /** The game it was spent on; null for grants, and for games deleted since (then `gameDeleted` is true). */
   game: { id: string; name: string } | null;

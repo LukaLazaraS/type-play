@@ -10,6 +10,8 @@
 //    cost question open when the player leaves, and with an old error.
 // 2. While the cost question shows (/create: "Build it?"; the chat: "Send it?"), the main button is aria-disabled (grey,
 //    read as unavailable, still focusable, ignoring presses); editing the text, Not now or answering brings it back.
+// 3. /create's question closes when the AI or the effort changes (they change the estimate it asked about; 10-29), at
+//    1440 and 390 px; the screens and a tag leave it open (they don't change the estimate).
 // Afterwards the test account closes and the database goes.
 import { chromium } from "playwright";
 import { spawn, spawnSync } from "node:child_process";
@@ -235,6 +237,31 @@ try {
   await page.locator("#idea").fill(IDEA2 + " today");
   s = await state(page);
   check("editing the text closes the question and the button works again", !s.ask && !s.disabled, JSON.stringify(s));
+  // The AI and the effort change the estimate the question was about: it closes. The screens and the tags don't: it stays.
+  await goal(page).click();
+  await page.locator(".make .ask").waitFor({ timeout: 15_000 });
+  await page.locator('input[name="platform"][value="phone"]').check({ force: true });
+  await page.getByRole("button", { name: "Retro" }).click();
+  await page.waitForTimeout(300);
+  s = await state(page);
+  check("picking the screens or a tag keeps the question (they don't change the estimate)", s.ask && s.disabled, JSON.stringify(s));
+  await page.getByRole("button", { name: "Retro" }).click(); // off again
+  await page.locator('input[name="platform"][value="auto"]').check({ force: true });
+  await page.locator('input[name="model-new"][value="smart"]').check({ force: true });
+  await page.waitForTimeout(300);
+  s = await state(page);
+  check("changing the AI closes the question and the button works again", !s.ask && !s.disabled, JSON.stringify(s));
+  await shot(page, "create-ask-ai-changed-desktop");
+  await page.locator('input[name="model-new"][value="best"]').check({ force: true });
+  await page.waitForTimeout(600);
+  await goal(page).click();
+  await page.locator(".make .ask").waitFor({ timeout: 15_000 });
+  await page.locator('input[name="effort-create"][value="medium"]').check({ force: true });
+  await page.waitForTimeout(300);
+  s = await state(page);
+  check("changing the effort closes the question and the button works again", !s.ask && !s.disabled, JSON.stringify(s));
+  await page.locator('input[name="effort-create"][value="high"]').check({ force: true });
+  await page.waitForTimeout(600);
   await goal(page).click();
   await page.locator(".make .ask").waitFor({ timeout: 15_000 });
   const sent = page.waitForRequest((r) => r.method() === "POST" && new URL(r.url()).pathname === "/projects", { timeout: 30_000 });
@@ -298,6 +325,10 @@ try {
     const fit = await p.evaluate((w) => [...document.querySelectorAll(".make *")].every((e) => { const r = e.getBoundingClientRect(); return r.width === 0 || (r.left >= -0.5 && r.right <= w + 0.5); }), w);
     check(`/create at ${w} px with the question open: nothing past the screen`, fit);
     await shot(p, `create-ask-${w}`);
+    await p.locator('label:has(input[name="model-new"][value="smart"])').tap();
+    await p.waitForTimeout(400);
+    check(`/create at ${w} px: tapping another AI closes the question`, (await p.locator(".make .ask").count()) === 0);
+    await shot(p, `create-ask-ai-changed-${w}`);
     // The chat of a built game with its question open.
     const games = (await api(maker, "GET", "/projects")).body;
     const built = (Array.isArray(games) ? games : (games?.projects ?? [])).find((g) => g.buildId) ?? null;

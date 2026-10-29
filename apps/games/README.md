@@ -14,7 +14,7 @@ apps/games/
   scripts/build-demo.mjs   assembles the site's demo games from packages/agent/output (dev + marketing)
                        --showcase: only the six Opus-built showcase candidates (builds/show-*: pack, game.json, poster pictures,
                        card.jpg + icon.jpg for the home page) and a games.ts entry for each; the home page lists the six -polished ones (10-27)
-  scripts/publish.mjs  uploads this folder to the live bucket (changed files only)
+  scripts/publish.mjs  uploads this folder to the live bucket (changed files only; .html .js .wasm .pck .json, and .png since 10-29)
 ```
 
 Rules:

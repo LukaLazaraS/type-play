@@ -20,6 +20,8 @@ const types = {
   ".wasm": "application/wasm",
   ".pck": "application/octet-stream",
   ".json": "application/json",
+  // A build's poster.png (the gallery's and the share page's picture; added 10-29: the showcase builds' never went up).
+  ".png": "image/png",
 };
 // Engines and game packs never change under the same name; the loader and manifests do.
 const cacheFor = (key) =>

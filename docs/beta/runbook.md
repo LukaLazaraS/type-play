@@ -93,6 +93,17 @@ phone, the privacy lines of 10-18 and 10-19 in `docs/parked.md` "For Luka's webs
 API's (step 5 said `inviteOnly: true`); the site needs nothing for it: a signed-in person who isn't invited sees the
 closed-beta page on /create, /games and the rest of the app, and the public pages stay as they are.
 
+**The six showcase games in the gallery** (once, after deploying the gallery-price branch, on Luka's go): the builds'
+posters first (`games` uploads `.png` since that branch; the six `show-*-polished` builds had only their pack and
+game.json on typeplay.dev), then the admin command, which reads each build from typeplay.dev and adds the six under a
+TypePlay account nobody can sign in to, at 0 plays (`apps/server/src/gallery/showcase.ts`). Run again it changes nothing;
+a missing build or poster stops it before anything is written.
+
+```bash
+node deploy/deploy.mjs games                                         # the posters (only changed files go up)
+npm run admin:live -w @typeplay/server -- gallery showcase           # "6 added to the gallery"; https://typeplay.app/explore shows them
+```
+
 ## 7. Smoke test [Luka, 20 min]
 
 Keep the API's log open: `node deploy/deploy.mjs api-ssh "cd /opt/typeplay-api && docker compose logs -f --tail 50 api"`.

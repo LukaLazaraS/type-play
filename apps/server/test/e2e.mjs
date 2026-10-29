@@ -6,7 +6,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
-import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { crc32, inflateRawSync } from "node:zlib";
 import pg from "pg";
@@ -452,6 +452,121 @@ async function queueChecks(db) {
  * The public gallery, play counts and reports, against an API of our own started with TRUST_PROXY=1: a
  * test can then be several visitors (CF-Connecting-IP), and the in-memory limits start from nothing.
  */
+/**
+ * `admin gallery showcase` (src/gallery/showcase.ts): our six showcase games in the gallery under a TypePlay account, from
+ * builds in a games folder of this run's own (GAMES_BUILDS_DIR, for the admin CLI only). On the empty gallery: a missing
+ * poster stops it before anything is written; then the six with their names, orientations, kinds, posters and builds, at
+ * 0 plays; run again, nothing changes. Beside a tester's game: Popular, New, All and a genre; their share pages, a play
+ * and a report work; no player can open or change them. The account and the tester's game go at the end (the gallery
+ * checks after this start from an empty gallery).
+ */
+async function showcaseChecks(db) {
+  console.log("the showcase games: admin gallery showcase (an empty gallery, run twice, a tester's game beside them)");
+  const OWNER = "typeplay-showcase";
+  const SIX = [
+    { id: "showracer", build: "show-racer-polished", genre: "racer", name: "Island Rush", orientation: "portrait" },
+    { id: "showarcade", build: "show-arcade-polished", genre: "arcade", name: "Sky Stack", orientation: "portrait" },
+    { id: "showtd", build: "show-td-polished", genre: "towerdefence", name: "Gingerbread Guard", orientation: "portrait" },
+    { id: "showmatch3", build: "show-match3-polished", genre: "puzzle", name: "Petal Pop", orientation: "portrait" },
+    { id: "showrunner", build: "show-runner-polished", genre: "runner", name: "Rooftop Ninja", orientation: "landscape" },
+    { id: "show3d", build: "show-3d-polished", genre: "platformer", name: "Sky Hopper", orientation: "landscape" },
+  ];
+  const builds = join(DATA, `e2e-showcase-builds-${stamp}`);
+  for (const g of SIX) {
+    mkdirSync(join(builds, g.build), { recursive: true });
+    writeFileSync(join(builds, g.build, "game.json"), JSON.stringify({ name: g.name, engine: "4.7.2", pack: "index.pck", orientation: g.orientation }));
+    writeFileSync(join(builds, g.build, "index.pck"), "pack");
+    if (g.id !== "showtd") writeFileSync(join(builds, g.build, "poster.png"), "png");
+  }
+  const showcase = () =>
+    spawnSync(process.execPath, [join(root, "node_modules/tsx/dist/cli.mjs"), "src/admin.ts", "gallery", "showcase"], { cwd: here, encoding: "utf8", env: { ...process.env, GAMES_BUILDS_DIR: builds } });
+  const gallery = async (query) => (await api(null, "GET", `/public/gallery?limit=48&${query}`)).body;
+  const rows = async () =>
+    JSON.stringify([
+      (await db.query(`SELECT * FROM "User" WHERE id = $1`, [OWNER])).rows,
+      (await db.query(`SELECT * FROM "Project" WHERE "ownerId" = $1 ORDER BY id`, [OWNER])).rows,
+      (await db.query(`SELECT v.* FROM "Version" v JOIN "Project" p ON p.id = v."projectId" WHERE p."ownerId" = $1 ORDER BY v."projectId"`, [OWNER])).rows,
+    ]);
+  const SC = `dev:e2e-${stamp}-sc@test.local`;
+  let tester = null;
+  try {
+    ok((await gallery("sort=new")).total === 0, "the gallery starts empty");
+    const early = showcase();
+    ok(early.status === 1 && /nothing changed/.test(early.stderr) && /show-td-polished/.test(early.stderr) && /poster\.png/.test(early.stderr), "a poster missing: exit 1, nothing changed, it names the file");
+    ok((await gallery("sort=new")).total === 0 && (await db.query(`SELECT 1 FROM "User" WHERE id = $1`, [OWNER])).rowCount === 0, "…the gallery still empty, no account made");
+    writeFileSync(join(builds, "show-td-polished", "poster.png"), "png");
+
+    const first = showcase();
+    ok(first.status === 0 && /6 added to the gallery/.test(first.stdout), `admin gallery showcase: 6 added (${(first.stderr || first.stdout).trim().split("\n").at(-1)})`);
+    const page = await gallery("sort=popular");
+    const shown = (page?.games ?? []).map((g) => g.id);
+    ok(page?.total === 6 && shown.join() === SIX.map((g) => g.id).join(), `Popular: the six, in the home page's order (${shown.join()})`);
+    const same = (page?.games ?? []).every((g, i) => {
+      const want = SIX[i];
+      return g.name === want.name && g.orientation === want.orientation && g.genre === want.genre && g.buildId === want.build && g.poster === true && g.plays === 0 && g.playsWeek === 0 && g.platform === null;
+    });
+    ok(same, "each with its name, orientation, kind, build and poster, at 0 plays");
+    ok(JSON.stringify(page?.genres) === JSON.stringify({ runner: 1, platformer: 1, puzzle: 1, racer: 1, towerdefence: 1, arcade: 1 }), `the kinds count in the filter (${JSON.stringify(page?.genres)})`);
+    ok((await gallery("sort=all&genre=platformer")).games?.map((g) => g.id).join() === "show3d", "the platformer filter: Sky Hopper");
+    const before = await rows();
+    const again = showcase();
+    ok(again.status === 0 && /nothing to change/.test(again.stdout) && (await rows()) === before, "run again: exit 0, nothing to change, the rows exactly as they were");
+    const audits = (await db.query(`SELECT details FROM "BillingAudit" WHERE "userId" = $1 AND action = 'gallery_showcase' ORDER BY at`, [OWNER])).rows;
+    ok(audits.length === 2 && audits[0].details.added.length === 6 && audits[1].details.added.length === 0, "the audit: a row per run (6 added, then none)");
+    ok(auditOk(), "admin audit: the ledger's invariants hold with the showcase account (no credits)");
+
+    console.log("  beside a tester's game");
+    await api(SC, "GET", "/me");
+    const made = await api(SC, "POST", "/projects", { prompt: "A tester's runner GENRE:runner", model: "fast" });
+    tester = made.body?.id ?? null;
+    if (tester) projects.push(tester);
+    const s = tester ? await openEvents(SC, tester) : null;
+    const built = s ? await s.until(finished, 60_000).finally(() => s.close()) : null;
+    const listed = tester ? await api(SC, "PATCH", `/projects/${tester}`, { shared: true, listed: true }) : null;
+    ok(built?.type === "done" && listed?.body?.listed === true, "a tester's game, built, shared and in the gallery");
+    ok((await api(null, "POST", `/public/games/${tester}/play`)).status === 204, "…played once");
+    const popular = (await gallery("sort=popular")).games.map((g) => g.id);
+    ok(popular.join() === [tester, ...SIX.map((g) => g.id)].join(), "Popular: the tester's game (a play this week) first, then the six at 0 plays");
+    const newest = (await gallery("sort=new")).games.map((g) => g.id);
+    ok(newest.join() === [tester, ...SIX.map((g) => g.id)].join(), "New: the tester's game (listed after them) first, then the six");
+    const all = (await gallery("sort=all")).games;
+    const az = [...all].sort((a, b) => (a.name.toLowerCase() < b.name.toLowerCase() ? -1 : a.name.toLowerCase() > b.name.toLowerCase() ? 1 : a.id < b.id ? -1 : 1));
+    ok(all.length === 7 && all.map((g) => g.id).join() === az.map((g) => g.id).join(), `All: the seven A to Z (${all.map((g) => g.name).join(", ")})`);
+    ok((await gallery("sort=all&genre=runner")).games.map((g) => g.id).sort().join() === [tester, "showrunner"].sort().join(), "the runner filter: Rooftop Ninja and the tester's runner");
+
+    console.log("  their share pages, plays and reports");
+    const pub = await api(null, "GET", "/public/games/showracer");
+    ok(pub.status === 200 && pub.body.name === "Island Rush" && pub.body.buildId === "show-racer-polished" && pub.body.poster === true && pub.body.plays === 0, "the share page: Island Rush, its build and poster, 0 plays");
+    ok((await api(null, "POST", "/public/games/showracer/play")).status === 204, "a play: 204");
+    const counted = (await db.query(`SELECT coalesce(sum(count), 0)::int AS n FROM "PlayCount" WHERE "projectId" = 'showracer'`)).rows[0].n;
+    ok(counted === 1 && (await gallery("sort=new")).games.find((g) => g.id === "showracer")?.plays === 1, "…counted: 1 play, in the gallery too");
+    ok((await api(null, "POST", "/public/games/showracer/report", { reason: "other", text: "e2e" })).status === 204, "a report: 204");
+    ok((await db.query(`SELECT reason, text FROM "GameReport" WHERE "projectId" = 'showracer' AND "handledAt" IS NULL`)).rows.map((r) => `${r.reason}:${r.text}`).join() === "other:e2e", "…stored, open");
+
+    console.log("  no player's to open or change");
+    const notMine = await Promise.all([
+      api(SC, "GET", "/projects/showracer"),
+      api(SC, "PATCH", "/projects/showracer", { name: "Mine now" }),
+      api(SC, "PATCH", "/projects/showracer", { listed: false }),
+      api(SC, "POST", "/projects/showracer/messages", { text: "Make it mine", model: "fast" }),
+      raw(SC, "/projects/showracer/download"),
+      api(SC, "DELETE", "/projects/showracer"),
+    ]);
+    ok(notMine.every((r) => r.status === 404), `a signed-in player: open, rename, unlist, change, download, delete: all 404 (${notMine.map((r) => r.status).join()})`);
+    ok(!(await api(SC, "GET", "/projects")).body.some((p) => SIX.some((g) => g.id === p.id)), "…and none of them in the player's own list");
+    const taken = await api("dev:showcase@typeplay.invalid", "GET", "/me");
+    ok(taken.status === 401 && /another account/.test(taken.body?.message ?? ""), "a sign-in with the account's email: 401, it belongs to another account");
+    const still = (await db.query(`SELECT name, listed, shared, "ownerId" FROM "Project" WHERE id = 'showracer'`)).rows[0];
+    ok(still?.name === "Island Rush" && still.listed && still.shared && still.ownerId === OWNER, "showracer unchanged after all that");
+  } finally {
+    if (tester) await api(SC, "DELETE", `/projects/${tester}`).catch(() => {});
+    await db.query(`DELETE FROM "User" WHERE id = $1`, [OWNER]);
+    await db.query(`DELETE FROM "BillingAudit" WHERE "userId" = $1`, [OWNER]);
+    rmSync(builds, { recursive: true, force: true });
+  }
+  ok((await gallery("sort=new")).total === 0, "afterwards: the gallery empty again for the checks below");
+}
+
 async function galleryChecks(db) {
   console.log("the gallery: opt-in, play counts and their limits, the gallery's pages, reports, admin (an API of our own)");
   const { addressKey } = await import("../dist/gallery/limits.js");
@@ -1372,7 +1487,10 @@ async function sizeChecks(db) {
     ok(entries.length === 1 && entries[0].tenths === -1 && entries[0].kind === "charge", "the ledger: one charge of 0.1 with the message");
     ok(Math.abs((await freeToday()) - spentBefore - 0.003) < 1e-6, "the Free kill switch counts the check's $0.003");
     const usage = (await api(FREE, "GET", "/me/usage?limit=1")).body.entries[0];
-    ok(usage?.amount === -0.1 && usage.what === "Change on Fast" && usage.game?.id === id, "credit history: -0.1, Change on Fast, on this game");
+    ok(
+      usage?.amount === -0.1 && usage.what === "Change on Fast, stopped: too big for Fast" && usage.prompt === "Add 10 new levels and flying traps TOOBIG CHECKUSD:0.003" && usage.game?.id === id,
+      "credit history: -0.1, Change on Fast, stopped: too big for Fast, on this game, with the player's message",
+    );
     const full = (await api(FREE, "GET", `/projects/${id}`)).body;
     ok(full.versions.length === 1 && full.currentVersion === 1 && full.messages.length === 4, "the project: one version, four messages");
     ok(full.messages.at(-2).text === "Add 10 new levels and flying traps TOOBIG CHECKUSD:0.003" && full.messages.at(-1).id === big.messageId && full.messages.at(-1).credits === 0.1, "the chat: the message, then the answer with its credits");
@@ -1977,6 +2095,7 @@ async function main() {
   }
 
   await queueChecks(db);
+  await showcaseChecks(db);
   await galleryChecks(db);
   await feedbackChecks(db, p.id);
   await inviteChecks(db);

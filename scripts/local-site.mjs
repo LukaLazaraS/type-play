@@ -124,14 +124,6 @@ async function sql(text, params = []) {
 const prepareDatabase = () => startDatabase();
 
 // ---- Seed: Luka's account, the showcase games in the gallery (both only once) ---------------------------------------
-const SHOWCASE = [
-  { id: "showracer", build: "show-racer-polished", genre: "racer" },
-  { id: "showarcade", build: "show-arcade-polished", genre: null },
-  { id: "showtd", build: "show-td-polished", genre: "towerdefence" },
-  { id: "showmatch3", build: "show-match3-polished", genre: "puzzle" },
-  { id: "showrunner", build: "show-runner-polished", genre: "runner" },
-  { id: "show3d", build: "show-3d-polished", genre: null },
-];
 /** Luka's sign-in id at Supabase, so his first local sign-in finds his account ready (read with the root .env's key). */
 async function ownerIdentity() {
   const env = parseEnv(readFileSync(join(ROOT, ".env"), "utf8"));
@@ -162,28 +154,13 @@ async function seed() {
       admin("grant", OWNER_EMAIL, "1300", "Local site");
     } else log("  (Luka's sign-in id not found: his first sign-in makes a Free account)");
   }
-  await sql(`INSERT INTO "User" (id, email, name) VALUES ('local-showcase', 'showcase@typeplay.local', 'TypePlay') ON CONFLICT DO NOTHING`);
-  const now = Date.now();
-  for (const [i, g] of SHOWCASE.entries()) {
-    const pack = join(ROOT, "apps", "games", "builds", g.build);
-    if (!existsSync(join(pack, "game.json"))) continue;
-    const meta = JSON.parse(readFileSync(join(pack, "game.json"), "utf8"));
-    const at = new Date(now - i * 60_000);
-    const made = await sql(
-      `INSERT INTO "Project" (id, "ownerId", name, orientation, "currentVersion", shared, "sharedAt", listed, "listedAt", "createdAt", "updatedAt")
-       VALUES ($1, 'local-showcase', $2, $3, 1, true, $4, true, $4, $4, $4) ON CONFLICT DO NOTHING RETURNING id`,
-      [g.id, meta.name, meta.orientation === "landscape" ? "landscape" : "portrait", at],
-    );
-    if (!made.length) continue;
-    await sql(`INSERT INTO "Version" (id, "projectId", n, label, "buildId", commit, poster) VALUES (gen_random_uuid(), $1, 1, 'A showcase game', $2, 'showcase', $3)`, [
-      g.id,
-      g.build,
-      existsSync(join(pack, "poster.png")),
-    ]);
-    // The gallery reads a game's kind from its folder's GENRE file.
-    const dir = join(STATE, "data", "projects", g.id);
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, "GENRE"), `${g.genre ?? "none"}\n`);
+  // The showcase games: the same admin command as on the live database (apps/server/src/gallery/showcase.ts). The seed
+  // before 10-29 made them here under an account of its own, without the genres the gallery reads: that one goes first.
+  await sql(`DELETE FROM "User" WHERE id = 'local-showcase'`);
+  try {
+    log(admin("gallery", "showcase").trim().split("\n").at(-1));
+  } catch (e) {
+    log(`  (the showcase games are not in the gallery: ${String(e.message ?? e).split("\n").slice(1).join(" ").slice(0, 300)})`);
   }
 }
 

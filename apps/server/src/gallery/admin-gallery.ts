@@ -5,17 +5,20 @@
 //   gallery unhide <gameId>             not hidden any more (back in the gallery while its maker lists it); reports handled
 //   gallery dismiss <gameId>            its open reports handled, the game stays as it is
 //   gallery unshare <gameId> [reason]   stops sharing it: the share page 404s and it leaves the gallery (its maker can share again)
+//   gallery showcase                    our six showcase games in the gallery, under a TypePlay account (showcase.ts); again: no change
 import type { LedgerService } from "../credits/ledger.service.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
+import { showcaseAdmin } from "./showcase.js";
 
 const when = (d: Date) => d.toISOString().replace("T", " ").slice(0, 16);
 /** Words a stranger wrote, safe to print in a terminal: one line, no control characters, cut short. */
 const safe = (s: string, max = 200) => s.replace(/[\p{Cc}\p{Cf}]+/gu, " ").slice(0, max);
 const ACTIONS = ["hide", "unhide", "dismiss", "unshare"] as const;
-export const GALLERY_USAGE = "admin gallery reports [--all] | gallery hide <gameId> [reason] | gallery unhide <gameId> | gallery dismiss <gameId> | gallery unshare <gameId> [reason]";
+export const GALLERY_USAGE = "admin gallery reports [--all] | gallery hide <gameId> [reason] | gallery unhide <gameId> | gallery dismiss <gameId> | gallery unshare <gameId> [reason] | gallery showcase";
 
 export async function galleryAdmin(prisma: PrismaClient, ledger: LedgerService, args: string[], actor: string): Promise<void> {
   const [what, id, ...rest] = args;
+  if (what === "showcase") return showcaseAdmin(prisma, ledger, actor);
   if (what === "reports") {
     const all = args.includes("--all");
     const reports = await prisma.gameReport.findMany({
