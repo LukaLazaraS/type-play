@@ -6,7 +6,8 @@
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-size.mjs [outDir]
 // Shots in .impeccable/review/size/. Checks, at 1440 and 390 px (the Chat tab): a change sent on Fast that is too big stops
 // (the answer, "Fast · 0.1 credits", no Play, no new version), the one tap "Use Smart for this" (Medium) puts the same
-// message back in the box with Smart picked and sends nothing; a Free player's stop has no tap. Afterwards the test
+// message back in the box with Smart picked and sends nothing; a Free player's stop has no tap; the credit history's row
+// for the stop names it ("Change on Fast, stopped: too big for Fast", the game, the message; 10-29). Afterwards the test
 // accounts close.
 import { chromium } from "playwright";
 import { spawn, spawnSync } from "node:child_process";
@@ -162,6 +163,22 @@ try {
     check(`${label}: …with Smart picked, and the box focused`, (await picked(page)) === "smart" && (await page.evaluate(() => document.activeElement?.id)) === "say", String(await picked(page)));
     check(`${label}: …and nothing sent`, (await api(paid, "GET", `/projects/${games[paid]}`)).body.messages.length === messagesBefore);
     await shot(page, `stop-medium-${label}-tapped`);
+    // The credit history: the stop's 0.1 says what it was for, in the same form as a build's row (10-29).
+    await page.goto(`${base}/account`, { waitUntil: "domcontentloaded" });
+    const row = page.locator(".usage__row").first();
+    await row.waitFor({ timeout: 60_000 });
+    const what = await text(page, ".usage__row:first-child .usage__what b");
+    const game = await text(page, ".usage__row:first-child .usage__game");
+    const said = await text(page, ".usage__row:first-child .usage__prompt");
+    const amount = await text(page, ".usage__row:first-child .usage__amount");
+    check(
+      `${label}: the credit history's row for the stop: what, the game, the message, −0.1`,
+      what === "Change on Fast, stopped: too big for Fast" && game.length > 0 && said === BIG && /−\s*0\.1/.test(amount),
+      JSON.stringify({ what, game, said, amount }),
+    );
+    check(`${label}: the credit history, no sideways scrolling`, await fits(page));
+    await row.evaluate((e) => e.scrollIntoView({ block: "center" }));
+    await shot(page, `history-stop-${label}`);
     await ctx.close();
   }
 

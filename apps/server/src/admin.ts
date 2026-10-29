@@ -30,6 +30,7 @@
 //   npm run admin -w @typeplay/server -- gallery unhide <gameId>             (back in, while its maker lists it)
 //   npm run admin -w @typeplay/server -- gallery dismiss <gameId>            (its open reports handled; the game stays as it is)
 //   npm run admin -w @typeplay/server -- gallery unshare <gameId> [reason]   (stops sharing it: the share page 404s too)
+//   npm run admin -w @typeplay/server -- gallery showcase                    (our six showcase games in it, src/gallery/showcase.ts; again: no change)
 // Every command writes a BillingAudit row (actor "admin:<ADMIN_NAME or the OS user>").
 import { userInfo } from "node:os";
 import type { PlanId } from "@typeplay/shared";

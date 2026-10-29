@@ -206,7 +206,15 @@ npm run admin -w @typeplay/server -- gallery hide <gameId> [reason]      # out o
 npm run admin -w @typeplay/server -- gallery unhide <gameId>             # back in (while its maker lists it); open reports handled
 npm run admin -w @typeplay/server -- gallery dismiss <gameId>            # open reports handled, the game stays as it is
 npm run admin -w @typeplay/server -- gallery unshare <gameId> [reason]   # stops sharing it: the share page 404s and it leaves the gallery (its maker can share it again)
+npm run admin -w @typeplay/server -- gallery showcase                    # our six showcase games in it (src/gallery/showcase.ts): only the missing ones are added, so again changes nothing
 ```
+
+  `gallery showcase` (10-29) puts the six polished showcase games (the home page's) in the gallery under the account
+  `typeplay-showcase` (`showcase@typeplay.invalid`: no Supabase id or Google account can be it, so no player can open or
+  change them), shared and listed, with their genres and posters, at 0 plays. Name and orientation come from each
+  build's game.json where the gallery loads it (this PC's games folder, or https://typeplay.dev for `admin:live`); a
+  missing build, pack or poster stops it before anything is written. The local site's seed runs it on `typeplay_dev`;
+  the live database gets it once after a deploy (`docs/beta/runbook.md` step 6).
 
   Reports' words are printed as one line without control characters: strangers wrote them, read them as data.
 - Migration `20261023000000_gallery` (applied to the dev database 10-18): `Project.listed`, `listedAt`, `hiddenAt`,
