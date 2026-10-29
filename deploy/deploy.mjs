@@ -10,12 +10,14 @@
 //   node deploy/deploy.mjs api [--force]   build the API on its server and switch to it
 //   node deploy/deploy.mjs api-ssh [command]   a shell (or one command) on the API server
 //   node deploy/deploy.mjs android-key [--rotate [--keep-prev]]   ANDROID_KEY_MASTER into the root .env (never printed); Luka copies it to his password manager
+//   node deploy/deploy.mjs vapid-key [--rotate]   the live notifications key pair (VAPID_LIVE_*) into the root .env (never printed)
 // Keys come from the root .env (deploy/README.md).
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, posix, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const repo = resolve(import.meta.dirname, "..");
 process.loadEnvFile(join(repo, ".env"));
@@ -48,6 +50,11 @@ const OPTIONAL_API_KEYS = ["ANDROID_KEY_MASTER_PREV"];
 // Names no code on this PC reads, so development (its own sandbox keys in .env.local) and the tests never get a real key.
 const PADDLE_KEYS = ["PADDLE_API_KEY", "PADDLE_WEBHOOK_SECRET", "PADDLE_WEBHOOK_SECRET_PREVIOUS"];
 const paddleSource = (envName, key) => key.replace(/^PADDLE_/, `PADDLE_${envName.toUpperCase()}_`);
+// Notifications (Web Push, 2026-10-29): the live VAPID pair is VAPID_LIVE_* in the root .env (`vapid-key` makes it), names
+// no code on this PC reads (dev and the tests have their own pairs: apps/server/scripts/vapid-keys.mjs). `api` writes it
+// into api.env as VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY; `site` builds the site with the public half
+// (NEXT_PUBLIC_VAPID_PUBLIC_KEY), so the two always belong to each other. Without the pair, notifications stay off.
+const VAPID_KEYS = { VAPID_PUBLIC_KEY: "VAPID_LIVE_PUBLIC_KEY", VAPID_PRIVATE_KEY: "VAPID_LIVE_PRIVATE_KEY" };
 
 const log = (...a) => console.log("·", ...a);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -246,7 +253,14 @@ async function site() {
   mkdirSync(BUILD, { recursive: true });
   run("npx", ["turbo", "prune", "web", "--docker", "--out-dir", "deploy/.build/src"], { cwd: repo, stdio: "pipe", shell: true });
   cpSync(join(import.meta.dirname, "server", "Dockerfile"), join(BUILD, "src", "Dockerfile"));
-  cpSync(join(import.meta.dirname, "server", "compose.yaml"), join(BUILD, "compose.yaml"));
+  // The notifications' public key goes into the packed copy of compose.yaml (the build argument is empty in the repo): the
+  // live pair's public half, so the site and the API always use one pair (VAPID_KEYS above).
+  const compose = readFileSync(join(import.meta.dirname, "server", "compose.yaml"), "utf8");
+  const vapidPublic = env.VAPID_LIVE_PUBLIC_KEY ?? "";
+  if (vapidPublic && !/^[A-Za-z0-9_-]{87}$/.test(vapidPublic)) throw new Error("VAPID_LIVE_PUBLIC_KEY in the root .env is not a P-256 public key (87 base64url characters): `vapid-key --rotate` makes a fresh pair.");
+  if (!vapidPublic) log("notifications stay off on the site: no VAPID_LIVE_PUBLIC_KEY in the root .env (`node deploy/deploy.mjs vapid-key` makes the pair)");
+  if (!/NEXT_PUBLIC_VAPID_PUBLIC_KEY: ""/.test(compose)) throw new Error('deploy/server/compose.yaml should say NEXT_PUBLIC_VAPID_PUBLIC_KEY: "" (the key comes from the root .env)');
+  writeFileSync(join(BUILD, "compose.yaml"), compose.replace('NEXT_PUBLIC_VAPID_PUBLIC_KEY: ""', `NEXT_PUBLIC_VAPID_PUBLIC_KEY: "${vapidPublic}"`));
   cpSync(join(import.meta.dirname, "server", "caddy"), join(BUILD, "caddy"), { recursive: true });
   run("tar", ["-czf", "../release.tgz", "."], { cwd: BUILD });
 
@@ -437,7 +451,10 @@ function apiEnv() {
   } else if (Object.keys(env).some((k) => /^PADDLE_(LIVE|SANDBOX)_/.test(k))) {
     log("billing is off on the server (PADDLE_ENV: \"\" in deploy/api/compose.yaml): no Paddle key goes to it");
   }
-  const lines = [...API_KEYS.filter((k) => env[k]).map((k) => [k, env[k]]), ...Object.entries(paddle)];
+  const vapid = Object.entries(VAPID_KEYS).filter(([, source]) => env[source]).map(([k, source]) => [k, env[source]]);
+  if (vapid.length === 1) throw new Error("the root .env has only one of VAPID_LIVE_PUBLIC_KEY and VAPID_LIVE_PRIVATE_KEY: run `node deploy/deploy.mjs vapid-key --rotate` for a fresh pair.");
+  if (!vapid.length) log("notifications stay off on the server: no VAPID_LIVE_* in the root .env (`node deploy/deploy.mjs vapid-key` makes them)");
+  const lines = [...API_KEYS.filter((k) => env[k]).map((k) => [k, env[k]]), ...Object.entries(paddle), ...vapid];
   return lines.map(([k, v]) => {
     if (/['\r\n]/.test(v)) throw new Error(`${k} has a quote or a line break: api.env can't hold it`);
     return `${k}='${v}'`; // single quotes: Docker Compose takes the value literally
@@ -527,6 +544,29 @@ async function apiAssets() {
   log("library uploaded: the runner reads it at /assets");
 }
 
+// The live notifications key pair (Web Push, VAPID: RFC 8292), written into the root .env as VAPID_LIVE_PUBLIC_KEY and
+// VAPID_LIVE_PRIVATE_KEY if absent; never printed (only the lengths). Then `api` (the server signs pushes with it) and
+// `site` (browsers subscribe with its public half). Losing it costs nothing but a re-ask: every device turns notifications
+// on again. --rotate replaces a pair that was seen where it shouldn't be (the same re-ask, for everyone).
+async function vapidKey() {
+  const file = join(repo, ".env");
+  const rotate = rest.includes("--rotate");
+  if ((env.VAPID_LIVE_PUBLIC_KEY || env.VAPID_LIVE_PRIVATE_KEY) && !rotate) {
+    if (!env.VAPID_LIVE_PUBLIC_KEY || !env.VAPID_LIVE_PRIVATE_KEY) throw new Error("the root .env has only one of VAPID_LIVE_PUBLIC_KEY and VAPID_LIVE_PRIVATE_KEY: run again with --rotate for a fresh pair");
+    return log(`VAPID_LIVE_PUBLIC_KEY and VAPID_LIVE_PRIVATE_KEY are already in .env (${env.VAPID_LIVE_PUBLIC_KEY.length} and ${env.VAPID_LIVE_PRIVATE_KEY.length} chars); nothing changed (--rotate replaces them)`);
+  }
+  const { default: webpush } = await import(pathToFileURL(join(repo, "node_modules", "web-push", "src", "index.js")).href);
+  const pair = webpush.generateVAPIDKeys();
+  const text = existsSync(file) ? readFileSync(file, "utf8") : "";
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const lines = text.split(/\r?\n/).filter((l) => !/^\s*VAPID_LIVE_(PUBLIC|PRIVATE)_KEY\s*=/.test(l));
+  while (lines.length && lines[lines.length - 1] === "") lines.pop();
+  lines.push(`VAPID_LIVE_PUBLIC_KEY=${pair.publicKey}`, `VAPID_LIVE_PRIVATE_KEY=${pair.privateKey}`);
+  writeFileSync(file, lines.join(eol) + eol);
+  log(`VAPID_LIVE_PUBLIC_KEY and VAPID_LIVE_PRIVATE_KEY ${rotate ? "replaced" : "written"} in .env (${pair.publicKey.length} and ${pair.privateKey.length} chars). ` +
+    "Then `api` and `site`" + (rotate ? ": every device turns notifications on again (its subscription belonged to the old key)." : "."));
+}
+
 // --- main ---------------------------------------------------------------------------------------
 
 const [command, ...rest] = process.argv.slice(2);
@@ -541,9 +581,10 @@ const commands = {
   api,
   "api-ssh": async () => spawnSync("ssh", [...sshArgs(await serverIp(API_SERVER)), ...rest], { stdio: "inherit" }),
   "android-key": androidKey,
+  "vapid-key": vapidKey,
 };
 if (!commands[command]) {
-  console.log("usage: node deploy/deploy.mjs setup | site | games | status | ssh [command] | api-setup [--yes] | api-assets [--dry] | api [--force] | api-ssh [command] | android-key [--rotate [--keep-prev]]");
+  console.log("usage: node deploy/deploy.mjs setup | site | games | status | ssh [command] | api-setup [--yes] | api-assets [--dry] | api [--force] | api-ssh [command] | android-key [--rotate [--keep-prev]] | vapid-key [--rotate]");
   process.exit(1);
 }
 try {

@@ -59,12 +59,14 @@ it starts inherit that.
   `JAVA_HOME`, `ANDROID_HOME`, `BUNDLETOOL_JAR`, `ANDROID_BUILD_TOOLS`, `GRADLE_SEED`, `ANDROID_ICONS`; `ANDROID_FAKE=1`
   (dev/tests; with it `ANDROID_LINK_SECONDS` shortens the phone link's life, and `ANDROID_STORE=r2` keeps the "bucket" in a
   folder): section "Android export" below
+- Notifications: `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` (the pair every push is signed with; both or neither),
+  `VAPID_SUBJECT` (mailto:hello@typeplay.app), `PUSH_ALLOW_LOCAL=1` (tests only): section "Notifications" below
 
 The game agent gets none of the `.env` keys (it runs shell commands) and never our API key: on this
 PC it runs on the Claude Code login (Luka's Max); with `AGENT_AUTH=api` it gets the key proxy's
 address and a token for that run only.
 
-`GET /health` (no sign-in): `{ ok, runner, runs, agent, billing, android, inviteOnly }`, 503 when the runner doesn't answer.
+`GET /health` (no sign-in): `{ ok, runner, runs, agent, billing, android, inviteOnly, push }`, 503 when the runner doesn't answer.
 `npm run r2:check -w @typeplay/server` puts a throwaway build on R2, reads it back from
 https://typeplay.dev and deletes it (passed 2026-10-17).
 
@@ -604,6 +606,56 @@ cache is git-ignored, so `git reset` and `git clean` leave it, and imports of fi
 broke the next check after a reset (10-19). The next check or export imports afresh. It runs as
 `git clean -qfdx -- .godot`, through the same `git()` as the reset (in the runner on the live server); a
 cache that can't be removed is logged and left, never a failed reset.
+
+## Notifications (2026-10-29)
+
+A build that ends is told to the player wherever they are, from one place: `RunsService.ended` (`src/runs/runs.service.ts`),
+which every end goes through (a run's: `succeed`, `stopTooBig`, `fail`; a build that left the queue without starting:
+`queue.service.ts` `leave`; and those a restart interrupted, at the next start). It sends the game's own event as before
+(`GET /projects/:id/events`: the game page, the build pill), then, **unless the player stopped it** (Stop, or the game or the
+account deleted meanwhile), the account's notice (`RunNotice`, its words written once in `src/notify/notices.ts`):
+
+- **The account's stream**, `GET /me/events` (Server-Sent Events, like the game's): every open page of the site hears the
+  account's build ends, any game (the site shows a notice on every page but the game's own, and the tab's title while it is
+  in the background: `apps/web/README.md` "Notifications"). Each event and a comment at the start and every 20 s carry an
+  `id:` (the server's time in ms); a reconnect sends it back as `Last-Event-ID` (allowed by CORS) and gets the notices since
+  then again, from the last 30 minutes the API keeps in memory (`src/events/event-bus.ts`), across a restart too: the
+  notices of builds a restart interrupted are made at the next start, before pages reconnect.
+- **Web Push** to every device of the account that turned notifications on (`src/notify/push.service.ts`): the payload
+  (JSON: the notice and `tag: run-<messageId>`, so a device shows each build end once) encrypted for that browser (RFC 8291,
+  aes128gcm) and signed with our VAPID key (RFC 8292) by the `web-push` library; the request goes out with fetch: 10 s,
+  never following a redirect, `TTL` a day, `Urgency: high`, `Topic: game-<id>` (a game's newer end replaces one a device
+  hasn't received yet). 2xx: `lastSentAt`. 404 or 410 (gone) and 401 or 403 (made with another key): the row is deleted.
+  429, 5xx or no answer: one more try after Retry-After (at most 10 s). Never awaited by a run; logged by the push
+  service's host and the row's id, never by the address (it works like a password for the device).
+
+Which ends: a new version (`ready`), the size check's stop (`toobig`, with the bigger AI the plan has), and every way a build
+didn't build or didn't start (`failed`: failed, refused, timed out, interrupted, left the queue). A deploy stops running
+builds without writing anything (`fail` returns while the server stops), so the next start marks them interrupted, resets
+their folders and tells the players, as it does after a crash.
+
+**Devices** (`PushSubscription`, one row per push address; migration `20261029120000_push_subscriptions`): `POST /me/push`
+takes the browser's `PushSubscription.toJSON()` and makes the row, or moves it to this account (a device belongs to the
+last account that turned notifications on there); only https addresses of the browsers' push services are taken
+(`fcm.googleapis.com`, `*.push.services.mozilla.com`, `*.notify.windows.com`, `*.push.apple.com`, port 443: a player
+chooses the address, so nothing else is ever fetched), with a 65-byte P-256 key and a 16-byte secret; 20 devices an account
+at most (a new one replaces the oldest). `DELETE /me/push { endpoint }` removes that address's row whichever account had it
+(the address is the proof; the site calls it when the switch goes off and at every sign-out). The rows go with the account;
+the data export lists the devices by date and push service, not by address.
+
+**Keys**: one VAPID pair per environment, never printed. This PC: `node apps/server/scripts/vapid-keys.mjs dev` (the API's
+pair in the root `.env.local`, the site's public half in `apps/web/.env.local`) and `... autotest` (the root
+`.env.autotest.local`; the e2e and the walk-through make their own pairs anyway). Live: `node deploy/deploy.mjs vapid-key`
+(`VAPID_LIVE_*` in the root `.env`, names no code on this PC reads), then `api` writes them into the server's `api.env` and
+`site` builds the site with the public half (`deploy/README.md` "Notifications"). The API checks at start that the two
+halves belong together; without the pair `/health` says `push: false` and nothing is sent (devices are still kept). A new
+pair means every device turns notifications on again: a browser's subscription belongs to the key it was made with.
+
+Tests: `test/e2e.mjs` "notifications" runs an API of its own with a stand-in push service on this PC (`PUSH_ALLOW_LOCAL=1`,
+a pair made by the test): devices on and off, refused addresses and keys, one push per finished, too-big, failed and
+timed-out build to each device and none for a Stop, decrypted as a browser would and its VAPID signature checked, a 410
+removing the device, `Last-Event-ID` bringing back what a page missed, a device moving to another account, and a restart
+mid-build telling the device. The site's side: `apps/web/scripts/shot-notify.mjs`.
 
 ## The build queue (2026-10-26)
 

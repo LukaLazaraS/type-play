@@ -1,6 +1,7 @@
 // Settings, read once at startup. On Luka's PC from the repo's env files (env-files.ts: a local database from the
 // committed .env.development or .env.autotest, the secrets from the git-ignored root .env), on the live server from the
 // container's environment; the variables set in the shell win over the files. Never log the values.
+import { createECDH } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -138,6 +139,22 @@ export const config = {
     gradleSeed: env.GRADLE_SEED || "",
     icons: resolve(env.ANDROID_ICONS || join(ROOT, "deploy/api/android/icons")),
   },
+  /**
+   * Notifications by Web Push (src/notify/push.service.ts, 2026-10-29): the VAPID key pair every push is signed with (RFC
+   * 8292). The public key is also the site's NEXT_PUBLIC_VAPID_PUBLIC_KEY, which browsers subscribe with; the private key
+   * is only in the API's git-ignored env files (this PC: .env.local for dev, .env.autotest.local for the tests; live: the
+   * server's api.env, from the root .env's VAPID_LIVE_*: deploy/README.md). Without the pair nothing is sent (devices that
+   * turn notifications on are still kept).
+   */
+  push: {
+    publicKey: env.VAPID_PUBLIC_KEY || "",
+    privateKey: env.VAPID_PRIVATE_KEY || "",
+    /** How a push service reaches us about our pushes (RFC 8292: a mailto: or https: address). */
+    subject: env.VAPID_SUBJECT || "mailto:hello@typeplay.app",
+    /** Tests only (the e2e's stand-in push service on this PC): http addresses on 127.0.0.1 and localhost are taken too.
+     * Refused in production. */
+    allowLocal: env.PUSH_ALLOW_LOCAL === "1",
+  },
   /** The API's public address, for links handed to phones (POST …/android/builds/:bid/link). */
   publicUrl: (env.API_PUBLIC_URL || `http://127.0.0.1:${num(env.PORT, 3002)}`).replace(/\/+$/, ""),
   /** Read the visitor's address from Cloudflare's CF-Connecting-IP (for the in-memory limits on plays and reports,
@@ -191,6 +208,7 @@ export function assertSafeConfig() {
   }
   assertPaddleConfig();
   assertAndroidConfig();
+  assertPushConfig();
   if (!config.production) return;
 
   // The live server: our API key for everyone, Luka included; the Max login never goes there.
@@ -224,6 +242,30 @@ export function assertAndroidConfig() {
   if (a.fake) throw new Error("ANDROID_FAKE=1 is not allowed with NODE_ENV=production: refusing to start.");
   if (!a.signerSocket) throw new Error("NODE_ENV=production with ANDROID_EXPORT=1 needs SIGNER_SOCKET: keystores are used only in the signer sidecar.");
   if (!config.runnerSocket) throw new Error("NODE_ENV=production with ANDROID_EXPORT=1 needs RUNNER_SOCKET: Android exports run only in the runner container.");
+}
+
+/**
+ * The notification guards: VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY come together, as a P-256 pair in base64url (65 and 32
+ * bytes) whose halves belong to each other (a mismatched pair would make every push service refuse every push), and the
+ * subject is a mailto: or https: address. PUSH_ALLOW_LOCAL is for tests only. Called by assertSafeConfig().
+ */
+export function assertPushConfig() {
+  const p = config.push;
+  if (p.allowLocal && config.production) throw new Error("PUSH_ALLOW_LOCAL=1 is for tests only and is not allowed with NODE_ENV=production: refusing to start.");
+  if (!p.publicKey && !p.privateKey) return;
+  if (!p.publicKey || !p.privateKey) throw new Error("VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY come together (or neither: notifications off): refusing to start.");
+  const pub = Buffer.from(p.publicKey, "base64url");
+  const priv = Buffer.from(p.privateKey, "base64url");
+  if (pub.length !== 65 || pub[0] !== 4) throw new Error("VAPID_PUBLIC_KEY is not a P-256 public key (65 bytes, base64url): refusing to start.");
+  if (priv.length !== 32) throw new Error("VAPID_PRIVATE_KEY is not a P-256 private key (32 bytes, base64url): refusing to start.");
+  const ecdh = createECDH("prime256v1");
+  try {
+    ecdh.setPrivateKey(priv);
+  } catch {
+    throw new Error("VAPID_PRIVATE_KEY is not a usable P-256 private key: refusing to start.");
+  }
+  if (!ecdh.getPublicKey().equals(pub)) throw new Error("VAPID_PUBLIC_KEY doesn't belong to VAPID_PRIVATE_KEY: refusing to start.");
+  if (!/^(mailto:\S+@\S+|https:\/\/\S+)$/.test(p.subject)) throw new Error("VAPID_SUBJECT is a mailto: or https: address: refusing to start.");
 }
 
 /** Sandbox keys start with pdl_sdbx_apikey_, live ones with pdl_live_apikey_ (docs/research/paddle-2026.md R-E2). */

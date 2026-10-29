@@ -12,6 +12,11 @@ export const app = {
   devAuth: process.env.NEXT_PUBLIC_DEV_AUTH === "1" && process.env.NODE_ENV !== "production",
   apiOrigin: (process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://127.0.0.1:3002").replace(/\/+$/, ""),
   /**
+   * Notifications (Web Push, 2026-10-29): the public half of the API's VAPID pair, which this browser subscribes with.
+   * Public by design. Empty: the site offers no notifications (the in-site notice and the tab's title still work).
+   */
+  vapidPublicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "",
+  /**
    * Paddle.js (payments part 3). The client token is public by design (it goes to every browser);
    * without it the billing pages say "opens here soon" and nothing else changes. `env` sandbox
    * points Paddle.js at the sandbox; a live_ token never builds outside production (next.config.ts).
@@ -103,6 +108,33 @@ export const inLine = {
   composer: "Waiting for its turn. Type your next change meanwhile, or Stop to take this one out of the queue.",
   /** The game's icon on /games and its row in Manage. */
   tile: "in the queue",
+};
+
+/**
+ * Notifications (2026-10-29): the site's own question at the first build an account starts on a device (never on page
+ * load; never again there once answered), what it says after the answer, and the account page's switch.
+ */
+export const notify = {
+  ask: "Tell me when it's ready?",
+  yes: "Yes, tell me",
+  /** On the ink stage the quiet answer; in the chat's composer, "Not now" as its other questions say. */
+  no: "No thanks",
+  notNow: "Not now",
+  /** After the yes: what the browser said. */
+  on: "Done: this device tells you when it's ready, even with TypePlay closed.",
+  blocked: "Your browser blocks notifications from TypePlay. Allow them in its settings for this site, then turn them on in",
+  dismissed: "Nothing changed: your browser got no answer. You can turn notifications on any time in",
+  failed: "This browser couldn't turn notifications on. Try again in",
+  /** The account page's card. */
+  card: "Notifications",
+  stateOn: "On for this device.",
+  stateOff: "Off on this device.",
+  stateBlocked: "Blocked by your browser.",
+  what: "When a build is done, too big for its AI, or didn't work, this device tells you, even with TypePlay closed. Each phone and computer has its own switch.",
+  blockedHow: "Your browser blocks notifications from TypePlay. Allow them in its settings for this site, then turn the switch on.",
+  homescreen: "On iPhone and iPad, add TypePlay to your Home Screen first: tap Share, then Add to Home Screen. Open it from there and turn this on.",
+  unsupported: "This browser can't show notifications. Chrome, Edge, Firefox and Safari can.",
+  failedOn: "This browser couldn't turn notifications on. Try again in a minute.",
 };
 
 /** The game page's hint on a screen the game isn't made for: what it's made for, the button, and the request its one

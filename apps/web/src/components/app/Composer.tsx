@@ -18,6 +18,7 @@ import { ApiFailure } from "@/lib/api";
 import { creditsWord, dayOf, tooLong, untilUtcMidnight, usd, whenParts } from "@/lib/format";
 import { planName } from "./AccountSlot";
 import { EffortSwitch, effortLine, ModelSwitch, modelLine } from "./ModelPicker";
+import { NotifyAsk } from "./NotifyAsk";
 
 type Props = {
   /** "new" until the first build has worked: then a message builds the game again. */
@@ -190,6 +191,8 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
         />
       )}
       {panel && <CreditPanel kind={panel} me={me} backTo={backTo} onClose={() => setPanel(null)} />}
+      {/* A change building: tell me when it's ready? (a first build asks on the stage, beside its progress). */}
+      {going && kind === "edit" && <NotifyAsk tone="paper" />}
       {error && <ErrorLine>{error}</ErrorLine>}
       <TextArea
         id="say"

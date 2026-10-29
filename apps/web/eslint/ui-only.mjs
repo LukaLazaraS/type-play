@@ -54,6 +54,7 @@ const OWNED = [
   [/^aitile(--[a-z-]+)?$/, "ModelTile"],
   [/^wordmark$/, "Wordmark"],
   [/^act$/, "ActionButton"],
+  [/^toasts?(__[a-z-]+)?$/, "Toast or Toasts"],
 ];
 const ownerOf = (cls) => OWNED.find(([re]) => re.test(cls))?.[1] ?? null;
 

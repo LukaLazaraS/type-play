@@ -13,6 +13,7 @@ import { InboxService } from "./billing/inbox.service.js";
 import { PaddleService } from "./billing/paddle.service.js";
 import { ApiErrorFilter } from "./common/api-error.js";
 import { assertSafeConfig, config, ROOT } from "./env.js";
+import { PushService } from "./notify/push.service.js";
 import { RunRegistry } from "./runs/registry.js";
 import { runnerHealthy } from "./runs/runner-client.js";
 
@@ -41,11 +42,13 @@ app.useBodyParser("json", {
 // line (they keep their place through a restart);
 // `billing`: the mode, whether Paddle answered the catalog check, and the webhook inbox's counts;
 // `android`: whether this server builds for Android and how many builds are going; `inviteOnly`: the
-// closed beta is on (BETA_INVITE_ONLY: only invited emails get past the sign-in).
+// closed beta is on (BETA_INVITE_ONLY: only invited emails get past the sign-in); `push`: notifications go out (both
+// VAPID keys set: deploy/README.md).
 const registry = app.get(RunRegistry);
 const paddle = app.get(PaddleService);
 const inbox = app.get(InboxService);
 const android = app.get(AndroidService);
+const push = app.get(PushService);
 (app.getHttpAdapter().getInstance() as Express).get("/health", async (_req, res) => {
   const runner = config.runnerSocket ? await runnerHealthy() : true;
   // `billing.problem`: the Paddle key was refused (expired, revoked, a permission missing): billing is 503, the rest runs.
@@ -60,12 +63,14 @@ const android = app.get(AndroidService);
     billing,
     android: { enabled: android.enabled, running: android.runningCount },
     inviteOnly: config.betaInviteOnly,
+    push: push.on,
   });
 });
 app.enableCors({
   origin: config.corsOrigins,
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Authorization", "Content-Type"],
+  // Last-Event-ID: the account's stream picks up where it left off (GET /me/events, notifications).
+  allowedHeaders: ["Authorization", "Content-Type", "Last-Event-ID"],
   // Downloads (a game as .zip, the account data as .json) name their file here.
   exposedHeaders: ["Content-Disposition"],
   maxAge: 600,
@@ -76,5 +81,6 @@ await app.listen(config.port, config.host);
 new Logger("main").log(
   `TypePlay API on http://${config.host}:${config.port}` + (config.devAuth ? " (DEV_AUTH on)" : "") + (config.agentFake ? " (AGENT_FAKE on)" : "") +
     (config.betaInviteOnly ? " (closed beta: invited emails only)" : "") +
+    (push.on ? "" : " (notifications off: no VAPID keys)") +
     ` (agent: ${config.agentAuth}${config.runnerSocket ? ", in the runner" : ""}; builds: ${config.gamesPublish}; billing: ${paddle.mode}${paddle.mode !== "off" && !paddle.ready ? ", not ready" : ""})`,
 );

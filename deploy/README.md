@@ -53,6 +53,26 @@ key-only SSH, Docker with rotating logs, the 04:00 security reboots), `server/co
 - **Never** turn on Cloudflare's "Always Use HTTPS" for typeplay.app or block port 80 at the firewall:
   Caddy needs plain http on port 80 to renew its certificate (it redirects visitors to HTTPS itself).
 
+## Notifications (Web Push, 2026-10-29)
+
+The players' devices are told when a build ends (`apps/server/README.md` "Notifications"). One VAPID key pair signs every
+push: the live pair is in the root `.env` as `VAPID_LIVE_PUBLIC_KEY` and `VAPID_LIVE_PRIVATE_KEY` (made 10-29 with
+`node deploy/deploy.mjs vapid-key`; never printed; names no code on this PC reads). **The deploy that ships it, in this
+order:**
+
+1. `npm install` (the API's new package `web-push`); the migration `20261029120000_push_subscriptions` runs by itself at the
+   api container's start (`prisma migrate deploy`), and adds a table: the running site is unaffected.
+2. `node deploy/deploy.mjs api`: writes `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` into the server's `api.env` (it refuses a
+   root `.env` with only one of the two). Check: `node deploy/deploy.mjs status`, or `/health` says `"push": true`.
+3. `node deploy/deploy.mjs site`: puts the pair's public half into the copy of `server/compose.yaml` it uploads (the build
+   argument `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, empty in the repo), so the site and the API always use one pair. The API goes
+   first: a site with the key and an API without `/me/push` would tell players "This browser couldn't turn notifications on".
+
+Without `VAPID_LIVE_*` both commands say "notifications stay off" and go on: no question, no switch, nothing sent (the
+notices on the site and the tab's title still work). A pair seen where it shouldn't be: `node deploy/deploy.mjs vapid-key
+--rotate`, then `api` and `site`; every device then turns notifications on again (a browser's subscription belongs to the key
+it was made with), and the old subscriptions are deleted as their pushes fail.
+
 ## The API (api.typeplay.app): ready, not live yet
 
 Written and tested 2026-10-17 (package 5); nothing is bought or created yet. Going live:

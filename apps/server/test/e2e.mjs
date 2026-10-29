@@ -4,7 +4,7 @@
 // Every API it starts takes a port picked free for this run (scripts/test-run.mjs), so runs from several checkouts go at once.
 // Uses fresh dev users (dev:e2e-<time>-a@test.local) and deletes them, their games and builds at the end.
 import { spawn, spawnSync } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createDecipheriv, createECDH, createHmac, createPublicKey, randomBytes, randomUUID, verify as cryptoVerify } from "node:crypto";
 import { createServer } from "node:http";
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -278,6 +278,240 @@ async function securityChecks() {
   } finally {
     sec.kill();
     upstream.close();
+  }
+}
+
+/** A browser's side of Web Push, for the stand-in push service: its subscription and the decryption of what reaches it (RFC 8291, aes128gcm). */
+function fakeDevice(endpoint) {
+  const ecdh = createECDH("prime256v1");
+  ecdh.generateKeys();
+  const auth = randomBytes(16);
+  const hmac = (key, data) => createHmac("sha256", key).update(data).digest();
+  return {
+    subscription: { endpoint, expirationTime: null, keys: { p256dh: ecdh.getPublicKey().toString("base64url"), auth: auth.toString("base64url") } },
+    /** The push's JSON, as the service worker reads it. */
+    open(body) {
+      const salt = body.subarray(0, 16);
+      const idlen = body[20];
+      const serverKey = body.subarray(21, 21 + idlen);
+      const sealed = body.subarray(21 + idlen);
+      const ikm = hmac(hmac(auth, ecdh.computeSecret(serverKey)), Buffer.concat([Buffer.from("WebPush: info\0"), ecdh.getPublicKey(), serverKey, Buffer.from([1])]));
+      const prk = hmac(salt, ikm);
+      const cek = hmac(prk, Buffer.from("Content-Encoding: aes128gcm\0\x01")).subarray(0, 16);
+      const nonce = hmac(prk, Buffer.from("Content-Encoding: nonce\0\x01")).subarray(0, 12);
+      const d = createDecipheriv("aes-128-gcm", cek, nonce);
+      d.setAuthTag(sealed.subarray(sealed.length - 16));
+      const plain = Buffer.concat([d.update(sealed.subarray(0, sealed.length - 16)), d.final()]);
+      let end = plain.length - 1;
+      while (end >= 0 && plain[end] === 0) end--;
+      if (plain[end] !== 2) throw new Error("no last-record delimiter");
+      return JSON.parse(plain.subarray(0, end).toString("utf8"));
+    },
+  };
+}
+
+/** The VAPID header's token, checked against the API's public key: its claims, or null when the signature is wrong. */
+function vapidClaims(authorization, publicKey) {
+  const m = /^vapid t=([^,]+),\s*k=(\S+)$/.exec(authorization ?? "");
+  if (!m || m[2] !== publicKey) return null;
+  const [head, claims, sig] = m[1].split(".");
+  const raw = Buffer.from(publicKey, "base64url");
+  const key = createPublicKey({ key: { kty: "EC", crv: "P-256", x: raw.subarray(1, 33).toString("base64url"), y: raw.subarray(33).toString("base64url") }, format: "jwk" });
+  const good = cryptoVerify("sha256", Buffer.from(`${head}.${claims}`), { key, dsaEncoding: "ieee-p1363" }, Buffer.from(sig, "base64url"));
+  return good ? JSON.parse(Buffer.from(claims, "base64url").toString("utf8")) : null;
+}
+
+/**
+ * Notifications (2026-10-29, apps/server/README.md "Notifications"), against an API of our own with a stand-in push
+ * service on this PC (PUSH_ALLOW_LOCAL=1, a VAPID pair made here) and a 12-second run limit: devices turn notifications
+ * on and off; a finished build, a change the size check stopped (TOOBIG), a failed change and a timed-out one each send
+ * exactly one push per device, encrypted for it and signed with our key, and one notice on the account's stream; the
+ * player's own Stop sends none; a device the push service says is gone (410) is deleted; Last-Event-ID brings back what a
+ * page missed; a restart tells the player of the build it interrupted.
+ */
+async function pushChecks(db) {
+  console.log("notifications: devices on and off, one push per build end (not for a Stop), 410 removes a device, the account stream");
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const { default: webpush } = await import("web-push");
+  const vapid = webpush.generateVAPIDKeys();
+  // The stand-in push service: every push it gets, by device; /push/gone answers 410 as an expired subscription does.
+  const got = [];
+  const service = createServer((req, res) => {
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => {
+      got.push({ path: req.url, headers: req.headers, body: Buffer.concat(chunks) });
+      res.writeHead(req.url === "/push/gone" ? 410 : 201).end();
+    });
+  });
+  await new Promise((r) => service.listen(0, "127.0.0.1", r));
+  const at = (name) => `http://127.0.0.1:${service.address().port}/push/${name}`;
+  const P = `dev:e2e-${stamp}-push@test.local`;
+  const Q = `dev:e2e-${stamp}-push-q@test.local`;
+  const env = { VAPID_PUBLIC_KEY: vapid.publicKey, VAPID_PRIVATE_KEY: vapid.privateKey, PUSH_ALLOW_LOCAL: "1", RUN_TIMEOUT_MIN: "0.2", BILLING_JOBS: "0" };
+  let push = await spawnApi(env);
+  const call = async (token, method, path, body) => {
+    const res = await fetch(push.url + path, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    const text = await res.text();
+    return { status: res.status, body: text ? JSON.parse(text) : null };
+  };
+  /** GET /me/events, read as the site reads it: the notices, and the last event id seen (`id:` lines, heartbeats too). */
+  const accountEvents = async (token, lastEventId) => {
+    const ctrl = new AbortController();
+    const res = await fetch(`${push.url}/me/events`, { headers: { Authorization: `Bearer ${token}`, ...(lastEventId ? { "Last-Event-ID": String(lastEventId) } : {}) }, signal: ctrl.signal });
+    const s = { status: res.status, notices: [], lastId: 0, close: () => ctrl.abort() };
+    (async () => {
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let i;
+          while ((i = buf.indexOf("\n\n")) >= 0) {
+            const block = buf.slice(0, i);
+            buf = buf.slice(i + 2);
+            for (const line of block.split("\n")) {
+              if (line.startsWith("id: ")) s.lastId = Number(line.slice(4));
+              if (line.startsWith("data: ")) s.notices.push({ id: s.lastId, ...JSON.parse(line.slice(6)).notice });
+            }
+          }
+        }
+      } catch {
+        // closed
+      }
+    })();
+    return s;
+  };
+  const devices = { a: fakeDevice(at("a")), b: fakeDevice(at("b")), gone: fakeDevice(at("gone")) };
+  /** What reached a device, opened as its service worker would. */
+  const pushesTo = (name) => got.filter((g) => g.path === `/push/${name}`).map((g) => ({ ...devices[name].open(g.body), headers: g.headers }));
+  const rows = async () => (await db.query(`SELECT endpoint, "userId", "lastSentAt" FROM "PushSubscription" WHERE "userId" IN ($1, $2) ORDER BY endpoint`, [devId(P), devId(Q)])).rows;
+  /** Waits until `name` has `n` pushes (and a moment more, so a second one would have arrived too). */
+  const pushes = async (name, n) => {
+    for (let i = 0; i < 60 && got.filter((g) => g.path === `/push/${name}`).length < n; i++) await sleep(250);
+    await sleep(1200);
+    return pushesTo(name);
+  };
+  const idle = async (id) => {
+    for (let i = 0; i < 120; i++) {
+      const r = await call(P, "GET", `/projects/${id}`);
+      if (r.body?.status === "idle") return r.body;
+      await sleep(500);
+    }
+    return null;
+  };
+  let stream = null;
+  try {
+    await call(P, "GET", "/me");
+    ok(admin("plan", emailOf(P), "medium").status === 0 && admin("grant", emailOf(P), "40").status === 0, "a maker on Medium + 40 credits");
+    // Turning on: three devices; addresses that aren't a push service's, and keys of the wrong size, are refused.
+    for (const name of ["a", "b", "gone"]) ok((await call(P, "POST", "/me/push", devices[name].subscription)).status === 201, `device ${name} turns notifications on: 201`);
+    const refused = [
+      { ...devices.a.subscription, endpoint: "https://evil.example.com/push/x" },
+      { ...devices.a.subscription, endpoint: "http://169.254.169.254/latest/meta-data" },
+      { ...devices.a.subscription, endpoint: "https://fcm.googleapis.com:8443/fcm/send/x" },
+      { ...devices.a.subscription, keys: { p256dh: devices.a.subscription.keys.p256dh.slice(0, 40), auth: devices.a.subscription.keys.auth } },
+      { ...devices.a.subscription, keys: { p256dh: devices.a.subscription.keys.p256dh, auth: "short" } },
+      { endpoint: at("x") },
+    ];
+    const answers = await Promise.all(refused.map((b) => call(P, "POST", "/me/push", b)));
+    ok(answers.every((a) => a.status === 400 && a.body?.error === "bad_request" && /notification address/.test(a.body.message)), `not a push service, an odd port, bad keys, no keys: 400 each (${answers.map((a) => a.status).join(",")})`);
+    ok((await call(P, "POST", "/me/push", devices.a.subscription)).status === 201 && (await rows()).length === 3, "the same device again: still one row each (3)");
+    ok((await call(null, "POST", "/me/push", devices.a.subscription)).status === 401, "no sign-in: 401");
+    stream = await accountEvents(P);
+    ok(stream.status === 200, "GET /me/events: 200");
+
+    // A first build that works: one push per device, the notice on the account's stream.
+    const made = (await call(P, "POST", "/projects", { prompt: "A cat that jumps over spikes", model: "fast" })).body;
+    if (!made?.id) return ok(false, "the maker's game starts");
+    projects.push(made.id);
+    const v1 = await idle(made.id);
+    const v1Answer = v1?.messages.at(-1);
+    const [a1, b1, gone1] = await Promise.all([pushes("a", 1), pushes("b", 1), pushes("gone", 1)]);
+    ok(a1.length === 1 && b1.length === 1, `a finished build: one push to each device (${a1.length}, ${b1.length})`);
+    ok(a1[0]?.v === 1 && a1[0].kind === "ready" && a1[0].title === `${v1.name} is ready` && a1[0].body === "Your new game is built. Play it now." && a1[0].url === `/games/${made.id}`, `... decrypted on the device: "${a1[0]?.title}", "${a1[0]?.body}", ${a1[0]?.url}`);
+    ok(a1[0]?.tag === `run-${v1Answer?.id}` && a1[0].messageId === v1Answer?.id && a1[0].projectId === made.id, "... tagged with its answer (one notification per build end on a device)");
+    const claims = vapidClaims(a1[0]?.headers.authorization, vapid.publicKey);
+    ok(!!claims && claims.aud === new URL(at("a")).origin && claims.sub === "mailto:hello@typeplay.app" && claims.exp > Date.now() / 1000, "... signed with our VAPID key (the signature checks out; audience, subject, expiry)");
+    ok(a1[0]?.headers["content-encoding"] === "aes128gcm" && Number(a1[0].headers.ttl) === 86400 && a1[0].headers.urgency === "high" && a1[0].headers.topic === `game-${made.id}`, "... aes128gcm, TTL a day, urgent, one topic per game");
+    ok(gone1.length === 1, "the gone device was tried once (its push service answers 410)");
+    const after1 = await rows();
+    ok(after1.length === 2 && !after1.some((r) => r.endpoint === at("gone")) && after1.every((r) => r.lastSentAt), "... its 410 removed it; the two others have a last push");
+    ok(stream.notices.length === 1 && stream.notices[0].messageId === v1Answer?.id && stream.notices[0].kind === "ready" && stream.notices[0].title === a1[0]?.title, "the account's stream: the same notice, once");
+
+    // The size check stops a change: told, with the bigger AI.
+    await call(P, "POST", `/projects/${made.id}/messages`, { text: "Add 10 new levels and flying traps TOOBIG", model: "fast" });
+    await idle(made.id);
+    const [a2, b2] = await Promise.all([pushes("a", 2), pushes("b", 2)]);
+    ok(a2.length === 2 && b2.length === 2, "a change too big for Fast: one more push to each device");
+    ok(a2[1]?.kind === "toobig" && a2[1].title === `${v1.name}: that change is too big for Fast` && /^Smart can do it in one go/.test(a2[1].body), `... "${a2[1]?.title}", "${a2[1]?.body}"`);
+    const beforeFail = stream.lastId;
+
+    // A change that fails: told, nothing charged.
+    await call(P, "POST", `/projects/${made.id}/messages`, { text: "Add a boss FAIL", model: "fast" });
+    await idle(made.id);
+    const a3 = await pushes("a", 3);
+    ok(a3.length === 3 && a3[2]?.kind === "failed" && a3[2].title === `${v1.name}: your change didn't work` && a3[2].body === "Your game is unchanged, and nothing was charged.", `a failed change: one push, "${a3[2]?.title}"`);
+
+    // The player's own Stop: nothing.
+    await call(P, "POST", `/projects/${made.id}/messages`, { text: "Add rain HOLD", model: "fast" });
+    await sleep(1500);
+    await call(P, "POST", `/projects/${made.id}/cancel`);
+    await idle(made.id);
+    const a4 = await pushes("a", 4);
+    ok(a4.length === 3 && pushesTo("b").length === 3, "the player's Stop: no push to any device");
+    ok(stream.notices.length === 3, `... and no notice on the account's stream (${stream.notices.length} in all: ready, too big, failed)`);
+
+    // Device b turns notifications off; a timed-out change reaches a alone.
+    ok((await call(P, "DELETE", "/me/push", { endpoint: at("b") })).status === 200 && !(await rows()).some((r) => r.endpoint === at("b")), "device b turns them off: its row is gone");
+    ok((await call(P, "DELETE", "/me/push", { endpoint: at("b") })).status === 200, "... a second time: still ok");
+    await call(P, "POST", `/projects/${made.id}/messages`, { text: "Add a slow ocean LONG", model: "fast" });
+    await idle(made.id);
+    const a5 = await pushes("a", 4);
+    ok(a5.length === 4 && a5[3]?.kind === "failed" && a5[3].title === `${v1.name} took too long` && /stopped after 0\.2 minutes/.test(a5[3].body), `a change past the run limit: one push, "${a5[3]?.title}"`);
+    ok(pushesTo("b").length === 3, "... none to the device that turned them off");
+
+    // A page that lost its stream: Last-Event-ID brings back the notices it missed, once each.
+    const again = await accountEvents(P, beforeFail);
+    await sleep(800);
+    again.close();
+    ok(again.notices.map((n) => n.title).join(" | ") === [a3[2]?.title, a5[3]?.title].join(" | "), `Last-Event-ID: the two notices after it again (${again.notices.length})`);
+
+    // A device that moves to another account: the address goes with it.
+    await call(Q, "GET", "/me");
+    ok((await call(Q, "POST", "/me/push", devices.a.subscription)).status === 201, "another account turns notifications on with device a");
+    const moved = await rows();
+    ok(moved.length === 1 && moved[0].userId === devId(Q), "... the device is that account's now (one row)");
+    ok((await call(Q, "POST", "/me/push", devices.a.subscription)).status === 201 && (await call(P, "POST", "/me/push", devices.a.subscription)).status === 201, "... and back");
+
+    // A restart in the middle of a build: the next start marks it interrupted and tells the player.
+    const restart = (await call(P, "POST", `/projects/${made.id}/messages`, { text: "Add snow HOLD", model: "fast" })).body;
+    const held = restart?.messages?.at(-1)?.id;
+    await sleep(1500);
+    stream.close();
+    push.kill();
+    await sleep(1500);
+    push = await spawnApi(env, push.port);
+    const a6 = await pushes("a", 5);
+    ok(a6.length === 5 && a6[4]?.messageId === held && a6[4].kind === "failed" && a6[4].title === `${v1.name}: the build was interrupted`, `a restart mid-build: the next start tells the device ("${a6[4]?.title}")`);
+    const back = await accountEvents(P, stream.lastId);
+    await sleep(800);
+    back.close();
+    ok(back.notices.length === 1 && back.notices[0].messageId === held, "... and a page that reconnects with its Last-Event-ID gets that notice from the new API");
+    const exported = (await call(P, "GET", "/me/export")).body;
+    ok(exported?.notifications?.length === 1 && exported.notifications[0].service === "127.0.0.1" && !JSON.stringify(exported).includes(at("a")), "the data export lists the device and its service, not its address");
+    ok(!push.output().includes(at("a")) && !push.output().includes("/push/a"), "no device address in the API's log");
+  } finally {
+    stream?.close();
+    push.kill();
+    service.close();
   }
 }
 
@@ -1986,6 +2220,7 @@ async function main() {
   await pickChecks(db);
   await sizeChecks(db);
   await securityChecks();
+  await pushChecks(db);
 
   // The Supabase sign-in record: the API deletes it with this statement (account.service.ts). Real
   // Google users can't sign in here, so try it on a throwaway Supabase user made with the admin API.

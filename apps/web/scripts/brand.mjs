@@ -1,8 +1,8 @@
 // Brand images, drawn from the site's own parts: the favicon and app icons (the home screen's
 // "Your game" mark: dusk sky, dunes, sun, robot) and the link-preview card (the home hero).
-// Usage: node scripts/brand.mjs   (from apps/web; installed Edge through Playwright, Google Fonts online)
+// Usage: node scripts/brand.mjs [--notify]   (from apps/web; installed Edge through Playwright, Google Fonts online)
 // Writes src/app/{favicon.ico, icon.svg, apple-icon.png, opengraph-image.png, twitter-image.png}
-// and public/icons/{icon-192, icon-512, icon-maskable-512}.png. Re-run after a design change.
+// and public/icons/{icon-192, icon-512, icon-maskable-512}.png, and the notification icons (--notify: those alone). Re-run after a design change.
 import { chromium } from "playwright";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
@@ -59,6 +59,20 @@ async function png(svg, size, { background = "transparent" } = {}) {
   await page.setViewportSize({ width: size, height: size });
   await page.setContent(`<body style="margin:0;background:${background}">${svg.replace("<svg ", `<svg width="${size}" height="${size}" `)}</body>`);
   return page.screenshot({ omitBackground: background === "transparent" });
+}
+
+// Notifications (2026-10-29; `--notify` writes only these): the tab's icon while a game is ready or stopped and the tab is
+// in the background (the zoomed mark with the hot dot, ringed in ink so it stands off the sky), and the small icon Android
+// shows in its status bar (white on nothing: the system uses its shape alone), the mark's robot.
+const attention = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="14 30 82 82"><clipPath id="c"><rect x="14" y="30" width="82" height="82" rx="20"/></clipPath><g clip-path="url(#c)">${layers}</g><circle cx="78" cy="48" r="16" fill="#ff5a36" stroke="#170d33" stroke-width="6"/></svg>`;
+const badge = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="14 51 42 42"><mask id="m"><rect x="14" y="51" width="42" height="42" fill="#fff"/><rect x="30" y="70" width="4" height="4"/><rect x="37" y="70" width="4" height="4"/></mask><g fill="#fff" mask="url(#m)"><rect x="26" y="66" width="18" height="16" rx="3"/><rect x="28" y="84" width="5" height="8"/><rect x="37" y="84" width="5" height="8"/><rect x="34" y="58" width="2" height="8"/><circle cx="35" cy="57" r="2.5"/></g></svg>`;
+writeFileSync(icons + "attention.svg", attention);
+writeFileSync(icons + "attention-32.png", await png(attention, 32));
+writeFileSync(icons + "badge-96.png", await png(badge, 96));
+console.log("wrote public/icons/attention.svg, attention-32.png, badge-96.png");
+if (process.argv.includes("--notify")) {
+  await browser.close();
+  process.exit(0);
 }
 
 // Favicons: rounded and zoomed for the tab, full scene for icons people see large.

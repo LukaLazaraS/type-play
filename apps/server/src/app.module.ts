@@ -21,6 +21,8 @@ import { FeedbackController } from "./feedback/feedback.controller.js";
 import { FeedbackService } from "./feedback/feedback.service.js";
 import { GalleryService } from "./gallery/gallery.service.js";
 import { MeController } from "./me.controller.js";
+import { NotifyController } from "./notify/notify.controller.js";
+import { PushService } from "./notify/push.service.js";
 import { PrismaService } from "./prisma.js";
 import { ProjectsController } from "./projects/projects.controller.js";
 import { ProjectsService } from "./projects/projects.service.js";
@@ -32,7 +34,7 @@ import { RunRegistry } from "./runs/registry.js";
 import { RunsService } from "./runs/runs.service.js";
 
 @Module({
-  controllers: [MeController, ProjectsController, PublicController, WebhooksController, BillingController, AndroidController, FeedbackController, BetaCodeController],
+  controllers: [MeController, ProjectsController, PublicController, WebhooksController, BillingController, AndroidController, FeedbackController, BetaCodeController, NotifyController],
   providers: [
     PrismaService,
     LedgerService,
@@ -45,6 +47,7 @@ import { RunsService } from "./runs/runs.service.js";
     BetaCodeService,
     CreditsService,
     EventBus,
+    PushService,
     RunRegistry,
     KeyProxy,
     GalleryService,

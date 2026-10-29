@@ -197,6 +197,13 @@ export function devSignIn(email: string) {
 /** Sign out on this device (other devices stay signed in). */
 export async function signOut() {
   const via = state.status === "in" ? state.via : null;
+  // Notifications end here first, while the sign-in still works for telling the API (the next person on this device
+  // must never get this account's): this device's subscription, and the notices kept in this browser.
+  if (state.status === "in") {
+    const [{ turnOff }, { clearNotices }] = await Promise.all([import("./push"), import("./notices")]);
+    clearNotices();
+    await turnOff();
+  }
   try {
     localStorage.removeItem(DEV_KEY);
   } catch {

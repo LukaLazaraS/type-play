@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
-import { ArrowRight, X } from "@phosphor-icons/react";
+import { ArrowRight } from "@phosphor-icons/react";
 import type { QueuePlace } from "@typeplay/shared";
-import { IconButton } from "@/components/ui/IconButton";
 import { InkPillLink } from "@/components/ui/InkPill";
 import { Pulse } from "@/components/ui/Pulse";
+import { Toast } from "@/components/ui/Toast";
 import { inLine } from "@/content/app";
 import { watchProject } from "@/lib/api";
 import { aheadWord, clock, waitWord } from "@/lib/format";
@@ -64,9 +63,9 @@ export function BuildPill() {
 
   if (!id || !away || !seen) return null;
   const href = `/games/${id}`;
-  // On the page itself, not inside the status bar it is mounted from (whose phone layout hides its links).
-  return createPortal(
-    <div className="buildpill" role="status" data-status={seen.status}>
+  // In the page's toasts (AccountSlot), on the page itself rather than in the status bar it is mounted from.
+  return (
+    <Toast className="buildpill" role="status" data-status={seen.status} closeLabel="Hide this" onClose={forgetWaiting}>
       {seen.status === "queued" ? (
         <>
           <Pulse still />
@@ -115,10 +114,6 @@ export function BuildPill() {
           </InkPillLink>
         </>
       )}
-      <IconButton label="Hide this" className="buildpill__close" onClick={forgetWaiting}>
-        <X size={16} weight="bold" aria-hidden="true" />
-      </IconButton>
-    </div>,
-    document.body,
+    </Toast>
   );
 }

@@ -333,6 +333,9 @@ export interface AccountExport {
   billing: { subscriptionStatus: BillingSubscription["status"] | null; periodEndsAt: string | null; cancelsAt: string | null; paymentMethod: string | null } | null;
   /** What the account sent with "Send feedback", newest first (added 2026-10-23, beta 1). */
   feedback?: { id: string; at: string; page: string; text: string; expected: string | null; gameId: string | null; messageId: string | null; browser: string | null; done: boolean }[];
+  /** The devices that have notifications on (added 2026-10-29): when each was turned on and its browser's push service
+   * (e.g. fcm.googleapis.com). The push address itself is left out: it works like a password for that device. */
+  notifications?: { addedAt: string; service: string }[];
   /** Plain words on what is not in this file and where it is. */
   notes: string[];
 }
@@ -505,6 +508,36 @@ export interface ReportBody {
   text?: string;
 }
 
+// ---- Notifications (2026-10-29) -------------------------------------------------------------
+// A build that ended is told to the player wherever they are: its game's page (the chat, as before), every other page
+// of the site through the account's stream, GET /me/events (a small notice, and the tab's title and icon while the tab
+// is in the background), and the devices that turned notifications on, by Web Push (POST /me/push turns one on). All of
+// it comes from the API's one end-of-run place (apps/server/src/runs/runs.service.ts `ended`). The player's own Stop is
+// never told: they know.
+
+/** ready: a new version to play. toobig: the size check stopped a change as too big for its AI (no version; the chat
+ * offers the bigger AI). failed: it didn't build, or didn't start (failed, refused, timed out, interrupted, or it left
+ * the queue without starting): nothing was charged. */
+export type NoticeKind = "ready" | "toobig" | "failed";
+
+/** One build's end, as the notifications say it: the same words in the site's notice and the device's notification. */
+export interface RunNotice {
+  kind: NoticeKind;
+  projectId: string;
+  /** The answer that ended; also the device notification's tag ("run-<messageId>"), so each end shows once per device. */
+  messageId: string;
+  /** The game's name as it is now (a first build that worked has the name the AI gave it). */
+  name: string;
+  /** The game's name and what happened, a few plain words: "Spike Cat is ready". Always starts with `name`. */
+  title: string;
+  /** One or two plain sentences under it: "Version 3 is in. Play it now." */
+  body: string;
+  /** The game's page on the site: "/games/<id>". */
+  url: string;
+  /** When the build ended (ISO). */
+  at: string;
+}
+
 // ---- Requests ------------------------------------------------------------------------------
 
 /** POST /projects: make a new game from a sentence and start building it at once. */
@@ -577,6 +610,22 @@ export interface BetaCodeBody {
 export interface BetaCodeResult {
   /** Credits the code added to the account (0 when the account was already in). */
   credits: number;
+}
+
+/**
+ * POST /me/push (notifications, 2026-10-29): this device turns notifications on. The browser's own subscription, as
+ * PushSubscription.toJSON() gives it: the push service's address for this browser and the keys to encrypt for it. One
+ * row per address: an address another account had moves to this one. At most 20 devices per account (the oldest goes).
+ */
+export interface PushSubscriptionBody {
+  endpoint: string;
+  expirationTime?: number | null;
+  keys: { p256dh: string; auth: string };
+}
+
+/** DELETE /me/push: this device turns notifications off (and at sign-out). Only the device's own address is needed. */
+export interface PushEndpointBody {
+  endpoint: string;
 }
 
 /**
@@ -722,6 +771,13 @@ export interface FeedbackBody {
 //
 // Added 2026-10-27 (more genres and tags): Genre gains platformer, shooter, arcade and adventure; GameTag gains firstperson,
 // scifi, fantasy, roguelike, turnbased and 2players. POST /projects refuses firstperson with 2d (400), as it refuses the pairs.
+//
+// Added 2026-10-29 (notifications; the block "Notifications" above):
+// POST   /me/push                -> { ok: true }       (PushSubscriptionBody; 201; 400 bad_request: not a push service's https
+//                                                       address, or keys of the wrong size)
+// DELETE /me/push                -> { ok: true }       (PushEndpointBody; that address's row, whichever account had it; none: ok)
+// GET    /me/events              -> text/event-stream of AccountEvent (below): the account's build ends, from any game
+// GET    /me/export              gains `notifications` (the devices, without their addresses)
 
 export type ApiErrorCode =
   | "unauthorized" // no or bad token
@@ -773,3 +829,13 @@ export type RunEvent =
   | { type: "failed"; message: Message; project: ProjectSummary; credits: CreditBalance }
   /** An Android build of this game changed status (2026-10-18). The game page ignores it; the Android page refetches its state. */
   | { type: "android"; build: AndroidBuild };
+
+// GET /me/events (2026-10-29) streams the account's own events the same way, for every page of the site at once: each
+// event comes with `id: <server ms>`, and so does a comment block at the start and every 20 s (the heartbeat). Sent back
+// as the Last-Event-ID header on a reconnect, it brings the notices since then again (those of the last 30 minutes, kept
+// in the API's memory), so a page that lost the stream for a moment, or across a restart of the API, misses nothing; the
+// site skips a notice it already has (by messageId). No snapshot: a page opened later learns of earlier ends from the
+// game's own page.
+export type AccountEvent =
+  /** A build of one of the account's games ended, other than by the player's Stop. */
+  { type: "notice"; notice: RunNotice };

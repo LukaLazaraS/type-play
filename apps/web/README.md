@@ -492,6 +492,49 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   part of the place stays on one line (non-breaking spaces): a line breaks only after a "·". Walk-through:
   `scripts/shot-queue.mjs` (its own stack with one builder; 46 checks; shots in `.impeccable/review/queue/`).
 
+### Notifications (2026-10-29)
+
+A build that ends (a new version, a change too big for its AI, or one that didn't build or didn't start; never the player's
+own Stop) is told wherever the player is. The API's side, from its one end-of-run place: `apps/server/README.md`
+"Notifications".
+
+- **On the site** (`components/app/Notices.tsx`, mounted with the build pill from the account slot into one toast region,
+  `components/ui/Toast.tsx`): on every page but the game's own, a toast per game with its name, what happened and **Play
+  it** / **See why** / **See what to do**, until the player closes it; up to three, newest last, above the build pill (whose
+  game it leaves to the build pill). One tab per browser reads the account's stream (`GET /me/events`; `lib/notices.ts`: the
+  tab holding a Web Lock, the others waiting for it, and the tab on screen taking it over when the reading tab has gone
+  quiet for 45 s, as a frozen background tab does) and writes each notice into `localStorage`, which every tab shows from:
+  one stream per browser, closing a notice in one tab closes it in all, and a game's page on screen closes its notices (the
+  chat says it) and the device's notifications about it (`lib/push.ts` `closeShown`). The stream's last event id is kept
+  there too, so the next reader starts where the last one stopped (the API brings back the last 30 minutes). One `sr-only`
+  status line reads each notice out once; nothing takes the focus.
+- **The tab** (same file, `useTabAttention`): while it is in the background and a build ends, its title is "(1) Spike Cat is
+  ready" and its icon the mark with the hot dot (`public/icons/attention.svg`, `attention-32.png`, from `scripts/brand.mjs
+  --notify`), back when the player looks at it; a title the page changes meanwhile (a first build naming the game) is kept
+  for afterwards.
+- **On the device, even with the site closed** (Web Push; `public/sw.js`, `lib/push.ts`): the service worker is registered
+  only on a device that turns notifications on, has no fetch handler (nothing is cached; pages load as without it), shows one
+  notification per build end (`tag`) whose tap opens the game's page (an open tab with it, or a new one), and shows nothing
+  while a page of the site is on screen (the site says it), except on Safari and every iPhone browser, where a push that
+  shows nothing three times costs the permission (there it shows, silently). `pushsubscriptionchange` subscribes again with
+  the same key; the API learns the new address at the site's next start (`syncDevice`, once per tab), which also turns off
+  a subscription another account made on this device. Every sign-out turns notifications off for the device (the API's
+  row, then the subscription) and clears the notices kept in the browser (`lib/session.ts`).
+- **The question** (`components/app/NotifyAsk.tsx`): never on page load. At the first build an account starts on a device:
+  "Tell me when it's ready?" on the ink stage under a first build's note, or in the composer while a change builds; only
+  where the browser can push (`pushSupport`: an iPhone in Safari only once TypePlay is on the Home Screen, iOS 16.4+) and
+  while the permission is still undecided. **Yes, tell me** asks the browser (its prompt comes straight from the tap), then
+  subscribes and tells the API; either answer is the last time it asks on that device for that account. **/account**: a
+  Notifications card with the switch for this device (on: the same as yes; off: forgets the device on the API and in the
+  browser), and what stands in the way when something does (blocked in the browser's settings; the Home Screen on iPhone).
+- **The key**: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, the public half of the API's VAPID pair (dev: `apps/web/.env.local`, written by
+  `node apps/server/scripts/vapid-keys.mjs dev`; live: put into the build by `deploy.mjs site` from the root `.env`'s
+  `VAPID_LIVE_PUBLIC_KEY`). Without it the site offers no notifications (no question, no card); the notices and the tab's
+  title still work.
+- Walk-through: `scripts/shot-notify.mjs` (its own stack and database; 37 checks; shots in `.impeccable/review/notify/`). It
+  can't subscribe in headless Edge (no push service there), so the device's side is tried in a real browser: the reply of
+  2026-10-29 says how.
+
 ## Known trap
 
 Turbopack's file watcher on this PC misses edits to `globals.css` (and `app.css`): restart

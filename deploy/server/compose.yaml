@@ -19,6 +19,10 @@ services:
         # token "typeplay-web", 2026-10-25). Not one without the other: the build refuses a token without its environment.
         NEXT_PUBLIC_PADDLE_ENV: ""
         NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: ""
+        # Notifications (Web Push): the public half of the live VAPID pair. Left empty here: deploy.mjs `site` puts the
+        # root .env's VAPID_LIVE_PUBLIC_KEY into the copy it uploads, so it always matches the API's private key. Empty =
+        # the site offers no notifications (no ask, no switch on /account).
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ""
     init: true
     restart: unless-stopped
   caddy:

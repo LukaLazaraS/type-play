@@ -14,6 +14,7 @@ import { config } from "../env.js";
 import { EventBus } from "../events/event-bus.js";
 import { picksOf } from "../games/picks.js";
 import type { Plan, QueuedRun, User } from "../generated/prisma/client.js";
+import type { EndWhy } from "../notify/notices.js";
 import { PrismaService } from "../prisma.js";
 import { ProjectViews, toMessage } from "../projects/views.js";
 import { turnAtOf, type RunKind } from "./queue-math.js";
@@ -74,11 +75,13 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
   /** The line as a stopped server left it: mirrored and its credits held again. Started from onApplicationBootstrap. */
   async onModuleInit() {
     // A build the queue had taken out of the line but not yet started when the server stopped: its message says queued.
-    const taken = await this.prisma.message.updateMany({
-      where: { status: "queued", queued: { is: null } },
-      data: { status: "failed", text: TAKEN_TEXT, credits: 0, finishedAt: new Date() },
-    });
-    if (taken.count) this.log.warn(`marked ${taken.count} build(s) a stopped server had taken from the line as failed`);
+    // Marked failed, and the player told as of any build a restart interrupted.
+    const taken = await this.prisma.message.findMany({ where: { status: "queued", queued: { is: null } }, include: { project: { select: { ownerId: true, currentVersion: true } } } });
+    for (const { project, ...m } of taken) {
+      const message = await this.prisma.message.update({ where: { id: m.id }, data: { status: "failed", text: TAKEN_TEXT, credits: 0, finishedAt: new Date() } });
+      await this.runs.ended({ userId: project.ownerId, projectId: m.projectId, message, why: "interrupted", first: project.currentVersion == null });
+    }
+    if (taken.length) this.log.warn(`marked ${taken.length} build(s) a stopped server had taken from the line as failed`);
     const rows = await this.prisma.queuedRun.findMany({ include: { message: { select: { model: true, effort: true, status: true } } } });
     for (const { message, ...row } of rows) {
       if (message.status !== "queued" || !message.model) {
@@ -138,7 +141,7 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
     await startDone();
     if (!removed.count) return false;
     if (this.registry.queued.get(projectId) === q) this.registry.queued.delete(projectId);
-    await this.leave(q, FAILED_TEXT.cancelled, "stopped");
+    await this.leave(q, FAILED_TEXT.cancelled, "stopped", "stopped");
     this.tick(); // the ones behind it move up
     return true;
   }
@@ -209,7 +212,7 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
     if (!claimed.count) return;
     if (refusal) {
       release();
-      return this.leave(q, NOT_STARTED[refusal.code] ?? `${refusal.message} Nothing was charged.`, `not started: ${refusal.code}`);
+      return this.leave(q, NOT_STARTED[refusal.code] ?? `${refusal.message} Nothing was charged.`, `not started: ${refusal.code}`, "notStarted");
     }
     this.holds.delete(q.messageId);
     this.told.delete(q.projectId);
@@ -244,23 +247,29 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
       if (now - q.turnAt <= config.queue.waitMin * 60_000) continue;
       const removed = await this.prisma.queuedRun.deleteMany({ where: { messageId: q.messageId } });
       if (this.registry.queued.get(q.projectId) === q) this.registry.queued.delete(q.projectId);
-      if (removed.count) await this.leave(q, EXPIRED_TEXT, "waited too long");
+      if (removed.count) await this.leave(q, EXPIRED_TEXT, "waited too long", "expired");
     }
   }
 
-  /** Out of the line without starting: the hold goes, the message says why (0 credits), the page hears it. */
-  private async leave(q: QueuedEntry, text: string, why: string) {
+  /** Out of the line without starting: the hold goes, the message says why (0 credits), the page hears it, and (unless
+   * the player stopped it) the player is told wherever they are (runs.service `ended`). */
+  private async leave(q: QueuedEntry, text: string, why: string, end: Extract<EndWhy, "stopped" | "expired" | "notStarted">) {
     this.holds.get(q.messageId)?.release();
     this.holds.delete(q.messageId);
     this.told.delete(q.projectId);
     const message = await this.prisma.message.update({ where: { id: q.messageId }, data: { status: "failed", text, credits: 0, finishedAt: new Date() } });
     this.log.log(`queue ${q.projectId}: left the line (${why}) after ${Math.round((Date.now() - q.queuedAt) / 1000)} s`);
-    try {
-      const user = await this.prisma.user.findUniqueOrThrow({ where: { id: q.userId } });
-      this.events.emit(q.projectId, { type: "failed", message: toMessage(message), project: await this.views.summary(q.projectId), credits: await this.credits.balance(user) });
-    } catch (e) {
-      this.log.error(`failed event ${q.projectId}: ${e}`); // the message is written; a reload shows it
-    }
+    await this.runs.ended({
+      userId: q.userId,
+      projectId: q.projectId,
+      message,
+      why: end,
+      first: q.kind === "new",
+      event: async () => {
+        const user = await this.prisma.user.findUniqueOrThrow({ where: { id: q.userId } });
+        return { type: "failed", message: toMessage(message), project: await this.views.summary(q.projectId), credits: await this.credits.balance(user) };
+      },
+    });
   }
 
   /** Tells every waiting build whose place or rough wait changed since it was last told. */

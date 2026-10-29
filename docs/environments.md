@@ -45,7 +45,11 @@ the file keeps the standard name that Next.js and dotenv read) and the automated
 over it), then `.env` for the secrets; a git-ignored `.env.local` (or `.env.autotest.local`) overrides either. The
 first file to set a key wins, the shell wins over all files. In dev and the automated tests the API, the admin CLI and
 the Prisma CLI refuse a `DATABASE_URL` that isn't on this PC. A process of yours that runs beside the tests (a second
-API you start by hand) takes `typeplay_dev` or a database of its own, never a test run's.
+API you start by hand) takes `typeplay_dev` or a database of its own, never a test run's. Notifications sign with one VAPID
+pair per environment (2026-10-29, never printed): dev's in `.env.local` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`; the site's
+public half in `apps/web/.env.local`), the tests' in `.env.autotest.local`, both made by
+`node apps/server/scripts/vapid-keys.mjs dev|autotest`; live's in `.env` as `VAPID_LIVE_*`, which only `deploy/deploy.mjs`
+reads (`deploy/README.md` "Notifications").
 
 **The live database from this PC**: only `npm run admin:live -w @typeplay/server -- <command>` (the beta runbook's
 invites, grants and feedback), which reads the root `.env` alone and says so. The live server reads none of these files

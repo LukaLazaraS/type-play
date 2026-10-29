@@ -1,6 +1,7 @@
 // The API (apps/server), per the contract in packages/shared. Every call sends the sign-in token;
 // errors arrive as ApiError and are shown by their plain `message`.
 import type {
+  AccountEvent,
   AndroidBuild,
   AndroidLink,
   AndroidState,
@@ -21,6 +22,7 @@ import type {
   PortalLinks,
   Project,
   ProjectSummary,
+  PushSubscriptionBody,
   RunEvent,
   SendMessageBody,
   SetupAndroidBody,
@@ -138,6 +140,11 @@ export const api = {
   feedback: (body: FeedbackBody) => call<{ id: string }>("/feedback", { method: "POST", body }),
   /** A beta code from the closed-beta page (the one call an uninvited account may make): 403 code_wrong, 429 too_many. */
   betaCode: (code: string) => call<BetaCodeResult>("/beta/code", { method: "POST", body: { code } }),
+  /** Notifications (2026-10-29): this device on (its browser's subscription) or off (its address). */
+  push: {
+    on: (body: PushSubscriptionBody) => call<{ ok: true }>("/me/push", { method: "POST", body }),
+    off: (endpoint: string) => call<{ ok: true }>("/me/push", { method: "DELETE", body: { endpoint } }),
+  },
 
   // Plan and billing (payments part 3). 503 billing_off when payments are off for this user.
   billing: () => call<BillingInfo>("/billing"),
@@ -194,18 +201,23 @@ export function saveFile({ blob, name }: { blob: Blob; name: string }) {
 export type StreamState = "connecting" | "live" | "retrying" | "stopped";
 
 /**
- * GET /projects/:id/events as a stream of RunEvents. fetch() rather than EventSource, so it can
- * send the Authorization header. Reconnects on a drop (1, 2, 4, 8, 15 s) and when nothing,
- * not even the 20 s heartbeat, has arrived for 45 s; every connect starts with a snapshot.
- * A 401, 403 (the closed beta) or 404, or no sign-in token, ends it for good: onState("stopped"), then onFatal.
- * Returns a function that stops it.
+ * An event stream of the API (Server-Sent Events) read with fetch() rather than EventSource, so it can send the
+ * Authorization header. Reconnects on a drop (1, 2, 4, 8, 15 s) and when nothing, not even the 20 s heartbeat, has
+ * arrived for 45 s. A 401, 403 (the closed beta) or 404, or no sign-in token, ends it for good: onState("stopped"), then
+ * onFatal (`notFound`: the sentence for a 404). `lastId`: the last event id it saw (SSE's `id:` field), sent back as
+ * Last-Event-ID on every connect when there is one. Returns a function that stops it.
  */
-export function watchProject(
-  projectId: string,
-  onEvent: (e: RunEvent) => void,
-  onState: (s: StreamState) => void,
-  onFatal: (e: ApiFailure) => void,
+function streamEvents<E>(
+  path: string,
+  opts: {
+    onEvent: (e: E) => void;
+    onState: (s: StreamState) => void;
+    onFatal: (e: ApiFailure) => void;
+    notFound: string;
+    lastId?: { get: () => string | null; set: (id: string) => void };
+  },
 ): () => void {
+  const { onEvent, onState, onFatal } = opts;
   let stopped = false;
   let ctrl: AbortController | null = null;
   let attempt = 0;
@@ -225,8 +237,9 @@ export function watchProject(
           onState("stopped");
           return onFatal(noToken());
         }
-        const res = await fetch(`${app.apiOrigin}/projects/${id(projectId)}/events`, {
-          headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
+        const last = opts.lastId?.get();
+        const res = await fetch(app.apiOrigin + path, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream", ...(last ? { "Last-Event-ID": last } : {}) },
           signal: current.signal,
           cache: "no-store",
         });
@@ -239,9 +252,7 @@ export function watchProject(
           }
           if (body.error === "invite_only") void markUninvited();
           onState("stopped");
-          return onFatal(
-            new ApiFailure(body.error ?? (res.status === 401 ? "unauthorized" : "not_found"), body.message ?? "We couldn't find that game.", res.status),
-          );
+          return onFatal(new ApiFailure(body.error ?? (res.status === 401 ? "unauthorized" : "not_found"), body.message ?? opts.notFound, res.status));
         }
         if (!res.ok || !res.body) throw new Error(`events ${res.status}`);
         attempt = 0;
@@ -255,19 +266,22 @@ export function watchProject(
           buffer += value.replace(/\r\n?/g, "\n");
           let cut: number;
           while ((cut = buffer.indexOf("\n\n")) >= 0) {
-            const block = buffer.slice(0, cut);
+            const lines = buffer.slice(0, cut).split("\n");
             buffer = buffer.slice(cut + 2);
-            const data = block
-              .split("\n")
+            const eventId = lines.findLast((l) => l.startsWith("id:"))?.slice(3).trim();
+            const data = lines
               .filter((l) => l.startsWith("data:"))
               .map((l) => l.slice(5).replace(/^ /, ""))
               .join("\n");
-            if (!data) continue; // a heartbeat comment
-            try {
-              onEvent(JSON.parse(data) as RunEvent);
-            } catch {
-              /* a broken line: the next snapshot puts things right */
+            if (data) {
+              try {
+                onEvent(JSON.parse(data) as E);
+              } catch {
+                /* a broken line: the next snapshot puts things right */
+              }
             }
+            // After the event is handled: a page that stops in between gets it again on its next connect.
+            if (eventId) opts.lastId?.set(eventId);
           }
         }
       } catch {
@@ -288,4 +302,27 @@ export function watchProject(
     ctrl?.abort();
     if (watchdog) clearInterval(watchdog);
   };
+}
+
+/** GET /projects/:id/events as a stream of RunEvents (streamEvents); every connect starts with a snapshot. */
+export function watchProject(
+  projectId: string,
+  onEvent: (e: RunEvent) => void,
+  onState: (s: StreamState) => void,
+  onFatal: (e: ApiFailure) => void,
+): () => void {
+  return streamEvents<RunEvent>(`/projects/${id(projectId)}/events`, { onEvent, onState, onFatal, notFound: "We couldn't find that game." });
+}
+
+/**
+ * GET /me/events (notifications, 2026-10-29): the account's build ends, from any of its games (streamEvents). No snapshot;
+ * `lastId` keeps the last event id, so a reconnect brings what was missed meanwhile (the API keeps 30 minutes of them).
+ */
+export function watchAccount(
+  onEvent: (e: AccountEvent) => void,
+  onState: (s: StreamState) => void,
+  onFatal: (e: ApiFailure) => void,
+  lastId: { get: () => string | null; set: (id: string) => void },
+): () => void {
+  return streamEvents<AccountEvent>("/me/events", { onEvent, onState, onFatal, notFound: "We couldn't find your account.", lastId });
 }

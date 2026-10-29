@@ -8,10 +8,12 @@ import { Avatar, AvatarButton } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Popover, type PopoverHandle } from "@/components/ui/Popover";
 import { Pressable } from "@/components/ui/Pressable";
+import { Toasts } from "@/components/ui/Toast";
 import { credits } from "@/lib/format";
 import { signOut, useSession } from "@/lib/session";
 import { BuildPill } from "./BuildPill";
 import { FeedbackDialog, useFeedbackGame, type FeedbackHandle } from "./Feedback";
+import { Notices } from "./Notices";
 // All of the app's styles ride on this component: it is in app builds only.
 import "./app.css";
 
@@ -150,7 +152,11 @@ function Account({ me, problem }: { me: Me | null; problem: string | null }) {
         </Button>
       </Popover>
       <FeedbackDialog ref={feedback} email={me?.email ?? null} />
-      <BuildPill />
+      {/* The page's toasts: build ends from any game (once the account is known), and the build pill nearest the edge. */}
+      <Toasts>
+        {me && <Notices userId={me.id} />}
+        <BuildPill />
+      </Toasts>
     </>
   );
 }

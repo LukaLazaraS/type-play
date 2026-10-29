@@ -217,6 +217,28 @@ model User {
   adjustments           Adjustment[]
   refunds               Refund[]
   feedback              Feedback[]
+  pushSubscriptions     PushSubscription[]
+}
+
+/// A device that turned notifications on (Web Push, 2026-10-29; src/notify/push.service.ts): the address its browser's push
+/// service gave it, and the keys a message to it is encrypted with (RFC 8291). One row per address, so a device belongs to
+/// the last account that turned notifications on there. Deleted when the player turns them off there or signs out, when
+/// the push service says the address is gone (404, 410) or not ours (401, 403), and with the account.
+model PushSubscription {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The push service's https address for this browser (fcm.googleapis.com, updates.push.services.mozilla.com,
+  /// *.notify.windows.com, web.push.apple.com): it works like a password for the device, so it is never logged.
+  endpoint   String    @unique
+  /// The browser's P-256 public key (65 bytes) and auth secret (16 bytes), base64url, as the browser gives them.
+  p256dh     String
+  auth       String
+  createdAt  DateTime  @default(now())
+  /// The last push the service took (2xx).
+  lastSentAt DateTime?
+
+  @@index([userId, createdAt])
 }
 
 /// id: short lowercase random id (10 chars), used in URLs and build ids "<id>-v<n>".

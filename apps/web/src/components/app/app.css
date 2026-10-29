@@ -1826,32 +1826,79 @@ body:has(.ws) .ground-band {
   }
 }
 
-/* The way back from the gallery to a first build (BuildPill): an ink pill at the bottom of every other page. */
-.buildpill {
+/* Toasts (ui/Toast.tsx): the ink pills at the foot of the page that say what happened away from it (the build pill; a
+   build that ended, the notices), stacked with the newest nearest the edge. The region itself takes no taps. */
+.toasts {
   position: fixed;
   z-index: 40;
   left: 50%;
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
   width: max-content;
   max-width: min(640px, calc(100% - 24px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
   box-sizing: border-box;
   padding: 6px 6px 6px 20px;
   border-radius: 999px;
   background: var(--ink);
+  /* It floats over whatever is under it, the ink stage and the ink footer too, where ink alone would lose its edge:
+     a 2px line of the sky's third band keeps its shape there (over the sky and paper it reads as the pill's own edge). */
+  outline: 2px solid var(--sky-3);
   color: var(--on-sky);
   font-size: 15px;
   line-height: 1.3;
-  transform: translateX(-50%);
+  pointer-events: auto;
   /* On the page's body, outside the app's main: its own tap settings. */
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
 }
+.toast .inkpill--small,
+.toast .button--small {
+  flex: none;
+}
+.toast__close {
+  flex: none;
+  margin-left: -4px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .toast {
+    animation: toast-in 260ms var(--ease-out);
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+}
+/* Reduced motion: no rise, but not a jump into view either: it fades in where it rests. */
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: toast-fade 200ms ease;
+  }
+  @keyframes toast-fade {
+    from {
+      opacity: 0;
+    }
+  }
+}
+
+/* The way back from the gallery to a first build (BuildPill): a toast on every other page. In a stack the toasts take
+   the widest one's width: the words take the room, the buttons stay at the end. */
 .buildpill__text {
+  flex: 1;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -1867,12 +1914,8 @@ body:has(.ws) .ground-band {
   margin-left: 8px;
   color: var(--on-sky-muted);
 }
-.buildpill .inkpill--small,
-.buildpill .button--small {
-  flex: none;
-}
-.buildpill__close {
-  margin-left: -4px;
+.buildpill .readyline {
+  flex: 1;
 }
 /* A phone: the build's words and "Back to it" don't fit beside "Building your game 1:23": the arrow alone. */
 @media (max-width: 520px) {
@@ -1893,16 +1936,80 @@ body:has(.ws) .ground-band {
     white-space: nowrap;
   }
 }
-@media (prefers-reduced-motion: no-preference) {
-  .buildpill {
-    animation: pill-in 260ms var(--ease-out);
+
+/* A build that ended, on every other page (Notices.tsx): the game's name in 700 and what happened, then its one action.
+   The words wrap (a phone, a long name) and stop at three lines; the action and the close button keep their size. */
+.runnotice__text {
+  display: -webkit-box;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+/* The name takes one line at most (a long one gives way, as on the ready line), its colon with it: what happened always
+   shows. */
+.runnotice__who {
+  display: inline-flex;
+  max-width: 100%;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+.runnotice__who b {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+@media (max-width: 520px) {
+  .runnotice__go {
+    width: 44px;
+    min-height: 44px;
+    padding: 0;
+    justify-content: center;
   }
-  @keyframes pill-in {
-    from {
-      opacity: 0;
-      transform: translate(-50%, 12px);
-    }
+  .runnotice__label,
+  .runnotice .inkpill__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
+}
+
+/* "Tell me when it's ready?" (NotifyAsk.tsx): on the ink stage under the first build's note, its question in 600 and the
+   two buttons beside it (under it when narrow); after the answer one muted line in its place. */
+.notifyask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 14px;
+  margin: 4px 0 0;
+}
+.notifyask__q {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.notifyask__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.notifyask__said {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--on-sky-muted);
+  text-wrap: pretty;
 }
 
 /* Versions: a strip of cards under the game, newest first */
@@ -2643,10 +2750,11 @@ body:has(.ws) {
 .acct__grid {
   display: grid;
   grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
-  grid-template-rows: auto auto auto auto 1fr;
+  grid-template-rows: auto auto auto auto auto 1fr;
   grid-template-areas:
     "me usage"
     "plan usage"
+    "notify usage"
     "data usage"
     "close usage"
     ". usage";
@@ -2661,6 +2769,9 @@ body:has(.ws) {
 }
 .acct__usage {
   grid-area: usage;
+}
+.acct__notify {
+  grid-area: notify;
 }
 .acct__data {
   grid-area: data;
@@ -2771,11 +2882,26 @@ body:has(.ws) {
 .acct__home {
   align-self: flex-start;
 }
+/* Notifications: the card's title with its state under it, and the switch at the row's end (the share switch's row). */
+.acct__switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  align-self: stretch;
+}
+.acct__switch > div > span {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--on-paper-muted);
+}
 @media (max-width: 900px) {
   .acct__grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: none;
-    grid-template-areas: "me" "plan" "usage" "data" "close";
+    grid-template-areas: "me" "plan" "notify" "usage" "data" "close";
   }
 }
 @media (max-width: 640px) {

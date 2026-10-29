@@ -19,6 +19,7 @@ import { aheadWord, clock, placeWords, playsWord, tooLong, waitWord, whenParts }
 import type { LiveLine } from "./ChatLog";
 import { DeviceMenu, deviceFor, FILL, type Device } from "./DeviceMenu";
 import { GameMenu } from "./GameMenu";
+import { NotifyAsk } from "./NotifyAsk";
 import { TOUCH, useMedia } from "./PlatformSwitch";
 import { ReadyLine } from "./ReadyLine";
 import { ShareMenu } from "./ShareMenu";
@@ -392,6 +393,7 @@ export function Stage({
               {since && <span className="figures"> {clock(since, now)}</span>}
             </p>
             <p className="stage__note">This takes a few minutes. You can leave this page: it keeps building.</p>
+            <NotifyAsk tone="ink" />
             <WhileYouWait
               projectId={project.id}
               games={waitGames}
@@ -416,6 +418,7 @@ export function Stage({
               {place && tooLong(place) ? inLine.long(whenParts(place.leavesAt).time) : inLine.note}
               {place?.lane === "free" && ` ${inLine.paidFirst}`}
             </p>
+            <NotifyAsk tone="ink" />
             <WhileYouWait
               projectId={project.id}
               games={waitGames}

@@ -47,6 +47,7 @@ tester.run("ui-only", rule, {
     { code: `<li className="app mine__ghost"><span className="app__icon" /></li>`, errors: [err("owned"), err("owned")] },
     { code: `<div className="pop menu">…</div>`, errors: [err("owned"), err("owned")] },
     { code: `<Link className="link" href="/terms">Terms</Link>`, errors: [err("owned")] },
+    { code: `<div className="toast buildpill" role="status">…</div>`, errors: [err("owned")] },
   ],
 });
 console.log("eslint/ui-only: all cases pass");

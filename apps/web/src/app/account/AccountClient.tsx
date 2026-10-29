@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import type { Me, PlanId } from "@typeplay/shared";
 import { planName } from "@/components/app/AccountSlot";
 import { SignIn } from "@/components/app/SignIn";
@@ -14,9 +14,12 @@ import { ErrorLine } from "@/components/ui/ErrorLine";
 import { TextField } from "@/components/ui/Field";
 import { PageWidget } from "@/components/ui/PageWidget";
 import { TextLink } from "@/components/ui/TextLink";
+import { Toggle } from "@/components/ui/Toggle";
+import { app, notify } from "@/content/app";
 import { plans, site } from "@/content/site";
 import { api, saveFile } from "@/lib/api";
 import { credits, creditsWord, dayOf, whenParts } from "@/lib/format";
+import { deviceState, markAsked, pushSupport, turnOff, turnOn, type PushSupport } from "@/lib/push";
 import { signOut, useSession } from "@/lib/session";
 
 /** One line on what the plan gives, from the pricing page's own numbers (content/site.ts). */
@@ -129,6 +132,8 @@ export function AccountClient() {
           )}
         </Card>
 
+        {me && <NotifyCard userId={me.id} />}
+
         <Card className="acct__usage" aria-labelledby="acct-usage">
           <div className="acct__usage-head">
             <CardTitle id="acct-usage">Credit history</CardTitle>
@@ -141,6 +146,63 @@ export function AccountClient() {
         <CloseCard credits={me?.credits.available ?? 0} paid={!!me && me.plan !== "free"} activePlan={activePlan(me)} onClosed={() => setClosed(true)} />
       </div>
     </main>
+  );
+}
+
+const noop = () => () => {};
+
+/**
+ * Notifications on this device (2026-10-29): one switch, its state beside its name, and one line on what it does, or on
+ * what stands in the way (the browser blocks them; an iPhone in Safari needs the Home Screen; a browser that can't). On
+ * asks the browser (its prompt comes from this tap), off forgets this device on our side and in the browser. Each device
+ * has its own; a build without the notification key shows no card.
+ */
+function NotifyCard({ userId }: { userId: string }) {
+  const support = useSyncExternalStore<PushSupport>(noop, pushSupport, () => "no");
+  const [state, setState] = useState<"on" | "off" | "blocked" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (support !== "yes") return;
+    let live = true;
+    void deviceState(userId).then((s) => live && setState(s));
+    return () => {
+      live = false;
+    };
+  }, [support, userId]);
+  if (!app.vapidPublicKey) return null;
+
+  const change = (on: boolean) => {
+    markAsked(userId);
+    setBusy(true);
+    setError(null);
+    // The browser's prompt comes from this tap: nothing may wait before it.
+    const done = on
+      ? turnOn(userId).then((r) => {
+          if (r === "failed") setError(notify.failedOn);
+          setState(r === "on" ? "on" : r === "blocked" ? "blocked" : "off");
+        })
+      : turnOff().then(() => setState("off"));
+    void done.finally(() => setBusy(false));
+  };
+
+  const line = support === "homescreen" ? notify.homescreen : support === "no" ? notify.unsupported : state === "blocked" ? notify.blockedHow : notify.what;
+  return (
+    <Card className="acct__notify" aria-labelledby="acct-notify">
+      <div className="acct__switch">
+        <div>
+          <CardTitle id="acct-notify">{notify.card}</CardTitle>
+          {support === "yes" && state !== null && (
+            <span id="acct-notify-state">{state === "on" ? notify.stateOn : state === "blocked" ? notify.stateBlocked : notify.stateOff}</span>
+          )}
+        </div>
+        {support === "yes" && (
+          <Toggle on={state === "on"} onChange={change} labelledBy="acct-notify" describedBy="acct-notify-state" busy={busy || state === null} disabled={state === "blocked"} />
+        )}
+      </div>
+      <p className="acct__note">{line}</p>
+      {error && <ErrorLine>{error}</ErrorLine>}
+    </Card>
   );
 }
 

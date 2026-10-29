@@ -8,6 +8,7 @@ import { BillingService } from "../billing/billing.service.js";
 import { badRequest } from "../common/api-error.js";
 import { CreditsService } from "../credits/credits.service.js";
 import type { User } from "../generated/prisma/client.js";
+import { PushService } from "../notify/push.service.js";
 import { PrismaService } from "../prisma.js";
 import { ProjectsService } from "../projects/projects.service.js";
 import { ProjectViews } from "../projects/views.js";
@@ -27,6 +28,7 @@ export class AccountService {
     private readonly views: ProjectViews,
     private readonly billing: BillingService,
     private readonly android: AndroidService,
+    private readonly push: PushService,
   ) {}
 
   /** Everything we keep about the account, for the "Download my data" file. */
@@ -65,12 +67,14 @@ export class AccountService {
         browser: f.browser,
         done: !!f.doneAt,
       })),
+      notifications: await this.push.exportFor(user.id),
       notes: [
         "Your games' files (code, scenes and art) are not in this file: download each game as a .zip from its page on typeplay.app.",
         "Your name, email and picture come from your Google sign-in.",
         "payments: our record of each payment, with the tick box you ticked at that checkout (its wording version and the time). Invoices and receipts are kept by Paddle, our reseller: the billing page links to them, or write to hello@typeplay.app.",
         "Server logs (kept up to 90 days) are not in this file. Write to hello@typeplay.app if you want them.",
         "Your Android signing keys are not in this file: download each one from its game's Android page. We keep an encrypted copy to build your app; Google holds the app signing key.",
+        "notifications: the devices you turned notifications on for, and their browser's push service. Their push addresses are not in this file: each works like a password for its device.",
       ],
     };
   }

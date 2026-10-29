@@ -3,7 +3,7 @@ import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from "@nestjs/common";
-import type { Effort, GameTag, Genre, ModelChoice, Platform, PlanId } from "@typeplay/shared";
+import type { Effort, GameTag, Genre, ModelChoice, Platform, PlanId, RunEvent } from "@typeplay/shared";
 import { creditsForUsd, planModels, toTenths } from "../credits/credits.js";
 import { CreditsService, type CreditHold } from "../credits/credits.service.js";
 import { LedgerService, TX_OPTIONS } from "../credits/ledger.service.js";
@@ -15,6 +15,8 @@ import { readPlatformWord, readProjectGodot } from "../games/files.js";
 import { exportWeb, gameNameOf, orientationOf, platformOf } from "../games/godot.js";
 import { publishBuild, trimExport, unpublishBuild } from "../games/publish.js";
 import type { Message, Plan, Version } from "../generated/prisma/client.js";
+import { noticeOf, type EndWhy } from "../notify/notices.js";
+import { PushService } from "../notify/push.service.js";
 import { PrismaService } from "../prisma.js";
 import { ProjectViews, toMessage, toVersion } from "../projects/views.js";
 import { MODEL_FLAG, runAgent, sweep, type AgentResult } from "./agent.js";
@@ -89,9 +91,27 @@ export function biggerModel(model: ModelChoice, plan: Plan | null): ModelChoice 
 /** When the folder can't be reset: wait this long between tries, then give up and mark it dirty. */
 const SETTLE_RETRY_MS = [2_000, 10_000, 30_000];
 
+/** A build's last event on its game's stream. */
+type EndEvent = Extract<RunEvent, { type: "done" | "failed" }>;
+
+/** What `ended` needs about a build that ended: its answer as written, and how it ended. */
+export interface Ended {
+  userId: string;
+  projectId: string;
+  /** The answer's row as the end wrote it (status, text, version, the bigger AI). */
+  message: Message;
+  why: EndWhy;
+  /** The game had no version before this build. */
+  first: boolean;
+  /** The game's stream event, made here (its summary and the credits are read for it); none at a start, nobody listens. */
+  event?: () => Promise<EndEvent>;
+}
+
 @Injectable()
 export class RunsService implements OnModuleInit, OnApplicationShutdown {
   private readonly log = new Logger("runs");
+  /** The server is stopping: a run it stops is left "running" for the next start to mark interrupted and tell the player. */
+  private stopping = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -101,9 +121,10 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     private readonly credits: CreditsService,
     private readonly ledger: LedgerService,
     private readonly keyProxy: KeyProxy,
+    private readonly push: PushService,
   ) {}
 
-  /** Runs left "running" by a server that stopped mid-run: failed, nothing charged, folder reset. */
+  /** Runs left "running" by a server that stopped mid-run: failed, nothing charged, folder reset, the player told. */
   async onModuleInit() {
     const stale = await this.prisma.message.findMany({ where: { status: "running" }, include: { project: true } });
     for (const m of stale) {
@@ -111,7 +132,8 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       // old run's agent, Godot and browser may still be on the folder: stop them before resetting it.
       if (process.platform === "win32" && !config.agentFake) sweep(projectDir(m.projectId));
       await this.settleOrMark(m.projectId, m.project.currentVersion);
-      await this.prisma.message.update({ where: { id: m.id }, data: { status: "failed", text: FAILED_TEXT.interrupted, credits: 0, finishedAt: new Date() } });
+      const message = await this.prisma.message.update({ where: { id: m.id }, data: { status: "failed", text: FAILED_TEXT.interrupted, credits: 0, finishedAt: new Date() } });
+      await this.ended({ userId: m.project.ownerId, projectId: m.projectId, message, why: "interrupted", first: m.project.currentVersion == null });
     }
     if (stale.length) this.log.warn(`marked ${stale.length} interrupted run(s) as failed`);
     this.log.log(config.agentFake ? "AGENT_FAKE=1: runs are simulated" : `game agent: ${config.agentRunner}`);
@@ -119,6 +141,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
 
   /** On shutdown, stop every run (its process tree, and a re-export going on). */
   onApplicationShutdown() {
+    this.stopping = true;
     for (const run of this.registry.active.values()) {
       run.cancelled = true;
       run.handle?.kill();
@@ -153,6 +176,48 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     run.handle?.kill();
     run.export?.kill();
     await run.finished;
+  }
+
+  /**
+   * The one place a build's end goes out (notifications, 2026-10-29): its game's stream (the game page, BuildPill), then,
+   * unless the player stopped it, the account's notice: on the account's stream (every other page of the site, the tab's
+   * title and icon) and to its devices with notifications on (Web Push). Every end comes here: a run's (succeed,
+   * stopTooBig, fail), a build that left the queue without starting (queue.service.ts), and those a restart interrupted.
+   * Never throws: the rows are written by now, and what can't be said is logged (a reload shows it).
+   */
+  async ended(e: Ended): Promise<void> {
+    let name: string | null = null;
+    if (e.event) {
+      try {
+        const event = await e.event();
+        name = event.project.name;
+        this.events.emit(e.projectId, event);
+      } catch (err) {
+        this.log.error(`end event ${e.projectId}: ${err}`);
+      }
+    }
+    if (e.why === "stopped") return;
+    try {
+      name ??= (await this.prisma.project.findUnique({ where: { id: e.projectId }, select: { name: true } }))?.name ?? null;
+      if (name === null) return; // deleted meanwhile
+      const notice = noticeOf({
+        why: e.why,
+        projectId: e.projectId,
+        messageId: e.message.id,
+        name,
+        first: e.first,
+        model: e.message.model,
+        bigger: e.message.biggerModel,
+        version: e.message.versionN,
+        text: e.message.text,
+        timeoutMin: config.runTimeoutMin,
+        at: e.message.finishedAt ?? new Date(),
+      });
+      this.events.notify(e.userId, notice);
+      void this.push.send(e.userId, notice);
+    } catch (err) {
+      this.log.error(`notice ${e.projectId}: ${err}`);
+    }
   }
 
   /** A dirty project (a failed run's reset failed, `Project.dirty`): the folder back in order now, or throws. */
@@ -296,17 +361,20 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     this.log.log(
       `run ${run.projectId} done: v${n}, $${chargeUsd.toFixed(3)} charged (agent $${agentUsd.toFixed(3)}, metered ${metered === null ? "n/a" : "$" + metered.toFixed(3)}), ${credits} credits`,
     );
-    try {
-      this.events.emit(run.projectId, {
+    await this.ended({
+      userId: run.userId,
+      projectId: run.projectId,
+      message,
+      why: "built",
+      first: n === 1,
+      event: async () => ({
         type: "done",
         message: toMessage(message),
         version: toVersion(version),
         project: await this.views.summary(run.projectId),
         credits: await this.creditsOf(run.userId),
-      });
-    } catch (e) {
-      this.log.error(`done event ${run.projectId}: ${e}`); // the version is saved; a reload shows it
-    }
+      }),
+    });
   }
 
   /**
@@ -338,17 +406,27 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     this.log.log(
       `run ${run.projectId} too big for ${run.model}: stopped before the build, $${chargeUsd.toFixed(4)} charged (metered ${metered === null ? "n/a" : "$" + metered.toFixed(4)}), ${credits} credits`,
     );
-    this.events.emit(run.projectId, {
-      type: "done",
-      message: toMessage(message),
-      version: null,
-      project: await this.views.summary(run.projectId),
-      credits: await this.creditsOf(run.userId),
+    await this.ended({
+      userId: run.userId,
+      projectId: run.projectId,
+      message,
+      why: "toobig",
+      first: false,
+      event: async () => ({
+        type: "done",
+        message: toMessage(message),
+        version: null,
+        project: await this.views.summary(run.projectId),
+        credits: await this.creditsOf(run.userId),
+      }),
     });
   }
 
   /** Failed, refused, cancelled or timed out: nothing charged, the game back at its last version. */
   private async fail(run: ActiveRun, result: AgentResult, metered: number | null = null, why: keyof typeof FAILED_TEXT | null = null) {
+    // Stopped by the server going down (a deploy): not the player's Stop. Left "running", so the next start marks it
+    // interrupted, resets the folder and tells the player (onModuleInit); the database may be gone by now anyway.
+    if (this.stopping) return;
     const project = await this.prisma.project.findUniqueOrThrow({ where: { id: run.projectId } });
     if (why !== "dirty") await this.settleOrMark(run.projectId, project.currentVersion);
     const refused = !!result.refused && !run.cancelled && !run.timedOut;
@@ -380,11 +458,19 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     run.hold?.release();
     this.registry.free();
     this.log.log(`run ${run.projectId} ${why ?? (run.cancelled ? "cancelled" : refused ? "refused" : "failed")}`);
-    this.events.emit(run.projectId, {
-      type: "failed",
-      message: toMessage(message),
-      project: await this.views.summary(run.projectId),
-      credits: await this.creditsOf(run.userId),
+    await this.ended({
+      userId: run.userId,
+      projectId: run.projectId,
+      message,
+      // A Stop (or the game or the account deleted meanwhile) wins over how far the run got, as the text above says.
+      why: why ? "failed" : run.cancelled ? "stopped" : run.timedOut ? "timeout" : refused ? "refused" : "failed",
+      first: project.currentVersion == null,
+      event: async () => ({
+        type: "failed",
+        message: toMessage(message),
+        project: await this.views.summary(run.projectId),
+        credits: await this.creditsOf(run.userId),
+      }),
     });
   }
 
