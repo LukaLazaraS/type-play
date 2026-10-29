@@ -12,6 +12,7 @@ import { Panel } from "@/components/ui/Panel";
 import { DRAFT_KEY } from "@/content/app";
 import { BETA_CODE_LENGTH } from "@/content/beta";
 import { api, ApiFailure } from "@/lib/api";
+import { useRestored } from "@/lib/restored";
 import { refreshMe, sessionNow, signInWithGoogle, signOut, useSession } from "@/lib/session";
 
 /**
@@ -71,6 +72,8 @@ function ClosedBeta({ email, onJoined }: { email: string | null; onJoined: (cred
   // `sticky`: a limit's sentence (when to try again) stays while the next code is typed; the others go at the first key.
   const [codeError, setCodeError] = useState<{ text: string; sticky: boolean } | null>(null);
   const box = useRef<HTMLInputElement>(null);
+  // Back from Google's account chooser (the page restored from the back-forward cache): the button works again.
+  useRestored(() => setBusy(false));
 
   /** The box keeps its focus and the code, selected, so a typo is fixed by typing again (the keyboard stays up). */
   const fail = (text: string, sticky = false) => {

@@ -52,7 +52,7 @@ function picksFrom(raw: string | null): Picks {
     const p = JSON.parse(raw ?? "null") as { genre?: unknown; tags?: unknown } | null;
     const kept = Array.isArray(p?.tags) ? (p.tags as unknown[]) : [];
     // Ours only, in the list's order; of a pair that can't go together (an older page's, or a hand-made value) the second,
-    // with the tag it needs (First-person's 3D).
+    // with the tag it needs (First-person's and Third-person's 3D).
     const ids = gameTags.map((t) => t.id);
     const beaten = (t: GameTag) => ids.some((u) => kept.includes(u) && clash(t, u) && ids.indexOf(t) < ids.indexOf(u));
     const left = ids.filter((t) => kept.includes(t) && !beaten(t));
@@ -81,12 +81,15 @@ function savePicks(picks: Picks) {
     /* private mode: nothing to keep */
   }
 }
-/** 2D or 3D, Cozy or Hard: never both of a pair (their rules contradict), so picking one unpicks the other; First-person
- * is always 3D, so it never goes with 2D either. */
-const CLASHES: [GameTag, GameTag][] = [["2d", "3d"], ["cozy", "hard"], ["2d", "firstperson"]];
+/** One at most of 2D, 2.5D and 3D, of First-person and Third-person, of Cozy and Hard (their rules contradict), so picking
+ * one unpicks the other; First-person and Third-person are always 3D, so they never go with 2D or 2.5D either. */
+const CLASHES: [GameTag, GameTag][] = [
+  ["2d", "25d"], ["2d", "3d"], ["25d", "3d"], ["cozy", "hard"], ["firstperson", "thirdperson"],
+  ["2d", "firstperson"], ["25d", "firstperson"], ["2d", "thirdperson"], ["25d", "thirdperson"],
+];
 const clash = (a: GameTag, b: GameTag) => CLASHES.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
-/** A tag that needs another: picking it picks that one too, and unpicking that one unpicks it (First-person needs 3D). */
-const NEEDS: Partial<Record<GameTag, GameTag>> = { firstperson: "3d" };
+/** A tag that needs another: picking it picks that one too, and unpicking that one unpicks it (First-person and Third-person need 3D). */
+const NEEDS: Partial<Record<GameTag, GameTag>> = { firstperson: "3d", thirdperson: "3d" };
 
 const SHORT = "Say a little more: what kind of game, and what you do in it.";
 const SHORT_PICKED = "Say a little more: what you do in your game.";
@@ -99,6 +102,12 @@ export function CreateApp() {
   const fromUrl = params.get("prompt") ?? "";
   const saved = useSyncExternalStore(subscribe, readSaved, () => "");
   const [edited, setEdited] = useState<string | null>(null);
+  // An idea handed over in the address wins over what was typed here before.
+  const [seenUrl, setSeenUrl] = useState(fromUrl);
+  if (fromUrl !== seenUrl) {
+    setSeenUrl(fromUrl);
+    if (fromUrl) setEdited(null);
+  }
   const text = edited ?? (fromUrl || saved);
   // Genre: one at most (none: the AI goes by the idea). Tags: any, 2D or 3D not both (Luka, 10-27).
   const savedPicks = useSyncExternalStore(subscribe, readPicks, () => NO_PICKS);
@@ -113,7 +122,8 @@ export function CreateApp() {
   const toggleTag = (tag: GameTag) => {
     const on = picks.tags.includes(tag);
     // Off: it goes, with a tag that needs it. On: it joins in the list's order with the tag it needs, and takes the place
-    // of what can't go with them (2D or 3D, Cozy or Hard; First-person brings 3D, so 2D goes).
+    // of what can't go with them (2D, 2.5D or 3D, First-person or Third-person, Cozy or Hard; First-person and Third-person
+    // bring 3D, so 2D and 2.5D go).
     const adding = NEEDS[tag] ? [tag, NEEDS[tag]] : [tag];
     const next = on
       ? picks.tags.filter((t) => t !== tag && NEEDS[t] !== tag)
@@ -205,12 +215,12 @@ export function CreateApp() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (session.status === "in" && !busy && !short) void build();
+    if (session.status === "in" && !busy && !short && ask === null) void build();
   };
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
-      if (session.status === "in" && !busy && !short) void build();
+      if (session.status === "in" && !busy && !short && ask === null) void build();
     }
   };
 
@@ -329,7 +339,7 @@ export function CreateApp() {
               </p>
               <div className="make__send">
                 {est && <span className="figures">about {creditsWord(est.typical)}</span>}
-                <Button type="submit" disabled={short} busy={busy} busyLabel="Starting…">
+                <Button type="submit" disabled={short} aria-disabled={ask !== null || undefined} busy={busy} busyLabel="Starting…">
                   Build my game
                 </Button>
                 {short && <ButtonLink href="/billing?change=1">Get credits</ButtonLink>}

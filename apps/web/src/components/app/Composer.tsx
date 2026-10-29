@@ -141,12 +141,12 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!going && !busy && !exporting) void send();
+    if (!going && !busy && !exporting && ask === null) void send();
   };
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
-      if (!going && !busy && !exporting) void send();
+      if (!going && !busy && !exporting && ask === null) void send();
     }
   };
 
@@ -225,7 +225,7 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
             <span className="composer__label">Stop</span>
           </Button>
         ) : (
-          <Button type="submit" size="small" busy={busy} disabled={exporting}>
+          <Button type="submit" size="small" busy={busy} disabled={exporting} aria-disabled={ask !== null || undefined}>
             <ArrowUp size={16} weight="bold" aria-hidden="true" />
             <span className="composer__label">Send</span>
           </Button>

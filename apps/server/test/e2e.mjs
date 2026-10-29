@@ -1198,6 +1198,12 @@ async function pickChecks(db) {
     [{ tags: ["2d", "3d"] }, "2D and 3D together"],
     [{ tags: ["cozy", "hard"] }, "Cozy and Hard together"],
     [{ tags: ["2d", "firstperson"] }, "First-person and 2D together (First-person is 3D)"],
+    [{ tags: ["2d", "25d"] }, "2D and 2.5D together"],
+    [{ tags: ["25d", "3d"] }, "2.5D and 3D together"],
+    [{ tags: ["25d", "firstperson"] }, "First-person and 2.5D together (First-person is 3D)"],
+    [{ tags: ["2d", "thirdperson"] }, "Third-person and 2D together (Third-person is 3D)"],
+    [{ tags: ["25d", "thirdperson"] }, "Third-person and 2.5D together"],
+    [{ tags: ["firstperson", "thirdperson"] }, "First-person and Third-person together"],
     [{ tags: ["sparkly"] }, "a tag that isn't one"],
     [{ tags: "3d" }, "tags that aren't a list"],
     [{ tags: ["3d", "3d"] }, "a tag twice"],
@@ -1248,6 +1254,9 @@ async function pickChecks(db) {
     ["platformer", ["cozy", "2d"], "2d,cozy"],
     ["arcade", ["hard", "retro"], "retro,hard"],
     ["adventure", ["turnbased", "fantasy", "roguelike"], "fantasy,roguelike,turnbased"],
+    // Added 10-29: 2.5D, and Third-person (with the 3D that /create picks with it).
+    ["platformer", ["retro", "25d"], "25d,retro"],
+    ["adventure", ["fantasy", "thirdperson", "3d"], "3d,thirdperson,fantasy"],
   ]) {
     const g = await build({ prompt: `A new kind of game: ${genre}`, genre, tags });
     const r = g && (await row(g.id));

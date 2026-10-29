@@ -136,14 +136,16 @@ export const genreAbout = "Optional. With none picked, the AI decides from your 
 
 /**
  * /create's Tags (Luka, 10-27), after the genre: several at once, each a rule the game agent follows
- * (packages/agent/tags/); 2D or 3D, and Cozy or Hard, never both of a pair (picking one unpicks the other: their
- * rules contradict); First-person is always 3D (picking it picks 3D, so 2D goes). In groups: the view, the look, the
- * feel, the way it plays. A tag's line says what it does to the game.
+ * (packages/agent/tags/); one at most of 2D, 2.5D and 3D, First-person or Third-person, Cozy or Hard (picking one
+ * unpicks the others: their rules contradict); First-person and Third-person are always 3D (picking one picks 3D, so 2D
+ * and 2.5D go). In groups: the view, the look, the feel, the way it plays. A tag's line says what it does to the game.
  */
 export const gameTags: { id: GameTag; name: string; line: string }[] = [
   { id: "2d", name: "2D", line: "Flat, seen from the side or from above." },
+  { id: "25d", name: "2.5D", line: "A 3D-drawn world played on a flat plane: side-on, or from a fixed angle." },
   { id: "3d", name: "3D", line: "A 3D world with real models and a camera that follows." },
   { id: "firstperson", name: "First-person", line: "Seen through the hero's eyes, always in 3D." },
+  { id: "thirdperson", name: "Third-person", line: "Your hero seen from behind, with a camera that follows, always in 3D." },
   { id: "retro", name: "Retro", line: "Big pixels, a few bold colours and chip sounds, like an old arcade game." },
   { id: "cute", name: "Cute", line: "Round, friendly characters with big eyes and bouncy moves." },
   { id: "scifi", name: "Sci-fi", line: "Space, robots, lasers and neon lights." },
@@ -154,4 +156,4 @@ export const gameTags: { id: GameTag; name: string; line: string }[] = [
   { id: "turnbased", name: "Turn-based", line: "Take your time: you move, then the game answers." },
   { id: "2players", name: "2 players", line: "Two people on one screen: split keys, or half the phone each." },
 ];
-export const tagsNone = "Pick any that fit, or none. 2D or 3D, Cozy or Hard: never both.";
+export const tagsNone = "Pick any that fit, or none. One at most of 2D, 2.5D and 3D; of First-person and Third-person; of Cozy and Hard.";
