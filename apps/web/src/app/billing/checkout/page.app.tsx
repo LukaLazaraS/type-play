@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageWidget } from "@/components/ui/PageWidget";
+import { StartsClean } from "@/components/app/StartsClean";
 import { CheckoutClient } from "./CheckoutClient";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
@@ -10,7 +11,9 @@ export const metadata: Metadata = { title: "Checkout", robots: { index: false } 
 export default function Checkout() {
   return (
     <Suspense fallback={<PageWidget busy />}>
-      <CheckoutClient />
+      <StartsClean>
+        <CheckoutClient />
+      </StartsClean>
     </Suspense>
   );
 }

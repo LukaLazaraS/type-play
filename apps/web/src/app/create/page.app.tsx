@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageWidget } from "@/components/ui/PageWidget";
+import { StartsClean } from "@/components/app/StartsClean";
 import { CreateApp } from "./CreateApp";
 
 export const metadata: Metadata = { title: "Make your game", robots: { index: false } };
@@ -9,7 +10,9 @@ export const metadata: Metadata = { title: "Make your game", robots: { index: fa
 export default function Create() {
   return (
     <Suspense fallback={<PageWidget busy />}>
-      <CreateApp />
+      <StartsClean>
+        <CreateApp />
+      </StartsClean>
     </Suspense>
   );
 }

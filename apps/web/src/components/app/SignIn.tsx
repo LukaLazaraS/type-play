@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { GoogleLogo } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { ErrorLine } from "@/components/ui/ErrorLine";
 import { TextField } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { app } from "@/content/app";
+import { useRestored } from "@/lib/restored";
 import { devSignIn, signInWithGoogle } from "@/lib/session";
 
 /** Sign in with Google (and, in dev with NEXT_PUBLIC_DEV_AUTH=1 only, a test sign-in). */
@@ -15,13 +16,7 @@ export function SignIn({ next, note }: { next: string; note?: string }) {
   const [error, setError] = useState<string | null>(null);
 
   // Back from Google (the page restored from the back-forward cache): the button works again.
-  useEffect(() => {
-    const onShow = (e: PageTransitionEvent) => {
-      if (e.persisted) setBusy(false);
-    };
-    window.addEventListener("pageshow", onShow);
-    return () => window.removeEventListener("pageshow", onShow);
-  }, []);
+  useRestored(() => setBusy(false));
 
   const google = async () => {
     setBusy(true);

@@ -192,7 +192,9 @@ try {
   await page.waitForTimeout(400);
   check("cleared picks stay cleared after a reload", (await pickedGenre(page)) === "" && (await pressed(page)) === "");
   check("none picked: the line says the AI decides from the idea, and that one can be picked", /^None picked: the AI decides from your idea\. Pick one to choose it yourself\.$/.test(await genreLine(page)), await genreLine(page));
-  check("no tags: the line says pick any, and the two pairs", /^Pick any that fit, or none\. 2D or 3D, Cozy or Hard: never both\.$/.test(await tagLine(page)), await tagLine(page));
+  check("no tags: the line says pick any, and the three groups of which one at most", /^Pick any that fit, or none\. One at most of 2D, 2\.5D and 3D; of First-person and Third-person; of Cozy and Hard\.$/.test(await tagLine(page)), await tagLine(page));
+  const chipNames = (await page.locator(".tags .chip").allInnerTexts()).map((s) => s.trim());
+  check("the tags in order: 2D, 2.5D, 3D, First-person, Third-person, then the rest", chipNames.slice(0, 6).join("|") === "2D|2.5D|3D|First-person|Third-person|Retro" && chipNames.length === 14, chipNames.join("|"));
   await shot(page, "create-none-desktop");
   await shot(page, "create-none-desktop-full", true);
   const at = await tops(page);
@@ -259,6 +261,28 @@ try {
   await tag(page, "First-person").click();
   await tag(page, "3D").click();
   check("…and 3D off: First-person off too (it needs 3D)", (await pressed(page)) === "", await pressed(page));
+  // 2.5D: one of 2D, 2.5D and 3D. Third-person is always 3D too (it brings 3D, 2D and 2.5D go), and never with First-person.
+  await tag(page, "2.5D").click();
+  check("a tap on 2.5D presses it, with its line", (await pressed(page)) === "2.5D" && /^A 3D-drawn world played on a flat plane/.test(await tagLine(page)), `${await pressed(page)} / ${await tagLine(page)}`);
+  await shot(page, "tags-25d-desktop");
+  await tag(page, "3D").click();
+  check("3D after 2.5D: 3D on, 2.5D off", (await pressed(page)) === "3D", await pressed(page));
+  await tag(page, "2D").click();
+  await tag(page, "2.5D").click();
+  check("2D, then 2.5D: 2.5D on, 2D off", (await pressed(page)) === "2.5D", await pressed(page));
+  await tag(page, "Third-person").click();
+  check("Third-person with 2.5D on: Third-person and 3D on, 2.5D off", (await pressed(page)) === "3D|Third-person", await pressed(page));
+  check("Third-person's line says it is 3D", /^Your hero seen from behind, with a camera that follows, always in 3D\.$/.test(await tagLine(page)), await tagLine(page));
+  await shot(page, "tags-thirdperson-desktop");
+  await tag(page, "First-person").click();
+  check("First-person after Third-person: First-person on, Third-person off (3D stays)", (await pressed(page)) === "3D|First-person", await pressed(page));
+  await tag(page, "Third-person").click();
+  check("…and Third-person again: Third-person on, First-person off", (await pressed(page)) === "3D|Third-person", await pressed(page));
+  await tag(page, "2.5D").click();
+  check("2.5D with Third-person on: 2.5D alone (Third-person and its 3D go)", (await pressed(page)) === "2.5D", await pressed(page));
+  await tag(page, "Third-person").click();
+  await tag(page, "3D").click();
+  check("…and 3D off: Third-person off too (it needs 3D)", (await pressed(page)) === "", await pressed(page));
   for (const [name, line] of [["Sci-fi", /^Space, robots/], ["Fantasy", /^Knights, magic/], ["Roguelike", /^A new run every time/], ["Turn-based", /^Take your time/], ["2 players", /^Two people on one screen/]]) {
     await tag(page, name).click();
     check(`${name}: pressed, with its line`, (await pressed(page)).split("|").includes(name) && line.test(await tagLine(page)), await tagLine(page));
@@ -338,6 +362,11 @@ try {
   await page.locator(".made").waitFor({ timeout: 60_000 });
   await page.waitForTimeout(400);
   check("…a new genre kept; 2D with First-person: First-person and the 3D it needs", (await pickedGenre(page)) === "Adventure" && (await pressed(page)) === "3D|First-person", `${await pickedGenre(page)} / ${await pressed(page)}`);
+  await page.evaluate(() => localStorage.setItem("typeplay.picks", JSON.stringify({ genre: null, tags: ["2d", "25d", "thirdperson", "firstperson"] })));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.locator(".made").waitFor({ timeout: 60_000 });
+  await page.waitForTimeout(400);
+  check("…2D, 2.5D, First-person and Third-person kept: the last of each pair wins, with 3D (Third-person)", (await pressed(page)) === "3D|Third-person", await pressed(page));
   await page.evaluate(() => localStorage.setItem("typeplay.picks", "{not json"));
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.locator(".made").waitFor({ timeout: 60_000 });
@@ -406,8 +435,19 @@ try {
     check(`picked at ${w} px: Genre and Tags inside the screen`, await fits(p, w));
     await p.locator(".iconchoice").scrollIntoViewIfNeeded();
     await shot(p, `picked-${w}`);
-    // Worst case: every tag that can go together pressed (3D, not 2D), the longest lines.
-    for (const t of await p.locator('.tags .chip[aria-pressed="false"]').allInnerTexts()) if (t.trim() !== "2D") await tag(p, t.trim()).tap();
+    // The new tags by touch: Third-person (with its 3D), then 2.5D; their lines are the longest of the group.
+    await tag(p, "Third-person").tap();
+    check(`by touch at ${w} px: Third-person with its 3D, Retro stays`, (await pressed(p)) === "3D|Third-person|Retro", await pressed(p));
+    check(`Third-person's line at ${w} px: inside the screen, nothing moved`, (await fits(p, w)) && (await tops(p)) === pAt, `${pAt}, then ${await tops(p)}`);
+    await p.locator(".tags").scrollIntoViewIfNeeded();
+    await shot(p, `thirdperson-${w}`);
+    await tag(p, "2.5D").tap();
+    check(`by touch at ${w} px: 2.5D alone with Retro`, (await pressed(p)) === "2.5D|Retro", await pressed(p));
+    check(`2.5D's line at ${w} px: inside the screen, nothing moved`, (await fits(p, w)) && (await tops(p)) === pAt, `${pAt}, then ${await tops(p)}`);
+    await shot(p, `25d-${w}`);
+    await tag(p, "3D").tap();
+    // Worst case: every tag that can go together pressed (3D, not 2D, 2.5D or Third-person), the longest lines.
+    for (const t of await p.locator('.tags .chip[aria-pressed="false"]').allInnerTexts()) if (!["2D", "2.5D", "Third-person"].includes(t.trim())) await tag(p, t.trim()).tap();
     check(`every tag that can go together pressed at ${w} px: inside the screen, nothing moved`, (await fits(p, w)) && (await tops(p)) === pAt && (await pressed(p)) === "3D|First-person|Retro|Cute|Sci-fi|Fantasy|Hard|Roguelike|Turn-based|2 players", await pressed(p));
     await p.locator(".tags").scrollIntoViewIfNeeded();
     await shot(p, `worst-${w}`);

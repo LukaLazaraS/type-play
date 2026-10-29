@@ -18,8 +18,10 @@ export type Platform = "phone" | "computer" | "fill";
 /** What the player can add to a new game beside its genre (/create's Tags, 2026-10-27), several at once: 2d or 3d (not
  * both), retro (big pixels, few colours, chip sounds), cute, cozy (no rush, no losing) or hard (not both). Added later on
  * 10-27: firstperson (always 3d, so never with 2d), scifi, fantasy, roguelike, turnbased, 2players (two on one screen, never
- * online). Each is a rule the game agent gets (packages/agent/tags/). */
-export type GameTag = "2d" | "3d" | "firstperson" | "retro" | "cute" | "scifi" | "fantasy" | "cozy" | "hard" | "roguelike" | "turnbased" | "2players";
+ * online). Added 10-29: 25d (2.5D: a 3D-drawn world played on a flat plane) and thirdperson (always 3d, a camera behind the
+ * hero; never with 2d, 25d or firstperson); of 2d, 25d and 3d one at most. Each is a rule the game agent gets
+ * (packages/agent/tags/). */
+export type GameTag = "2d" | "25d" | "3d" | "firstperson" | "thirdperson" | "retro" | "cute" | "scifi" | "fantasy" | "cozy" | "hard" | "roguelike" | "turnbased" | "2players";
 
 /** Credits are numbers with one decimal (a message costs at least 0.1). */
 export interface CreditBalance {
@@ -515,7 +517,7 @@ export interface CreateProjectBody {
   platform?: Platform;
   /** The genre to build it as (one at most). Left out: the AI picks one from the idea, or none. Added 2026-10-27. */
   genre?: Genre;
-  /** Tags to build it with, several at once (not both 2d and 3d, nor cozy and hard, nor 2d and firstperson). Left out or []: none. Added 2026-10-27. */
+  /** Tags to build it with, several at once (of 2d, 25d and 3d one at most; not both cozy and hard, nor firstperson and thirdperson; firstperson and thirdperson are 3d, so never with 2d or 25d). Left out or []: none. Added 2026-10-27. */
   tags?: GameTag[];
 }
 

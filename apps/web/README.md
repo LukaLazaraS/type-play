@@ -108,10 +108,12 @@ chat, composer, game stage, versions), `src/app/create/CreateApp.tsx`, `src/app/
   of four, drawn in `public/genres/*.svg`; Puzzle keeps its photo until Luka picks it or `public/genres/puzzle.svg`: one
   line in `genres`; contact sheet: `node packages/agent/tools/cpu.mjs node apps/web/scripts/genre-icons.mjs`) are one
   pick at most (`ui/IconChoice.tsx`: radios, a tap or Space on the picked one picks none; none picked: the AI decides
-  from the idea), the twelve tags toggle chips (`ui/Chip.tsx` `pressed`), several at once, never both 2D and 3D nor Cozy
-  and Hard; First-person brings 3D (2D goes) and goes when 3D does. Sent with the build as `genre` and `tags`; the game agent follows them (`packages/agent/tags/`). Kept with the
+  from the idea), the fourteen tags toggle chips (`ui/Chip.tsx` `pressed`), several at once, one at most of 2D, 2.5D and 3D, of
+  First-person and Third-person, of Cozy and Hard; First-person and Third-person bring 3D (2D and 2.5D go) and go when 3D does. Sent with the build as `genre` and `tags`; the game agent follows them (`packages/agent/tags/`). Kept with the
   idea while the visitor signs in (`typeplay.picks`), cleared once the build starts or a new idea comes from the home
-  page. Walk-through: `scripts/shot-kinds.mjs` (its own stack and database, `useOwnStack`: desktop, 200% zoom, phones at
+  page. /create starts clean each time it is shown (`components/app/StartsClean.tsx`: Next keeps visited pages hidden in an `<Activity>` with
+  their state, `next.config.ts` `cacheComponents`); while its cost question is open, Build my game is `aria-disabled` (grey, keeps the focus,
+  ignores presses), as is the chat's Send. Walk-through: `scripts/shot-create-return.mjs`. Walk-through: `scripts/shot-kinds.mjs` (its own stack and database, `useOwnStack`: desktop, 200% zoom, phones at
   390, 320 and 280 px, the sending state, picks kept by an older page).
 - **Share page `/play/<id>`** (public, no sign-in; `app/play/[id]/`): the game in its frame, its name,
   "Made with TypePlay" and **Make your own** (/create). Per-page title, description and canonical
