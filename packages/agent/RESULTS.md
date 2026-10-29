@@ -481,8 +481,10 @@ on the last tool's words: "Reading the game" 85 s, "Changing the board" 82 s, "M
 Fast edits sat 53-82 s on one line; the long "Testing the game" lines are the check itself, and the 10-13 minutes of a big
 Opus build were worse). `run.mjs` now turns the SDK's `thinking_tokens`
 events into plain lines through `tools/thinking.mjs`: after 8 s of an unchanged line "Planning your change…" /
-"Planning your game…", then every 45 s "Still planning: big games take a few minutes (2 min so far)"; a tool line takes
-over at once. Unit test with a fake clock in `tests/thinking.mjs` (a 12 minute Opus build gives lines at 8, 53, 98, 143 s…;
+"Planning your game…", then 45 s later "Still planning: big games take a few minutes"; a tool line takes
+over at once. (Until 10-29 it said a new "(2 min so far)" every 45 s; the count started at the last tool line, not at the
+build's start, so it read "1 min so far" under the chat's 4:43 timer, and the timer already shows the time: dropped.)
+Unit test with a fake clock in `tests/thinking.mjs` (a 12 minute Opus build gives lines at 8 and 53 s, then none;
 a Haiku edit cut into pieces by tool calls still changes), part of `npm run check`. In the re-runs with the final version the longest
 unchanged line outside the check was 45-46 s, where it was 53-85 s (m2: "Reading the game" → "Planning your change…" at 13 s →
 "Still planning…" at 75 s → "Changing the board" at 83 s; the first draft of the fix, in `m2-new1`, still sat 70 s on one planning line,
@@ -732,3 +734,66 @@ GENRE and TAGS) before its model call.
 
 Not done: Fast (Haiku, 2-3 short steps) and Best (Opus) with tags; play by hand on a phone; Tower defence only through
 the stopped API run above.
+
+## 2026-10-29: the size check (a change too big for Fast or Smart stops before the build)
+
+Why (live, 10-27): a tester asked Fast for "10 new levels and flying traps". The first try hit Haiku's $0.15 edit cap and
+failed (free for them, $0.155 for us); the second "finished" without changing the game ("…aren't in the game yet… I ran
+out of room…"), passed the check, became version 2 and was charged 2.4 credits. Now, before a change on Fast or Smart is
+built, one Haiku call with no tools (`tools/size-check.mjs`, from `run.mjs`) sorts the request into jobs and the rule
+counts them: **Fast** does one job (every small tweak in a message together is one job: "make the robot red and a bit
+faster"); **Smart** a few, too big only for a rework or three or more new features or level sets; **Best** is never
+checked. Too big: `run.mjs` stops before anything in the game folder changes, the result says `tooBig: true`, and the
+check's message is the chat's answer (what is too big, one part to send now quoted from the player's words, and the
+bigger AI when the plan has it: `--bigger`, none on Free). Charged like any answer (the check, rounded up: 0.1 credit).
+
+Tuning on real words, Haiku calls only, no builds (`tests/size-eval.mjs`, the paid-plan wording; `--free` for Free's):
+21 messages, each checked as sent to Fast and to Smart. The final rule, first of three runs ("fits?" in the script marks
+the borderline ones, where either verdict is fine):
+
+| Message | Kind | Fast | Smart | Check cost (Fast / Smart) |
+|---|---|---|---|---|
+| Make the robot red | one tweak | fits | fits | $0.0006 / $0.0005 |
+| Make the jump a bit higher | one tweak | fits | fits | $0.0007 / $0.0005 |
+| The score doesn't reset when I restart, fix it | one fix | fits | fits | $0.0006 / $0.0005 |
+| Make the robot red and a bit faster | two tweaks together | fits | fits | $0.0007 / $0.0007 |
+| Bigger buttons and a darker background | two tweaks together | fits | fits | $0.0005 / $0.0006 |
+| Add a double jump | one new feature | fits | fits | $0.0005 / $0.0007 |
+| Add a shield power-up that blocks one hit | one new feature | fits | fits | $0.0007 / $0.0005 |
+| Add a shop where you buy hats with coins | one new feature | fits | fits | $0.0007 / $0.0005 |
+| Add 10 new levels | one new feature | fits | fits | $0.0005 / $0.0007 |
+| დაამატე ბოსი ბოლოს (add a boss at the end) | one new feature | fits | fits | $0.0009 / $0.0008 |
+| **Add 10 new levels and flying traps** | two features (the live case) | **too big** | fits | $0.0007 / $0.0009 |
+| can you make 10 new levels with flying traps in them | two features (other words) | too big | fits | $0.0007 / $0.0007 |
+| Add a shop and a boss at the end | two features | too big | fits | $0.0006 / $0.0008 |
+| Добавь 10 новых уровней и летающие ловушки | two features (Russian) | too big | fits | $0.0010 / $0.0009 |
+| Add three new enemy types, a level map with 20 levels, and achievements | three features | too big | too big | $0.0006 / $0.0007 |
+| Add a shop, upgrades, a boss, daily challenges and a night mode | several features | too big | too big | $0.0006 / $0.0009 |
+| Make the background blue, add music, add a high score, make the enemies faster and add a second player | a list of changes | too big | too big | $0.0009 / $0.0006 |
+| Turn it into a 3D racing game | rework | too big | too big | $0.0006 / $0.0007 |
+| Redo all the graphics in pixel art and change the controls to swipe | rework | too big | too big | $0.0008 / $0.0006 |
+| Make it better | vague | fits | fits | $0.0007 / $0.0008 |
+| More fun please | vague | fits | fits | $0.0007 / $0.0008 |
+
+All three runs of the final rule (126 checks, one with Free's wording) gave the same verdicts, none against the expected
+one; a check cost $0.0001-0.0010 (median $0.0003-0.0007, the spread is prompt caching), so a stop is always the 0.1-credit
+minimum, and a change that fits adds at most $0.001 (under 0.02 credit) to its work before the rounding up. The stops' answers come in the player's language
+(Russian in, Russian out, the quoted part in their words), e.g. Fast on a paid plan: "Ten new levels and flying traps are
+two jobs, more than Fast can finish in one message. Send one now, like "Add flying traps", and the other next, or pick
+Smart to do more at once."; on Free the same without the last part.
+
+How it got there (each a full run of the 42 checks): Haiku judging the whole request itself was wrong 4 times (it stopped
+"bigger buttons and a darker background" on Fast, the worst kind of mistake, and let "add a shop and a boss" through);
+listing the jobs first, then its own verdict, 2 and then 3 wrong (it split "red and a bit faster" into two jobs, said
+TOO BIG with no message, and answered a Russian request in English). What fixed it: the model only sorts the request
+into kinds of job (feature, levels, fix, tweak, rework, vague) and writes the message; the rule is code that counts them
+(every tweak together is one job), and the answer names the player's language before the message. A request out of
+format, a TOO BIG with no message, or a failed call lets the build go.
+
+A real stop through `run.mjs` (`--edit --model haiku --bigger none`, "Add 10 new levels and flying traps", on a copy of
+ab-med-haiku): stopped in ~5 s, $0.0007, the game folder's HEAD and files untouched, the record with `tooBig`, `sizeCheck`
+(the jobs) and `sizeCheckCostUsd`. New games' genre call now reports its cost too (`classifyCostUsd`); both are in the
+run's record and in the charge (`runs.service` `sideUsd`, beside the reply rewrite and the next-step ideas).
+
+Not done: a real Fast or Smart edit that fits, through the check and on to the build (the fits path is the old one with
+the check's cost added; tested with fake builds in the e2e); messages from the beta, once there are some to tune on.

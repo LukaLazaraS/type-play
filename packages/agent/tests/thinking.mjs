@@ -25,12 +25,11 @@ const thinkEvery = (from, to) => { const out = []; for (let t = from; t <= to; t
 const build = play(thinkEvery(1_000, 12 * 60_000), false);
 assert.equal(build[0][1], 'Planning your game…');
 assert.ok(build[0][0] >= FIRST_AFTER_MS / 1000 && build[0][0] <= FIRST_AFTER_MS / 1000 + 2, 'the first line comes after ~8 s, not at once');
-assert.match(build[1][1], /^Still planning: big games take a few minutes$/);
-assert.match(build[2][1], /\(1 min so far\)/);
-assert.match(build[3][1], /\(2 min so far\)/);
-for (let i = 1; i < build.length; i++) assert.ok(build[i][0] - build[i - 1][0] >= EVERY_MS / 1000 - 1, 'a new line at most every ~45 s');
-assert.ok(build.length >= 14 && build.length <= 17, `about one line per 45 s over 12 minutes (got ${build.length})`);
-assert.equal(new Set(build.map((l) => l[1])).size, build.length, 'every line is different');
+assert.equal(build[1][1], 'Still planning: big games take a few minutes');
+assert.ok(build[1][0] - build[0][0] >= EVERY_MS / 1000 - 1, 'the second line ~45 s after the first');
+// No minutes (10-29): the chat's own timer shows the time, so the line stays put until a tool line takes over.
+assert.equal(build.length, 2, `two lines over 12 minutes, no count (got ${JSON.stringify(build.map((l) => l[1]))})`);
+assert.ok(!build.some((l) => /\d+ min|so far/.test(l[1])), 'no minute count in any line');
 
 // A Haiku edit on a big game: thinking cut into pieces by tool calls that change no line (what the
 // player saw before: "Reading the game" for 85 s). The line must still change.

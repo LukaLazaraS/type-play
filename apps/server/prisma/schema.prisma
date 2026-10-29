@@ -289,6 +289,10 @@ model Message {
   versionN  Int?
   /// Up to 9 next steps, best first, the chat offers under this answer: three, then "More ideas" adds six (runs that made a version).
   suggestions String[]     @default([])
+  /// A change too big for the AI it was sent on stopped before the build (the size check, packages/agent/tools/size-check.mjs;
+  /// status done, charged, no version): the bigger AI the answer offers, whose one tap puts the message back in the box
+  /// with it picked. Null on every other answer, and on a stop for a plan without a bigger AI (Free).
+  biggerModel ModelChoice?
   /// The plan the run started on (agent messages): the Free kill switch sums costUsd by plan and day.
   plan      Plan?
   createdAt DateTime       @default(now())

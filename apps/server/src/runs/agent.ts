@@ -30,6 +30,9 @@ export interface AgentJob {
    * game's own. */
   genre?: Genre | null;
   tags?: GameTag[];
+  /** A change on Fast or Smart: the bigger AI the player's plan has, offered if the size check stops it (run.mjs
+   * --bigger); null: none (Free, or Best, which is never checked). */
+  bigger?: ModelChoice | null;
   logFile: string;
   onProgress: (text: string) => void;
   auth?: AgentAuth;
@@ -50,6 +53,12 @@ export interface AgentResult {
   suggestions?: string[];
   /** What the ideas call cost: part of the answer's charge, like the player-message rewrite. */
   suggestionsCostUsd?: number;
+  /** A new game's genre and size call, and a change's size check: part of the answer's charge too (added 2026-10-29). */
+  classifyCostUsd?: number;
+  sizeCheckCostUsd?: number;
+  /** The size check stopped a change too big for the AI it was sent on: nothing was built, `playerMessage` says why, and
+   * the answer is charged for the check (runs.service `stop`). */
+  tooBig?: boolean;
   /** The last check exported a step that was then rolled back: export again before publishing. */
   staleExport?: boolean;
   error?: string;
@@ -131,6 +140,9 @@ interface FinalRecord {
   chargeUsd?: number;
   suggestions?: unknown;
   suggestionsCostUsd?: number;
+  classifyCostUsd?: number;
+  sizeCheckCostUsd?: number;
+  tooBig?: boolean;
   attempts?: { ok?: boolean }[];
 }
 
@@ -181,7 +193,7 @@ function startInRunner(job: AgentJob, args: string[], onLine: (l: string) => voi
 
 export function runAgent(job: AgentJob): AgentHandle {
   const args = ["--prompt", job.prompt, "--model", MODEL_FLAG[job.model], "--effort", job.effort, "--events"];
-  if (job.kind === "edit") args.push("--edit");
+  if (job.kind === "edit") args.push("--edit", "--bigger", job.bigger ? MODEL_FLAG[job.bigger] : "none");
   else {
     if (job.platform) args.push("--platform", job.platform);
     if (job.genre) args.push("--genre", job.genre);
@@ -211,6 +223,10 @@ export function runAgent(job: AgentJob): AgentHandle {
     // run.mjs exits 0 after printing its record, built or not: a bad exit (killed, a crash, the runner
     // refusing the job, e.g. a game folder over its size limit) is a failure whatever the record says.
     // Its costs still count for our accounting; the player pays nothing.
+    const sideCosts = {
+      classifyCostUsd: Number(r?.classifyCostUsd ?? 0),
+      sizeCheckCostUsd: Number(r?.sizeCheckCostUsd ?? 0),
+    };
     if (!r || error) {
       return {
         ok: false,
@@ -218,6 +234,7 @@ export function runAgent(job: AgentJob): AgentHandle {
         costUsd: Number(r?.costUsd ?? 0),
         messageCostUsd: Number(r?.messageCostUsd ?? 0),
         suggestionsCostUsd: Number(r?.suggestionsCostUsd ?? 0),
+        ...sideCosts,
         chargeUsd: 0,
         error: error ?? "the agent stopped without a result",
       };
@@ -225,12 +242,15 @@ export function runAgent(job: AgentJob): AgentHandle {
     return {
       ok: !!r.ok,
       refused: !!r.refused,
+      // A size-check stop needs its message: without one it is a plain failure (free), never an empty charged answer.
+      tooBig: !r.ok && !!r.tooBig && !!r.playerMessage?.trim(),
       playerMessage: r.playerMessage ?? "",
       costUsd: Number(r.costUsd ?? 0),
       messageCostUsd: Number(r.messageCostUsd ?? 0),
       ...(typeof r.chargeUsd === "number" ? { chargeUsd: r.chargeUsd } : {}),
       suggestions: r.ok ? cleanSuggestions(r.suggestions) : [],
       suggestionsCostUsd: Number(r.suggestionsCostUsd ?? 0),
+      ...sideCosts,
       staleExport: !!r.ok && r.attempts?.at(-1)?.ok === false,
     };
   });

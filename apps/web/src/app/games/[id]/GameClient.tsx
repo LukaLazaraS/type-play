@@ -56,7 +56,8 @@ export function GameClient() {
   const [tab, setTab] = useState<Tab | null>(null);
   const [fresh, setFresh] = useState(false); // a new version the phone's Play tab hasn't shown yet
   const [played, setPlayed] = useState(false);
-  const [prefill, setPrefill] = useState<{ text: string; n: number } | null>(null); // a tapped next-step idea
+  // A tapped next-step idea, or a stop's one tap (the message again, with the bigger AI).
+  const [prefill, setPrefill] = useState<{ text: string; n: number; model?: ModelChoice } | null>(null);
   // What the stream's handler needs to know, without re-subscribing on every change.
   const current = useRef<Project | null>(null);
   // Events applied so far: a project fetched because of an event is used only when nothing newer came meanwhile.
@@ -303,6 +304,8 @@ export function GameClient() {
           currentVersion={project.currentVersion}
           onPlay={() => show("play")}
           onSuggest={(text) => setPrefill((p) => ({ text, n: (p?.n ?? 0) + 1 }))}
+          models={me?.models ?? ["fast"]}
+          onBigger={(text, model) => setPrefill((p) => ({ text, model, n: (p?.n ?? 0) + 1 }))}
         />
         <Composer
           kind={kind}

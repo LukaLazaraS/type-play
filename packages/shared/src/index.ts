@@ -235,6 +235,11 @@ export interface Message {
    * answer as part of its charge; the chat shows three under its newest answer and "More ideas" adds the other six.
    * Missing when there are none. */
   suggestions?: string[];
+  /** Added 2026-10-29 (the size check). A change too big for the AI it was sent on stopped before the build: the answer
+   * says why (status done, charged like any answer, no version), and this is the bigger AI it offers; the chat's one tap
+   * puts the same message back in the box with it picked, never sends. Missing on other answers, and on a stop for a
+   * plan without a bigger AI (Free: one part at a time is the only way). */
+  biggerModel?: ModelChoice;
   createdAt: string;
 }
 

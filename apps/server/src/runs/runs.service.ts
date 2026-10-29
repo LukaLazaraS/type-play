@@ -3,8 +3,8 @@ import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from "@nestjs/common";
-import type { Effort, GameTag, Genre, ModelChoice, Platform } from "@typeplay/shared";
-import { creditsForUsd, toTenths } from "../credits/credits.js";
+import type { Effort, GameTag, Genre, ModelChoice, Platform, PlanId } from "@typeplay/shared";
+import { creditsForUsd, planModels, toTenths } from "../credits/credits.js";
 import { CreditsService, type CreditHold } from "../credits/credits.service.js";
 import { LedgerService, TX_OPTIONS } from "../credits/ledger.service.js";
 import { config } from "../env.js";
@@ -14,7 +14,7 @@ import { headOf, settleFolder } from "../games/git.js";
 import { readPlatformWord, readProjectGodot } from "../games/files.js";
 import { exportWeb, gameNameOf, orientationOf, platformOf } from "../games/godot.js";
 import { publishBuild, trimExport, unpublishBuild } from "../games/publish.js";
-import type { Message, Version } from "../generated/prisma/client.js";
+import type { Message, Plan, Version } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
 import { ProjectViews, toMessage, toVersion } from "../projects/views.js";
 import { MODEL_FLAG, runAgent, sweep, type AgentResult } from "./agent.js";
@@ -63,13 +63,29 @@ class CancelledLate extends Error {
 
 const NO_RESULT: AgentResult = { ok: false, costUsd: 0, messageCostUsd: 0, chargeUsd: 0 };
 
+type Costs = Pick<AgentResult, "costUsd" | "messageCostUsd" | "suggestionsCostUsd" | "classifyCostUsd" | "sizeCheckCostUsd">;
+/**
+ * The run's AI calls beside the agent's own work, each a part of the answer's charge (Luka, 10-24 and 10-29: every AI
+ * call a player causes is theirs): the player-message rewrite, the next-step ideas, a new game's genre and size call,
+ * and a change's size check.
+ */
+export const sideUsd = (r: Costs) => r.messageCostUsd + (r.suggestionsCostUsd ?? 0) + (r.classifyCostUsd ?? 0) + (r.sizeCheckCostUsd ?? 0);
+
 /**
  * What a run cost us in AI, for the Free kill switch: what the agent reported, or what the key proxy metered when that is
  * more (live server). A Stop, a timeout or a crash leaves the agent without its record ($0 reported) though the model was
  * paid for, and model calls the agent's shell makes on its own are only in the meter (security review 10-20).
  */
-export const aiSpentUsd = (result: Pick<AgentResult, "costUsd" | "messageCostUsd" | "suggestionsCostUsd">, metered: number | null) =>
-  Math.max(result.costUsd + result.messageCostUsd + (result.suggestionsCostUsd ?? 0), metered ?? 0);
+export const aiSpentUsd = (result: Costs, metered: number | null) => Math.max(result.costUsd + sideUsd(result), metered ?? 0);
+
+/**
+ * The AI a size-check stop offers instead (packages/agent/tools/size-check.mjs): the next one up from Fast or Smart that
+ * the plan the run started on has; none on Free, and none for Best, which is never checked.
+ */
+export function biggerModel(model: ModelChoice, plan: Plan | null): ModelChoice | null {
+  const next: ModelChoice | null = model === "fast" ? "smart" : model === "smart" ? "best" : null;
+  return next && planModels((plan ?? "free") as PlanId).includes(next) ? next : null;
+}
 /** When the folder can't be reset: wait this long between tries, then give up and mark it dirty. */
 const SETTLE_RETRY_MS = [2_000, 10_000, 30_000];
 
@@ -159,6 +175,9 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     }
     // A first build always starts clean (on the live server the runner clears the folder itself).
     if (run.kind === "new" && !config.runnerSocket) rmSync(dir, { recursive: true, force: true });
+    // A change on Fast or Smart is sized before it is built (run.mjs): a stop offers the next AI up the run's plan has.
+    const plan = run.kind === "edit" ? ((await this.prisma.message.findUnique({ where: { id: run.messageId }, select: { plan: true } }))?.plan ?? null) : null;
+    const bigger = run.kind === "edit" ? biggerModel(run.model, plan) : null;
     // AGENT_AUTH=api: a token for this run only; the key proxy adds our key (key-proxy.ts).
     const token = this.keyProxy.enabled ? this.keyProxy.issue(`run ${run.projectId}`, MODEL_FLAG[run.model], config.runTimeoutMin + 5) : null;
     const job = {
@@ -170,6 +189,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       platform: run.kind === "new" ? (run.platform ?? null) : null,
       genre: run.kind === "new" ? (run.genre ?? null) : null,
       tags: run.kind === "new" ? (run.tags ?? []) : [],
+      bigger,
       logFile: join(config.dataDir, "logs", `${run.projectId}-${run.messageId}.log`),
       onProgress: (text: string) => {
         const e = { type: "progress" as const, messageId: run.messageId, text, at: new Date().toISOString() };
@@ -194,11 +214,11 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       }
     });
     if (result.error) this.log.warn(`run ${run.projectId}: ${result.error}`);
-    if (result.ok && !run.cancelled && !run.timedOut) {
+    if ((result.ok || result.tooBig) && !run.cancelled && !run.timedOut) {
       try {
-        return await this.succeed(run, result, metered);
+        return await (result.tooBig ? this.stopTooBig(run, result, metered, bigger) : this.succeed(run, result, metered));
       } catch (e) {
-        if (!(e instanceof CancelledLate)) this.log.error(`publishing ${run.projectId}: ${(e as Error).stack ?? e}`);
+        if (!(e instanceof CancelledLate)) this.log.error(`${result.tooBig ? "saving the stop of" : "publishing"} ${run.projectId}: ${(e as Error).stack ?? e}`);
       }
     }
     await this.fail(run, result, metered);
@@ -232,13 +252,13 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     const badge = project.owner.plan === "free";
     const { poster } = await publishBuild({ buildId, dir, name, orientation, badge, poster: !result.staleExport });
 
-    // The player pays for the attempts in the game they get (chargeUsd; older records: everything), the
-    // player-message rewrite and the 9 next-step ideas (Luka, 10-24: every AI cost they cause is theirs),
-    // or what the key proxy metered when that is more (model calls the agent's shell made itself).
-    const suggestionsUsd = result.suggestionsCostUsd ?? 0;
-    const agentUsd = (result.chargeUsd ?? result.costUsd) + result.messageCostUsd + suggestionsUsd;
+    // The player pays for the attempts in the game they get (chargeUsd; older records: everything) and the run's
+    // other AI calls (sideUsd: the player-message rewrite, the 9 next-step ideas, the genre call, the size check;
+    // Luka, 10-24: every AI cost they cause is theirs), or what the key proxy metered when that is more (model calls
+    // the agent's shell made itself).
+    const agentUsd = (result.chargeUsd ?? result.costUsd) + sideUsd(result);
     const chargeUsd = Math.max(agentUsd, metered ?? 0);
-    const costUsd = result.costUsd + result.messageCostUsd + suggestionsUsd; // every attempt: our accounting
+    const costUsd = result.costUsd + sideUsd(result); // every attempt: our accounting
     const credits = creditsForUsd(chargeUsd);
     const text = result.playerMessage?.trim() || "Your game is ready. Press play!";
     // Fake runs only: a prompt with "SLOW" publishes slowly, so the e2e test can land a Stop here.
@@ -289,6 +309,44 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     }
   }
 
+  /**
+   * The size check stopped a change too big for the AI it was sent on (run.mjs, before anything in the game folder
+   * changed): no version and no reset, and the answer is its message, charged like any finished answer for the work it
+   * did (the check: at least 0.1 credit, or the metered calls when more), in the ledger with the message and counted by
+   * the Free kill switch. `bigger`: the AI the message offers, for the chat's one tap.
+   */
+  private async stopTooBig(run: ActiveRun, result: AgentResult, metered: number | null, bigger: ModelChoice | null) {
+    const agentUsd = result.costUsd + sideUsd(result); // nothing was built: the check is the work
+    const chargeUsd = Math.max(agentUsd, metered ?? 0);
+    const credits = creditsForUsd(chargeUsd);
+    const message = await this.prisma.$transaction(async (tx) => {
+      // A Stop that landed meanwhile wins, as it does over a finished build: stopped, nothing charged (fail()).
+      if (run.cancelled) throw new CancelledLate();
+      // The user's row first (the ledger's one lock order), so the answer and its charge commit together.
+      await this.ledger.lock(tx, run.userId);
+      const m = await tx.message.update({
+        where: { id: run.messageId },
+        data: { status: "done", text: result.playerMessage!.trim(), credits, costUsd: agentUsd, meteredUsd: metered, biggerModel: bigger, finishedAt: new Date() },
+      });
+      if (m.plan === "free") await this.ledger.addFreeSpend(tx, aiSpentUsd(result, metered));
+      await this.ledger.chargeIn(tx, run.userId, toTenths(credits), { messageId: run.messageId, note: `${run.kind} on ${run.model}` });
+      return m;
+    }, TX_OPTIONS);
+    this.registry.active.delete(run.projectId);
+    run.hold?.release();
+    this.registry.free();
+    this.log.log(
+      `run ${run.projectId} too big for ${run.model}: stopped before the build, $${chargeUsd.toFixed(4)} charged (metered ${metered === null ? "n/a" : "$" + metered.toFixed(4)}), ${credits} credits`,
+    );
+    this.events.emit(run.projectId, {
+      type: "done",
+      message: toMessage(message),
+      version: null,
+      project: await this.views.summary(run.projectId),
+      credits: await this.creditsOf(run.userId),
+    });
+  }
+
   /** Failed, refused, cancelled or timed out: nothing charged, the game back at its last version. */
   private async fail(run: ActiveRun, result: AgentResult, metered: number | null = null, why: keyof typeof FAILED_TEXT | null = null) {
     const project = await this.prisma.project.findUniqueOrThrow({ where: { id: run.projectId } });
@@ -311,7 +369,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
         status: refused ? "refused" : "failed",
         text,
         credits: 0,
-        costUsd: result.costUsd + result.messageCostUsd + (result.suggestionsCostUsd ?? 0),
+        costUsd: result.costUsd + sideUsd(result),
         meteredUsd: metered,
         finishedAt: new Date(),
       },

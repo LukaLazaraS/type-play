@@ -5,6 +5,9 @@
 // ideas. A prompt containing "FAIL" fails; "LONG" takes ~45 s; "HOLD" stays on its first line until stopped (the
 // screens shown while a build runs, photographed the same every time: apps/web/scripts/shot-compare.mjs); a change with
 // "FILL" makes the game fill every screen.
+// The size check (packages/agent/tools/size-check.mjs) as run.mjs runs it, on changes on Fast and Smart only: "TOOBIG"
+// stops such a change before anything is built, its answer offering `job.bigger` when there is one. "CHECKUSD:<n>" is
+// what that check (or, for a new game, the genre call) reports it cost; $0 otherwise, so the tests' figures stay exact.
 // It makes a real git commit, like the agent would.
 import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -155,6 +158,14 @@ const IDEAS = {
     "Add a night level", "Add dust when landing", "Add a high score board"],
 };
 
+const MODEL_NAME = { fast: "Fast", smart: "Smart", best: "Best" } as const;
+
+/** A fake run's size check: { tooBig, costUsd } for a change on Fast or Smart; null where run.mjs makes none. */
+function fakeSizeCheck(job: AgentJob): { tooBig: boolean; costUsd: number } | null {
+  if (job.kind !== "edit" || job.model === "best") return null;
+  return { tooBig: job.prompt.includes("TOOBIG"), costUsd: Number(/CHECKUSD:([\d.]+)/.exec(job.prompt)?.[1] ?? 0) };
+}
+
 export function runFakeAgent(job: AgentJob): AgentHandle {
   const timers: NodeJS.Timeout[] = [];
   let started = false;
@@ -167,34 +178,61 @@ export function runFakeAgent(job: AgentJob): AgentHandle {
   // "LONG": ~45 s instead of ~5, like a short real build, so screens shown while a build runs can be tried out.
   const stretch = job.prompt.includes("LONG") ? 8 : 1;
   const hold = job.prompt.includes("HOLD");
-  LINES.slice(0, hold ? 1 : LINES.length).forEach((text, i) => timers.push(setTimeout(() => job.onProgress(text), (300 + i * 1000) * stretch)));
-  timers.push(
-    setTimeout(async () => {
-      if (killed || hold) return;
-      started = true;
-      if (job.prompt.includes("FAIL")) {
-        await fakeMess(job).catch(() => {});
-        return finish({ ok: false, costUsd: 0.02, messageCostUsd: 0, chargeUsd: 0 });
-      }
-      try {
-        await fakeWork(job);
+  const sized = fakeSizeCheck(job);
+  const tooBig = !!sized?.tooBig;
+  // The genre call (a new game) or the size check (a change on Fast or Smart): part of the answer's charge.
+  const side = { classifyCostUsd: job.kind === "new" ? Number(/CHECKUSD:([\d.]+)/.exec(job.prompt)?.[1] ?? 0) : 0, sizeCheckCostUsd: sized?.costUsd ?? 0 };
+  LINES.slice(0, hold || tooBig ? 1 : LINES.length).forEach((text, i) => timers.push(setTimeout(() => job.onProgress(text), (300 + i * 1000) * stretch)));
+  if (tooBig) {
+    // Stopped before the build, as run.mjs stops it: the game folder untouched, the check's message as the answer.
+    timers.push(
+      setTimeout(() => {
+        if (killed) return;
+        started = true;
+        const offer = job.bigger ? `, or pick ${MODEL_NAME[job.bigger]} to do more at once` : "";
         finish({
-          ok: true,
-          playerMessage:
-            job.kind === "new"
-              ? "Your game is ready! Tap or press Space to play. (This is a test build.)"
-              : "Done! Your change is in. (This is a test build.)",
-          costUsd: 0.14,
+          ok: false,
+          tooBig: true,
+          playerMessage: `Ten new levels and flying traps are two big jobs, more than ${MODEL_NAME[job.model]} can finish in one message. Send one now, like "Add flying traps", and the levels next${offer}. (This is a test answer.)`,
+          costUsd: 0,
           messageCostUsd: 0,
-          chargeUsd: 0.1,
-          suggestions: IDEAS[job.kind],
-          suggestionsCostUsd: 0, // the real call costs ~$0.001; kept at 0 so the tests' cost figures stay exact
+          chargeUsd: 0,
+          suggestions: [],
+          suggestionsCostUsd: 0,
+          ...side,
         });
-      } catch (e) {
-        finish({ ok: false, costUsd: 0, messageCostUsd: 0, chargeUsd: 0, error: (e as Error).message });
-      }
-    }, 5300 * stretch),
-  );
+      }, 1500),
+    );
+  } else {
+    timers.push(
+      setTimeout(async () => {
+        if (killed || hold) return;
+        started = true;
+        if (job.prompt.includes("FAIL")) {
+          await fakeMess(job).catch(() => {});
+          return finish({ ok: false, costUsd: 0.02, messageCostUsd: 0, chargeUsd: 0, ...side });
+        }
+        try {
+          await fakeWork(job);
+          finish({
+            ok: true,
+            playerMessage:
+              job.kind === "new"
+                ? "Your game is ready! Tap or press Space to play. (This is a test build.)"
+                : "Done! Your change is in. (This is a test build.)",
+            costUsd: 0.14,
+            messageCostUsd: 0,
+            chargeUsd: 0.1,
+            suggestions: IDEAS[job.kind],
+            suggestionsCostUsd: 0, // the real call costs ~$0.001; kept at 0 so the tests' cost figures stay exact
+            ...side,
+          });
+        } catch (e) {
+          finish({ ok: false, costUsd: 0, messageCostUsd: 0, chargeUsd: 0, error: (e as Error).message });
+        }
+      }, 5300 * stretch),
+    );
+  }
   return {
     done,
     // Once the files are being written, let that finish; the server then rolls it back.

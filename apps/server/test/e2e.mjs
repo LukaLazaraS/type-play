@@ -1315,6 +1315,92 @@ async function pickChecks(db) {
   }
 }
 
+/**
+ * The size check (2026-10-29, packages/agent/tools/size-check.mjs; the fake's TOOBIG and CHECKUSD:<n>): a change too big
+ * for Fast or Smart stops before the build (no version, the folder untouched), charged like any answer for the check (0.1
+ * credits), in the ledger with its message and counted by the Free kill switch; its answer offers the bigger AI the plan
+ * has, none on Free. A change that fits builds as before with the check's cost in its charge; Best makes no check; a new
+ * game's genre call is in its charge too.
+ */
+async function sizeChecks(db) {
+  console.log("the size check: a change too big for Fast or Smart stops before the build, charged like an answer; Best makes none");
+  const FREE = `dev:e2e-${stamp}-size-free@test.local`;
+  const PAID = `dev:e2e-${stamp}-size-paid@test.local`;
+  const row = async (messageId) =>
+    (await db.query(`SELECT status, credits::float AS credits, "costUsd"::float AS cost, "versionN", "biggerModel", plan FROM "Message" WHERE id = $1`, [messageId])).rows[0];
+  const charge = async (messageId) => (await db.query(`SELECT tenths, kind FROM "CreditEntry" WHERE "messageId" = $1`, [messageId])).rows;
+  /** Sends a change and waits for its answer: the done or failed event, the agent message's id. */
+  const change = async (token, id, s, text, model) => {
+    const sent = await api(token, "POST", `/projects/${id}/messages`, { text, model });
+    const messageId = sent.body?.messages?.at(-1)?.id;
+    const end = await s.until((e) => finished(e) && e.message?.id === messageId);
+    return { sent, messageId, end };
+  };
+
+  console.log("  Free: one part at a time is the only way");
+  await api(FREE, "GET", "/me");
+  const made = await api(FREE, "POST", "/projects", { prompt: "A robot that runs", model: "fast" });
+  const id = made.body?.id;
+  if (!id) return ok(false, `the Free maker's game starts (${made.status})`);
+  projects.push(id);
+  const s = await openEvents(FREE, id);
+  try {
+    const v1 = await s.until(finished);
+    ok(v1.type === "done" && v1.version?.n === 1 && v1.credits.available === 18.3, "a game at version 1 (18.3 credits left)");
+    const head = gitIn(id, "rev-parse", "HEAD");
+    const spentBefore = await freeToday();
+    const big = await change(FREE, id, s, "Add 10 new levels and flying traps TOOBIG CHECKUSD:0.003", "fast");
+    const m = big.end.message;
+    ok(big.sent.status === 201 && big.end.type === "done" && big.end.version === null, "too big for Fast: a done answer, no version");
+    ok(m.status === "done" && m.credits === 0.1 && m.versionN === undefined && /more than Fast can finish/.test(m.text) && !/pick/.test(m.text), "the answer: why, one part to send, no bigger AI on Free; 0.1 credits");
+    ok(m.biggerModel === undefined, "no one tap on Free (no biggerModel)");
+    ok(big.end.project.buildId === `${id}-v1` && big.end.project.status === "idle", "the game still plays version 1, idle");
+    ok(gitIn(id, "rev-parse", "HEAD") === head && gitIn(id, "status", "--porcelain") === "" && readFileSync(join(DATA, "projects", id, "FAKE.md"), "utf8").trim().split("\n").length === 1, "the folder untouched (no commit, no change)");
+    ok(big.end.credits.available === 18.2 && big.end.credits.todayLeft === 3.2, "charged 0.1: 18.2 left, 3.2 today");
+    const r = await row(big.messageId);
+    ok(r?.status === "done" && r.credits === 0.1 && Math.abs(r.cost - 0.003) < 1e-9 && r.versionN === null && r.biggerModel === null && r.plan === "free", "database: done, 0.1 credits, $0.003 cost (the check), no version, no bigger AI");
+    const entries = await charge(big.messageId);
+    ok(entries.length === 1 && entries[0].tenths === -1 && entries[0].kind === "charge", "the ledger: one charge of 0.1 with the message");
+    ok(Math.abs((await freeToday()) - spentBefore - 0.003) < 1e-6, "the Free kill switch counts the check's $0.003");
+    const usage = (await api(FREE, "GET", "/me/usage?limit=1")).body.entries[0];
+    ok(usage?.amount === -0.1 && usage.what === "Change on Fast" && usage.game?.id === id, "credit history: -0.1, Change on Fast, on this game");
+    const full = (await api(FREE, "GET", `/projects/${id}`)).body;
+    ok(full.versions.length === 1 && full.currentVersion === 1 && full.messages.length === 4, "the project: one version, four messages");
+    ok(full.messages.at(-2).text === "Add 10 new levels and flying traps TOOBIG CHECKUSD:0.003" && full.messages.at(-1).id === big.messageId && full.messages.at(-1).credits === 0.1, "the chat: the message, then the answer with its credits");
+
+    const fit = await change(FREE, id, s, "Add coins CHECKUSD:0.06", "fast");
+    ok(fit.end.type === "done" && fit.end.version?.n === 2, "a change that fits Fast builds as before: version 2");
+    ok(fit.end.message.credits === creditsForUsd(0.1 + 0.06) && fit.end.message.credits === 2.7, "its charge has the check's cost in it: $0.10 + $0.06 -> 2.7 credits (1.7 without)");
+    ok(Math.abs((await row(fit.messageId)).cost - 0.2) < 1e-9, "database: $0.20 (the work and the check)");
+  } finally {
+    s.close();
+  }
+
+  console.log("  Medium: the bigger AI, one tap away");
+  await api(PAID, "GET", "/me");
+  ok(admin("plan", emailOf(PAID), "medium").status === 0 && admin("grant", emailOf(PAID), "40").status === 0, "a maker on Medium + 40 credits");
+  const pm = await api(PAID, "POST", "/projects", { prompt: "A frog that hops CHECKUSD:0.06", model: "fast" });
+  const pid = pm.body?.id;
+  if (!pid) return ok(false, `the Medium maker's game starts (${pm.status})`);
+  projects.push(pid);
+  const ps = await openEvents(PAID, pid);
+  try {
+    const v1 = await ps.until(finished);
+    ok(v1.type === "done" && v1.message.credits === 2.7, "a new game's genre call is in its charge: $0.10 + $0.06 -> 2.7 credits");
+    const fast = await change(PAID, pid, ps, "Add 10 new levels and flying traps TOOBIG", "fast");
+    ok(fast.end.type === "done" && fast.end.version === null && fast.end.message.credits === 0.1, "too big for Fast: stopped, 0.1 credits (the minimum)");
+    ok(fast.end.message.biggerModel === "smart" && /or pick Smart/.test(fast.end.message.text), "the answer offers Smart, and so does its one tap (biggerModel smart)");
+    const smart = await change(PAID, pid, ps, "Add 10 new levels and flying traps TOOBIG", "smart");
+    ok(smart.end.type === "done" && smart.end.version === null && smart.end.message.biggerModel === "best" && /or pick Best/.test(smart.end.message.text), "too big for Smart: stopped, offers Best");
+    const best = await change(PAID, pid, ps, "Add 10 new levels and flying traps TOOBIG CHECKUSD:0.06", "best");
+    ok(best.end.type === "done" && best.end.version?.n === 2 && best.end.message.credits === 1.7, "Best makes no check: built, 1.7 credits (no check's cost)");
+    ok(best.end.message.biggerModel === undefined && Math.abs((await row(best.messageId)).cost - 0.14) < 1e-9, "database: $0.14, the work alone");
+    ok((await api(PAID, "GET", `/projects/${pid}`)).body.versions.length === 2, "two versions: the stops made none");
+  } finally {
+    ps.close();
+  }
+}
+
 async function main() {
   console.log(`e2e against ${API}`);
   // Never against a real server: a run would burn the agent, and cleanup deletes users under it.
@@ -1889,6 +1975,7 @@ async function main() {
   await badgeChecks();
   await platformChecks();
   await pickChecks(db);
+  await sizeChecks(db);
   await securityChecks();
 
   // The Supabase sign-in record: the API deletes it with this statement (account.service.ts). Real

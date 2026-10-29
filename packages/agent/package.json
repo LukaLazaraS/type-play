@@ -4,7 +4,7 @@
   "type": "module",
   "description": "The game agent: builds and edits Godot games from a player's request",
   "scripts": {
-    "check": "node --check run.mjs && node --check tools/check.mjs && node --check tools/gallery.mjs && node --check tools/assets.mjs && node tests/thinking.mjs && node tests/cpu.mjs && node tests/tags.mjs",
+    "check": "node --check run.mjs && node --check tools/check.mjs && node --check tools/gallery.mjs && node --check tools/assets.mjs && node --check tools/size-check.mjs && node tests/thinking.mjs && node tests/size-check.mjs && node tests/cpu.mjs && node tests/tags.mjs",
     "gallery": "node tools/gallery.mjs"
   },
   "dependencies": {

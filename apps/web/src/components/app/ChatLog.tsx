@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Play, Plus } from "@phosphor-icons/react";
+import { ArrowClockwise, Play, Plus } from "@phosphor-icons/react";
 import type { Message, ModelChoice, QueuePlace } from "@typeplay/shared";
 import { Chip } from "@/components/ui/Chip";
 import { Pressable } from "@/components/ui/Pressable";
@@ -22,8 +22,10 @@ export function ChatLog({
   queue,
   now,
   currentVersion,
+  models,
   onPlay,
   onSuggest,
+  onBigger,
 }: {
   messages: Message[];
   live: LiveLine;
@@ -36,6 +38,10 @@ export function ChatLog({
   onPlay: () => void;
   /** A next-step idea was tapped: it goes into the box, to send or change first. */
   onSuggest: (text: string) => void;
+  /** The AIs the player's plan has: a stop's one tap shows only when its bigger AI is one of them. */
+  models: ModelChoice[];
+  /** A stop's one tap (a change too big for its AI): the same message back in the box, the bigger AI picked; never sent. */
+  onBigger: (text: string, model: ModelChoice) => void;
 }) {
   // The newest answer's ideas for the next change, while its version is the one playing (a restore hides them): up to
   // 9, best first. Three show; "More ideas" adds the other six under them (the first three stay where they were, so
@@ -46,6 +52,10 @@ export function ChatLog({
   const allShown = !!last && opened === last.id;
   const ideas = allShown ? all : all.slice(0, IDEAS_SHOWN);
   const more = !allShown && all.length > IDEAS_SHOWN;
+  // The newest answer stopped a change too big for its AI (the size check, Message.biggerModel): one tap, on the player's
+  // side like the ideas, puts the message they sent back in the box with the bigger AI picked.
+  const asked = messages.at(-2);
+  const bigger = last?.role === "agent" && last.status === "done" && last.biggerModel && models.includes(last.biggerModel) && asked?.role === "user" ? last.biggerModel : null;
   const list = useRef<HTMLOListElement>(null);
   const stick = useRef(true); // follow new messages while the reader is at the bottom
 
@@ -91,6 +101,15 @@ export function ChatLog({
             onPlay={onPlay}
           />
         ),
+      )}
+      {bigger && (
+        <li key={`bigger-${last!.id}`} className="ideas">
+          <div className="ideas__list">
+            <Chip icon={<ArrowClockwise size={15} weight="bold" aria-hidden="true" />} onClick={() => onBigger(asked!.text, bigger)}>
+              Use {modelName[bigger]} for this
+            </Chip>
+          </div>
+        </li>
       )}
       {ideas.length > 0 && (
         <li key={`ideas-${last!.id}`} className="ideas">

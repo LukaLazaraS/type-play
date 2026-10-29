@@ -13,13 +13,17 @@
 //          --steps 1|2|3 (new games: 2 = core, then polish; 3 = core with one level, then the
 //          content, then polish; each a short fresh session. Default on Haiku: 3 for a big
 //          request, else 2, sized by the same cheap call that picks the genre; else 1)
+//          --bigger sonnet|opus|none (a change on haiku or sonnet: the next AI up the player's plan has, offered when the
+//          size check stops a request too big for the picked one, tools/size-check.mjs; default: the next one up)
 //          --budget <usd> (tests only: overrides the safety cap below; the server never passes it)
 //          --dir <path> (the game folder instead of output/<game>; --game is then optional)
 //          --events (also print `@@event <json>` lines: started, progress in plain words (also
 //          "Planning your change…" while the model thinks, tools/thinking.mjs), result;
 //          read by the server, apps/server. The result carries costUsd = every attempt, and
 //          chargeUsd = only the attempts in the game the player gets: what they are charged; and
-//          the chat's 9 next-step ideas, tools/next-steps.mjs, whose cost the server adds to the charge)
+//          the chat's 9 next-step ideas, tools/next-steps.mjs, whose cost the server adds to the charge, as it adds the
+//          genre call's (classifyCostUsd) and the size check's (sizeCheckCostUsd); a change the size check stopped
+//          ends with tooBig: true, the game untouched, and the check's message as the answer)
 // Each game folder is its own git repo: every successful run is a commit, a failed one is
 // rolled back, so a change can never leave the game broken.
 // Auth: no ANTHROPIC_API_KEY → the Claude Code login on this PC (Luka's Max). AGENT_AUTH=api
@@ -31,6 +35,7 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { thinkingLine } from './tools/thinking.mjs';
 import { nextSteps } from './tools/next-steps.mjs';
+import { BIGGER, NAMES, SIZED, sizeCheck } from './tools/size-check.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MODELS = { opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5-5', haiku: 'claude-haiku-5-5' };
@@ -84,6 +89,9 @@ const DISPLAY = {
   computer: { 'size/viewport_width': 1152, 'size/viewport_height': 648, 'handheld/orientation': 0 },
   fill: { 'size/viewport_width': 720, 'size/viewport_height': 720, 'stretch/aspect': '"expand"', 'handheld/orientation': 6 },
 };
+// The AI a size-check stop offers instead (none: the plan has no bigger one, as on Free).
+const bigger = opt('bigger', BIGGER[modelKey] ?? 'none');
+if (!['sonnet', 'opus', 'none'].includes(bigger)) { console.error('--bigger: sonnet | opus | none'); process.exit(2); }
 if (process.env.ANTHROPIC_API_KEY && process.env.AGENT_AUTH !== 'api') {
   console.error('ANTHROPIC_API_KEY is set: unset it to run on Max, or set AGENT_AUTH=api.');
   process.exit(2);
@@ -152,17 +160,17 @@ const GENRES = readdirSync(join(HERE, 'genres')).filter((g) => existsSync(join(H
 // What each genre covers, from its skill's heading ("## Genre: puzzle (grid puzzles: …)").
 const genreHint = (g) => readFileSync(join(HERE, 'genres', g, 'GENRE.md'), 'utf8').match(/^## Genre: (.*)$/m)?.[1] ?? g;
 async function classify(request) {
-  let answer = '';
+  let answer = '', costUsd = 0;
   for await (const m of query({
     prompt: `A player asked for this game:\n"${request}"\n\nGenres:\n${GENRES.map((g) => `- ${g}: ${genreHint(g)}`).join('\n')}\n- none: anything else\n\n`
       + 'Size: "big" only if the request itself asks for several levels or a level map, or lists 4 or more separate features (such as several tower or piece types, upgrades, specials, saving progress, a shop, menus); otherwise "small", also for a short request in a complex genre.\n\n'
       + 'Answer with exactly two words: the genre, then the size. Example: "puzzle small".',
     options: { ...ISOLATED, model: MODELS.haiku, effort: 'low', tools: [], maxTurns: 1, systemPrompt: 'You classify game requests. Answer with two words.' },
   })) {
-    if (m.type === 'result') answer = (m.result || '').trim().toLowerCase();
+    if (m.type === 'result') { answer = (m.result || '').trim().toLowerCase(); costUsd = m.total_cost_usd ?? 0; }
   }
   const flat = answer.replace(/defense/g, 'defence').replace(/[^a-z]/g, '');
-  return { genre: GENRES.find((g) => flat.includes(g)) || 'none', size: /\bbig\b/.test(answer) ? 'big' : 'small', answer };
+  return { genre: GENRES.find((g) => flat.includes(g)) || 'none', size: /\bbig\b/.test(answer) ? 'big' : 'small', answer, costUsd };
 }
 const genreFile = join(dir, 'GENRE');
 let genre = opt('genre', 'auto');
@@ -170,6 +178,7 @@ let genre = opt('genre', 'auto');
 // helps, as the request wins over it.
 const pickedGenre = !isEdit && !['auto', 'none'].includes(genre);
 let size = 'small';
+let classifyCostUsd = 0; // part of the charge, like every AI call the player causes
 const route = modelKey === 'auto' ? 'haiku' : modelKey;
 if (isEdit) genre = existsSync(genreFile) ? readFileSync(genreFile, 'utf8').trim() : 'none';
 else {
@@ -178,7 +187,8 @@ else {
     const c = await classify(prompt);
     if (genre === 'auto') genre = c.genre;
     size = c.size;
-    console.log(`classified: "${c.answer}"`);
+    classifyCostUsd = c.costUsd;
+    console.log(`classified: "${c.answer}" ($${c.costUsd.toFixed(4)})`);
   }
   writeFileSync(genreFile, genre + '\n');
 }
@@ -187,6 +197,41 @@ if (genre !== 'none') console.log(`genre skill: ${genre}`);
 const tagsFile = join(dir, 'TAGS');
 const tags = isEdit ? (existsSync(tagsFile) ? readFileSync(tagsFile, 'utf8').split(/\s+/).filter((t) => TAGS.includes(t)) : []) : pickedTags;
 if (tags.length) console.log(`tags: ${tags.join(', ')}`);
+
+// The run's record: runs.jsonl (AGENT_LOG_DIR: on the live server this package is read-only; the runner collects the
+// file) and the result event the server reads.
+const report = (record, refused = false) => {
+  appendFileSync(join(process.env.AGENT_LOG_DIR || HERE, 'runs.jsonl'), JSON.stringify(record) + '\n');
+  emit({ type: 'result', ...record, refused });
+};
+const recordBase = () => ({
+  date: new Date().toISOString(), game, kind: isEdit ? 'edit' : 'new', prompt, route: modelKey === 'auto' ? `auto→${route}` : route,
+  genre, tags, size, platform, playtest, slim,
+});
+
+// The size check (tools/size-check.mjs): a change on Fast or Smart too big for it stops here, before anything in the
+// game folder changes; Best (and the CLI's auto, which moves to Sonnet itself) is not checked.
+let sized = null;
+if (isEdit && SIZED.includes(modelKey)) {
+  sized = await sizeCheck({
+    request: prompt, key: modelKey, bigger: bigger === 'none' ? null : bigger, query,
+    options: { ...ISOLATED, model: MODELS.haiku, effort: 'low', tools: [], maxTurns: 1 },
+  });
+  console.log(`size check for ${NAMES[modelKey]}: ${sized.fits ? 'fits' : 'too big'} (${sized.jobs.map((j) => `${j.kind}: ${j.what}`).join(' | ') || 'no jobs read'}), $${sized.costUsd.toFixed(4)}`);
+}
+const sizeCheckCostUsd = sized?.costUsd ?? 0;
+const sizeRecord = sized && { fits: sized.fits, jobs: sized.jobs.map((j) => `${j.kind}: ${j.what}`) };
+if (sized && !sized.fits) {
+  // Nothing was built: no attempts, no rewrite, no ideas. The player is charged the check alone (the server).
+  report({
+    ...recordBase(), steps: 0, ok: false, tooBig: true, bigger, playerMessage: sized.reply, messageCostUsd: 0, suggestions: [], suggestionsCostUsd: 0,
+    classifyCostUsd: 0, sizeCheckCostUsd: +sizeCheckCostUsd.toFixed(4), sizeCheck: sizeRecord, costUsd: 0, chargeUsd: 0, minutes: 0, attempts: [],
+  });
+  console.log(`\n--- shown to the player ---\n${sized.reply}\n`);
+  console.log(`--- STOPPED, too big for ${NAMES[modelKey]}: the game is unchanged; the check cost ~$${sizeCheckCostUsd.toFixed(4)}`);
+  await new Promise((done) => process.stdout.write('', done)); // the result line out through the pipe first
+  process.exit(0);
+}
 
 // Every game gets the current feature-test helper on every run (older games and forks may
 // predate it or carry an older version; the agent is told not to change it).
@@ -262,7 +307,7 @@ async function attempt(key, { request = prompt, extra = '', label = '' } = {}) {
   // The model's silent thinking (10-13 min on a big Opus build, 40-80 s in a Haiku edit) is only a
   // stream of `thinking_tokens` events, so the progress line would sit on the last tool's words and the
   // chat would look stuck: tools/thinking.mjs words it ("Planning your game…", then "Still planning…").
-  const thinking = { since: 0, planFrom: undefined };
+  const thinking = { since: 0 };
   try {
   for await (const msg of query({
     prompt: request,
@@ -383,23 +428,21 @@ const [message, next] = await Promise.all([
 ]);
 
 // costUsd is the agent's work only (every attempt, for our own accounting); the player-message
-// rewrite (messageCostUsd) and the next-step ideas (suggestionsCostUsd) are kept apart, and the
-// server adds both to the charge (Luka, 10-24: every AI cost a player causes is theirs). chargeUsd is
-// the agent's part of it: only the attempts that are in the game they receive (a step or a Haiku try
-// that failed the check and was rolled back costs them nothing, as docs/pricing.md promises); 0 when
-// the run failed.
+// rewrite (messageCostUsd), the next-step ideas (suggestionsCostUsd), the genre call (classifyCostUsd)
+// and the size check (sizeCheckCostUsd) are kept apart, and the server adds them to the charge (Luka,
+// 10-24: every AI cost a player causes is theirs). chargeUsd is the agent's part of it: only the attempts
+// that are in the game they receive (a step or a Haiku try that failed the check and was rolled back costs
+// them nothing, as docs/pricing.md promises); 0 when the run failed.
 const record = {
-  date: new Date().toISOString(), game, kind: isEdit ? 'edit' : 'new', prompt, route: modelKey === 'auto' ? `auto→${route}` : route,
-  genre, tags, size, steps, platform, playtest, slim, ok: final.ok, playerMessage: message.text, messageCostUsd: +message.costUsd.toFixed(4),
+  ...recordBase(), steps, ok: final.ok, playerMessage: message.text, messageCostUsd: +message.costUsd.toFixed(4),
   suggestions: next.list, suggestionsCostUsd: +next.costUsd.toFixed(4),
+  classifyCostUsd: +classifyCostUsd.toFixed(4), sizeCheckCostUsd: +sizeCheckCostUsd.toFixed(4), sizeCheck: sizeRecord,
   costUsd: +attempts.reduce((s, a) => s + a.costUsd, 0).toFixed(3),
   chargeUsd: final.ok ? +attempts.filter((a) => a.ok).reduce((s, a) => s + a.costUsd, 0).toFixed(3) : 0,
   minutes: +attempts.reduce((s, a) => s + a.minutes, 0).toFixed(1),
   attempts: attempts.map(({ reply, checkOutput, ...a }) => a),
 };
-// AGENT_LOG_DIR: on the live server this package is read-only; the runner collects the file.
-appendFileSync(join(process.env.AGENT_LOG_DIR || HERE, 'runs.jsonl'), JSON.stringify(record) + '\n');
-emit({ type: 'result', ...record, refused: !record.ok && attempts.some((a) => a.refused) });
+report(record, !record.ok && attempts.some((a) => a.refused));
 
 console.log(`\n--- agent's own reply ---\n${final.reply || '(none)'}\n`);
 console.log(`--- shown to the player ($${message.costUsd.toFixed(4)}) ---\n${message.text || '(none)'}\n`);

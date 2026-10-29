@@ -41,8 +41,9 @@ type Props = {
   backTo: string;
   onSend: (text: string, model: ModelChoice, effort: Effort, confirm: boolean) => Promise<void>;
   onStop: () => Promise<void>;
-  /** A tapped next-step idea (`n` counts the taps, so each tap lands once): added to the box (withIdea), focused. */
-  prefill?: { text: string; n: number } | null;
+  /** A tapped next-step idea (`n` counts the taps, so each tap lands once): added to the box (withIdea), focused. With
+   * `model` (a stop's one tap: a change too big for its AI) the box holds just that text again, on that AI. */
+  prefill?: { text: string; n: number; model?: ModelChoice } | null;
 };
 
 /**
@@ -85,7 +86,11 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
   const [took, setTook] = useState(0);
   if (prefill && prefill.n !== took) {
     setTook(prefill.n);
-    setText(withIdea(text, prefill.text));
+    setText(prefill.model ? prefill.text : withIdea(text, prefill.text));
+    if (prefill.model) {
+      setPicked(prefill.model);
+      setExplain("model");
+    }
     setError(null);
     setAsk(null);
   }

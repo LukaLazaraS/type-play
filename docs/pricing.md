@@ -47,6 +47,10 @@ number (Rork, a0.dev, Base44, Emergent all sell exactly that).
   **25 credits** on a paid plan (3 on Free) stops and asks first.
 - A build the model refuses costs nothing; a build that fails our check is retried free, and if
   it still fails its credits come back automatically.
+- **The size check** (10-29): before a change on Fast or Smart is built, one cheap Haiku call (~$0.0003-0.001)
+  judges whether it fits that AI (Fast: one change; Smart: a few, or one new feature). It is part of the
+  message's charge, like the reply rewrite and the next-step ideas. Too big: nothing is built, and the answer says
+  what to send instead (or the bigger AI, when the plan has it), charged as any answer: 0.1 credit. Best is not checked.
 
 Typical cost of one message (measured, `packages/agent/RESULTS.md`; Smart edit is an estimate):
 
