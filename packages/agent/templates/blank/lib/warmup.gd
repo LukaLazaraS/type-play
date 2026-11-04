@@ -15,6 +15,7 @@
 # floating numbers, title, game over). Labels and buttons in `things` show every letter and digit once.
 extends RefCounted
 
+const Looks = preload("res://lib/looks.gd")
 const LETTERS := "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz +-x×/%!?:.,'\"()★♥"
 
 ## Draws each thing once, for a few frames, then frees them. Await it before play can start.
@@ -57,6 +58,15 @@ static func run(host: Node, things: Array = [], font_sizes: Array = [], frames: 
 	var basic := Label.new()
 	basic.text = LETTERS
 	box.add_child(basic)
+	# The shared looks' one-time copy (lib/looks.gd): a game that bakes a picture later (a level's map, a screen
+	# shown only in play) would otherwise compile it then. A 2-px dot in the corner, behind everything.
+	var copy := ColorRect.new()
+	copy.size = Vector2(2, 2)
+	copy.position = view.position - centre
+	var copy_mat := ShaderMaterial.new()
+	copy_mat.shader = Looks._straight_alpha()
+	copy.material = copy_mat
+	box.add_child(copy)
 	for t in things:
 		var n: Node = _as_node(t)
 		if n == null:

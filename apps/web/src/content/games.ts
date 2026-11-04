@@ -59,7 +59,10 @@ export const games: Game[] = [
     edits: ["The +1 popups that float up when I drop a block are really hard to see against the sky. Please make them easier to read."],
   },
   {
-    slug: "show-td-polished",
+    // The 11-04 night's fix of show-td-polished (maps 2-3 showed map 1's road; 15x less game code a frame and 2,576 → 389
+    // draw calls at its busiest moment, docs/overnight/2026-11-04.md). Live once the build is on typeplay.dev
+    // (node deploy/deploy.mjs games) and the site is deployed; the old build stays there.
+    slug: "show-td-polished-v2",
     name: "Gingerbread Guard",
     prompt:
       "Make a tower defence game where I protect a gingerbread castle from waves of hungry ants and beetles. I want 3 different maps, 5 candy towers that I can upgrade, money for every kill, and a giant boss wave at the end of each map.",
@@ -76,7 +79,8 @@ export const games: Game[] = [
     ],
   },
   {
-    slug: "show-match3-polished",
+    // 11-04 night: the garden and the flowers baked into pictures (1,731 → 117 draw calls a frame in play).
+    slug: "show-match3-polished-v2",
     name: "Petal Pop",
     prompt:
       "Make a match-3 game in a magical flower garden with a level map that winds through the garden. Each level has a different goal, like collecting flowers, breaking ice or reaching a score, with special pieces from big matches and up to 3 stars per level.",
@@ -93,7 +97,8 @@ export const games: Game[] = [
     ],
   },
   {
-    slug: "show-runner-polished",
+    // 11-04 night: the sky and skylines baked (492 → 314 draw calls a frame), no shader compiled after the first tap.
+    slug: "show-runner-polished-v2",
     name: "Rooftop Ninja",
     prompt:
       "Make an endless runner where a ninja cat runs across city rooftops at night, collecting fish and power-ups like a magnet and a shield. The obstacles should change as I go, from chimneys and gaps to crows and drones, it should speed up, and I want to beat my best score.",
@@ -106,7 +111,8 @@ export const games: Game[] = [
     edits: ["The ninja cat is hard to see against the dark rooftops. Please make it stand out more."],
   },
   {
-    slug: "show-3d-polished",
+    // 11-04 night: a lit checkpoint no longer compiles a shader in play (a freeze of up to 3.5 s), effects warmed up.
+    slug: "show-3d-polished-v2",
     name: "Sky Hopper",
     prompt:
       "Make a 3D platform game where a cute little character runs and jumps across floating islands and moving platforms, collects coins and stars, and dodges spikes and spinning saws. There are 3 levels, a green meadow, a snowy mountain and a night level, each ending at a flag, and falling off puts me back at the last checkpoint.",

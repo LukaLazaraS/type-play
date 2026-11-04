@@ -354,7 +354,9 @@ if (freeze) {
   }
 }
 
-if (browserPerf) {
+if (browserPerf && typeof browserPerf.draw_calls !== 'number') {
+  notes.push('[speed] the stress test ran in the browser with an older test/helpers.gd, so its draw calls were not counted (the next run gets the current one)');
+} else if (browserPerf) {
   perfLines.push(`busiest moment drawn in a browser ("${browserPerf.label}"): ${browserPerf.draw_calls} draw calls a frame (most ${browserPerf.draw_calls_max}; budget ${DRAW_CALLS_BUSIEST})`);
   if (browserPerf.draw_calls > DRAW_CALLS_BUSIEST) {
     const msg = `[speed] at the busiest moment ("${browserPerf.label}") the screen takes ${browserPerf.draw_calls} draw calls a frame (budget ${DRAW_CALLS_BUSIEST}): every circle, polygon, line and outline on screen is a separate job for the browser in every frame, even when drawn once, and so is every switch between a sprite and a drawn shape. Show repeated looks (enemies, towers, bullets, props) and bars as sprites of one shared picture (lib/looks.gd: sprite(), rect()) and bake scenery or a board with many shapes into one picture (Looks.bake_one) ("Fast games")`;
