@@ -657,6 +657,54 @@ gap (what you play, the goal, the controls, the look's direction). Competitors a
   FAKE.md.
 - Tests: the e2e's "questions before a build" section; `packages/agent/tests/questions.mjs` (the answer's parsing, no
   model call) and `tests/questions-eval.mjs` (real calls on this PC); the screens: `apps/web/scripts/shot-questions.mjs`.
+## The Assets tab (2026-11-04)
+
+Every picture, 3D model, sound and font a game's version uses, for its owner (`docs/design/assets.md`; the site's side:
+`apps/web/README.md` "Assets"). Code: `src/assets/` (`importer.ts` makes a version's list, `names.ts` plain names,
+`glb.ts` the model re-pack, `media.ts` sounds and fonts by content, `store.ts` the files, `assets.service.ts`,
+`assets.controller.ts`).
+
+- **Made once per version.** When a version is published (`runs.service.ts` `succeed`, after its transaction, before the
+  player hears it is done; it never fails the build), the API lists the game folder's files itself: pictures (png, jpg,
+  webp, svg, bmp, tga), models (glb, gltf, fbx, obj, dae, blend), sounds (wav, ogg, mp3), fonts (ttf, otf, woff, woff2);
+  `test/` and `addons/` aren't the game's; a model's textures, buffers and material files belong to the model and aren't
+  listed. Where each is used: the scripts and scenes that name it ("Used in Player, World", from their file names; a
+  script that only makes it, as an art.gd that draws every look or a sfx.gd that fills the sounds, is left out when others
+  use it). Origins from `assets/CREDITS.md` (the library's copy writes it: "Car Kit by Kenney (www.kenney.nl), CC0 1.0").
+- **What the game makes in code** comes from the build's capture (`packages/agent/tools/capture.mjs`, run by run.mjs in
+  the runner job after the last good commit): `export/assets/captured.json` with each look of lib/looks.gd as a PNG (an
+  animated one also as a sprite sheet), each sound made in code as a WAV, and a still of each model. It is taken only
+  when its `commit` is the version's (a stale capture is ignored), and read field by field (file names only of the form
+  `looks/<n>.png`, `sounds/<n>.wav`, `stills/<n>.png`).
+- **Nothing the agent wrote is trusted:** files are read with the download's folder rules (`games/files.ts`: no symlinks
+  out, size caps: a picture 20 MB, a model 50 MB, a sound 30 MB, a font 10 MB, a captured picture 16 MB); every picture is
+  decoded and encoded again by sharp (nothing but its pixels survives; at most 64 megapixels, 2048 px kept (a sprite sheet's frames may run wider), two at a time,
+  shared with the pictures' work); a glTF model is re-packed as one self-contained .glb (`glb.ts`: its JSON parsed and
+  written again, buffers and textures read only through the folder's rules and put inside, textures only PNG, JPEG or
+  WebP, no extension that needs a decoder the browser would download: Draco, meshopt, Basis), else it is not turnable;
+  sounds and fonts are checked by their first bytes. A version lists at most 500 assets and 200 MB. A WAV sound also gets
+  its shape (`peaks`: 40 bars, `media.ts` `wavPeaks`) for its tile; a picture drawn in light colours only on a see-through
+  ground (stars, glows: even its darkest tenth is light) is marked `light`, and the site shows it on ink; the list is in kind order (pictures, models, sounds,
+  fonts), each kind in the order found.
+- **Where they live:** `DATA_DIR/assets/<project>/blobs/<sha256>` (each file once per game, however many versions use it)
+  and `DATA_DIR/assets/<project>/builds/<build>.json` (the list; builds are immutable, a restore shares its build's list).
+  Folders 0700, files 0600. No database table, no migration. Deleted with the game (`removeGame`) and so with the account.
+- **Routes** (owner only, 404 for anyone else and for a build that is none of the game's versions; `Cache-Control:
+  private, no-store`, `nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`): `GET
+  /projects/:id/assets/:buildId` (`GameAssets`), `…/:assetId` (the asset as Download saves it, `Content-Disposition:
+  attachment` with a name from the asset's), `…/:assetId/picture` (a picture, a look's first frame, a model's still),
+  `…/:assetId/thumb` (WebP, 320 px).
+- **Older versions:** a version made before the tab has no list. The current one is listed from its files at the first
+  ask (`source: "files"`: no art drawn in code, no sounds made in code; 409 busy while a build changes the folder); an older
+  one answers `source: "none"` (its files are only in its git history, which this process doesn't read on the live server:
+  the runner owns git). The next change lists everything.
+- **Fake runs:** `ASSETS` (a 2D game: four looks, one with 4 frames, two sounds made in code, a picture, a sound and a
+  font), `ASSETS3D` (a library model with its texture beside it and a still, a .gltf with an outside .bin, a picture, 16 s
+  of music), `NOCAPTURE` (no capture); any other prompt leaves an empty capture (nothing to list). `src/runs/fake-assets.ts`.
+- Tests: `npm run test:assets -w @typeplay/server` (no database: names, the re-pack, sounds and fonts, a game folder with
+  a capture; 45 checks) and `npm run test:assets:e2e -w @typeplay/server` (its own API and database: each kind, the
+  headers, owner only, a restore, an older version, deleted with the game). The site's walk-through:
+  `apps/web/scripts/shot-assets.mjs`.
 
 ## How a message runs
 
@@ -837,7 +885,8 @@ restart that keeps the line.
   migrations `prisma/migrations/` (`npm run migrate -w @typeplay/server`; `20261020000000_billing` applied to the dev database 10-20).
 - `data/projects/<id>/`: the game, a git repo (a commit per successful run). `data/logs/`: run output.
   `data/attachments/<shard>/`: the pictures players attach (three files each; "Pictures with a message" above);
-  `data/run-images/<messageId>/`: a run's pictures on this PC while it lasts.
+  `data/run-images/<messageId>/`: a run's pictures on this PC while it lasts. `data/assets/<id>/`: the game's asset lists
+  and their files ("The Assets tab" above).
 - **Disk:** a game folder is its files plus its git history (KB to a few MB for 2D games, more with 3D
   models); the engine files are removed after each publish (above). Nothing frees `.git/` objects of a
   run that was rolled back; a game is only ever freed by deleting it. The runner fails an agent job

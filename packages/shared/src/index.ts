@@ -299,6 +299,62 @@ export interface Attachment {
   bytes: number;
 }
 
+/** What an asset is (2026-11-04, the game page's Assets tab; docs/design/assets.md). */
+export type AssetKind = "picture" | "model" | "sound" | "font";
+
+/**
+ * One asset a version of a game uses (GET /projects/:id/assets/:buildId): a picture (a picture file, or a look the AI
+ * drew in code), a 3D model, a sound (a file, or one the AI made in code) or a font.
+ */
+export interface GameAsset {
+  /** The same for the same file or look in every version of the game; unique in its list. */
+  id: string;
+  kind: AssetKind;
+  /** Its plain name: the name the AI gave a look, else made from its name in the code or its file's name ("Saw tower"). */
+  name: string;
+  /** code: drawn (a sound: made) in code by the AI; file: a file in the game; library: a file from TypePlay's free 3D
+   * library (`credit` says whose). */
+  made: "code" | "file" | "library";
+  /** The parts of the game that use it, in plain words from their file names ("Enemy", "Main"); [] when none was found. */
+  where: string[];
+  /** A file: its path in the game ("assets/car-kit/sedan.glb"). */
+  file?: string;
+  /** Made in code: its name in the code (a look's key, "tb_saw_2"; a sound's, "jump"). */
+  key?: string;
+  /** Who made it and its licence, from the game's assets/CREDITS.md ("Car Kit by Kenney (www.kenney.nl), CC0 1.0"). */
+  credit?: string;
+  /** Pictures drawn mostly in light colours on a see-through ground (stars, glows): shown on ink, where they can be seen. */
+  light?: boolean;
+  /** Pictures: the size in pixels (an animated look: one frame's) and, for an animated look, how many frames. */
+  width?: number;
+  height?: number;
+  frames?: number;
+  /** Sounds: how long, in seconds. */
+  seconds?: number;
+  /** A WAV sound's shape: 40 bars from 0 to 1 (its loudest), for its tile and its player. Missing for other formats. */
+  peaks?: number[];
+  /** What GET …/:assetId sends (Download): its size in bytes and its format: "png", "jpg", "webp", "glb", "gltf", "fbx",
+   * "obj", "wav", "ogg", "mp3", "ttf", "otf", "woff", "woff2"… */
+  bytes: number;
+  format: string;
+  /** GET …/picture and …/thumb answer: always for pictures, for a model when it has a still. */
+  picture: boolean;
+  /** A model GET …/:assetId sends as one self-contained .glb that the site can turn; false: only its still and file. */
+  turnable?: boolean;
+}
+
+/** GET /projects/:id/assets/:buildId (2026-11-04). */
+export interface GameAssets {
+  buildId: string;
+  /**
+   * build: listed when the version was built (the art drawn in code and the sounds made in code included);
+   * files: only the game's files could be listed (a version made before the Assets tab, or one whose capture failed);
+   * none: nothing can be listed (an older version made before the Assets tab).
+   */
+  source: "build" | "files" | "none";
+  assets: GameAsset[];
+}
+
 export interface Version {
   /** 1, 2, 3 … in order; restoring an old version creates a new, higher one. */
   n: number;
@@ -884,6 +940,21 @@ export interface FeedbackBody {
 // GET    /me                      `askFirst`
 // GET    /me/usage                a questions answer's line says "Questions before a new game on Fast" (or a change)
 // GET    /me/events               a notice of kind "asked" when the AI asks
+// Added 2026-11-04 (the Assets tab: every picture, 3D model, sound and font a version uses; docs/design/assets.md). Owner
+// only: 404 for anyone else, and for a build that is none of the game's versions. Cache-Control: private, no-store.
+// GET /projects/:id/assets/:buildId                  -> GameAssets   (a version built since the tab: listed at build time;
+//                                                      the current version of a game made before it: its files, listed at
+//                                                      the first ask (409 busy while the game is being built); an older
+//                                                      one: source "none")
+// GET /projects/:id/assets/:buildId/:assetId         -> the asset, as Download saves it (Content-Disposition: attachment with
+//                                                      a file name): a picture file as it is, a look as PNG (an animated one
+//                                                      as its sprite sheet, frames left to right), a model as one .glb with
+//                                                      its textures inside (when turnable; else its file), a sound or a font
+//                                                      as its file (a sound made in code as WAV)
+// GET /projects/:id/assets/:buildId/:assetId/picture -> image/png|jpeg|webp: a picture whole, a look's first frame, a model's
+//                                                      still (404 for sounds and fonts)
+// GET /projects/:id/assets/:buildId/:assetId/thumb   -> image/webp, at most 320 px (the same rule)
+// Deleting the game, or the account, deletes them.
 
 export type ApiErrorCode =
   | "unauthorized" // no or bad token

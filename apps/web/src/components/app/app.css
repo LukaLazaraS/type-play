@@ -2477,7 +2477,8 @@ body:has(.ws) .ground-band {
     background: var(--hot);
   }
   .ws[data-tab="chat"] .ws__play,
-  .ws[data-tab="play"] .ws__chat {
+  .ws[data-tab="play"] .ws__chat,
+  .ws[data-tab="assets"] .ws__chat {
     display: none;
   }
   .ws__chat,
@@ -5548,4 +5549,504 @@ body:has(main.explore) > .ground-band {
   position: fixed;
   top: max(12px, env(safe-area-inset-top));
   right: max(12px, env(safe-area-inset-right));
+}
+
+/* The Assets tab (2026-11-04; components/app/Assets.tsx and AssetViewer.tsx, ui/AssetTile.tsx and ModelView.tsx; words in
+   content/app.ts `assets`; docs/design/assets.md): every picture, 3D model, sound and font of the game's current version,
+   on the ink stage in place of the game. On a computer the game's bar starts with a Play / Assets switch (the phone's tab
+   bar in Ink Recess, as everything recessed on ink is); on a phone the page's tabs gain Assets. */
+.stage__switch {
+  flex: none;
+}
+.stage__switch .pillbar__item {
+  position: relative;
+  padding: 0 16px;
+}
+.stage__dot {
+  position: absolute;
+  top: 9px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--hot);
+}
+.stage__screen[hidden] {
+  display: none;
+}
+@media (max-width: 959px) {
+  .stage__switch {
+    display: none;
+  }
+}
+/* A pill bar, the kinds' pills and a search box on ink: Ink Recess, ink when pressed. */
+.pillbar--recess {
+  background: var(--ink-2);
+}
+.pillbar--recess .pillbar__item:not([aria-selected="true"], [aria-checked="true"]):active {
+  background: var(--ink);
+}
+.pillbar--apart.pillbar--recess {
+  background: none;
+}
+.pillbar--apart.pillbar--recess .pillbar__item {
+  background: var(--ink-2);
+}
+.pillbar--apart.pillbar--recess .pillbar__item[aria-checked="true"] {
+  background: var(--paper);
+}
+.searchfield--recess {
+  background: var(--ink-2);
+}
+
+/* The list: chips by kind with their counts and a search box over the grid; the grid scrolls inside the stage. */
+.assets[hidden] {
+  display: none;
+}
+.assets {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  padding: 4px 28px 28px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.assets__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+.assets__kinds {
+  flex: 1 1 auto;
+}
+.assets__kinds .pillbar__item {
+  gap: 7px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+.assets__count {
+  font-size: 11px;
+  opacity: 0.75;
+}
+.assets__search {
+  flex: 0 1 300px;
+  min-height: 44px;
+}
+.assets__note {
+  max-width: 68ch;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--on-sky-muted);
+}
+.assets__lead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 14px;
+  max-width: 42ch;
+  margin: auto;
+  padding: 32px 0;
+  font-size: 15px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--on-sky-muted);
+}
+.assets__lead p {
+  flex-basis: 100%;
+  margin: 0;
+}
+.assets__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+  gap: 18px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (max-width: 640px) {
+  .assets {
+    padding: 2px 14px 18px;
+  }
+  .assets__grid {
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    gap: 14px 10px;
+  }
+  .assets__search {
+    flex: 1 1 100%;
+  }
+}
+
+/* A tile (ui/AssetTile.tsx): the asset whole on a Field square at the field radius (see-through parts stay readable, as
+   in the picture viewer), never more than three times its own size; its name in two lines at most and one figures line,
+   on ink. A long list costs only what is on screen (content-visibility). */
+.assettile {
+  position: relative;
+  min-width: 0;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 186px;
+}
+.assettile__open {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-field);
+  background: none;
+  color: var(--on-sky);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none; /* a long press on a tile is not a text selection: the tile is a control */
+  user-select: none;
+  transition: transform 160ms var(--ease-out);
+}
+.assettile__open:active {
+  transform: scale(0.97);
+}
+.assettile__open:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: var(--focus-inner);
+}
+.assettile__square {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--r-field);
+  background: var(--field);
+  color: var(--on-paper-muted);
+  overflow: hidden;
+}
+/* The square's own edge, as a picture tile's: a hairline of ink at 10% inside it. */
+.assettile__square::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(23 13 51 / 0.1);
+  pointer-events: none;
+}
+.assettile__square img {
+  width: min(84%, calc(var(--w, 9999) * 3px));
+  height: min(84%, calc(var(--h, 9999) * 3px));
+  object-fit: contain;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* A picture arriving fades in (opacity only, so reduced motion keeps it too, as the box's tiles do). */
+.assettile__square img {
+  transition: opacity 160ms var(--ease-out);
+}
+@starting-style {
+  .assettile__square img {
+    opacity: 0;
+  }
+}
+.assettile__font {
+  font-size: 40px;
+  line-height: 1;
+  color: var(--ink);
+}
+.assettile__name {
+  display: -webkit-box;
+  overflow: hidden;
+  font: 600 14px/1.3 var(--font-ui);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.assettile__meta {
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--on-sky-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* A sound's play button: an ink circle in the square's corner (over Field it needs the solid ink to read). */
+.assettile__play {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+.assettile .iconbutton--scrim {
+  background: var(--ink);
+  color: var(--on-sky);
+}
+.assettile .iconbutton--scrim[aria-pressed="true"] {
+  background: var(--hot);
+  color: var(--ink);
+}
+
+/* The viewer (components/app/AssetViewer.tsx): the picture viewer's dialog with the asset large, then its name, how it was
+   made, its measures, where it is used, its file, Change it and Download; Previous and Next under them. */
+.dialog.dialog--asset {
+  width: min(640px, 100vw);
+}
+/* A long name, where it is used and its file can outgrow a small phone: the column scrolls (Close stays in its corner). */
+.viewer--asset {
+  box-sizing: border-box;
+  max-height: 100dvh;
+  gap: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.assetview__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.assetview__frame {
+  width: min(560px, calc(100vw - 32px), calc((100dvh - 400px) * var(--ratio)), max(200px, calc(var(--w) * 4px)));
+  aspect-ratio: var(--ratio);
+  border-radius: var(--r-field);
+  background: var(--field);
+}
+.assetview__frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: contain;
+  -webkit-user-drag: none;
+}
+/* An animated look: its sprite sheet, one frame wide, stepped through at 8 frames a second. */
+.assetview__frames {
+  background-repeat: no-repeat;
+  background-position: 0% 0;
+  background-size: calc(var(--frames) * 100%) 100%;
+}
+.assetview__frames[data-playing] {
+  animation: asset-frames calc(var(--frames) * 125ms) steps(var(--frames), jump-none) infinite;
+}
+@keyframes asset-frames {
+  to {
+    background-position: 100% 0;
+  }
+}
+.modelview {
+  display: block;
+  width: min(560px, calc(100vw - 32px));
+  height: clamp(220px, calc(100dvh - 420px), 420px);
+  border-radius: var(--r-field);
+  background: var(--field);
+  --poster-color: transparent;
+}
+.modelview:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: var(--focus-inner);
+}
+.modelview__poster {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.assetview__hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--on-sky-muted);
+  text-align: center;
+}
+/* A sound: one big play button and how far it has got, on Ink Recess. */
+.assetview__sound {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px;
+  width: min(560px, calc(100vw - 32px));
+  padding: 28px;
+  border-radius: var(--r-field);
+  background: var(--ink-2);
+}
+.viewer .assetview__playbig {
+  width: 72px;
+  height: 72px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.viewer .assetview__playbig[aria-pressed="true"] {
+  background: var(--hot);
+}
+.assetview__progress {
+  position: relative;
+  flex: 1 1 200px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ink);
+  overflow: hidden;
+}
+.assetview__progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--on-sky);
+  transform: scaleX(var(--at, 0));
+  transform-origin: left;
+}
+/* A font, in itself. */
+.assetview__font {
+  width: min(560px, calc(100vw - 32px));
+  padding: 24px;
+  border-radius: var(--r-field);
+  background: var(--field);
+  color: var(--ink);
+}
+.assetview__font-big {
+  margin: 0 0 12px;
+  font-size: clamp(26px, 6vw, 40px);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.assetview__font-small {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.assetview__info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(560px, 100%);
+  text-align: center;
+}
+.assetview__name {
+  margin: 0;
+  font: 700 19px/1.25 var(--font-ui);
+  overflow-wrap: anywhere;
+}
+.assetview__made,
+.assetview__where {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.assetview__made {
+  color: var(--on-sky-muted);
+}
+.assetview__facts,
+.assetview__file {
+  margin: 0;
+  font-size: 12px;
+  color: var(--on-sky-muted);
+  overflow-wrap: anywhere;
+}
+.assetview__file {
+  font-size: 11px;
+}
+.assetview__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* The review's second batch (2026-11-04). A sound's shape: on its tile in muted ink, in the viewer white, played from the
+   left as it goes (the played copy is clipped by --at, set frame by frame while it plays). */
+.waveform {
+  display: block;
+  fill: currentColor;
+}
+.assettile__wave {
+  width: 64%;
+  height: 30%;
+  margin-top: 14%; /* below the play button in the corner */
+  color: var(--on-paper-muted);
+}
+.assetview__wave {
+  position: relative;
+  display: block;
+  flex: 1 1 220px;
+  height: 56px;
+  color: var(--on-sky);
+}
+.assetview__wave .waveform {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.35;
+}
+.assetview__wave .assetview__wave-played {
+  opacity: 1;
+  clip-path: inset(0 calc((1 - var(--at, 0)) * 100%) 0 0);
+}
+/* The viewer keeps its parts where they were from one asset to the next: the asset in a stage of one height, its words
+   under it, and Previous / Next at the screen's foot (the column scrolls on a phone too short for it all). */
+.viewer--asset {
+  height: 100dvh;
+}
+.viewer--asset > .assetview__stage {
+  flex: none;
+  justify-content: center;
+  height: clamp(200px, calc(100dvh - 420px), 560px);
+}
+.viewer--asset > .viewer__bar {
+  margin-top: auto;
+}
+.assetview__note {
+  max-width: 44ch;
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--on-sky-muted);
+}
+/* The version above the list, on a phone only (a computer's bar says it). */
+.assets__version {
+  margin: 0;
+  font-size: 11px;
+  color: var(--on-sky-muted);
+}
+@media (min-width: 960px) {
+  .assets__version {
+    display: none;
+  }
+}
+/* On a phone the kinds scroll sideways in one row, as /explore's genres do, instead of leaving one alone on a second row. */
+@media (max-width: 640px) {
+  .assets__kinds {
+    flex: none;
+    flex-wrap: nowrap;
+    width: calc(100% + 28px);
+    margin: -6px -14px;
+    padding: 6px 14px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 14px;
+    scrollbar-width: none;
+  }
+  .assets__kinds::-webkit-scrollbar {
+    display: none;
+  }
+  .assets__kinds .pillbar__item {
+    flex: none;
+  }
+}
+
+/* A picture drawn in light colours on a see-through ground (stars, glows, white sparks: the API says `light`): Ink
+   Recess behind it instead of Field, which would hide it. */
+.assettile__square--light,
+.assetview__frame[data-light] {
+  background-color: var(--ink-2);
 }

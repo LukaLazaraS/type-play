@@ -25,7 +25,9 @@
     "test:android:e2e": "node test/android-e2e.mjs",
     "r2:check": "tsx scripts/r2-check.ts",
     "runner": "node runner/runner.mjs",
-    "paddle:destination": "tsx scripts/paddle-destination.ts"
+    "paddle:destination": "tsx scripts/paddle-destination.ts",
+    "test:assets": "node test/assets.mjs",
+    "test:assets:e2e": "node test/assets-e2e.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.1.3",

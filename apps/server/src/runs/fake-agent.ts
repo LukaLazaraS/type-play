@@ -15,6 +15,9 @@
 // "ASKUSD:<n>" is what that call reports it cost, asked or not ($0 otherwise); "VAGUE LONGQ" asks the worst case the chat
 // must hold. A size-check stop wins over questions. A build answering them (job.answered) writes "- answered" (and
 // "sized" when the size check was skipped) into FAKE.md.
+// The Assets tab (2026-11-04): "ASSETS", "ASSETS3D" and "ASSETSWORST" (the worst real data) leave asset files and the
+// build's capture, "NOCAPTURE" none
+// (fake-assets.ts); any other prompt, a capture with nothing in it.
 // It makes a real git commit, like the agent would.
 import { createHash } from "node:crypto";
 import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -24,6 +27,7 @@ import type { Platform } from "@typeplay/shared";
 import { config, ROOT } from "../env.js";
 import { git } from "../games/git.js";
 import type { AgentHandle, AgentJob, AgentResult } from "./agent.js";
+import { fakeAssetFiles, fakeCapture } from "./fake-assets.js";
 
 const LINES = ["Reading your idea", "Writing the player", "Building the level", "Testing the game", "Making it look nice"];
 
@@ -134,6 +138,7 @@ async function fakeWork(job: AgentJob) {
   // one it picks itself), TAGS for the tags (no tags, no file).
   if (job.kind === "new" && job.genre) writeFileSync(join(job.dir, "GENRE"), `${job.genre}\n`);
   if (job.kind === "new" && job.tags?.length) writeFileSync(join(job.dir, "TAGS"), `${job.tags.join(" ")}\n`);
+  fakeAssetFiles(job.dir, job.prompt); // ASSETS, ASSETS3D: files for the Assets tab (fake-assets.ts)
   await commitAll(`${job.kind}: ${job.prompt}`);
   const pack = demoPack();
   if (!pack) throw new Error("no demo build to fake with (run apps/games/scripts/build-demo.mjs)");
@@ -142,6 +147,7 @@ async function fakeWork(job: AgentJob) {
   // NOPOSTER: a picture that isn't a PNG, so the build publishes without a poster.
   writeFileSync(join(job.dir, "export/screenshot-start.png"), job.prompt.includes("NOPOSTER") ? "not a picture" : fakePoster());
   writeFileSync(join(job.dir, "export/.gdignore"), "");
+  await fakeCapture(job.dir, job.prompt); // what tools/capture.mjs captures of this commit (none with NOCAPTURE)
 }
 
 /** A failing change leaves the folder as a real failed run would: a commit of a half-done change and

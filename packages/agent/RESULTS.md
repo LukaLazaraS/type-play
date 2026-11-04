@@ -883,3 +883,23 @@ reader's voice) and "Type my own" in the player's language (`own`), and "You dec
 prompt: a third run had written Russian "Решу сам" ("I'll decide") again. Final run, all 18: 18 of 18 as wanted, $0.0111,
 4.9-8.9 s; every asked call gave `lang` (en, ru, ka) and `own` ("Напишу свой вариант", "ჩემი პასუხის ჩაწერა"); Russian
 "Решай сам", Georgian "შენ გადაწყვიტე".
+## 2026-11-04: the Assets tab's capture (one real Fast build)
+
+The game page lists every asset a version uses (`docs/design/assets.md`); what a game makes in code has no file, so
+`tools/capture.mjs` (run by run.mjs after the last good commit, beside the closing AI calls) plays a copy of the game with
+`tools/capture.gd` as an autoload in the hidden browser and keeps each look of lib/looks.gd as a PNG (an animated one also
+as a sprite sheet), each sound made in code as a WAV, and a still of each 3D model. rules/FAST.md now asks for each look's
+plain name as `Looks.add`'s last argument.
+
+Probe on copies of earlier games (this PC): night-siege 71 looks (4-frame enemies, three 832×576 maps) in 17.5 s;
+night-3d 2 model stills (FBX robot and battery) in 16.8 s; show-runner-polished 8 sounds made in code in 14.6 s.
+
+The real build (this PC, Max login, `--dir` outside the repo): "Star Bugs: a space shooter where my little ship shoots
+asteroids and alien bugs, with power-ups and a boss" on Fast (Haiku medium, 2 steps, genre shooter): **passed, 24.2 min,
+$0.453** (core 18.4 min, 41 turns, $0.41, the agent fixing its looks' centres and the check's errors; polish 5.8 min, 18
+turns, $0.043). Every look got a plain name from the agent ("Your ship", "Queen bug", "Spread shot", "Life heart", "Far
+stars"). **The capture: 15 looks (4 animated) and 13 sounds made in code in 18.1 s**, run beside the closing calls (18.6 s
+with its start), so the build ended a few seconds later than it would have. The API listed it in 0.33 s on this PC: 28
+assets, each look under the AI's name and where it is used ("Queen bug: Boss, FX, Main"). Its music, a looping bass line
+kept in `_music`, first came out as "@audio stream player@119"; the capture now names a player's sound after the variable
+that holds it ("Music"). The core's cost is the night's fast-games rules on a shooter, not the capture (no AI).

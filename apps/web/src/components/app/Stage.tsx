@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { AndroidLogo, ArrowClockwise, ChatCircleText, DeviceRotate, X } from "@phosphor-icons/react";
 import type { Project } from "@typeplay/shared";
 import { BuildLayers } from "@/components/BuildingIcon";
@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/Button";
 import { ErrorLine } from "@/components/ui/ErrorLine";
 import { TextField } from "@/components/ui/Field";
 import { InkPill, InkPillLink } from "@/components/ui/InkPill";
+import { Tabs } from "@/components/ui/PillBar";
 import { Pulse } from "@/components/ui/Pulse";
 import { android } from "@/content/android";
-import { fitHint, inLine, questions, update } from "@/content/app";
+import { assets as assetWords, fitHint, inLine, questions, update } from "@/content/app";
 import { posterUrl } from "@/lib/urls";
 import { api } from "@/lib/api";
 import { aheadWord, clock, placeWords, playsWord, tooLong, waitWord, whenParts } from "@/lib/format";
@@ -114,6 +115,10 @@ export function Stage({
   onChange,
   onAsk,
   android: androidOn,
+  pane = "play",
+  onPane,
+  fresh = false,
+  assets: assetsPanel,
 }: {
   project: Project;
   live: LiveLine;
@@ -134,6 +139,14 @@ export function Stage({
   onAsk: (text: string) => void;
   /** This server builds Android apps (Me.features.android): the Android pill shows. */
   android: boolean;
+  /** What the stage shows (2026-11-04): the game, or its assets. The game's frame stays loaded under the assets. */
+  pane?: "play" | "assets";
+  /** The computer's switch in the bar (phones switch with the page's tabs). */
+  onPane?: (pane: "play" | "assets") => void;
+  /** A new version the player hasn't seen in the frame yet: the switch's Play wears the hot dot. */
+  fresh?: boolean;
+  /** The Assets tab's panel, shown in place of the game. */
+  assets?: ReactNode;
 }) {
   const frame = useRef<GameFrameHandle>(null);
   // A new version doesn't restart a game in play (Luka, 11-04: a change he sent finished while he kept playing, and his
@@ -275,10 +288,41 @@ export function Stage({
 
   const readyLine = <ReadyLine name={project.name} onPlay={playOwn} />;
   const bar = useFit();
+  // The assets show in place of the game (2026-11-04): the pills that act on the game's frame go meanwhile.
+  const listing = pane === "assets" && !!assetsPanel;
+  const framed = (project.buildId || waiting) && !listing;
 
   return (
     <section className="stage" aria-label="Your game">
       <header ref={bar} className="stage__bar">
+        {onPane && assetsPanel && (
+          <Tabs
+            label={assetWords.stage}
+            tone="recess"
+            className="stage__switch"
+            value={pane}
+            onChange={onPane}
+            tabs={[
+              {
+                id: "play",
+                label: (
+                  <>
+                    {assetWords.play}
+                    {fresh && listing && (
+                      <>
+                        <span className="stage__dot" aria-hidden="true" />
+                        <span className="sr-only">{assetWords.fresh}</span>
+                      </>
+                    )}
+                  </>
+                ),
+                tabId: "ws-switch-play",
+                panelId: "ws-screen",
+              },
+              { id: "assets", label: assetWords.tab, tabId: "ws-switch-assets", panelId: "ws-assets" },
+            ]}
+          />
+        )}
         {renaming ? (
           <RenameForm project={project} onDone={() => setRenaming(false)} onChange={onChange} />
         ) : (
@@ -295,8 +339,8 @@ export function Stage({
           </>
         )}
         <div className="stage__actions">
-          {(project.buildId || waiting) && <DeviceMenu id={project.id} value={device} onChange={setDevice} />}
-          {(project.buildId || waiting) && turns && (
+          {framed && <DeviceMenu id={project.id} value={device} onChange={setDevice} />}
+          {framed && turns && (
             <InkPill
               className="devicepick__turn"
               aria-label={sideways ? `Turn the ${device.kind} upright` : `Turn the ${device.kind} sideways`}
@@ -315,14 +359,16 @@ export function Stage({
               label={android.pill}
             />
           )}
-          {(project.buildId || waiting) && <FullScreenPill ref={full} onClick={() => frame.current?.fullscreen()} />}
-          {project.buildId && <NewTabPill slug={project.buildId} className="stage__newtab" />}
+          {framed && <FullScreenPill ref={full} onClick={() => frame.current?.fullscreen()} />}
+          {project.buildId && !listing && <NewTabPill slug={project.buildId} className="stage__newtab" />}
           <GameMenu project={project} onRename={() => setRenaming(true)} />
         </div>
       </header>
 
+      {/* Always there (hidden while the game shows), so it keeps its place, filter and search across switches. */}
+      {assetsPanel}
       {/* Another game while the first build runs: the build's line, then "ready" with the way to their game. */}
-      {waiting && (
+      {waiting && !listing && (
         <div className="stage__busy stage__wait" role="status" data-ready={ready || undefined}>
           {running ? (
             <>
@@ -379,7 +425,7 @@ export function Stage({
         </div>
       )}
       {/* Always there when a game is, so the frame keeps its size when a build starts or ends. */}
-      {project.buildId && !waiting && (
+      {project.buildId && !waiting && !listing && (
         <div className="stage__busy" data-hint={mismatch || undefined}>
           {/* What it's doing (or what it's made for) is read out; the hint's button is outside the live line. */}
           <p className="stage__live" role="status">
@@ -426,7 +472,8 @@ export function Stage({
         </div>
       )}
 
-      <div ref={screen} className="stage__screen">
+      {/* Under the assets the game keeps running in its frame, hidden (a game in play loses nothing). */}
+      <div ref={screen} id="ws-screen" className="stage__screen" hidden={listing}>
         {waiting ? (
           <div {...fitProps}>
             <div {...frameProps(waiting.orientation)}>
@@ -566,7 +613,7 @@ export function Stage({
         )}
       </div>
 
-      <Versions versions={project.versions} current={project.currentVersion} playing={playingVersion} running={running || queued} onRestore={onRestore} />
+      {!listing && <Versions versions={project.versions} current={project.currentVersion} playing={playingVersion} running={running || queued} onRestore={onRestore} />}
     </section>
   );
 }

@@ -293,3 +293,82 @@ export const pictures = {
   yours: "Your picture",
   open: (n: number, of: number) => (of === 1 ? "Open your picture" : `Open your picture ${n} of ${of}`),
 } as const;
+
+/**
+ * The Assets tab (2026-11-04, docs/design/assets.md): every picture, 3D model, sound and font the game's current version
+ * uses, with Download and Change it. Change it's sentence names the asset and its handle in the code (the look's key, the
+ * sound's name, the file's path) in brackets, so the AI changes that one thing (packages/agent/rules/EDIT.md).
+ */
+export const assets = {
+  tab: "Assets",
+  /** The switch in the game's bar on a computer (Play / Assets), read as one control. */
+  stage: "Show the game or its assets",
+  play: "Play",
+  list: "The game's assets",
+  kinds: { all: "All", picture: "Pictures", model: "3D models", sound: "Sounds", font: "Fonts" },
+  filter: "Show",
+  count: (n: number) => (n === 1 ? "1 asset" : `${n} assets`),
+  search: "Search the assets",
+  searchHint: "Search by name",
+  noMatch: (q: string) => `Nothing here is called “${q}”.`,
+  loading: "Listing the assets…",
+  failed: "The assets couldn't be listed.",
+  retry: "Try again",
+  noGame: "The assets show here once your game is built.",
+  empty: "This game draws everything as it runs, so there is nothing to list. Ask in the chat to change anything you see.",
+  ask: "Ask in the chat",
+  files: "Listed from the game's files: art the AI drew in code shows here after your next change.",
+  none: "This version was made before the asset list. Ask for any change and the new version lists its assets.",
+  /** How it was made, under its name in the viewer. */
+  made: (a: { kind: string; made: string; credit?: string; frames?: number }) =>
+    a.made === "code"
+      ? a.kind === "sound"
+        ? "A sound the AI made in code"
+        : a.frames
+          ? "An animation the AI drew in code"
+          : "Drawn in code by the AI"
+      : a.made === "library" && a.credit
+        ? `From ${a.credit}: free to use`
+        : ({ picture: "A picture file in your game", model: "A 3D model file in your game", sound: "A sound file in your game", font: "A font file in your game" } as Record<string, string>)[a.kind] ?? "A file in your game",
+  used: (parts: string[]) => `Used in ${parts.join(", ")}`,
+  frames: (n: number) => `${n} frames`,
+  seconds: (s: number) => (s < 10 ? `${s.toFixed(2).replace(/0$/, "")} s` : s < 60 ? `${Math.round(s)} s` : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`),
+  music: "Music",
+  sound: "Sound",
+  model: "3D model",
+  font: "Font",
+  fontSample: "The quick brown fox jumps over the lazy dog",
+  fontLetters: "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789",
+  change: "Change it",
+  download: "Download",
+  downloading: "Downloading…",
+  playSound: (name: string) => `Play ${name}`,
+  stopSound: (name: string) => `Stop ${name}`,
+  playFrames: "Play the frames",
+  stopFrames: "Stop the frames",
+  turn: "Drag to turn it, pinch or scroll to zoom.",
+  /** Under Change it and Download: what Change it does, and what it costs (nothing until Send). */
+  changeNote: "Change it puts this into your message. Nothing is sent or charged until you press Send.",
+  /** The handle in the viewer, named so it reads as what it is. */
+  inCode: (key: string) => `In the code: ${key}`,
+  inFile: (file: string) => `File: ${file}`,
+  soundFailed: "This sound couldn't be played. Try again.",
+  keys: "The arrow keys move between the assets; Enter opens one.",
+  version: (n: number) => `Version ${n}`,
+  noTurn: "This model's file type can't be turned here: download it to open it in a 3D app.",
+  close: "Close",
+  previous: "Previous asset",
+  next: "Next asset",
+  of: (n: number, total: number) => `${n} of ${total}`,
+  /** A tile's name for screen readers: "Gold coin, picture, 40 by 40". */
+  tileLabel: (a: { name: string; kind: string; frames?: number; seconds?: number }) =>
+    [a.name, a.frames ? `animation, ${a.frames} frames` : ({ picture: "picture", model: "3D model", sound: "sound", font: "font" } as Record<string, string>)[a.kind], a.seconds ? `${a.seconds.toFixed(1)} seconds` : ""].filter(Boolean).join(", "),
+  /** Change it's sentence: the player finishes it ("…(coin) so it shines"); two in a row join with a comma. */
+  starter: (a: { name: string; kind: string; key?: string; file?: string; frames?: number; seconds?: number }) => {
+    const noun = a.kind === "picture" ? (a.frames ? "animation" : "picture") : a.kind === "model" ? "3D model" : a.kind === "font" ? "font" : (a.seconds ?? 0) >= 15 ? "music" : "sound";
+    return `Change the ${noun} “${a.name}” (${a.key ?? a.file ?? a.name}) `;
+  },
+  changeFailed: "Its picture couldn't be fetched for the chat. Try again.",
+  /** The update while the list is open: a new version is ready (said on the Play switch). */
+  fresh: ", new version ready",
+} as const;

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from "@nestjs/common";
 import type { Effort, GameTag, Genre, ModelChoice, Platform, PlanId, RunEvent } from "@typeplay/shared";
+import { AssetsService } from "../assets/assets.service.js";
 import type { RunImage } from "../attachments/attachments.service.js";
 import { prepareRunImages } from "../attachments/store.js";
 import { creditsForUsd, planModels, toTenths } from "../credits/credits.js";
@@ -135,6 +136,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     private readonly ledger: LedgerService,
     private readonly keyProxy: KeyProxy,
     private readonly push: PushService,
+    private readonly assets: AssetsService,
   ) {}
 
   /** Runs left "running" by a server that stopped mid-run: failed, nothing charged, folder reset, the player told. */
@@ -382,6 +384,8 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       throw e;
     }
     const [message, version] = rows;
+    // The version's list of assets (the Assets tab), made before the player hears it is done; it never fails the build.
+    await this.assets.afterBuild(run.projectId, buildId, commit);
     trimExport(dir); // the engine files (~36 MB) are not needed once the pack is published
     this.registry.active.delete(run.projectId);
     run.hold?.release();

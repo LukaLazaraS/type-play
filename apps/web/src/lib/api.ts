@@ -16,6 +16,7 @@ import type {
   Effort,
   Estimate,
   FeedbackBody,
+  GameAssets,
   Me,
   ModelChoice,
   PlanChangeBody,
@@ -151,6 +152,16 @@ export const api = {
     remove: (id: string) => call<{ ok: true }>(`/attachments/${encodeURIComponent(id)}`, { method: "DELETE" }),
     thumb: (id: string) => picture(`/attachments/${encodeURIComponent(id)}/thumb`),
     full: (id: string) => picture(`/attachments/${encodeURIComponent(id)}`),
+  },
+  /** The Assets tab (2026-11-04): a version's list, and each asset's file (Download), picture and thumbnail (owner only). */
+  assets: {
+    list: (projectId: string, buildId: string) => call<GameAssets>(`/projects/${id(projectId)}/assets/${encodeURIComponent(buildId)}`),
+    file: (projectId: string, buildId: string, assetId: string, fallbackName: string) =>
+      file(`/projects/${id(projectId)}/assets/${encodeURIComponent(buildId)}/${encodeURIComponent(assetId)}`, fallbackName),
+    picture: (projectId: string, buildId: string, assetId: string) =>
+      picture(`/projects/${id(projectId)}/assets/${encodeURIComponent(buildId)}/${encodeURIComponent(assetId)}/picture`),
+    thumb: (projectId: string, buildId: string, assetId: string) =>
+      picture(`/projects/${id(projectId)}/assets/${encodeURIComponent(buildId)}/${encodeURIComponent(assetId)}/thumb`),
   },
   /** Notifications (2026-10-29): this device on (its browser's subscription) or off (its address). */
   push: {

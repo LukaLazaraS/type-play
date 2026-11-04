@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { Injectable, Logger } from "@nestjs/common";
 import type { Effort, Genre, ModelChoice, PlanId, Platform, Project as ProjectView } from "@typeplay/shared";
 import { AndroidService } from "../android/android.service.js";
+import { removeGameAssets } from "../assets/store.js";
 import { AttachmentsService } from "../attachments/attachments.service.js";
 import { ApiException, badRequest, notFound } from "../common/api-error.js";
 import { config } from "../env.js";
@@ -369,6 +370,7 @@ export class ProjectsService {
       await this.prisma.project.delete({ where: { id } });
       // After the rows: if a step below fails, what is left is files nobody can reach, never a game without files.
       this.attachments.removeFiles(pictures);
+      removeGameAssets(id); // its asset lists and their files (the Assets tab)
       await removeFolder(projectDir(id)).catch((e) => this.log.error(`remove folder ${id}: ${e}`));
       await androidFiles;
       for (const buildId of new Set(versions.map((v) => v.buildId))) {

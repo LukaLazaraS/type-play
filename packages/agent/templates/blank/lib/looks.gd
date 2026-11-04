@@ -6,8 +6,8 @@
 #
 #   const Looks = preload("res://lib/looks.gd")
 #   # In _ready, before the title shows: every look with its draw function. (0, 0) is the look's centre.
-#   Looks.add("ant", Vector2i(64, 64), func(c: CanvasItem) -> void: Enemy.draw_ant(c, 1.0))
-#   Looks.add_frames("ant_walk", Vector2i(64, 64), 6, func(c: CanvasItem, i: int) -> void: Enemy.draw_ant(c, i / 6.0))
+#   Looks.add("ant", Vector2i(64, 64), func(c: CanvasItem) -> void: Enemy.draw_ant(c, 1.0), "Red ant")
+#   Looks.add_frames("ant_walk", Vector2i(64, 64), 6, func(c: CanvasItem, i: int) -> void: Enemy.draw_ant(c, i / 6.0), "Red ant walking")
 #   await Looks.bake(self)            # draws everything added so far, all at once
 #   # In play, one Sprite2D per copy, made by the helper:
 #   var s := Looks.sprite("ant")      # centred; animate s.position, s.rotation, s.scale, s.modulate
@@ -16,6 +16,8 @@
 #   var bar := Looks.rect(Color.RED, Vector2(30, 4))   # a box that batches with the looks: hp bars, flashes
 #   bar.scale.x = 30.0 * hp / max_hp / 2.0             # a bar's fill changes by scale, never by redrawing
 #
+# The last argument of add(), add_frames() and bake_one() is the look's plain name for the player ("Red ant", "Level 2
+# map"): the game page lists every look by it (TypePlay's asset capture reads _tex and _labels at build time).
 # Pictures last for the whole game, across restarts. Add new looks and bake again any time (a new level's map);
 # baking shows nothing on screen. Keep looks under ~512 px; draw a big static map once with bake_one().
 extends RefCounted
@@ -25,16 +27,21 @@ const PAD := 2
 
 static var _pending: Array = [] # [key, size, painter, frames]
 static var _tex: Dictionary = {} # key -> Texture2D, or Array[Texture2D] for frames
+static var _labels: Dictionary = {} # key -> the look's plain name, when one was given
 static var _keep: Array = [] # the pictures' owners (one per bake)
 static var _white: Texture2D = null # a white patch in the first picture: rect() bars and boxes batch with the looks
 
-## A look: `painter(canvas)` draws it with draw_* calls around (0, 0), inside `size` pixels.
-static func add(key: String, size: Vector2i, painter: Callable) -> void:
+## A look: `painter(canvas)` draws it with draw_* calls around (0, 0), inside `size` pixels. `label`: its plain name.
+static func add(key: String, size: Vector2i, painter: Callable, label: String = "") -> void:
 	_pending.append([key, size, painter, 0])
+	if label != "":
+		_labels[key] = label
 
-## An animated look: `painter(canvas, i)` draws frame i of `count` (0 .. count - 1).
-static func add_frames(key: String, size: Vector2i, count: int, painter: Callable) -> void:
+## An animated look: `painter(canvas, i)` draws frame i of `count` (0 .. count - 1). `label`: its plain name.
+static func add_frames(key: String, size: Vector2i, count: int, painter: Callable, label: String = "") -> void:
 	_pending.append([key, size, painter, maxi(1, count)])
+	if label != "":
+		_labels[key] = label
 
 ## Draws every look added since the last bake into one shared picture. Await it before using the looks.
 static func bake(host: Node) -> void:
@@ -137,12 +144,12 @@ static func _straight_alpha() -> Shader:
 	return _shader
 
 ## One big static picture (a whole map or board): drawn once, returned as a texture to show with one Sprite2D or
-## draw_texture(). `origin` is where the painter's (0, 0) lands in the picture.
-static func bake_one(host: Node, key: String, size: Vector2i, origin: Vector2, painter: Callable) -> Texture2D:
+## draw_texture(). `origin` is where the painter's (0, 0) lands in the picture. `label`: its plain name.
+static func bake_one(host: Node, key: String, size: Vector2i, origin: Vector2, painter: Callable, label: String = "") -> Texture2D:
 	add(key, size, func(c: CanvasItem) -> void:
 		c.draw_set_transform(origin - Vector2(size) / 2.0)
 		painter.call(c)
-		c.draw_set_transform(Vector2.ZERO))
+		c.draw_set_transform(Vector2.ZERO), label)
 	await bake(host)
 	return texture(key)
 
