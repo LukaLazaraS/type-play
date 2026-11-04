@@ -214,7 +214,7 @@ export function usePictureDrop(tray: Tray, on: boolean) {
       }
     : {};
   const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    if (!on) return;
+    if (!on || !e.clipboardData) return;
     const pasted = [...e.clipboardData.files].filter((f) => f.type.startsWith("image/"));
     if (!pasted.length) return;
     // A copied picture alone: only the picture. With words beside it (copied from a document), the words paste too.

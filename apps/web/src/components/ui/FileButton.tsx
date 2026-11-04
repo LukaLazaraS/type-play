@@ -19,8 +19,9 @@ type Props = {
 
 /**
  * Picks a file: a quiet small button (or, with `icon`, a round icon button in a Field box) that opens the browser's file
- * picker. The file input itself stays out of sight and out of the tab order (it has no visible focus); the button is what
- * the keyboard reaches.
+ * picker. The file input itself stays out of sight, out of the tab order (it has no visible focus) and out of the page's
+ * layout (pinned to the screen's corner, 1px, invisible: in a grid it could stretch the page sideways); the button is
+ * what the keyboard reaches.
  */
 export function FileButton({ accept, disabled, multiple, onFile, onFiles, icon, label, children }: Props) {
   const input = useRef<HTMLInputElement>(null);
@@ -32,7 +33,7 @@ export function FileButton({ accept, disabled, multiple, onFile, onFiles, icon, 
         type="file"
         accept={accept}
         multiple={multiple}
-        className="sr-only"
+        className="filebutton__input"
         tabIndex={-1}
         disabled={disabled}
         aria-hidden="true"

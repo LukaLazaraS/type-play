@@ -99,6 +99,7 @@ export const privacy: LegalDoc = {
         "Android builds: when you make one, the signing key we create for that game, kept encrypted so your builds keep working. You can download it at any time, and it is deleted with the game or your account.",
         "Feedback: what you write when you send us feedback from the app, the page you sent it from, your browser and device type, and the game and its last message if you attach them.",
         "Notifications: the push address of each device you turn notifications on for, so we can tell it when a build is done; it is deleted when you turn them off or sign out there.",
+        "Pictures: the pictures you attach to a message, kept with the game without their location or other hidden details, and deleted with it (one you never send is deleted after a day).",
       ],
     },
     {
@@ -113,7 +114,7 @@ export const privacy: LegalDoc = {
       heading: "Who else sees it",
       paragraphs: ["Providers that process data for us, under their own privacy terms:"],
       list: [
-        "Anthropic: receives your descriptions and game files to build and edit games with its AI models.",
+        "Anthropic: receives your descriptions, the pictures you attach and game files to build and edit games with its AI models.",
         "Supabase: hosts our database and sign-in.",
         "Google: provides sign-in with your Google account.",
         "Cloudflare: provides DNS, email forwarding and hosting of game previews and exports.",

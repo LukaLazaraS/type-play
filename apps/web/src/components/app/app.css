@@ -4934,6 +4934,22 @@ body:has(main.explore) > .ground-band {
 
 /* ---- Pictures with a message (2026-11-04): the box's pictures, Add pictures, the chat's tiles and the viewer ---------- */
 
+/* The file picker's own input (ui/FileButton.tsx): out of sight and out of the layout, pinned 1px to the screen's corner
+   (fixed boxes never widen the page); its button opens it. */
+.filebutton__input {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 /* Add pictures (ui/FileButton.tsx with an icon: IconButton's field look): in a Field box, no fill, the icon in muted ink;
    the widget's paper under a pointer and when pressed, as if the recess lifted. */
 .iconbutton--field {
@@ -4955,11 +4971,14 @@ body:has(main.explore) > .ground-band {
     color: var(--ink);
   }
 }
-/* The small circle (Remove on a picture's tile): 24px drawn, a finger's 44px around it (it never grows: the tile is 56px). */
+/* The small circle (Remove on a picture's tile): 24px drawn, a finger's 44px around it (it never grows: the tile is 56px).
+   Placed by its parent (absolute in a tile); relative only where nothing places it, so its finger's area has a box. */
 .iconbutton.iconbutton--small {
-  position: relative;
   width: 24px;
   height: 24px;
+}
+:where(.iconbutton--small) {
+  position: relative;
 }
 .iconbutton--small::before {
   content: "";
@@ -4991,6 +5010,16 @@ body:has(main.explore) > .ground-band {
 .thumb--chat {
   width: 80px;
   background: var(--field);
+}
+/* The picture's own edge: a hairline of ink at 10% inside it, so a white drawing on the white widget (or a dark one on
+   ink) still reads as a tile. */
+.thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(23 13 51 / 0.1);
+  pointer-events: none;
 }
 /* On its way: dimmed under the breathing dot. */
 .thumb[aria-busy="true"] img {
@@ -5133,6 +5162,18 @@ body:has(main.explore) > .ground-band {
   font-size: 13px;
   color: var(--on-sky-muted);
   text-align: center;
+}
+/* Its buttons on the ink: Ink Recess circles (the launcher's pills), ink when pressed or hovered. */
+.viewer .iconbutton--scrim {
+  background: var(--ink-2);
+}
+.viewer .iconbutton--scrim:active {
+  background: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .viewer .iconbutton--scrim:hover {
+    background: #33245f;
+  }
 }
 .viewer__close {
   position: fixed;
