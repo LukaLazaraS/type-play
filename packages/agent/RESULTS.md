@@ -797,3 +797,21 @@ run's record and in the charge (`runs.service` `sideUsd`, beside the reply rewri
 
 Not done: a real Fast or Smart edit that fits, through the check and on to the build (the fits path is the old one with
 the check's cost added; tested with fake builds in the e2e); messages from the beta, once there are some to tune on.
+
+## 2026-11-04 night: fast games (rules/FAST.md, lib/looks.gd + lib/warmup.gd, the check's budgets)
+
+Five new games on Sonnet medium (the default for new games), one sentence each, prompts in the spirit of the two slow
+testers' games (their own prompts are private). All passed the full check, budgets included (the stress test's busiest
+moment headless and in a browser, a cold browser at 4× CPU after the first tap). Night log: `docs/overnight/2026-11-04.md`.
+
+| Game (output/) | Min | $ | Busiest moment (its stress test) | Game code a frame | Redraws a frame | Draw calls | Compiles after the tap |
+|---|---|---|---|---|---|---|---|
+| night-td (tower defence) | 12.4 | 1.089 | last level, 75 top towers, 120 enemies | 0.47 ms | 8.2 | 308 | 0 |
+| night-runner | 14.8 | 0.859 | top speed, densest spawning | 0.09 ms | 0 | 19 | 0 |
+| night-haul (truck runner, fill) | 22.1 | 1.305 | the late road, 72-86 things | 0.12 ms | 0 | 21 | 0 |
+| night-3d (3D tag) | 20.0 | 0.850 | last island, the hero at the far end | 0.15 ms | 0 | 107 | 0 |
+| night-siege (tower defence, computer) | 28.8 | 1.374 | last level, 83 top towers, 120 enemies | 0.57 ms | 0 | 303 | 0 |
+
+For scale, the same check on games made before: Scrap Siege (a tester's) 21.8 ms, 166 redraws, 6,188 draw calls; Gingerbread
+Guard (showcase) 15.5-18.2 ms, 214 redraws, 2,576 draw calls. October's Sonnet medium builds cost $0.47-1.01 (runs.jsonl):
+the new rules add a little cost and time. night-siege's agent read the check's draw-call error and fixed it itself.
