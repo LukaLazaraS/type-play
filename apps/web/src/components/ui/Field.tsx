@@ -24,10 +24,13 @@ type FieldProps = {
   dim?: boolean;
   /** The box's own extras (its fonts, its flex). */
   boxClassName?: string;
+  /** The box wears the keyboard's ring without the keyboard in it: something dragged over it can be dropped there
+   * (pictures over the idea box or the composer, 2026-11-04). */
+  ringed?: boolean;
 };
 
-const boxClass = ({ line, tone, dim, boxClassName }: Pick<FieldProps, "line" | "tone" | "dim" | "boxClassName">) =>
-  cx("field", line && "field--line", tone === "paper" && "field--paper", tone === "ink" && "field--ink", dim && "field--dim", boxClassName);
+const boxClass = ({ line, tone, dim, ringed, boxClassName }: Pick<FieldProps, "line" | "tone" | "dim" | "ringed" | "boxClassName">) =>
+  cx("field", line && "field--line", tone === "paper" && "field--paper", tone === "ink" && "field--ink", dim && "field--dim", ringed && "field--ringed", boxClassName);
 
 /** The field's name, for a box laid out apart from it (the beta code's label over its row). */
 export function FieldLabel({ htmlFor, optional, hidden, children }: { htmlFor: string; optional?: boolean; hidden?: boolean; children: ReactNode }) {
@@ -105,7 +108,7 @@ export type Count = { from: number; max: number; full: ReactNode };
 /**
  * Words over more than one line (the idea, a change, a note): the Field box with a textarea that grows with its words up
  * to `grow` pixels, then scrolls. `count` shows the letters left near the limit; `action` sits in the box after the
- * words (the home page's Make my game).
+ * words (the home page's Make my game, Add pictures); `before` in the box before them (the pictures to send).
  */
 export function TextArea({
   id,
@@ -119,13 +122,15 @@ export function TextArea({
   tone,
   dim,
   boxClassName,
+  ringed,
   grow,
   count,
   action,
+  before,
   value,
   ref,
   ...area
-}: FieldProps & Omit<ComponentPropsWithRef<"textarea">, "id" | "value"> & { value: string; grow?: number; count?: Count; action?: ReactNode }) {
+}: FieldProps & Omit<ComponentPropsWithRef<"textarea">, "id" | "value"> & { value: string; grow?: number; count?: Count; action?: ReactNode; before?: ReactNode }) {
   const own = useRef<HTMLTextAreaElement | null>(null);
   useLayoutEffect(() => {
     const el = own.current;
@@ -142,7 +147,8 @@ export function TextArea({
           {label}
         </FieldLabel>
       )}
-      <div className={boxClass({ line, tone, dim, boxClassName })}>
+      <div className={boxClass({ line, tone, dim, ringed, boxClassName })}>
+        {before}
         <textarea
           {...area}
           ref={(el) => {

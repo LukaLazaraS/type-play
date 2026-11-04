@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowUp, Stop } from "@phosphor-icons/react";
-import type { CreditBalance, Effort, Estimate, Me, ModelChoice, QueuePlace } from "@typeplay/shared";
+import type { CreditBalance, Effort, Estimate, Me, MessageImage, ModelChoice, QueuePlace } from "@typeplay/shared";
 import { Ask } from "@/components/ui/Ask";
 import { Button } from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/ButtonLink";
@@ -11,7 +11,7 @@ import { TextArea } from "@/components/ui/Field";
 import { Strip } from "@/components/ui/Strip";
 import { TextLink } from "@/components/ui/TextLink";
 import { android } from "@/content/android";
-import { inLine, MAX_TEXT } from "@/content/app";
+import { inLine, MAX_TEXT, pictures } from "@/content/app";
 import { checkoutHref, HOLD_LINE, pack, planAbove, planFacts } from "@/content/billing";
 import { credits as siteCredits } from "@/content/site";
 import { ApiFailure } from "@/lib/api";
@@ -19,6 +19,7 @@ import { creditsWord, dayOf, tooLong, untilUtcMidnight, usd, whenParts } from "@
 import { planName } from "./AccountSlot";
 import { EffortSwitch, effortLine, ModelSwitch, modelLine } from "./ModelPicker";
 import { NotifyAsk } from "./NotifyAsk";
+import { AddPictures, PictureTray, usePictureDrop, usePictureTray } from "./Pictures";
 
 type Props = {
   /** "new" until the first build has worked: then a message builds the game again. */
@@ -40,11 +41,13 @@ type Props = {
   me: Me | null;
   /** Where a purchase comes back to: this game's page. */
   backTo: string;
-  onSend: (text: string, model: ModelChoice, effort: Effort, confirm: boolean) => Promise<void>;
+  /** `images`: the ids of the pictures in the box (2026-11-04), uploaded already; none: []. */
+  onSend: (text: string, model: ModelChoice, effort: Effort, confirm: boolean, images: string[]) => Promise<void>;
   onStop: () => Promise<void>;
   /** A tapped next-step idea (`n` counts the taps, so each tap lands once): added to the box (withIdea), focused. With
-   * `model` (a stop's one tap: a change too big for its AI) the box holds just that text again, on that AI. */
-  prefill?: { text: string; n: number; model?: ModelChoice } | null;
+   * `model` (a stop's one tap: a change too big for its AI) the box holds just that text again, on that AI, with the
+   * pictures that message carried (`images`) in place of the box's own. */
+  prefill?: { text: string; n: number; model?: ModelChoice; images?: MessageImage[] } | null;
 };
 
 /**
@@ -81,6 +84,9 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
   const [panel, setPanel] = useState<PanelKind | null>(null);
   const [error, setError] = useState<string | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
+  // The pictures in the box (Pictures.tsx): attached with the picture button, pasted, or dropped on the composer.
+  const tray = usePictureTray(setError);
+  const drop = usePictureDrop(tray, true);
 
   // An idea from the chat goes into the box (after what is there: one message, one charge); the caret waits at its
   // end, ready to send or to change first.
@@ -101,6 +107,13 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
     el.focus({ preventScroll: true });
     el.setSelectionRange(el.value.length, el.value.length);
   }, [took]);
+  // The stop's one tap brings that message's pictures back with its words, in place of the box's own (once a tap: each
+  // tap is a new prefill).
+  const restore = tray.restore;
+  const again = prefill?.model ? prefill : null;
+  useEffect(() => {
+    if (again) restore(again.images ?? []);
+  }, [again, restore]);
 
   const send = async (confirm = false) => {
     const t = text.trim();
@@ -117,8 +130,10 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
     setAsk(null);
     setPanel(null);
     try {
-      await onSend(t, model, effort, confirm);
+      // Pictures still on their way are waited for: Send says it is busy meanwhile.
+      await onSend(t, model, effort, confirm, await tray.ids());
       setText("");
+      tray.clear();
     } catch (e) {
       if (e instanceof ApiFailure && e.code === "needs_confirm") {
         setAsk(e.message); // the API's own numbers win over the estimate shown here
@@ -159,7 +174,7 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
   const pastDue = me?.billing?.status === "past_due" && me.plan !== "free";
 
   return (
-    <form className="composer" onSubmit={submit} noValidate>
+    <form className="composer" onSubmit={submit} noValidate {...drop.zone}>
       {pastDue && (
         <Strip
           field
@@ -201,6 +216,10 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
         labelHidden
         line
         boxClassName="composer__field"
+        ringed={drop.over}
+        before={<PictureTray tray={tray} disabled={busy} />}
+        action={<AddPictures tray={tray} disabled={busy} />}
+        onPaste={drop.onPaste}
         grow={160}
         rows={1}
         value={text}
@@ -253,7 +272,11 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
         {!going && est && <span className="composer__cost figures">about {creditsWord(est.typical)}</span>}
       </div>
       <p id="say-tip" className="composer__tip" aria-live="polite">
-        {exporting ? (
+        {drop.over ? (
+          pictures.drop
+        ) : tray.busy ? (
+          pictures.uploading(tray.items.filter((p) => p.busy).length)
+        ) : exporting ? (
           android.exporting.composer
         ) : queued ? (
           [queue && tooLong(queue) ? inLine.long(whenParts(queue.leavesAt).time) : inLine.composer, queue?.lane === "free" ? inLine.paidFirst : null].filter(Boolean).join(" ")

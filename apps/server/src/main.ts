@@ -9,6 +9,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import type { Express } from "express";
 import { AndroidService } from "./android/android.service.js";
 import { AppModule } from "./app.module.js";
+import { MAX_IMAGE_BYTES } from "./attachments/limits.js";
 import { InboxService } from "./billing/inbox.service.js";
 import { PaddleService } from "./billing/paddle.service.js";
 import { ApiErrorFilter } from "./common/api-error.js";
@@ -33,10 +34,14 @@ app.disable("x-powered-by");
 // (until 10-20 the limit was 1 MB, so an icon over ~750 KB failed). A bigger body is 413 (common/api-error.ts). The
 // webhook path is parsed as JSON whatever its Content-Type says (Paddle doesn't document it); everything else must say
 // application/json.
+// A picture upload (POST /attachments, 2026-11-04) is its bytes as they are, whatever its Content-Type says (the API reads
+// what the bytes are: attachments/images.ts), up to 10 MB; a bigger one is 413 with the picture's own sentence.
+const isUpload = (req: IncomingMessage) => req.method === "POST" && req.url?.split("?")[0] === "/attachments";
 app.useBodyParser("json", {
   limit: "1500kb",
-  type: (req: IncomingMessage) => req.url === "/webhooks/paddle" || /^application\/([a-z0-9.+-]+\+)?json\b/i.test(req.headers["content-type"] ?? ""),
+  type: (req: IncomingMessage) => !isUpload(req) && (req.url === "/webhooks/paddle" || /^application\/([a-z0-9.+-]+\+)?json\b/i.test(req.headers["content-type"] ?? "")),
 });
+app.useBodyParser("raw", { limit: MAX_IMAGE_BYTES, type: isUpload });
 // GET /health, no sign-in: the deploy script and the container health check. 503 when the runner
 // (live server) does not answer; `runs` is how many builds are going (a deploy stops them); `queued` how many wait in
 // line (they keep their place through a restart);

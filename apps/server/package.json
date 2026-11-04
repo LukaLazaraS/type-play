@@ -18,6 +18,7 @@
     "test:e2e": "node test/e2e.mjs",
     "test:ledger": "node test/ledger-math.mjs",
     "test:queue": "node test/queue-math.mjs",
+    "test:pictures": "node test/pictures.mjs",
     "test:billing": "node test/billing.mjs",
     "test:proxy": "node test/key-proxy.mjs",
     "test:android": "node test/android.mjs",
@@ -36,6 +37,7 @@
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "sharp": "^0.35.5",
     "web-push": "^3.6.7"
   },
   "devDependencies": {

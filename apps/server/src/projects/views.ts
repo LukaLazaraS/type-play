@@ -13,12 +13,16 @@ import type {
 import { notFound } from "../common/api-error.js";
 import { GalleryService } from "../gallery/gallery.service.js";
 import { picksOf } from "../games/picks.js";
-import type { Message, Project, Version } from "../generated/prisma/client.js";
+import type { Attachment, Message, Project, Version } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
 import { RunRegistry } from "../runs/registry.js";
 
-export function toMessage(m: Message): MessageView {
+/** A message row as views read it: with its pictures (in their order) when they were read with it. */
+type MessageRow = Message & { attachments?: Pick<Attachment, "id" | "width" | "height" | "position">[] };
+
+export function toMessage(m: MessageRow): MessageView {
   const view: MessageView = { id: m.id, role: m.role, text: m.text, createdAt: m.createdAt.toISOString() };
+  if (m.attachments?.length) view.images = [...m.attachments].sort((a, b) => a.position - b.position).map(({ id, width, height }) => ({ id, width, height }));
   if (m.role === "agent") {
     if (m.model) view.model = m.model as ModelChoice;
     if (m.effort) view.effort = m.effort as Effort;
@@ -123,7 +127,7 @@ export class ProjectViews {
     const p = await this.prisma.project.findUniqueOrThrow({
       where: { id: projectId },
       include: {
-        messages: { orderBy: { createdAt: "asc" } },
+        messages: { orderBy: { createdAt: "asc" }, include: { attachments: { select: { id: true, width: true, height: true, position: true } } } },
         versions: { orderBy: { n: "asc" } },
       },
     });

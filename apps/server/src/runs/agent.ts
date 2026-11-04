@@ -7,6 +7,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createWriteStream, mkdirSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import type { Effort, GameTag, Genre, ModelChoice, Platform } from "@typeplay/shared";
+import type { RunImage } from "../attachments/attachments.service.js";
 import { config, ENV_FILE_KEYS } from "../env.js";
 import type { ModelFamily } from "./key-proxy.js";
 import { readLines } from "./lines.js";
@@ -33,6 +34,10 @@ export interface AgentJob {
   /** A change on Fast or Smart: the bigger AI the player's plan has, offered if the size check stops it (run.mjs
    * --bigger); null: none (Free, or Best, which is never checked). */
   bigger?: ModelChoice | null;
+  /** The pictures the player's message carries (attachments/), in their order. On the live server the runner copies them
+   * into the job's home; on this PC `imagesDir` holds them already (store.ts prepareRunImages). Both: run.mjs --images. */
+  images?: RunImage[];
+  imagesDir?: string | null;
   logFile: string;
   onProgress: (text: string) => void;
   auth?: AgentAuth;
@@ -188,7 +193,9 @@ function startLocal(job: AgentJob, args: string[], onLine: (l: string) => void, 
 /** On the live server: run.mjs in the runner container, as that run's throwaway user. */
 function startInRunner(job: AgentJob, args: string[], onLine: (l: string) => void, onStderr: (t: string) => void): Started {
   const env: Record<string, string> = job.auth ? { AGENT_AUTH: "api", ANTHROPIC_BASE_URL: job.auth.baseUrl, ANTHROPIC_API_KEY: job.auth.token } : {};
-  return startRunnerJob({ kind: "agent", project: basename(job.dir), args, env }, onLine, onStderr);
+  // The pictures by id: the runner copies them out of /data/attachments into the job's home and adds --images.
+  const images = job.images?.length ? job.images.map(({ id, format }) => ({ id, format })) : undefined;
+  return startRunnerJob({ kind: "agent", project: basename(job.dir), args, env, ...(images ? { images } : {}) }, onLine, onStderr);
 }
 
 export function runAgent(job: AgentJob): AgentHandle {
@@ -199,6 +206,7 @@ export function runAgent(job: AgentJob): AgentHandle {
     if (job.genre) args.push("--genre", job.genre);
     if (job.tags?.length) args.push("--tags", job.tags.join(","));
   }
+  if (job.imagesDir && !config.runnerSocket) args.push("--images", job.imagesDir);
   // 0700: run logs carry the prompt and the agent's narration; on the live server the runner's
   // throwaway users can traverse /data and must not read them (runner.mjs sets the same).
   mkdirSync(dirname(job.logFile), { recursive: true, mode: 0o700 });

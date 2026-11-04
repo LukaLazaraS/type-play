@@ -19,6 +19,9 @@ export interface RunnerJob {
   env?: Record<string, string>;
   /** Android jobs: the launcher icon's picture, base64, at most 1 MB (written into the job's home). */
   files?: Record<string, string>;
+  /** Agent jobs: the pictures the player's message carries, by attachment id and format, in their order. The runner
+   * copies them from <DATA_DIR>/attachments into the job's home and passes run.mjs --images (2026-11-04). */
+  images?: { id: string; format: string }[];
 }
 
 export interface JobExit {

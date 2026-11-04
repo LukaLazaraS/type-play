@@ -3,6 +3,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { AccountExport, PlanId } from "@typeplay/shared";
 import { AndroidService } from "../android/android.service.js";
+import { AttachmentsService } from "../attachments/attachments.service.js";
 import { AuthService } from "../auth/auth.service.js";
 import { BillingService } from "../billing/billing.service.js";
 import { badRequest } from "../common/api-error.js";
@@ -29,6 +30,7 @@ export class AccountService {
     private readonly billing: BillingService,
     private readonly android: AndroidService,
     private readonly push: PushService,
+    private readonly attachments: AttachmentsService,
   ) {}
 
   /** Everything we keep about the account, for the "Download my data" file. */
@@ -75,6 +77,7 @@ export class AccountService {
         "Server logs (kept up to 90 days) are not in this file. Write to hello@typeplay.app if you want them.",
         "Your Android signing keys are not in this file: download each one from its game's Android page. We keep an encrypted copy to build your app; Google holds the app signing key.",
         "notifications: the devices you turned notifications on for, and their browser's push service. Their push addresses are not in this file: each works like a password for its device.",
+        "Pictures you attached to messages are listed with each message (their size), not included in this file: open them in the game's chat on typeplay.app.",
       ],
     };
   }
@@ -99,7 +102,10 @@ export class AccountService {
       // Payments, adjustments and events stay (cards are refundable for months; records kept by law)
       // with no user on them: Payment and Adjustment by their SetNull relation, PaddleEvent here.
       await this.prisma.paddleEvent.updateMany({ where: { userId: user.id }, data: { userId: null } });
+      // Pictures uploaded and never sent: their rows go with the user row, their files right after it.
+      const pictures = await this.attachments.stagedOf(user.id);
       await this.prisma.user.delete({ where: { id: user.id } });
+      this.attachments.removeFiles(pictures);
     } catch (e) {
       await this.auth.remember(user.id).catch(() => {}); // not closed: the account works again (games already deleted stay deleted)
       throw e;

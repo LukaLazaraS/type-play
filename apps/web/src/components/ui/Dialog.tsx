@@ -14,9 +14,10 @@ const noop = () => () => {};
  * A modal dialog (DESIGN.md: the report dialog): paper at the popovers' 24px radius, arriving and leaving as they do
  * (opacity and scale 0.97, 160 ms in, 120 ms out; reduced motion keeps only the fade) over ink at 60%. The browser keeps
  * the keyboard in it while open; Escape, a tap beside it or the caller's own button close it. Put straight in <body>, so
- * no page's styles reach it. `wide`: 480px instead of 440px.
+ * no page's styles reach it. `wide`: 480px instead of 440px. `look="picture"`: no paper, as wide as what it holds, over
+ * ink at 92% (PictureViewer, 2026-11-04).
  */
-export function Dialog({ ref, labelledBy, wide, className, children }: { ref?: Ref<DialogHandle>; labelledBy: string; wide?: boolean; className?: string; children: ReactNode }) {
+export function Dialog({ ref, labelledBy, wide, look, className, children }: { ref?: Ref<DialogHandle>; labelledBy: string; wide?: boolean; look?: "picture"; className?: string; children: ReactNode }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
   // In the browser only: there is no <body> to put it in while the server renders.
@@ -36,7 +37,7 @@ export function Dialog({ ref, labelledBy, wide, className, children }: { ref?: R
   return createPortal(
     <dialog
       ref={dialog}
-      className={cx("dialog", wide && "dialog--wide", className)}
+      className={cx("dialog", wide && "dialog--wide", look === "picture" && "dialog--picture", className)}
       aria-labelledby={labelledBy}
       // A tap on the backdrop (the dialog element itself, outside its box) closes it.
       onClick={(e) => {

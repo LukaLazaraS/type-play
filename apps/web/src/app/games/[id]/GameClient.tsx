@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft } from "@phosphor-icons/react";
-import type { Effort, Message, ModelChoice, Project, ProjectSummary, RunEvent, Version } from "@typeplay/shared";
+import type { Effort, Message, MessageImage, ModelChoice, Project, ProjectSummary, RunEvent, Version } from "@typeplay/shared";
 import { ChatLog, type LiveLine } from "@/components/app/ChatLog";
 import { Composer } from "@/components/app/Composer";
 import { setFeedbackGame } from "@/components/app/Feedback";
@@ -56,8 +56,8 @@ export function GameClient() {
   const [tab, setTab] = useState<Tab | null>(null);
   const [fresh, setFresh] = useState(false); // a new version the phone's Play tab hasn't shown yet
   const [played, setPlayed] = useState(false);
-  // A tapped next-step idea, or a stop's one tap (the message again, with the bigger AI).
-  const [prefill, setPrefill] = useState<{ text: string; n: number; model?: ModelChoice } | null>(null);
+  // A tapped next-step idea, or a stop's one tap (the message again, with the bigger AI and the pictures it carried).
+  const [prefill, setPrefill] = useState<{ text: string; n: number; model?: ModelChoice; images?: MessageImage[] } | null>(null);
   // What the stream's handler needs to know, without re-subscribing on every change.
   const current = useRef<Project | null>(null);
   // Events applied so far: a project fetched because of an event is used only when nothing newer came meanwhile.
@@ -203,8 +203,8 @@ export function GameClient() {
     if (t === "play") setFresh(false);
   };
 
-  const send = async (text: string, model: ModelChoice, effort: Effort, confirm: boolean) => {
-    const p = await api.send(id, { text, model, effort, confirm: confirm || undefined });
+  const send = async (text: string, model: ModelChoice, effort: Effort, confirm: boolean, images: string[] = []) => {
+    const p = await api.send(id, { text, model, effort, confirm: confirm || undefined, images: images.length ? images : undefined });
     setProject(p);
     void refreshMe();
   };
@@ -212,10 +212,12 @@ export function GameClient() {
   const restore = async (n: number) => {
     setProject(await api.restore(id, n));
   };
-  const firstPrompt = project?.messages.find((m) => m.role === "user")?.text;
+  const first = project?.messages.find((m) => m.role === "user");
+  const firstPrompt = first?.text;
+  // Building again after a failed first build: the first message's words and pictures (the API copies them for it).
   const retry =
     project && !running && !queued && !project.buildId && firstPrompt
-      ? () => send(firstPrompt, me?.models.includes("smart") ? "smart" : "fast", effort, false)
+      ? () => send(firstPrompt, me?.models.includes("smart") ? "smart" : "fast", effort, false, (first?.images ?? []).map((i) => i.id))
       : null;
 
   if (session.status === "loading") return <main className="ws" data-app aria-busy="true" />;
@@ -305,7 +307,11 @@ export function GameClient() {
           onPlay={() => show("play")}
           onSuggest={(text) => setPrefill((p) => ({ text, n: (p?.n ?? 0) + 1 }))}
           models={me?.models ?? ["fast"]}
-          onBigger={(text, model) => setPrefill((p) => ({ text, model, n: (p?.n ?? 0) + 1 }))}
+          onBigger={(text, model) => {
+            // The message the stop answered, with its pictures: they go back in the box with its words.
+            const asked = project.messages.at(-2);
+            setPrefill((p) => ({ text, model, images: asked?.role === "user" ? asked.images : undefined, n: (p?.n ?? 0) + 1 }));
+          }}
         />
         <Composer
           kind={kind}

@@ -7,6 +7,8 @@
 //           time; android-prepare.mjs; docs/android-export-design.md §3). No key ever comes here.
 //   git     git in the game folder (its config and hooks are the agent's to write)
 //   remove  delete the game folder
+// An agent job may name the pictures the player's message carries (by attachment id): they are copied from the API's
+// own folder into the job's home, like the prompt file (2026-11-04).
 // Each job runs as a throwaway user (slot N = uid 10000+N) that owns only that game's folder and an
 // empty home while the job lasts. Afterwards every process of that user is killed, its files in
 // /tmp are removed, the folder goes back to the API's user (uid 1000) and the home is wiped.
@@ -26,6 +28,9 @@ const env = process.env;
 const DATA = env.DATA_DIR || '/data';
 const PROJECTS = join(DATA, 'projects');
 const AGENT_LOGS = join(DATA, 'agent-logs');
+/** The pictures players attach (apps/server/src/attachments/store.ts): the API's, mode 0700; only this root process reads
+ * them, to copy a job's own into its home. */
+const ATTACHMENTS = join(DATA, 'attachments');
 const SOCKET = env.RUNNER_SOCKET || '/run/typeplay/runner.sock';
 const SLOTS = Number(env.RUNNER_SLOTS || 6);
 const UID_BASE = Number(env.RUNNER_UID_BASE || 10001);
@@ -49,6 +54,10 @@ const PREPARE = join(dirname(fileURLToPath(import.meta.url)), 'android-prepare.m
 /** A job body may carry at most one small file (the Android icon), written into the job's home. */
 const MAX_BODY = 2 << 20;
 const MAX_FILE = 1 << 20;
+/** An agent job's pictures: at most 10 (a message's), each file at most 16 MB (a clean picture is at most 2048 px). */
+const MAX_IMAGES = 10;
+const MAX_IMAGE_FILE = 16 << 20;
+const IMAGE_EXT = { png: 'png', jpeg: 'jpg', webp: 'webp' };
 const GIT_COMMANDS = new Set(['rev-parse', 'reset', 'clean', 'read-tree', 'commit', 'add', 'init', 'status', 'log']);
 const PASS_ENV = new Set(['ANTHROPIC_BASE_URL', 'ANTHROPIC_API_KEY', 'AGENT_AUTH']);
 /** Processes one job's user may have at once (prlimit --nproc): a fork bomb from an agent's shell
@@ -79,9 +88,9 @@ for (const d of [DATA, PROJECTS]) {
   chownSync(d, OWNER.uid, OWNER.gid);
   chmodSync(d, 0o711);
 }
-// The API's own folders under /data (run records; the run logs, which carry players' prompts):
-// the API's, and nobody else's: slot users traverse /data but can't enter these.
-for (const d of [AGENT_LOGS, join(DATA, 'logs')]) {
+// The API's own folders under /data (run records; the run logs, which carry players' prompts; the pictures players
+// attach): the API's, and nobody else's: slot users traverse /data but can't enter these.
+for (const d of [AGENT_LOGS, join(DATA, 'logs'), ATTACHMENTS]) {
   mkdirSync(d, { recursive: true });
   chownSync(d, OWNER.uid, OWNER.gid);
   chmodSync(d, 0o700);
@@ -283,12 +292,15 @@ function plan(job, dir, uid, home) {
     }
     if (args.includes('--dir') || args.includes('--game')) throw new JobError('the runner sets the folder');
     if (args.includes('--prompt-file')) throw new JobError('the runner sets the prompt file');
+    if (args.includes('--images')) throw new JobError('the runner sets the pictures');
     if (prompt !== null) {
       const file = join(home, 'prompt.txt');
       writeFileSync(file, prompt, { mode: 0o600 });
       chownSync(file, uid, uid);
       args = ['--prompt-file', file, ...args];
     }
+    const images = takeImages(job.images, home, uid);
+    if (images) args = ['--images', images, ...args];
     if (args.includes('--edit')) {
       if (!git) throw new JobError('no game in this project');
       chownTree(dir, uid, uid);
@@ -345,6 +357,36 @@ function plan(job, dir, uid, home) {
     return [{ cmd: 'git', args: ['-c', 'user.name=game-agent', '-c', 'user.email=agent@local', '-c', 'safe.directory=*', ...args], cwd: dir }];
   }
   throw new JobError(`unknown job kind ${job.kind}`);
+}
+
+/**
+ * An agent job's pictures, by attachment id, copied from the API's folder into <home>/refs as run.mjs --images reads them
+ * (`<n>.<png|jpg|webp>`, the clean picture, and `<n>.view.webp`, what the AI sees; n from 1, in the message's order): a
+ * folder only the job's user can enter (0700) and files only it can read (0600), wiped with the home after the job. Never
+ * following a link, regular files only. A picture whose files are missing is left out (logged), as on a developer PC.
+ */
+function takeImages(list, home, uid) {
+  if (list === undefined || list === null) return null;
+  if (!Array.isArray(list) || list.length > MAX_IMAGES) throw new JobError('bad images');
+  if (!list.length) return null;
+  const dir = join(home, 'refs');
+  mkdirSync(dir, { mode: 0o700 });
+  let n = 0;
+  for (const img of list) {
+    if (!img || typeof img.id !== 'string' || !/^[a-z0-9]{24}$/.test(img.id) || !Object.hasOwn(IMAGE_EXT, img.format)) throw new JobError('bad image');
+    const src = join(ATTACHMENTS, img.id.slice(0, 2), img.id);
+    const full = readOwnFile(`${src}.${IMAGE_EXT[img.format]}`, MAX_IMAGE_FILE);
+    const view = readOwnFile(`${src}.view.webp`, MAX_IMAGE_FILE);
+    if (!full || !view) {
+      log(`picture ${img.id} left out: its files are missing`);
+      continue;
+    }
+    n++;
+    writeFileSync(join(dir, `${n}.${IMAGE_EXT[img.format]}`), full, { mode: 0o600 });
+    writeFileSync(join(dir, `${n}.view.webp`), view, { mode: 0o600 });
+  }
+  chownTree(dir, uid, uid);
+  return n ? dir : null;
 }
 
 /** The Android job's flags, each checked: nothing from them reaches a shell unchecked. */

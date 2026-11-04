@@ -242,7 +242,30 @@ export interface Message {
    * puts the same message back in the box with it picked, never sends. Missing on other answers, and on a stop for a
    * plan without a bigger AI (Free: one part at a time is the only way). */
   biggerModel?: ModelChoice;
+  /** User messages: the pictures the player attached to it, in their order (added 2026-11-04). Missing when there are none.
+   * GET /attachments/:id/thumb and /attachments/:id fetch them, with the sign-in header (owner only). */
+  images?: MessageImage[];
   createdAt: string;
+}
+
+/** A picture attached to a message (2026-11-04): its id and the clean picture's size (for the thumbnail's shape). */
+export interface MessageImage {
+  id: string;
+  width: number;
+  height: number;
+}
+
+/**
+ * POST /attachments answers with this: a picture uploaded and checked, waiting to be sent with a message (its id goes
+ * into the message's `images`). Not sent within a day, it is deleted. `width` and `height` are the clean picture's (at
+ * most 2048 px on its long edge); `bytes` its size; `format` what its content is (never its name).
+ */
+export interface Attachment {
+  id: string;
+  format: "png" | "jpeg" | "webp";
+  width: number;
+  height: number;
+  bytes: number;
 }
 
 export interface Version {
@@ -553,6 +576,9 @@ export interface CreateProjectBody {
   genre?: Genre;
   /** Tags to build it with, several at once (of 2d, 25d and 3d one at most; not both cozy and hard, nor firstperson and thirdperson; firstperson and thirdperson are 3d, so never with 2d or 25d). Left out or []: none. Added 2026-10-27. */
   tags?: GameTag[];
+  /** Pictures for the AI to build from (2026-11-04): up to 10 ids from POST /attachments, in their order. They are
+   * references (look, colours, characters, layout) unless the prompt asks for one to be used in the game itself. */
+  images?: string[];
 }
 
 /** POST /projects/:id/messages: ask for a change. 409 while a run is active or waiting in line on this project. */
@@ -561,6 +587,9 @@ export interface SendMessageBody {
   model: ModelChoice;
   effort?: Effort;
   confirm?: boolean;
+  /** Pictures sent with it (2026-11-04): up to 10 ids, each from POST /attachments or an earlier message of this game (a
+   * picture sent again is copied for this message). */
+  images?: string[];
 }
 
 /** POST /projects/:id/restore: make an old version the current one (as a new version). */
@@ -694,6 +723,17 @@ export interface FeedbackBody {
 // Added 2026-10-22 (the payments review): GET /me/export gains `payments` (each with the tick box's version and time)
 // and `billing`; PlanChangePreview gains `taxNowUsd` (optional); a plan or renewal payment refunded in full ends the
 // plan at once (Me.plan free, the subscription left as it is at Paddle).
+//
+// Added 2026-11-04 (pictures in the game builder: players attach reference pictures they made or generated elsewhere):
+// POST   /attachments            -> 201 Attachment     (the body is the picture's bytes, PNG, JPEG or WebP by content, at most
+//                                                       10 MB: 400 bad_request in one plain sentence otherwise, 413 past
+//                                                       10 MB; metadata such as a phone's location is removed; 429
+//                                                       too_many past 30 waiting to be sent or 120 an hour)
+// DELETE /attachments/:id        -> { ok: true }       (a picture not sent yet; 404 otherwise)
+// GET    /attachments/:id        -> image/png|jpeg|webp (the clean picture, at most 2048 px; its owner only, 404 for anyone else)
+// GET    /attachments/:id/thumb  -> image/webp         (at most 320 px; the same rule)
+// POST   /projects, POST /projects/:id/messages   `images`: up to 10 ids (400 when one is gone or another's); Message.images
+// Deleting a game, or the account, deletes its pictures; one never sent is deleted after a day.
 //
 // Added 2026-10-20 (payments part 3, the billing endpoints; docs/payments-design.md §7-9):
 // GET    /billing                       -> BillingInfo          (the plan, the subscription, credits by part, payments, consent)

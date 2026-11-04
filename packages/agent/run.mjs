@@ -18,6 +18,9 @@
 //          size check stops a request too big for the picked one, tools/size-check.mjs; default: the next one up)
 //          --budget <usd> (tests only: overrides the safety cap below; the server never passes it)
 //          --dir <path> (the game folder instead of output/<game>; --game is then optional)
+//          --images <dir> (the player's pictures for this message, 2026-11-04: <n>.<png|jpg|webp>, the picture itself,
+//          and <n>.view.webp, what the AI sees, n from 1 in their order; the server makes the folder. Every session gets
+//          them in its first message, with rules/PICTURES.md; the genre call and the size check get how many came)
 //          --events (also print `@@event <json>` lines: started, progress in plain words (also
 //          "Planning your change…" while the model thinks, tools/thinking.mjs), result;
 //          read by the server, apps/server. The result carries costUsd = every attempt, and
@@ -65,6 +68,18 @@ const game = opt('game') || (dirOpt && basename(resolve(dirOpt)));
 // --prompt-file: the live server's runner passes the prompt in a private file, not in argv (/proc/<pid>/cmdline is world-readable).
 const prompt = opt('prompt') ?? (opt('prompt-file') ? readFileSync(opt('prompt-file'), 'utf8') : undefined);
 const isEdit = flag('edit');
+// The player's pictures (--images): the AI's view of each goes into every session's first message, and its file's path,
+// for the agent to copy into the game when the player asks for that (rules/PICTURES.md). Never in the game folder.
+const imagesDir = opt('images') ? resolve(opt('images')) : null;
+const pictures = (imagesDir ? readdirSync(imagesDir) : [])
+  .flatMap((f) => {
+    const m = /^(\d+)\.(png|jpg|webp)$/.exec(f);
+    const view = m && join(imagesDir, `${m[1]}.view.webp`);
+    return m && existsSync(view) ? [{ n: Number(m[1]), file: join(imagesDir, f).replaceAll('\\', '/'), view }] : [];
+  })
+  .sort((a, b) => a.n - b.n)
+  .slice(0, 10)
+  .map((p, i) => ({ ...p, n: i + 1 }));
 const playtest = flag('playtest');
 const slim = flag('slim');
 let modelKey = opt('model', isEdit ? 'auto' : 'sonnet');
@@ -113,6 +128,7 @@ function toolProgress(name, input = {}) {
     if (!what || what === 'main') return name === 'Write' ? 'Building the game' : 'Changing the game';
     return `${name === 'Write' ? 'Writing' : 'Changing'} the ${{ hud: 'score display', ui: 'buttons' }[what] || what}`;
   }
+  if (name === 'Read' && imagesDir && file.replaceAll('\\', '/').startsWith(imagesDir.replaceAll('\\', '/'))) return 'Looking at your pictures';
   if (name === 'Read' && /\.png$/i.test(file)) return 'Looking at the game';
   if (name === 'Read' || name === 'Glob' || name === 'Grep') return 'Reading the game';
   if (name === 'TodoWrite') return 'Making a plan';
@@ -165,8 +181,10 @@ const GENRES = readdirSync(join(HERE, 'genres')).filter((g) => existsSync(join(H
 const genreHint = (g) => readFileSync(join(HERE, 'genres', g, 'GENRE.md'), 'utf8').match(/^## Genre: (.*)$/m)?.[1] ?? g;
 async function classify(request) {
   let answer = '', costUsd = 0;
+  // The pictures aren't sent to this call: only how many came, so a short request that leans on them reads as such.
+  const seen = pictures.length ? `\n(The player also attached ${pictures.length === 1 ? 'a picture' : `${pictures.length} pictures`} to it; you don't see ${pictures.length === 1 ? 'it' : 'them'}.)` : '';
   for await (const m of query({
-    prompt: `A player asked for this game:\n"${request}"\n\nGenres:\n${GENRES.map((g) => `- ${g}: ${genreHint(g)}`).join('\n')}\n- none: anything else\n\n`
+    prompt: `A player asked for this game:\n"${request}"${seen}\n\nGenres:\n${GENRES.map((g) => `- ${g}: ${genreHint(g)}`).join('\n')}\n- none: anything else\n\n`
       + 'Size: "big" only if the request itself asks for several levels or a level map, or lists 4 or more separate features (such as several tower or piece types, upgrades, specials, saving progress, a shop, menus); otherwise "small", also for a short request in a complex genre.\n\n'
       + 'Answer with exactly two words: the genre, then the size. Example: "puzzle small".',
     options: { ...ISOLATED, model: MODELS.haiku, effort: 'low', tools: [], maxTurns: 1, systemPrompt: 'You classify game requests. Answer with two words.' },
@@ -210,7 +228,7 @@ const report = (record, refused = false) => {
 };
 const recordBase = () => ({
   date: new Date().toISOString(), game, kind: isEdit ? 'edit' : 'new', prompt, route: modelKey === 'auto' ? `auto→${route}` : route,
-  genre, tags, size, platform, playtest, slim,
+  genre, tags, size, platform, playtest, slim, images: pictures.length,
 });
 
 // The size check (tools/size-check.mjs): a change on Fast or Smart too big for it stops here, before anything in the
@@ -218,7 +236,7 @@ const recordBase = () => ({
 let sized = null;
 if (isEdit && SIZED.includes(modelKey)) {
   sized = await sizeCheck({
-    request: prompt, key: modelKey, bigger: bigger === 'none' ? null : bigger, query,
+    request: prompt, key: modelKey, bigger: bigger === 'none' ? null : bigger, images: pictures.length, query,
     options: { ...ISOLATED, model: MODELS.haiku, effort: 'low', tools: [], maxTurns: 1 },
   });
   console.log(`size check for ${NAMES[modelKey]}: ${sized.fits ? 'fits' : 'too big'} (${sized.jobs.map((j) => `${j.kind}: ${j.what}`).join(' | ') || 'no jobs read'}), $${sized.costUsd.toFixed(4)}`);
@@ -284,6 +302,8 @@ const rules = [
       + tags.map((t) => readFileSync(join(HERE, 'tags', `${t}.md`), 'utf8').trimEnd()).join('\n\n') + '\n'
     : '',
   isEdit ? read('EDIT.md') : '',
+  // The player's pictures: references by default, the game's art only when asked (new games and changes, every AI).
+  pictures.length ? read('PICTURES.md') : '',
 ].join('\n').replaceAll('{CHECK}', checkPath).replaceAll('{ASSETS}', assetsPath).replaceAll('{GODOT}', GODOT);
 
 // The agent's last message, rewritten for a player who isn't a developer: rules alone don't
@@ -315,6 +335,23 @@ async function playerMessage(request, reply, { isNew = false } = {}) {
 }
 
 const log = join(dir, '.agent-log.jsonl');
+/**
+ * A session's first message. With pictures, the Agent SDK's streaming input (one user message): a line saying they came,
+ * then each picture (the AI's view, WebP) after a line naming it and its file, then the request; images before the text
+ * they go with, as the API advises. Without, the request alone, as before. Made anew for every session (a stream is read once).
+ */
+function firstMessage(request) {
+  if (!pictures.length) return request;
+  const content = [{ type: 'text', text: `The player attached ${pictures.length === 1 ? 'a picture' : `${pictures.length} pictures`} to this message (see "The player's pictures").` }];
+  for (const p of pictures) {
+    content.push({ type: 'text', text: `Picture ${p.n} (its file, to copy into the game only if the player asks for that: ${p.file})` });
+    content.push({ type: 'image', source: { type: 'base64', media_type: 'image/webp', data: readFileSync(p.view).toString('base64') } });
+  }
+  content.push({ type: 'text', text: request });
+  return (async function* () {
+    yield { type: 'user', parent_tool_use_id: null, message: { role: 'user', content } };
+  })();
+}
 // One agent session. `extra` adds rules for this session only (the build steps).
 async function attempt(key, { request = prompt, extra = '', label = '' } = {}) {
   const model = MODELS[key];
@@ -322,7 +359,7 @@ async function attempt(key, { request = prompt, extra = '', label = '' } = {}) {
   const t0 = Date.now();
   const elapsed = () => `${((Date.now() - t0) / 60000).toFixed(1)}m`;
   const sessionRules = rules + (extra ? '\n' + extra : '');
-  console.log(`\n${isEdit ? 'EDIT' : 'NEW'}${label ? ` ${label}` : ''} ${game} on ${model} (effort ${effort}${playtest ? ', play-test' : ''}${slim ? ', slim' : ''})\n> ${request}\n`);
+  console.log(`\n${isEdit ? 'EDIT' : 'NEW'}${label ? ` ${label}` : ''} ${game} on ${model} (effort ${effort}${playtest ? ', play-test' : ''}${slim ? ', slim' : ''}${pictures.length ? `, ${pictures.length} picture(s)` : ''})\n> ${request}\n`);
   progress(label ? label.replace(/^step (\d)\/(\d) (\w+)$/, (_, a, b, w) => `Step ${a} of ${b}: ${{ core: 'the playable game', content: 'levels and extras' }[w] || w}`)
     : isEdit ? 'Making your change' : 'Building your game');
   let result, failure = '', refused = false;
@@ -332,7 +369,7 @@ async function attempt(key, { request = prompt, extra = '', label = '' } = {}) {
   const thinking = { since: 0 };
   try {
   for await (const msg of query({
-    prompt: request,
+    prompt: firstMessage(request),
     options: {
       cwd: dir, model, effort,
       systemPrompt: slim ? sessionRules : { type: 'preset', preset: 'claude_code', append: sessionRules },

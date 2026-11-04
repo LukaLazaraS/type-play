@@ -4,6 +4,7 @@
 // check here is synchronous: nothing can slip in between a check and the claim it guards.
 import { Injectable } from "@nestjs/common";
 import type { Effort, GameTag, Genre, ModelChoice, PlanId, Platform, QueuePlace, RunEvent, RunStatus } from "@typeplay/shared";
+import type { RunImage } from "../attachments/attachments.service.js";
 import { ApiException } from "../common/api-error.js";
 import { runsAtOnce } from "../credits/credits.js";
 import type { CreditHold } from "../credits/credits.service.js";
@@ -25,6 +26,8 @@ export interface ActiveRun {
   /** A first build's genre and tags, as StartRun's. */
   genre?: Genre | null;
   tags?: GameTag[];
+  /** The pictures its message carries, as StartRun's. */
+  images?: RunImage[];
   /** The credits held for this run while it goes (released when its charge or failure is written). */
   hold: CreditHold | null;
   handle: AgentHandle | null;

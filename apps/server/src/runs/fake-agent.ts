@@ -8,8 +8,11 @@
 // The size check (packages/agent/tools/size-check.mjs) as run.mjs runs it, on changes on Fast and Smart only: "TOOBIG"
 // stops such a change before anything is built, its answer offering `job.bigger` when there is one. "CHECKUSD:<n>" is
 // what that check (or, for a new game, the genre call) reports it cost; $0 otherwise, so the tests' figures stay exact.
+// The pictures a run gets (2026-11-04: the folder run.mjs --images reads) are written into FAKE.md, each one's name, size
+// and SHA-256, so a test sees that they reached the run byte for byte.
 // It makes a real git commit, like the agent would.
-import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import type { Platform } from "@typeplay/shared";
@@ -89,6 +92,19 @@ function setPlatform(dir: string, platform: Platform | "auto") {
   writeFileSync(join(dir, "PLATFORM"), `${platform}\n`);
 }
 
+/** The run's pictures as one FAKE.md line: "1.png 5120 <sha256> view 2048 | 2.jpg …" (the clean picture, then its AI view's size). */
+function picturesLine(dir: string): string {
+  const files = readdirSync(dir)
+    .filter((f) => /^\d+\.(png|jpg|webp)$/.test(f))
+    .sort((a, b) => parseInt(a) - parseInt(b));
+  const parts = files.map((f) => {
+    const bytes = readFileSync(join(dir, f));
+    const view = join(dir, `${parseInt(f)}.view.webp`);
+    return `${f} ${bytes.length} ${createHash("sha256").update(bytes).digest("hex")} view ${existsSync(view) ? statSync(view).size : 0}`;
+  });
+  return `- pictures: ${parts.join(" | ")}\n`;
+}
+
 async function fakeWork(job: AgentJob) {
   const commitAll = async (msg: string) => {
     await git(job.dir, "add", "-A");
@@ -107,6 +123,7 @@ async function fakeWork(job: AgentJob) {
     setPlatform(job.dir, "fill"); // as the agent does when asked to make a game fit other screens too
   }
   appendFileSync(join(job.dir, "FAKE.md"), `- ${job.kind}: ${job.prompt}\n`);
+  if (job.imagesDir) appendFileSync(join(job.dir, "FAKE.md"), picturesLine(job.imagesDir));
   // A first build's picks in the files run.mjs keeps them in: GENRE for a picked genre (with none, run.mjs writes the
   // one it picks itself), TAGS for the tags (no tags, no file).
   if (job.kind === "new" && job.genre) writeFileSync(join(job.dir, "GENRE"), `${job.genre}\n`);

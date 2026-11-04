@@ -8,6 +8,7 @@
 // Haiku judging the whole request itself stopped "make the robot red and a bit faster" on Fast and let "add a shop and a
 // boss" through, and answered a Russian request in English until it named the language first).
 // When unsure it lets the build go: a wrong stop annoys a player more than an occasional failed build costs.
+// Pictures the player attached are not sent to it: only how many came (2026-11-04).
 // Like every AI call a player causes, its cost is part of that message's charge (run.mjs `sizeCheckCostUsd`); a stop is
 // charged like any finished answer (docs/pricing.md: rounded up to 0.1 credit, at least 0.1).
 
@@ -41,12 +42,14 @@ export function fits(jobs, key) {
 
 const SYSTEM = 'You sort a game change a player asked for into jobs, and write a short chat message. Follow the answer format exactly.';
 
-/** The check's prompt: the request, the picked AI, and the bigger AI the message may offer (null: none). */
-export function sizePrompt(request, key, bigger) {
+/** The check's prompt: the request, the picked AI, the bigger AI the message may offer (null: none), and how many pictures
+ * came with the request (not the pictures themselves: they are the build's, 2026-11-04). */
+export function sizePrompt(request, key, bigger, images = 0) {
   const name = NAMES[key];
   const offer = bigger ? `, or picking ${NAMES[bigger]} to do more at once` : '';
+  const seen = images ? `\n(The player also attached ${images === 1 ? 'a picture' : `${images} pictures`} to it; you don't see ${images === 1 ? 'it' : 'them'}. Using a picture is part of the job it goes with.)` : '';
   return [
-    `A player is changing their game by chat and sent this message to the ${name} AI:\n"${request}"`,
+    `A player is changing their game by chat and sent this message to the ${name} AI:\n"${request}"${seen}`,
     `Sort the request into jobs. The kinds of job:\n${Object.entries(KINDS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nWhen unsure whether something is a job of its own, it is part of the one before it.`,
     'Answer in exactly this format, one job per line:',
     'JOB: <kind>: <the job in a few words>\nLANGUAGE: <the language the player wrote in>\nMESSAGE: <the message>',
@@ -79,10 +82,10 @@ export function verdict(answer, key) {
  * Runs the check: { fits, reply, jobs, answer, costUsd }. Never throws: a failed call lets the build go. `query` and
  * `options` are run.mjs's (the SDK's query and the isolated Haiku options); `key` is the picked AI (haiku | sonnet).
  */
-export async function sizeCheck({ request, key, bigger, query, options }) {
+export async function sizeCheck({ request, key, bigger, images = 0, query, options }) {
   let answer = '', costUsd = 0;
   try {
-    for await (const m of query({ prompt: sizePrompt(request, key, bigger), options: { ...options, systemPrompt: SYSTEM } })) {
+    for await (const m of query({ prompt: sizePrompt(request, key, bigger, images), options: { ...options, systemPrompt: SYSTEM } })) {
       if (m.type === 'result') {
         if (m.subtype === 'success') answer = m.result ?? '';
         costUsd = m.total_cost_usd ?? 0;

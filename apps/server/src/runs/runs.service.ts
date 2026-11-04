@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from "@nestjs/common";
 import type { Effort, GameTag, Genre, ModelChoice, Platform, PlanId, RunEvent } from "@typeplay/shared";
+import type { RunImage } from "../attachments/attachments.service.js";
+import { prepareRunImages } from "../attachments/store.js";
 import { creditsForUsd, planModels, toTenths } from "../credits/credits.js";
 import { CreditsService, type CreditHold } from "../credits/credits.service.js";
 import { LedgerService, TX_OPTIONS } from "../credits/ledger.service.js";
@@ -40,6 +42,8 @@ export interface StartRun {
    * game's own (its folder's GENRE and TAGS). */
   genre?: Genre | null;
   tags?: GameTag[];
+  /** The pictures the player's message carries (attachments/), in their order: references for the AI, or art when asked. */
+  images?: RunImage[];
   /** The credits held for this run (credits.service `assertCanRun`); released when it ends. */
   hold: CreditHold | null;
   /** When it started, as its message's `startedAt` says (after its time in line, if it waited). */
@@ -243,6 +247,10 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     // A change on Fast or Smart is sized before it is built (run.mjs): a stop offers the next AI up the run's plan has.
     const plan = run.kind === "edit" ? ((await this.prisma.message.findUnique({ where: { id: run.messageId }, select: { plan: true } }))?.plan ?? null) : null;
     const bigger = run.kind === "edit" ? biggerModel(run.model, plan) : null;
+    // The pictures: on this PC copied into a private folder of the run's own (run.mjs --images reads it), removed when the
+    // run ends; on the live server the runner copies them into the job's home itself (runner.mjs).
+    const images = run.images ?? [];
+    const imagesDir = images.length && !config.runnerSocket ? prepareRunImages(run.messageId, images, (m) => this.log.warn(`run ${run.projectId}: ${m}`)) : null;
     // AGENT_AUTH=api: a token for this run only; the key proxy adds our key (key-proxy.ts).
     const token = this.keyProxy.enabled ? this.keyProxy.issue(`run ${run.projectId}`, MODEL_FLAG[run.model], config.runTimeoutMin + 5) : null;
     const job = {
@@ -254,6 +262,8 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       platform: run.kind === "new" ? (run.platform ?? null) : null,
       genre: run.kind === "new" ? (run.genre ?? null) : null,
       tags: run.kind === "new" ? (run.tags ?? []) : [],
+      images,
+      imagesDir,
       bigger,
       logFile: join(config.dataDir, "logs", `${run.projectId}-${run.messageId}.log`),
       onProgress: (text: string) => {
@@ -273,6 +283,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     let metered: number | null = null;
     const result = await run.handle.done.finally(() => {
       clearTimeout(timer);
+      if (imagesDir) rmSync(imagesDir, { recursive: true, force: true });
       if (token) {
         metered = this.keyProxy.usageOf(token)?.costUsd ?? null;
         this.keyProxy.revoke(token);
