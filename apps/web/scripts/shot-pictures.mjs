@@ -290,6 +290,22 @@ try {
     check(`${label}: the composer's box is empty again`, (await page.locator(".composer .tray .thumb").count()) === 0);
     await page.waitForTimeout(800);
     await shot(page, `chat-sent-${label}`);
+
+    // The size check's one tap brings the stopped message's picture back into the box with its words (desktop only).
+    if (!phone) {
+      await say.fill("Add 10 new levels and flying traps TOOBIG");
+      await page.locator(".composer input[type=file]").setInputFiles([files.level]);
+      await settled(page, ".composer .tray");
+      const answers = await page.locator(".msg--agent").count();
+      await page.getByRole("button", { name: "Send" }).click();
+      await page.waitForFunction((n) => document.querySelectorAll(".msg--agent").length > n, answers, { timeout: 30_000 });
+      await page.locator(".msg--agent").last().locator(".msg__meta", { hasText: "0.1 credits" }).waitFor({ timeout: 60_000 });
+      check(`${label}: a change too big for Fast stops, the box empty again`, (await page.locator(".composer .tray .thumb").count()) === 0);
+      await page.getByRole("button", { name: "Use Smart for this" }).click();
+      await page.waitForFunction(() => document.querySelectorAll(".composer .tray .thumb img").length === 1, null, { timeout: 30_000 });
+      check(`${label}: "Use Smart for this" puts its words and its picture back in the box`, (await page.locator("#say").inputValue()) === "Add 10 new levels and flying traps TOOBIG");
+      await shot(page, `bigger-restored-${label}`);
+    }
     await ctx.close();
   }
 

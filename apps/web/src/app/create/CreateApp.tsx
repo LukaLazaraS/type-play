@@ -153,7 +153,7 @@ export function CreateApp() {
   // only (each uploads as it is attached); a sentence about one that wasn't taken shows under the box.
   const [pictureError, setPictureError] = useState<string | null>(null);
   const tray = usePictureTray(setPictureError);
-  const drop = usePictureDrop(tray, session.status === "in" && !busy);
+  const drop = usePictureDrop(tray, session.status === "in");
 
   // The home page hands the sentence over in the address; keep it in this browser (it survives the
   // trip to Google), then drop it from the address so a reload shows the latest edit.
