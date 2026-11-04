@@ -1,9 +1,11 @@
 // Who is signed in, for every client component, without a provider: a small store that starts on
-// first use. Google sign-in goes through Supabase; "Dev sign-in" (NEXT_PUBLIC_DEV_AUTH=1, never in
-// production) uses a `dev:<email>` token the API accepts only with DEV_AUTH=1.
+// first use. Google sign-in goes through Supabase: a redirect there, or (app.googleButton) Google's own button on this
+// site with Google's token handed to Supabase. "Dev sign-in" (NEXT_PUBLIC_DEV_AUTH=1, never in production) uses a
+// `dev:<email>` token the API accepts only with DEV_AUTH=1.
 import { useSyncExternalStore } from "react";
 import type { CreditBalance, Me } from "@typeplay/shared";
 import { app } from "@/content/app";
+import { forgetGoogleChoice } from "./google-button";
 import { safeNext, supabase } from "./supabase";
 
 export type Session =
@@ -184,6 +186,23 @@ export async function signInWithGoogle(next: string, { chooseAccount = false } =
   return error ? "We couldn't open Google sign-in. Please try again." : null;
 }
 
+/**
+ * Google's own button (app.googleButton; lib/google-button.ts): Google's ID token goes to Supabase with the raw nonce
+ * whose hash Google wrote into it (signInWithIdToken; Supabase checks the token, the nonce and our client ID, and makes
+ * the session in this browser's cookies, as the redirect does). Then `next` loads as a fresh page, the way the
+ * redirect lands, so every page starts signed in as it did before. Returns a sentence for the page when it fails.
+ */
+export async function signInWithGoogleToken(credential: string, nonce: string, next: string): Promise<string | null> {
+  const { error } = await supabase()
+    .auth.signInWithIdToken({ provider: "google", token: credential, nonce })
+    .catch(() => ({ error: true }));
+  if (error) return "Sign-in didn't finish. Please try again.";
+  const target = safeNext(next);
+  if (target === location.pathname + location.search) location.reload();
+  else location.assign(target);
+  return null;
+}
+
 export function devSignIn(email: string) {
   if (!app.devAuth) return;
   try {
@@ -210,6 +229,7 @@ export async function signOut() {
     /* nothing kept */
   }
   if (via !== "dev") await supabase().auth.signOut({ scope: "local" }).catch(() => {});
+  if (app.googleButton) forgetGoogleChoice();
   rememberUninvited(null);
   set({ status: "out" });
 }

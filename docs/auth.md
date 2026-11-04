@@ -53,6 +53,12 @@ The direct host `db.<ref>.supabase.co` is IPv6-only on the free plan; the pooler
   `.env` and Supabase, then disable and delete the old one.
 - Checked end to end: Supabase's `/auth/v1/authorize?provider=google` sends the browser to Google
   with our client id and the Supabase callback; both database URLs connect.
+- **Google names the Supabase project to players** (found 11-04: "Sign in to continue to bensbaqrtdcamxvcugek.supabase.co",
+  and Google's security email): Google shows an app's name only after brand verification, and until then the domain the
+  sign-in returns to, here Supabase's callback. The fix built 11-04, Google's own button on typeplay.app with
+  `signInWithIdToken` (switch `NEXT_PUBLIC_GOOGLE_BUTTON`), brand verification, the paid custom-domain alternative, and
+  Luka's steps field by field: `docs/launch/google-sign-in-name.md`. The client's JavaScript origins already include
+  `https://typeplay.app`; Google's button in `npm run dev` also needs `http://localhost` there (Google asks for both).
 
 ## 3. Support address: typeplay-support@googlegroups.com
 

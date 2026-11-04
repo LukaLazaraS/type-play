@@ -488,6 +488,71 @@ body:has(.ws) .ground-band {
   min-width: 0;
 }
 
+/* Google's own button (components/ui/GoogleButton.tsx, app.googleButton): Google draws it in its own frame, in its own
+   look (its branding rules: dark or light, the coloured G). This only holds its place while Google's script loads, in
+   the size Google's button has when it comes (measured 11-04 on Google's own render: dark "Sign in with Google" 194x40
+   in a 44px box, light "Continue with Google" 191x32) and in Google's own colours, not ours (its branding guidelines:
+   dark #131314 with #e3e3e3 words, light #ffffff with a #747775 line and #1f1f1f words), so nothing moves or changes
+   colour when it arrives. The words wait 400ms, so a quick load never flashes them. Busy (signing in with Google's
+   token): inert and dimmed, like the site's busy buttons. */
+.googlebutton {
+  display: grid;
+  align-items: start;
+  justify-items: start;
+  max-width: 100%;
+  min-height: 44px;
+}
+.googlebutton--light {
+  min-height: 32px;
+}
+.googlebutton > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+.googlebutton__hold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 194px;
+  max-width: 100%;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 20px;
+  background: #131314;
+  color: #e3e3e3;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.googlebutton--light .googlebutton__hold {
+  width: 191px;
+  height: 32px;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #747775;
+  color: #1f1f1f;
+  font-size: 13px;
+}
+.googlebutton__hold span {
+  opacity: 0;
+  animation: googlebutton-wait 200ms var(--ease-out) 400ms forwards;
+}
+/* Only opacity, so reduced motion keeps it (as the toasts keep their fade). */
+@keyframes googlebutton-wait {
+  to {
+    opacity: 1;
+  }
+}
+.googlebutton {
+  transition: opacity 160ms var(--ease-out);
+}
+.googlebutton--busy {
+  opacity: 0.55;
+}
+.closed__actions .googlebutton {
+  align-self: center;
+}
+
 /* /create */
 .make {
   display: flex;
@@ -4894,6 +4959,13 @@ body:has(main.explore) > .ground-band {
     white-space: normal;
     line-height: 1.25;
     text-align: center;
+  }
+  /* Google's button too (it draws itself as wide as its place, up to Google's 400px), and its place while it loads. */
+  .closed__actions .googlebutton {
+    flex: 1 1 100%;
+  }
+  .closed__actions .googlebutton__hold {
+    width: min(100%, 400px);
   }
 }
 

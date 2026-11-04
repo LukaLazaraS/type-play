@@ -5,13 +5,62 @@ import { GoogleLogo } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { ErrorLine } from "@/components/ui/ErrorLine";
 import { TextField } from "@/components/ui/Field";
+import { GoogleButton } from "@/components/ui/GoogleButton";
 import { Panel } from "@/components/ui/Panel";
-import { app } from "@/content/app";
+import { app, GOOGLE_BLOCKED } from "@/content/app";
 import { useRestored } from "@/lib/restored";
-import { devSignIn, signInWithGoogle } from "@/lib/session";
+import { devSignIn, signInWithGoogle, signInWithGoogleToken } from "@/lib/session";
 
-/** Sign in with Google (and, in dev with NEXT_PUBLIC_DEV_AUTH=1 only, a test sign-in). */
+/**
+ * Sign in with Google (and, in dev with NEXT_PUBLIC_DEV_AUTH=1 only, a test sign-in). With app.googleButton: Google's
+ * own button on this site (Google's screens name typeplay.app); where Google's script can't load, the redirect through
+ * Supabase, or (NEXT_PUBLIC_GOOGLE_BUTTON=only) a line saying what to do. Without it: the redirect, as before.
+ */
 export function SignIn({ next, note }: { next: string; note?: string }) {
+  return (
+    <div className="signin">
+      {app.googleButton ? <GoogleSignIn next={next} note={note} /> : <RedirectSignIn next={next} note={note} />}
+      {app.devAuth && <DevSignIn />}
+    </div>
+  );
+}
+
+/** Google's own button: its token goes to Supabase here, then `next` opens signed in. */
+function GoogleSignIn({ next, note }: { next: string; note?: string }) {
+  const [unavailable, setUnavailable] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (unavailable) return app.googleRedirectFallback ? <RedirectSignIn next={next} note={note} /> : <ErrorLine>{GOOGLE_BLOCKED}</ErrorLine>;
+  return (
+    <>
+      <GoogleButton
+        busy={working}
+        onUnavailable={() => setUnavailable(true)}
+        onToken={async (credential, nonce) => {
+          setWorking(true);
+          setError(null);
+          const problem = await signInWithGoogleToken(credential, nonce, next);
+          // On success the next page is on its way; stay on "Signing in…" until it comes.
+          if (problem) {
+            setError(problem);
+            setWorking(false);
+          }
+        }}
+      />
+      {error ? (
+        <ErrorLine>{error}</ErrorLine>
+      ) : (
+        <p className="field-hint" role="status">
+          {working ? "Signing in…" : note}
+        </p>
+      )}
+    </>
+  );
+}
+
+/** The redirect through Supabase to Google's sign-in page, and back to `next` (app/auth/callback). */
+function RedirectSignIn({ next, note }: { next: string; note?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,14 +79,13 @@ export function SignIn({ next, note }: { next: string; note?: string }) {
   };
 
   return (
-    <div className="signin">
+    <>
       <Button onClick={google} busy={busy}>
         <GoogleLogo size={20} weight="bold" aria-hidden="true" />
         {busy ? "Opening Google…" : "Sign in with Google"}
       </Button>
       {error ? <ErrorLine>{error}</ErrorLine> : <p className="field-hint">{note}</p>}
-      {app.devAuth && <DevSignIn />}
-    </div>
+    </>
   );
 }
 

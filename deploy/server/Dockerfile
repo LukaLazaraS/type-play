@@ -12,13 +12,15 @@ ARG NEXT_PUBLIC_API_ORIGIN
 ARG NEXT_PUBLIC_APP=0
 # The closed beta (beta 1): the signed-out /create and /games say it before sign-in; "1" while the API's BETA_INVITE_ONLY is on.
 ARG NEXT_PUBLIC_CLOSED_BETA=0
+# Google's own sign-in button on typeplay.app, "1" or "only" (docs/launch/google-sign-in-name.md); 0 = the redirect through Supabase.
+ARG NEXT_PUBLIC_GOOGLE_BUTTON=0
 # Paddle.js (payments part 3): the public client token and its environment; empty = "opens here soon".
 ARG NEXT_PUBLIC_PADDLE_ENV=""
 ARG NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=""
 # Notifications (Web Push): the live VAPID pair's public half (deploy.mjs `site` fills it in); empty = no notifications.
 ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY=""
 ENV NEXT_PUBLIC_GAMES_ORIGIN=$NEXT_PUBLIC_GAMES_ORIGIN NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN NEXT_PUBLIC_APP=$NEXT_PUBLIC_APP
-ENV NEXT_PUBLIC_CLOSED_BETA=$NEXT_PUBLIC_CLOSED_BETA
+ENV NEXT_PUBLIC_CLOSED_BETA=$NEXT_PUBLIC_CLOSED_BETA NEXT_PUBLIC_GOOGLE_BUTTON=$NEXT_PUBLIC_GOOGLE_BUTTON
 ENV NEXT_PUBLIC_PADDLE_ENV=$NEXT_PUBLIC_PADDLE_ENV NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=$NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
 ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
 RUN npm run build --workspace=web

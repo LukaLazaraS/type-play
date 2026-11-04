@@ -76,6 +76,14 @@ NEXT_PUBLIC_DEV_AUTH=1 npm run dev -w web                  # site on http://loca
   cookie; `src/proxy.app.ts` refreshes it on /create and /games. The Supabase URL and publishable
   key are public by design and live in `src/content/app.ts` (`node scripts/supabase-config.mjs`
   copies them from the root `.env`, printing only lengths). Never the secret key.
+- **Google's own button** (`NEXT_PUBLIC_GOOGLE_BUTTON`, 2026-11-04; off in `deploy/server/compose.yaml` until Luka's
+  steps in `docs/launch/google-sign-in-name.md`): `"1"` replaces the redirect through Supabase with Google's button on
+  this site (Google Identity Services, `lib/google-button.ts`, `components/ui/GoogleButton.tsx`); Google's token goes
+  to Supabase's `signInWithIdToken` with a one-time nonce, so Google's screens and emails name typeplay.app, never the
+  Supabase project. Where a blocker stops Google's script, the redirect as before; `"only"` shows a line instead. The
+  Google client ID is public and sits in `src/content/app.ts` beside Supabase's values (the same script writes it).
+  Locally Google accepts it only on `http://localhost:3000` once the client also lists `http://localhost`.
+  Walk-through of every value: `node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-signin.mjs`.
 - **Dev sign-in** (tests only): `NEXT_PUBLIC_DEV_AUTH=1` shows "Dev sign-in" on /create, which
   signs in as `dev:<email>` (the API must run with `DEV_AUTH=1`). A production build with it set
   refuses to start (`next.config.ts`), and the code ignores it outside `next dev`.

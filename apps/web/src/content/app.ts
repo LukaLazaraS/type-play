@@ -10,6 +10,17 @@ export const app = {
   enabled: process.env.NEXT_PUBLIC_APP === "1",
   /** "Dev sign-in" (`Bearer dev:<email>`) for tests. Never in a production build (next.config.ts refuses it). */
   devAuth: process.env.NEXT_PUBLIC_DEV_AUTH === "1" && process.env.NODE_ENV !== "production",
+  /**
+   * Google's own sign-in button (2026-11-04, docs/launch/google-sign-in-name.md): on, the sign-in uses Google's button on
+   * this site and hands Google's ID token to Supabase (signInWithIdToken), so Google's screens and emails name
+   * typeplay.app (TypePlay once Google has verified the brand), never the Supabase project's address. Set at build time
+   * (deploy/server/compose.yaml): "1" = on, and where Google's script can't load (a blocker), the redirect through
+   * Supabase as before; "only" = on, and there a line that says what to do instead (once Google Cloud no longer lists
+   * Supabase's callback); anything else = off, the redirect through Supabase as before.
+   */
+  googleButton: process.env.NEXT_PUBLIC_GOOGLE_BUTTON === "1" || process.env.NEXT_PUBLIC_GOOGLE_BUTTON === "only",
+  /** Where Google's button can't load: the redirect through Supabase (`"1"`), or only a line saying why (`"only"`). */
+  googleRedirectFallback: process.env.NEXT_PUBLIC_GOOGLE_BUTTON !== "only",
   apiOrigin: (process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://127.0.0.1:3002").replace(/\/+$/, ""),
   /**
    * Notifications (Web Push, 2026-10-29): the public half of the API's VAPID pair, which this browser subscribes with.
@@ -34,6 +45,17 @@ export const supabaseConfig = {
   url: "https://bensbaqrtdcamxvcugek.supabase.co", // supabase:url
   publishableKey: "sb_publishable_Pg8588vRvI1RND-JhJhrZg_Ld7ug3op", // supabase:publishableKey
 } as const;
+
+// Google sign-in's OAuth client (Google Cloud project typeplay-app, the "TypePlay web (Supabase)" client), for Google's
+// own button (app.googleButton). Public by design: it is in every sign-in's address (docs/auth.md). Written from the
+// root .env's GOOGLE_CLIENT_ID by the same script; never the client secret.
+export const googleConfig = {
+  clientId: "1093794003252-t3b2ldeq77m98to4lpah2fcbm17e3k7d.apps.googleusercontent.com", // google:clientId
+} as const;
+
+/** Google's button didn't load and there is no redirect to offer instead (NEXT_PUBLIC_GOOGLE_BUTTON=only). */
+export const GOOGLE_BLOCKED =
+  "Google's sign-in didn't load here. If you use an ad blocker, allow accounts.google.com on this site, then reload the page.";
 
 /** Where the browser keeps the sentence while the visitor signs in (the home page's prompt box too). */
 export const DRAFT_KEY = "typeplay.draft";

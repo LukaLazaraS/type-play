@@ -7,13 +7,14 @@ import { ButtonLink } from "@/components/ui/ButtonLink";
 import { Callout } from "@/components/ui/Callout";
 import { ErrorLine } from "@/components/ui/ErrorLine";
 import { FieldLabel, TextField } from "@/components/ui/Field";
+import { GoogleButton } from "@/components/ui/GoogleButton";
 import { PageWidget } from "@/components/ui/PageWidget";
 import { Panel } from "@/components/ui/Panel";
-import { DRAFT_KEY } from "@/content/app";
+import { app, DRAFT_KEY, GOOGLE_BLOCKED } from "@/content/app";
 import { BETA_CODE_LENGTH } from "@/content/beta";
 import { api, ApiFailure } from "@/lib/api";
 import { useRestored } from "@/lib/restored";
-import { refreshMe, sessionNow, signInWithGoogle, signOut, useSession } from "@/lib/session";
+import { refreshMe, sessionNow, signInWithGoogle, signInWithGoogleToken, signOut, useSession } from "@/lib/session";
 
 /**
  * The app's pages (create/, games/, account/, billing/: their layout.app.tsx): for someone signed in whose email isn't on
@@ -125,6 +126,20 @@ function ClosedBeta({ email, onJoined }: { email: string | null; onJoined: (cred
     }
   };
 
+  // Google's own button (app.googleButton): the account picked in Google's window replaces this sign-in, and the page
+  // loads again with it. Where Google's script can't load, the redirect's button above instead (or, with
+  // NEXT_PUBLIC_GOOGLE_BUTTON=only, a line saying what to do; Sign out stays).
+  const [googleUnavailable, setGoogleUnavailable] = useState(false);
+  const anotherByToken = async (credential: string, nonce: string) => {
+    setBusy(true);
+    setError(null);
+    const problem = await signInWithGoogleToken(credential, nonce, location.pathname);
+    if (problem) {
+      setError(problem);
+      setBusy(false);
+    }
+  };
+
   return (
     <PageWidget
       className="closed"
@@ -183,15 +198,20 @@ function ClosedBeta({ email, onJoined }: { email: string | null; onJoined: (cred
         )}
         <p>Invited with another address? Use that Google account.</p>
         <div className="closed__actions">
-          <Button look="quiet" size="small" onClick={() => void another()} busy={busy}>
-            <GoogleLogo size={18} weight="bold" aria-hidden="true" />
-            {busy ? "Opening Google…" : "Use another account"}
-          </Button>
+          {app.googleButton && !googleUnavailable ? (
+            <GoogleButton look="light" busy={busy} onUnavailable={() => setGoogleUnavailable(true)} onToken={(credential, nonce) => void anotherByToken(credential, nonce)} />
+          ) : app.googleButton && !app.googleRedirectFallback ? null : (
+            <Button look="quiet" size="small" onClick={() => void another()} busy={busy}>
+              <GoogleLogo size={18} weight="bold" aria-hidden="true" />
+              {busy ? "Opening Google…" : "Use another account"}
+            </Button>
+          )}
           <Button look="quiet" size="small" onClick={() => void signOut()} disabled={busy}>
             Sign out
           </Button>
         </div>
         {error && <ErrorLine>{error}</ErrorLine>}
+        {app.googleButton && googleUnavailable && !app.googleRedirectFallback && <ErrorLine>{GOOGLE_BLOCKED}</ErrorLine>}
       </Panel>
       {idea && (
         <div className="closed__idea">

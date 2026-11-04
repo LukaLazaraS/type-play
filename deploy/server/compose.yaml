@@ -13,6 +13,12 @@ services:
         # The closed beta (beta 1): the signed-out /create and /games say so before sign-in. Keep it with the API's
         # BETA_INVITE_ONLY (deploy/api/compose.yaml): "0" for both when the app opens to everyone.
         NEXT_PUBLIC_CLOSED_BETA: "1"
+        # Google's own sign-in button (2026-11-04): "1" = Google's button on typeplay.app with its token handed to
+        # Supabase, so Google's screens and emails name typeplay.app (TypePlay once the brand is verified) instead of the
+        # Supabase project's address; where a blocker stops Google's script, the redirect through Supabase as before.
+        # "only" = the same without that redirect (once Google Cloud no longer lists Supabase's callback). "0" = the
+        # redirect through Supabase, as before. Luka's steps and when to flip it: docs/launch/google-sign-in-name.md.
+        NEXT_PUBLIC_GOOGLE_BUTTON: "0"
         # Paddle.js (payments part 3): the environment and the client-side token (public by design: test_… / live_…).
         # Empty = the billing page says "opens here soon". Set with the API's PADDLE_ENV (deploy/api/compose.yaml).
         # Go paid (docs/beta/runbook.md step 13) sets both at once: "live" and live_1f80bbe8fcc5597c2ac2a5af06a (the live
