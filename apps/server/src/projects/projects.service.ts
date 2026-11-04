@@ -1,11 +1,12 @@
 // Projects: create (and start the first build, or put it in line), send a change, restore a version, cancel a run;
 // rename, share, download and delete a game.
-import { randomInt } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { Injectable, Logger } from "@nestjs/common";
 import type { Effort, Genre, ModelChoice, PlanId, Platform, Project as ProjectView } from "@typeplay/shared";
 import { AndroidService } from "../android/android.service.js";
+import { AttachmentsService } from "../attachments/attachments.service.js";
 import { ApiException, badRequest, notFound } from "../common/api-error.js";
 import { config } from "../env.js";
 import { genreOf } from "../gallery/gallery.service.js";
@@ -93,43 +94,57 @@ export class ProjectsService {
     private readonly views: ProjectViews,
     private readonly credits: CreditsService,
     private readonly android: AndroidService,
+    private readonly attachments: AttachmentsService,
   ) {}
 
   async create(user: User, body: unknown): Promise<ProjectView> {
     const req = parseRunBody(body, "prompt");
     const platform = parsePlatform(body);
     const { genre, tags } = parsePicks(body);
+    // The pictures the player attached (uploaded already, POST /attachments): checked before anything is written.
+    const picked = await this.attachments.pick(user, (body as { images?: unknown } | null)?.images, null);
     const id = newProjectId();
     // A builder is free: it starts at once. All busy: it waits in line (runs/queue.service.ts).
     const claim = this.registry.claimRun(id, ownerOf(user), { kind: "new", model: req.model, effort: req.effort });
     let hold: CreditHold | null = null; // the run's credits, until the run (or the line) owns them
+    let undo: (() => void) | null = null; // copies of pictures sent again, until their rows are written
     try {
       hold = await this.credits.assertCanRun(user, "new", req.model, req.confirm, req.effort);
       const now = Date.now();
       const sent = new Date(now + 1);
-      const queued = claim.now ? null : this.queue.rowFor({ projectId: id, userId: user.id, kind: "new", prompt: req.text, platform, genre, tags, plan: user.plan, hold, at: sent });
-      const project = await this.prisma.project.create({
-        data: {
-          id,
-          ownerId: user.id,
-          name: nameFromPrompt(req.text),
-          platform,
-          pickedGenre: genre,
-          tags,
-          messages: {
-            create: [
-              { role: "user", text: req.text, createdAt: new Date(now) },
-              { ...this.agentMessage(user, req, sent, queued), createdAt: sent },
-            ],
+      const prepared = this.attachments.prepare(picked);
+      undo = prepared.undo;
+      const asked = randomUUID(); // the player's message, which owns the pictures
+      const queued = claim.now
+        ? null
+        : this.queue.rowFor({ projectId: id, userId: user.id, kind: "new", prompt: req.text, platform, genre, tags, images: prepared.images.map((i) => i.id), plan: user.plan, hold, at: sent });
+      const { project, images } = await this.prisma.$transaction(async (tx) => {
+        const project = await tx.project.create({
+          data: {
+            id,
+            ownerId: user.id,
+            name: nameFromPrompt(req.text),
+            platform,
+            pickedGenre: genre,
+            tags,
+            messages: {
+              create: [
+                { id: asked, role: "user", text: req.text, createdAt: new Date(now) },
+                { ...this.agentMessage(user, req, sent, queued), createdAt: sent },
+              ],
+            },
           },
-        },
-        include: { messages: { where: { role: "agent" } } },
+          include: { messages: { where: { role: "agent" } } },
+        });
+        return { project, images: await this.attachments.attachIn(tx, user.id, asked, prepared) };
       });
+      undo = null;
       const messageId = project.messages[0].id;
       if (queued) this.queue.added({ ...queued, messageId }, req.model, req.effort, hold);
-      else this.runs.start({ projectId: id, userId: user.id, messageId, kind: "new", prompt: req.text, model: req.model, effort: req.effort, platform, genre, tags, hold, startedAt: sent });
+      else this.runs.start({ projectId: id, userId: user.id, messageId, kind: "new", prompt: req.text, model: req.model, effort: req.effort, platform, genre, tags, images, hold, startedAt: sent });
       hold = null;
     } finally {
+      undo?.();
       hold?.release();
       claim.release();
     }
@@ -139,23 +154,36 @@ export class ProjectsService {
   async send(user: User, id: string, body: unknown): Promise<ProjectView> {
     const project = await this.views.owned(user.id, id);
     const req = parseRunBody(body, "text");
+    // The pictures it carries: uploaded for it, or sent before with this game (copied for this message).
+    const picked = await this.attachments.pick(user, (body as { images?: unknown } | null)?.images, project.id);
     const kind = project.currentVersion == null ? "new" : "edit"; // the first build failed: build again
     const claim = this.registry.claimRun(project.id, ownerOf(user), { kind, model: req.model, effort: req.effort });
     let hold: CreditHold | null = null;
+    let undo: (() => void) | null = null;
     try {
       hold = await this.credits.assertCanRun(user, kind, req.model, req.confirm, req.effort);
       const now = Date.now();
       const sent = new Date(now + 1);
       // The first build failed and this builds again: for the screens, genre and tags the player picked.
       const { genre, tags } = picksOf({ genre: project.pickedGenre, tags: project.tags });
-      const queued = claim.now ? null : this.queue.rowFor({ projectId: id, userId: user.id, kind, prompt: req.text, platform: project.platform, genre, tags, plan: user.plan, hold, at: sent });
-      await this.prisma.message.create({ data: { projectId: id, role: "user", text: req.text, createdAt: new Date(now) } });
+      const prepared = this.attachments.prepare(picked);
+      undo = prepared.undo;
+      const queued = claim.now
+        ? null
+        : this.queue.rowFor({ projectId: id, userId: user.id, kind, prompt: req.text, platform: project.platform, genre, tags, images: prepared.images.map((i) => i.id), plan: user.plan, hold, at: sent });
+      // The player's message and its pictures together: a picture another tab sent a moment ago leaves no message behind.
+      const images = await this.prisma.$transaction(async (tx) => {
+        const asked = await tx.message.create({ data: { projectId: id, role: "user", text: req.text, createdAt: new Date(now) } });
+        return this.attachments.attachIn(tx, user.id, asked.id, prepared);
+      });
+      undo = null;
       const agent = await this.prisma.message.create({ data: { projectId: id, ...this.agentMessage(user, req, sent, queued), createdAt: sent } });
       await this.prisma.project.update({ where: { id }, data: { updatedAt: new Date() } });
       if (queued) this.queue.added({ ...queued, messageId: agent.id }, req.model, req.effort, hold);
-      else this.runs.start({ projectId: id, userId: user.id, messageId: agent.id, kind, prompt: req.text, model: req.model, effort: req.effort, platform: project.platform, genre, tags, hold, startedAt: sent });
+      else this.runs.start({ projectId: id, userId: user.id, messageId: agent.id, kind, prompt: req.text, model: req.model, effort: req.effort, platform: project.platform, genre, tags, images, hold, startedAt: sent });
       hold = null;
     } finally {
+      undo?.();
       hold?.release();
       claim.release();
     }
@@ -271,7 +299,7 @@ export class ProjectsService {
     return { ok: true };
   }
 
-  /** Deletes a game for good: stops its build, then its rows (messages, versions), its folder, its
+  /** Deletes a game for good: stops its build, then its rows (messages, versions), its pictures, its folder, its
    * published builds (so their links stop working) and its run logs. The credit ledger keeps its
    * charges: they are the account's history, and the balance depends on them. */
   async removeGame(id: string): Promise<void> {
@@ -282,8 +310,10 @@ export class ProjectsService {
     try {
       const versions = await this.prisma.version.findMany({ where: { projectId: id }, select: { buildId: true } });
       const androidFiles = this.android.removeProject(id); // reads the rows before they cascade away
+      const pictures = await this.attachments.ofGame(id); // the same: its messages' pictures, whose files go after the rows
       await this.prisma.project.delete({ where: { id } });
       // After the rows: if a step below fails, what is left is files nobody can reach, never a game without files.
+      this.attachments.removeFiles(pictures);
       await removeFolder(projectDir(id)).catch((e) => this.log.error(`remove folder ${id}: ${e}`));
       await androidFiles;
       for (const buildId of new Set(versions.map((v) => v.buildId))) {

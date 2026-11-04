@@ -7,6 +7,7 @@
 // stopped; its message says why, 0 credits. Every change is announced on the project's event stream ({ type: "queued" }).
 import { Injectable, Logger, type OnApplicationBootstrap, type OnApplicationShutdown, type OnModuleInit } from "@nestjs/common";
 import type { ApiErrorCode, Effort, GameTag, Genre, ModelChoice, Platform } from "@typeplay/shared";
+import { AttachmentsService, type RunImage } from "../attachments/attachments.service.js";
 import { ApiException } from "../common/api-error.js";
 import { fromTenths, toTenths } from "../credits/credits.js";
 import { CreditsService, type CreditHold } from "../credits/credits.service.js";
@@ -36,7 +37,7 @@ const TAKEN_TEXT = "This build was interrupted by a restart on our side just as 
 /** What a new build in line needs written: QueuedRun's columns (nested under its agent message, in the same write). */
 export type QueuedRunData = Omit<QueuedRun, "messageId">;
 
-const entryOf = (row: Omit<QueuedRun, "prompt" | "platform" | "genre" | "tags" | "holdTenths">, model: ModelChoice, effort: Effort): QueuedEntry => ({
+const entryOf = (row: Omit<QueuedRun, "prompt" | "platform" | "genre" | "tags" | "images" | "holdTenths">, model: ModelChoice, effort: Effort): QueuedEntry => ({
   projectId: row.projectId,
   messageId: row.messageId,
   userId: row.userId,
@@ -70,6 +71,7 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
     private readonly credits: CreditsService,
     private readonly events: EventBus,
     private readonly views: ProjectViews,
+    private readonly attachments: AttachmentsService,
   ) {}
 
   /** The line as a stopped server left it: mirrored and its credits held again. Started from onApplicationBootstrap. */
@@ -107,10 +109,10 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
   }
 
   /** The row for a build going into the line now: its turn (paid now, free after the delay) and its hold. */
-  rowFor(r: { projectId: string; userId: string; kind: RunKind; prompt: string; platform: Platform | null; genre: Genre | null; tags: GameTag[]; plan: Plan; hold: CreditHold; at: Date }): QueuedRunData {
+  rowFor(r: { projectId: string; userId: string; kind: RunKind; prompt: string; platform: Platform | null; genre: Genre | null; tags: GameTag[]; images: string[]; plan: Plan; hold: CreditHold; at: Date }): QueuedRunData {
     const lane = r.plan === "free" ? "free" : "paid";
     const turnAt = new Date(turnAtOf(r.at.getTime(), lane, config.queue.freeDelayMin * 60_000));
-    return { projectId: r.projectId, userId: r.userId, kind: r.kind, prompt: r.prompt, platform: r.platform, genre: r.genre, tags: r.tags, lane, queuedAt: r.at, turnAt, holdTenths: toTenths(r.hold.credits) };
+    return { projectId: r.projectId, userId: r.userId, kind: r.kind, prompt: r.prompt, platform: r.platform, genre: r.genre, tags: r.tags, images: r.images, lane, queuedAt: r.at, turnAt, holdTenths: toTenths(r.hold.credits) };
   }
 
   /** A build just written into the line (its message and row): mirrored, its hold kept, announced; it starts when it can. */
@@ -190,9 +192,11 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
     let refusal: ApiException | null = null;
     let user: User;
     let claimed: { count: number };
+    let images: RunImage[];
     try {
       row = await this.prisma.queuedRun.findUnique({ where: { messageId: q.messageId }, include: { message: { select: { model: true, effort: true } } } });
       if (!row) return; // stopped meanwhile: the Stop wrote its message
+      images = await this.attachments.forRun(row.images); // the pictures its message carries, read before it leaves the line
       hold = this.holds.get(q.messageId) ?? this.credits.hold(q.userId, fromTenths(row.holdTenths));
       this.holds.set(q.messageId, hold);
       user = await this.credits.settled(await this.prisma.user.findUniqueOrThrow({ where: { id: q.userId } }));
@@ -235,6 +239,7 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
       effort: row.message.effort ?? "medium",
       platform: row.platform,
       ...picksOf(row),
+      images,
       hold,
       startedAt,
     });

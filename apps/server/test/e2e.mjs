@@ -4,9 +4,9 @@
 // Every API it starts takes a port picked free for this run (scripts/test-run.mjs), so runs from several checkouts go at once.
 // Uses fresh dev users (dev:e2e-<time>-a@test.local) and deletes them, their games and builds at the end.
 import { spawn, spawnSync } from "node:child_process";
-import { createDecipheriv, createECDH, createHmac, createPublicKey, randomBytes, randomUUID, verify as cryptoVerify } from "node:crypto";
+import { createDecipheriv, createECDH, createHash, createHmac, createPublicKey, randomBytes, randomUUID, verify as cryptoVerify } from "node:crypto";
 import { createServer } from "node:http";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { crc32, inflateRawSync } from "node:zlib";
 import pg from "pg";
@@ -1767,6 +1767,226 @@ async function sizeChecks(db) {
   }
 }
 
+/**
+ * Pictures with a message (2026-11-04; apps/server/README.md "Pictures"): what an upload takes and refuses (by content,
+ * at most 10 MB, at most 10 a message), metadata removed, the owner alone fetching them, the run getting them byte for
+ * byte (the fake agent writes each one's SHA-256 into FAKE.md), also from a build that waited in line, a picture sent
+ * again copied, nothing in the game's files or download, and deleted with the game, the account, or a day unsent.
+ */
+async function pictureChecks(db) {
+  console.log("pictures: uploads checked by content, metadata removed, the owner's alone, into the run, deleted with the game");
+  const sharp = (await import("sharp")).default;
+  const P = `dev:e2e-${stamp}-pic@test.local`;
+  const Q = `dev:e2e-${stamp}-pic2@test.local`;
+  const R = `dev:e2e-${stamp}-pic3@test.local`; // closes their account
+  const sha = (b) => createHash("sha256").update(b).digest("hex");
+  const files = (id) => {
+    const dir = join(DATA, "attachments", id.slice(0, 2));
+    return existsSync(dir) ? readdirSync(dir).filter((f) => f.startsWith(id)) : [];
+  };
+  const upload = async (token, body, type = "image/png", base = API) => {
+    const res = await fetch(`${base}/attachments`, { method: "POST", headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": type }, body });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+  const idle = async (token, id, base = API) => {
+    for (let i = 0; i < 120; i++) {
+      const r = await api(token, "GET", `/projects/${id}`, undefined, base);
+      if (r.body?.status === "idle") return r.body;
+      await new Promise((res) => setTimeout(res, 500));
+    }
+    throw new Error(`${id} never went idle`);
+  };
+  /** The "- pictures: …" lines the fake agent wrote: per run, [{ name, bytes, sha, view }]. */
+  const pictureLines = (gameId) =>
+    readFileSync(join(DATA, "projects", gameId, "FAKE.md"), "utf8")
+      .split("\n")
+      .filter((l) => l.startsWith("- pictures: "))
+      .map((l) => l.slice(12).split(" | ").map((part) => { const [name, bytes, hash, , view] = part.split(" "); return { name, bytes: Number(bytes), sha: hash, view: Number(view) }; }));
+  const square = (color, size = 300) => sharp({ create: { width: size, height: size, channels: 3, background: color } });
+  for (const who of [P, Q, R]) await api(who, "GET", "/me");
+  // Several builds in one day: past the Free plan's 5 credits a day.
+  ok(admin("plan", emailOf(P), "medium").status === 0 && admin("grant", emailOf(P), "60").status === 0, "the picture maker on Medium + 60 credits");
+
+  // --- what an upload takes ---
+  ok((await upload(null, await square("#ff5a36").png().toBuffer())).status === 401, "no sign-in: 401");
+  const red = await upload(P, await square("#ff5a36").png().toBuffer());
+  ok(red.status === 201 && /^[a-z0-9]{24}$/.test(red.body?.id) && red.body.format === "png" && red.body.width === 300 && red.body.height === 300 && red.body.bytes > 0, "a PNG: 201, its id (24 letters and digits), format, size");
+  ok(files(red.body.id).length === 3, "three files kept: the picture, the AI's view, the thumbnail");
+  const asJpeg = await upload(P, await square("#2f9e44").jpeg().toBuffer(), "application/octet-stream");
+  ok(asJpeg.status === 201 && asJpeg.body.format === "jpeg", "a JPEG sent as application/octet-stream: the content decides (jpeg)");
+  const webp = await upload(P, await square("#3d206b", 900).webp().toBuffer(), "image/png");
+  ok(webp.status === 201 && webp.body.format === "webp", "a WebP labelled image/png: still a WebP");
+  const exe = Buffer.concat([Buffer.from("4d5a90000300000004000000ffff0000b8000000000000004000000000000000", "hex"), randomBytes(4096)]);
+  const before = (await db.query(`SELECT count(*)::int AS n FROM "Attachment" WHERE "userId" = $1`, [devId(P)])).rows[0].n;
+  const renamed = await upload(P, exe, "image/png");
+  ok(renamed.status === 400 && renamed.body?.error === "bad_request" && renamed.body.message === "That file isn't a PNG, JPG or WebP picture.", `a program renamed cat.png: 400 "${renamed.body?.message}"`);
+  ok((await db.query(`SELECT count(*)::int AS n FROM "Attachment" WHERE "userId" = $1`, [devId(P)])).rows[0].n === before, "…and nothing kept");
+  const gif = await upload(P, await square("#ffb347").gif().toBuffer(), "image/gif");
+  ok(gif.status === 400 && /PNG, JPG or WebP/.test(gif.body?.message), "a GIF: 400");
+  const big = await upload(P, Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.alloc(12 * 1024 * 1024)]));
+  ok(big.status === 413 && big.body?.error === "bad_request" && big.body.message === "That picture is over 10 MB. Make it smaller and attach it again.", `a 12 MB file: 413 "${big.body?.message}"`);
+  const empty = await upload(P, Buffer.alloc(0));
+  ok(empty.status === 400, "an empty body: 400");
+  const cut = await square("#d9645a", 600).jpeg().toBuffer();
+  ok((await upload(P, cut.subarray(0, cut.length >> 1), "image/jpeg")).status === 400, "a JPEG cut in half: 400");
+
+  // --- a location in the picture: gone ---
+  const gps = { IFD0: { Copyright: "e2e location test" }, IFD3: { GPSLatitudeRef: "N", GPSLatitude: "41/1 42/1 54/1", GPSLongitudeRef: "E", GPSLongitude: "44/1 47/1 37/1" } };
+  const tagged = await square("#8fd3ff", 400).withExif(gps).png().toBuffer();
+  const pngChunks = (buf) => {
+    const types = [];
+    for (let at = 8; at + 8 <= buf.length; at += 12 + buf.readUInt32BE(at)) types.push(buf.toString("latin1", at + 4, at + 8));
+    return types;
+  };
+  ok(pngChunks(tagged).includes("eXIf") && tagged.includes(Buffer.from("e2e location test")), "the test PNG carries GPS EXIF (an eXIf chunk)");
+  const located = await upload(P, tagged);
+  const back = await raw(P, `/attachments/${located.body?.id}`);
+  ok(located.status === 201 && back.status === 200 && back.type === "image/png", "a PNG with GPS EXIF: taken, and fetched back as a PNG");
+  ok(!pngChunks(back.buf).some((t) => ["eXIf", "tEXt", "iTXt", "zTXt"].includes(t)) && !back.buf.includes(Buffer.from("e2e location test")) && !(await sharp(back.buf).metadata()).exif, `…without its EXIF: ${pngChunks(back.buf).join(" ")}`);
+  const photo = await upload(P, await square("#e01e1e", 400).withMetadata({ orientation: 6 }).withExif(gps).jpeg().toBuffer(), "image/jpeg");
+  const photoBack = await raw(P, `/attachments/${photo.body?.id}`);
+  const photoMeta = await sharp(photoBack.buf).metadata();
+  ok(photo.status === 201 && !photoMeta.exif && !photoMeta.xmp && !photoBack.buf.includes(Buffer.from("e2e location test")), "a JPEG photo with GPS: fetched back without EXIF");
+
+  // --- only its owner fetches it ---
+  const own = await raw(P, `/attachments/${red.body.id}`);
+  const ownThumb = await raw(P, `/attachments/${red.body.id}/thumb`);
+  const headers = await fetch(`${API}/attachments/${red.body.id}`, { headers: { Authorization: `Bearer ${P}` } });
+  ok(own.status === 200 && own.type === "image/png" && ownThumb.status === 200 && ownThumb.type === "image/webp", "the owner: the picture (image/png) and its thumbnail (image/webp)");
+  ok(headers.headers.get("cache-control") === "private, no-store" && headers.headers.get("x-content-type-options") === "nosniff", "never kept by a shared cache, never sniffed as anything else");
+  await headers.arrayBuffer().catch(() => {});
+  ok((await raw(Q, `/attachments/${red.body.id}`)).status === 404 && (await raw(Q, `/attachments/${red.body.id}/thumb`)).status === 404, "another account: 404 (as for one that isn't there)");
+  ok((await raw(null, `/attachments/${red.body.id}`)).status === 401, "no sign-in: 401");
+  ok((await raw(P, "/attachments/not-an-id")).status === 404 && (await raw(P, `/attachments/${"z".repeat(24)}`)).status === 404, "a bad or unknown id: 404");
+  ok((await api(Q, "DELETE", `/attachments/${red.body.id}`)).status === 404 && files(red.body.id).length === 3, "another account can't take it back either");
+
+  // --- a message carries at most 10 ---
+  const eleven = [];
+  for (let i = 0; i < 11; i++) eleven.push((await upload(P, await square(`#${(0x101010 * (i + 1)).toString(16).padStart(6, "0").slice(-6)}`, 64).png().toBuffer())).body.id);
+  const games = (await api(P, "GET", "/projects")).body.length;
+  const tooMany = await api(P, "POST", "/projects", { prompt: "A cat that jumps over boxes", model: "fast", images: eleven });
+  ok(tooMany.status === 400 && tooMany.body?.message === "A message can carry up to 10 pictures.", `the 11th picture: 400 "${tooMany.body?.message}"`);
+  ok((await api(P, "GET", "/projects")).body.length === games, "…and no game made");
+  ok((await api(P, "POST", "/projects", { prompt: "A cat that jumps", model: "fast", images: [eleven[0], eleven[0]] })).status === 400, "the same picture twice: 400");
+  ok((await api(P, "POST", "/projects", { prompt: "A cat that jumps", model: "fast", images: "abc" })).status === 400, "images not a list: 400");
+  const foreign = (await upload(Q, await square("#ffffff", 64).png().toBuffer())).body.id;
+  ok((await api(P, "POST", "/projects", { prompt: "A cat that jumps", model: "fast", images: [foreign] })).body?.message === "One of the pictures is no longer there. Attach it again.", "another account's picture: 400, and it stays theirs");
+  for (const id of eleven) await api(P, "DELETE", `/attachments/${id}`);
+  ok(eleven.every((id) => files(id).length === 0), "taken back before sending (DELETE): its files are gone");
+
+  // --- a new game with three pictures: they reach the run, byte for byte ---
+  const three = [red.body.id, asJpeg.body.id, webp.body.id];
+  const made = await api(P, "POST", "/projects", { prompt: "A robot runner that looks like my drawings", model: "fast", images: three });
+  projects.push(made.body.id);
+  const asked = made.body?.messages?.[0];
+  ok(made.status === 201 && asked?.role === "user" && asked.images?.map((i) => i.id).join() === three.join() && asked.images[0].width === 300 && asked.images[2].width === 900, "201: the player's message carries its 3 pictures, in their order, with their sizes");
+  const runDir = join(DATA, "run-images", made.body.messages[1].id);
+  let during = false;
+  for (let i = 0; i < 20 && !during; i++) {
+    during = existsSync(runDir) && statSync(runDir).isDirectory() && readdirSync(runDir).sort().join() === "1.png,1.view.webp,2.jpg,2.view.webp,3.view.webp,3.webp";
+    if (!during) await new Promise((r) => setTimeout(r, 100));
+  }
+  ok(during, "while it builds, the run's pictures are in a folder of its own (1.png, 2.jpg, 3.webp and their AI views)");
+  const built = await idle(P, made.body.id);
+  ok(built.currentVersion === 1, "built (version 1)");
+  const got = pictureLines(made.body.id)[0] ?? [];
+  const want = await Promise.all(three.map(async (id) => sha((await raw(P, `/attachments/${id}`)).buf)));
+  ok(got.length === 3 && got.map((g) => g.name).join() === "1.png,2.jpg,3.webp", `the run got 3 pictures in their order: ${got.map((g) => g.name).join(", ")}`);
+  ok(got.every((g, i) => g.sha === want[i] && g.view > 0), "…each the clean picture byte for byte (SHA-256), with its AI view");
+  ok(!existsSync(runDir), "after the run its picture folder is gone");
+  const zip = unzip((await raw(P, `/projects/${made.body.id}/download`)).buf);
+  ok(zip.size > 0 && [...zip.values()].every((b) => !want.includes(sha(b))), `the game's download (${zip.size} files) holds none of the pictures: references stay out of the game`);
+  const inFolder = [];
+  const walk = (dir) => {
+    for (const f of readdirSync(dir, { withFileTypes: true })) {
+      if (f.name === ".git") continue;
+      if (f.isDirectory()) walk(join(dir, f.name));
+      else inFolder.push(sha(readFileSync(join(dir, f.name))));
+    }
+  };
+  walk(join(DATA, "projects", made.body.id));
+  ok(inFolder.length > 0 && inFolder.every((h) => !want.includes(h)), "nor does the game's folder");
+  ok((await api(P, "POST", `/projects/${made.body.id}/messages`, { text: "Use it again", model: "fast", images: [red.body.id] })).status === 201, "a picture sent before with this game, named again: taken (a copy)");
+  const again = await idle(P, made.body.id);
+  const copied = again.messages.at(-2);
+  ok(copied.images?.length === 1 && copied.images[0].id !== red.body.id && files(copied.images[0].id).length === 3, "…copied for the new message: its own id and files");
+  const gotAgain = pictureLines(made.body.id).at(-1) ?? [];
+  ok(gotAgain.length === 1 && gotAgain[0].sha === want[0], "…and the run got the same picture");
+  const sentAgain = await upload(P, await square("#123456", 64).png().toBuffer());
+  ok((await api(P, "POST", `/projects/${made.body.id}/messages`, { text: "Add this", model: "fast", images: [sentAgain.body.id] })).status === 201, "a change with a picture: 201");
+  await idle(P, made.body.id);
+  ok((await api(P, "POST", `/projects/${made.body.id}/messages`, { text: "Add this", model: "fast", images: [sentAgain.body.id] })).status === 201, "the same picture in the next change: copied again (it was sent with this game)");
+  await idle(P, made.body.id);
+  ok((await api(P, "DELETE", `/attachments/${sentAgain.body.id}`)).status === 404 && files(sentAgain.body.id).length === 3, "a picture that was sent can't be taken back: it stays with its message");
+  ok((await api(Q, "POST", `/projects/${made.body.id}/messages`, { text: "x", model: "fast", images: [red.body.id] })).status === 404, "another account can't send to this game at all (404)");
+  const exported = (await api(P, "GET", "/me/export")).body;
+  ok(exported.games.find((g) => g.id === made.body.id)?.messages[0].images?.length === 3, "the data export lists each message's pictures");
+
+  // --- a build that waits in line keeps its pictures (an API of our own with one builder) ---
+  const lineApi = await spawnApi({ MAX_RUNS: "1" });
+  try {
+    const first = await api(Q, "POST", "/projects", { prompt: "A game that builds first", model: "fast" }, lineApi.url);
+    if (first.body?.id) projects.push(first.body.id);
+    const waiting = await upload(P, await square("#ffb347", 120).png().toBuffer(), "image/png", lineApi.url);
+    const queued = await api(P, "POST", "/projects", { prompt: "A game that waits with a picture", model: "fast", images: [waiting.body.id] }, lineApi.url);
+    if (queued.body?.id) projects.push(queued.body.id);
+    ok(queued.status === 201 && queued.body.status === "queued", "a build with a picture waits in line (one builder, busy)");
+    ok((await db.query(`SELECT images FROM "QueuedRun" WHERE "projectId" = $1`, [queued.body.id])).rows[0]?.images.join() === waiting.body.id, "its line row keeps the picture's id");
+    await idle(Q, first.body.id, lineApi.url);
+    await idle(P, queued.body.id, lineApi.url);
+    const late = pictureLines(queued.body.id)[0] ?? [];
+    ok(late.length === 1 && late[0].sha === sha((await raw(P, `/attachments/${waiting.body.id}`)).buf), "at its turn the run got the picture");
+  } finally {
+    lineApi.kill();
+  }
+
+  // --- deleted with the game ---
+  const ofGame = (await db.query(`SELECT a.id FROM "Attachment" a JOIN "Message" m ON m.id = a."messageId" WHERE m."projectId" = $1`, [made.body.id])).rows.map((r) => r.id);
+  ok(ofGame.length === 6 && ofGame.every((id) => files(id).length === 3), `the game holds 6 pictures (3, the copy, 2 changes) with their files`);
+  ok((await api(P, "DELETE", `/projects/${made.body.id}`)).status === 200, "the game deleted");
+  ok((await db.query(`SELECT count(*)::int AS n FROM "Attachment" WHERE id = ANY($1)`, [ofGame])).rows[0].n === 0 && ofGame.every((id) => files(id).length === 0), "its pictures went with it: no rows, no files");
+  ok((await raw(P, `/attachments/${ofGame[0]}`)).status === 404, "…and fetching one is 404");
+
+  // --- at most 30 waiting to be sent ---
+  const staged = [];
+  for (let i = 0; i < 30; i++) {
+    const r = await upload(P, await square("#ffffff", 32).png().toBuffer());
+    if (r.status !== 201) break;
+    staged.push(r.body.id);
+  }
+  const over = await upload(P, await square("#ffffff", 32).png().toBuffer());
+  ok(staged.length >= 25 && over.status === 429 && over.body?.error === "too_many", `past 30 waiting to be sent: 429 "${over.body?.message}"`);
+  for (const id of staged) await api(P, "DELETE", `/attachments/${id}`);
+
+  // --- a day unsent, a file nobody names, a closed account: all gone ---
+  const old = await upload(P, await square("#000000", 32).png().toBuffer());
+  await db.query(`UPDATE "Attachment" SET "createdAt" = now() - interval '25 hours' WHERE id = $1`, [old.body.id]);
+  const orphan = join(DATA, "attachments", "zz", `${"z".repeat(24)}.thumb.webp`);
+  mkdirSync(join(DATA, "attachments", "zz"), { recursive: true });
+  writeFileSync(orphan, "left by a crash");
+  const hoursAgo = new Date(Date.now() - 2 * 3600_000);
+  utimesSync(orphan, hoursAgo, hoursAgo);
+  const fresh = join(DATA, "attachments", "zy", `${"y".repeat(24)}.png`);
+  mkdirSync(join(DATA, "attachments", "zy"), { recursive: true });
+  writeFileSync(fresh, "an upload being written");
+  const sweeper = await spawnApi({}); // the sweep runs at start
+  try {
+    let swept = false;
+    for (let i = 0; i < 20 && !swept; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      swept = (await db.query(`SELECT count(*)::int AS n FROM "Attachment" WHERE id = $1`, [old.body.id])).rows[0].n === 0;
+    }
+    ok(swept && files(old.body.id).length === 0, "a picture never sent, a day later: deleted by the sweep (row and files)");
+    ok(!existsSync(orphan) && existsSync(fresh), "a file no row names, an hour old: deleted; a fresh one (an upload being written): left");
+  } finally {
+    sweeper.kill();
+    rmSync(fresh, { force: true });
+  }
+  const closing = await upload(R, await square("#a63e68", 64).png().toBuffer());
+  ok(files(closing.body.id).length === 3, "a picture waiting to be sent…");
+  ok((await api(R, "DELETE", "/me", { confirm: "DELETE" })).status === 200 && files(closing.body.id).length === 0, "…goes with its account when it closes");
+}
+
 async function main() {
   console.log(`e2e against ${API}`);
   // Never against a real server: a run would burn the agent, and cleanup deletes users under it.
@@ -2347,6 +2567,7 @@ async function main() {
   await sizeChecks(db);
   await securityChecks();
   await pushChecks(db);
+  await pictureChecks(db);
 
   // The Supabase sign-in record: the API deletes it with this statement (account.service.ts). Real
   // Google users can't sign in here, so try it on a throwaway Supabase user made with the admin API.
@@ -2389,6 +2610,12 @@ async function cleanup() {
     [`dev-e2e-${stamp}-%`],
   );
   if (spent.rows[0].usd > 0) await db.query(`UPDATE "FreeSpend" SET usd = greatest(0, usd - $1) WHERE day = ${UTC_TODAY}`, [spent.rows[0].usd]);
+  // The test users' pictures: their rows go with the users (cascade), their files here.
+  const pics = await db.query(`SELECT id FROM "Attachment" WHERE "userId" LIKE $1`, [`dev-e2e-${stamp}-%`]);
+  for (const { id } of pics.rows) {
+    const dir = join(DATA, "attachments", id.slice(0, 2));
+    if (existsSync(dir)) for (const f of readdirSync(dir)) if (f.startsWith(id)) rmSync(join(dir, f), { force: true });
+  }
   const r = await db.query(`DELETE FROM "User" WHERE id LIKE $1`, [`dev-e2e-${stamp}-%`]);
   await db.query(`DELETE FROM "ClosedAccount" WHERE id LIKE $1`, [`dev-e2e-${stamp}-%`]);
   // The closed beta's invites (no user relation) and their audit rows (the address scrambled: emailHash of the matched form).

@@ -55,6 +55,9 @@ const OWNED = [
   [/^wordmark$/, "Wordmark"],
   [/^act$/, "ActionButton"],
   [/^toasts?(__[a-z-]+)?$/, "Toast or Toasts"],
+  [/^thumb(--[a-z-]+|__[a-z-]+)?$/, "Thumb"],
+  [/^filebutton(__[a-z-]+)?$/, "FileButton"],
+  [/^viewer(__[a-z-]+)?$/, "PictureViewer"],
 ];
 const ownerOf = (cls) => OWNED.find(([re]) => re.test(cls))?.[1] ?? null;
 

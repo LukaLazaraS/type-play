@@ -7,6 +7,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Pressable } from "@/components/ui/Pressable";
 import { Pulse } from "@/components/ui/Pulse";
 import { inLine } from "@/content/app";
+import { MessagePictures } from "./MessagePictures";
 import { clock, creditsWord, figuresLine, placeWords, ranWord } from "@/lib/format";
 
 const modelName: Record<ModelChoice, string> = { fast: "Fast", smart: "Smart", best: "Best" };
@@ -88,6 +89,7 @@ export function ChatLog({
       {messages.map((m) =>
         m.role === "user" ? (
           <li key={m.id} className="msg msg--you">
+            {m.images?.length ? <MessagePictures images={m.images} /> : null}
             <p className="bubble">{m.text}</p>
           </li>
         ) : (

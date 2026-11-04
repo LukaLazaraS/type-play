@@ -3,6 +3,8 @@ import { APP_GUARD } from "@nestjs/core";
 import { AccountService } from "./account/account.service.js";
 import { AndroidController } from "./android/android.controller.js";
 import { AndroidService } from "./android/android.service.js";
+import { AttachmentsController } from "./attachments/attachments.controller.js";
+import { AttachmentsService } from "./attachments/attachments.service.js";
 import { AuthGuard } from "./auth/auth.guard.js";
 import { AuthService } from "./auth/auth.service.js";
 import { BetaCodeController } from "./beta/codes.controller.js";
@@ -34,7 +36,7 @@ import { RunRegistry } from "./runs/registry.js";
 import { RunsService } from "./runs/runs.service.js";
 
 @Module({
-  controllers: [MeController, ProjectsController, PublicController, WebhooksController, BillingController, AndroidController, FeedbackController, BetaCodeController, NotifyController],
+  controllers: [MeController, ProjectsController, AttachmentsController, PublicController, WebhooksController, BillingController, AndroidController, FeedbackController, BetaCodeController, NotifyController],
   providers: [
     PrismaService,
     LedgerService,
@@ -48,6 +50,7 @@ import { RunsService } from "./runs/runs.service.js";
     CreditsService,
     EventBus,
     PushService,
+    AttachmentsService,
     RunRegistry,
     KeyProxy,
     GalleryService,

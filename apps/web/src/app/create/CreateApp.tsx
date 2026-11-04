@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Effort, GameTag, Genre, ModelChoice } from "@typeplay/shared";
 import { EffortSwitch, effortLine, ModelRows } from "@/components/app/ModelPicker";
+import { AddPictures, PictureTray, usePictureDrop, usePictureTray } from "@/components/app/Pictures";
 import { PlatformSwitch } from "@/components/app/PlatformSwitch";
 import { SignIn } from "@/components/app/SignIn";
 import { useEstimates } from "@/components/app/useEstimates";
@@ -148,6 +149,11 @@ export function CreateApp() {
     params.get("signin") === "failed" ? "Sign-in didn't finish. Please try again." : null,
   );
   const box = useRef<HTMLTextAreaElement>(null);
+  // Pictures for the idea (2026-11-04): attached with the picture button in the box, pasted, or dropped on it. Signed in
+  // only (each uploads as it is attached); a sentence about one that wasn't taken shows under the box.
+  const [pictureError, setPictureError] = useState<string | null>(null);
+  const tray = usePictureTray(setPictureError);
+  const drop = usePictureDrop(tray, session.status === "in");
 
   // The home page hands the sentence over in the address; keep it in this browser (it survives the
   // trip to Google), then drop it from the address so a reload shows the latest edit.
@@ -172,6 +178,7 @@ export function CreateApp() {
     setEdited(value);
     save(value);
     if (error) setError(null);
+    if (pictureError) setPictureError(null);
     if (ask) setAsk(null);
   };
 
@@ -188,7 +195,16 @@ export function CreateApp() {
     }
     setBusy(true);
     setError(null);
+    setPictureError(null);
     setAsk(null);
+    let images: string[];
+    try {
+      images = await tray.ids(); // pictures still on their way are waited for: Build says "Starting…" meanwhile
+    } catch (e) {
+      setBusy(false);
+      setPictureError(e instanceof Error ? e.message : String(e));
+      return;
+    }
     try {
       const project = await api.create({
         prompt,
@@ -198,9 +214,11 @@ export function CreateApp() {
         platform: platform === "auto" ? undefined : platform,
         genre: picks.genre ?? undefined,
         tags: picks.tags.length ? picks.tags : undefined,
+        images: images.length ? images : undefined,
       });
       save("");
       savePicks(NO_PICKS);
+      tray.clear();
       void refreshMe();
       router.push(`/games/${project.id}`);
     } catch (e) {
@@ -234,7 +252,7 @@ export function CreateApp() {
   return (
     <PageWidget title={signedIn ? "Make your game." : "Your game is next."}>
       <form className="make__form" onSubmit={submit} noValidate>
-        <div className="make__idea">
+        <div className="make__idea" {...drop.zone}>
           <TextArea
             id="idea"
             ref={box}
@@ -252,7 +270,13 @@ export function CreateApp() {
             placeholder="Make an endless runner where a little robot jumps over cactuses and it gets faster over time."
             onChange={(e) => change(e.target.value)}
             onKeyDown={onKey}
+            boxClassName="make__field"
+            ringed={drop.over}
+            before={<PictureTray tray={tray} disabled={busy} />}
+            action={signedIn ? <AddPictures tray={tray} disabled={busy} /> : undefined}
+            onPaste={drop.onPaste}
           />
+          {pictureError && <ErrorLine>{pictureError}</ErrorLine>}
         </div>
 
         <IconChoice

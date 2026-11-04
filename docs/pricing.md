@@ -51,6 +51,8 @@ number (Rork, a0.dev, Base44, Emergent all sell exactly that).
   judges whether it fits that AI (Fast: one change; Smart: a few, or one new feature). It is part of the
   message's charge, like the reply rewrite and the next-step ideas. Too big: nothing is built, and the answer says
   what to send instead (or the bigger AI, when the plan has it), charged as any answer: 0.1 credit. Best is not checked.
+- **Pictures** (11-04): the pictures attached to a message are part of what the AI reads (up to ~1,500 tokens each, at
+  most 10), so they are in the message's metered work and its charge like everything else; no separate price.
 
 Typical cost of one message (measured, `packages/agent/RESULTS.md`; Smart edit is an estimate):
 

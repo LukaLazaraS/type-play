@@ -567,7 +567,8 @@ q {
   border-radius: var(--r-field);
   padding: 6px 20px;
 }
-.field:focus-within {
+.field:focus-within,
+.field--ringed {
   outline: var(--focus-ring);
   outline-offset: 3px;
   box-shadow: var(--focus-inner);

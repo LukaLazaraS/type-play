@@ -815,3 +815,22 @@ moment headless and in a browser, a cold browser at 4× CPU after the first tap)
 For scale, the same check on games made before: Scrap Siege (a tester's) 21.8 ms, 166 redraws, 6,188 draw calls; Gingerbread
 Guard (showcase) 15.5-18.2 ms, 214 redraws, 2,576 draw calls. October's Sonnet medium builds cost $0.47-1.01 (runs.jsonl):
 the new rules add a little cost and time. night-siege's agent read the check's draw-call error and fixed it itself.
+
+## 2026-11-04: pictures with a message (a reference picture, one real Fast build)
+
+The player can attach pictures to a message (apps/server/README.md "Pictures with a message"); run.mjs gets them as
+`--images <dir>` and puts each picture's AI view (WebP, at most 1568 px and 1.15 megapixels) into every session's first
+message, after a line naming it and its file; `rules/PICTURES.md` says they are references unless the player asks for one
+to be used in the game. A probe first: Haiku answered "Red, blue" for a red/blue test picture in a single-yield streaming
+first message, and the session ended normally ($0.0003).
+
+The real build (output/attach-ref-robot, this PC, Max login): a 600×600 drawing of a blue robot (square head, round white
+eyes, an orange antenna ball, an orange mouth, dark legs) and "Make a simple endless runner where the hero looks like the
+robot in my picture. It jumps over cactuses." on Fast (Haiku medium, 2 steps): **passed, 15.1 min, $0.184** (core 10 min,
+26 turns, $0.150; polish 5.1 min, 21 turns, $0.034; the genre call $0.0003 with "(1 picture, which you don't see)"). The
+hero on the title and in play is drawn in code like the drawing: a light-blue square head and body, round eyes with dark
+pupils, the orange antenna ball, the orange mouth, dark feet. NOTES.md says so in the rule's words ("A little blue robot
+(drawn after the player's picture: square head, round eyes, orange antenna ball and mouth, dark legs)"). The picture's
+tokens are small (a 600×600 view is ~484 image tokens); the cost is the night's fast-games rules' Haiku build, not the
+picture. Not tried for real: a picture used as the game's art ("use my drawing as the player"), a screenshot as a style
+reference, Smart and Best (the rule is the same on every AI).

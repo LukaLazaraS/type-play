@@ -2,6 +2,7 @@
 import { Catch, HttpException, Logger, type ArgumentsHost, type ExceptionFilter } from "@nestjs/common";
 import type { Response } from "express";
 import type { ApiError, ApiErrorCode } from "@typeplay/shared";
+import { PICTURE_PROBLEM } from "../attachments/limits.js";
 
 export class ApiException extends Error {
   constructor(
@@ -52,7 +53,9 @@ export class ApiErrorFilter implements ExceptionFilter {
       // The body parser's own refusals (a body over the limit, an encoding it doesn't read): the sender's doing, said
       // plainly with its status. Until 10-20 these were a 500 and an error with its stack in the log, for anyone.
       status = e.status;
-      body = { error: "bad_request", message: status === 413 ? "That request is too big." : "That request wasn't valid." };
+      // A picture over the upload limit (POST /attachments) gets the picture's own sentence.
+      const upload = host.switchToHttp().getRequest<{ url?: string }>().url?.split("?")[0] === "/attachments";
+      body = { error: "bad_request", message: status === 413 ? (upload ? PICTURE_PROBLEM.tooBig : "That request is too big.") : "That request wasn't valid." };
     } else {
       this.log.error(e instanceof Error ? (e.stack ?? e.message) : String(e));
     }

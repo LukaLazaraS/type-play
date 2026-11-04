@@ -39,5 +39,9 @@ assert.match(sizePrompt('Add a boss', 'haiku', 'sonnet'), /or picking Smart to d
 assert.doesNotMatch(sizePrompt('Add a boss', 'haiku', null), /picking|pick Smart|pick Best/);
 assert.match(sizePrompt('Add a boss', 'sonnet', 'opus'), /too big for Smart[\s\S]*picking Best/);
 assert.equal(NAMES.opus, 'Best');
+// Pictures: only how many came with the request, never the pictures.
+assert.doesNotMatch(sizePrompt('Use my drawing as the player', 'haiku', null), /picture/);
+assert.match(sizePrompt('Use my drawing as the player', 'haiku', null, 1), /attached a picture to it; you don't see it\./);
+assert.match(sizePrompt('Make these the enemies', 'sonnet', 'opus', 3), /attached 3 pictures to it; you don't see them\./);
 
 console.log('size check: OK');

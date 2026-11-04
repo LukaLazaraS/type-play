@@ -101,6 +101,7 @@ npm run test:e2e -w @typeplay/server          # 473 checks (2026-10-27); starts 
                                               # proxy) with AGENT_AUTH=api FAKE_METER=1 and a mock Anthropic ("Security review 10-20")
 npm run test:ledger -w @typeplay/server       # the ledger's arithmetic (53 checks, no database; after a build)
 npm run test:queue -w @typeplay/server        # the build queue's order and rough waits (21 checks, no database; after a build)
+npm run test:pictures -w @typeplay/server     # attached pictures: what is taken and refused, what is kept (no database; after a build)
 npm run test:proxy -w @typeplay/server        # the key proxy's metering against a mock Anthropic (11 checks, no key, no network)
 npm run test:billing -w @typeplay/server      # Paddle webhooks, inbox, handlers, admin and services against a stub (233 checks; starts its own APIs)
 npm run test:android -w @typeplay/server      # Android export's pure parts: preset, names, crypto, manifest check, zip/ELF, the phone link, a Stop against the queue (133 checks, no database)
@@ -556,6 +557,69 @@ once they are invited).
 A positive grant opens an `admin` bucket (spent last, never ends); every command writes a `BillingAudit`
 row as `admin:<ADMIN_NAME or the OS user>`. The last three commands talk to Paddle (`PADDLE_ENV` + `PADDLE_API_KEY`).
 
+## Pictures with a message (2026-11-04)
+
+Players attach reference pictures they made or generated elsewhere (a drawing of the hero, a palette, a level sketch, a
+screenshot of a game to be like), so the AI builds from them; only when the player asks ("use my drawing as the player")
+does the agent copy one into the game as its art (`packages/agent/rules/PICTURES.md`). Code: `src/attachments/`
+(`images.ts` the checks and the cleaning, `limits.ts` the numbers and sentences, `store.ts` the files,
+`attachments.service.ts`, `attachments.controller.ts`); the site's side: `apps/web/README.md` "Pictures".
+
+- **Upload first, send with the message.** `POST /attachments` takes the picture's bytes as the body (any Content-Type:
+  `main.ts` reads that route raw, at most 10 MB, 413 past it with the picture's own sentence) and answers 201
+  `Attachment { id, format, width, height, bytes }`: a row with no message yet (staged). `POST /projects` and
+  `POST /projects/:id/messages` take `images`: up to 10 ids in their order (400 for an 11th, a repeat, or one that is gone
+  or another account's), each a staged picture of the player's, which the player's message claims in the same
+  transaction as the message (a second tab sending the same picture at once gets 400 and leaves no message), or one sent
+  before with a message of the same game (the size check's one tap, Try again after a failed first build), which is
+  copied for the new message (new id, its files copied), so every message owns its pictures. `DELETE /attachments/:id`
+  takes back a staged one (404 for a sent one: it stays with its message).
+- **Checked by content, cleaned** (`images.ts`, sharp/libvips): not empty, at most 10 MB; the first bytes are PNG, JPEG or
+  WebP (a program renamed `.png`, a GIF, an SVG: 400 "That file isn't a PNG, JPG or WebP picture."); at most 50 megapixels
+  by its header, refused before decoding (a decompression bomb); the decoder must read the format the bytes said; the
+  whole picture decodes with `failOn: "warning"` (a cut or damaged file: 400). Then one decode, turned upright by its EXIF
+  orientation, at most 2048 px on its long edge, to plain sRGB pixels, from which three files are encoded: the clean
+  picture in its own format (`<id>.png|jpg|webp`), what the AI sees (`<id>.view.webp`: at most 1568 px and 1.15
+  megapixels, ~1,500 image tokens) and the chat's thumbnail (`<id>.thumb.webp`, 320 px). Nothing of the file but its pixels
+  survives: EXIF (a phone's location), XMP, IPTC, comments, PNG text chunks and colour profiles are gone. At most two
+  pictures are decoded at once (`sharp.concurrency` 2, no libvips cache): the live API container has 1 vCPU and 1 GB.
+- **Where they live:** `DATA_DIR/attachments/<first two letters of the id>/` (folders 0700, files 0600), the API's own,
+  beside the game folders (`data/projects/`), never in a game folder (Godot would pack it into the build). Files are
+  written before their row and deleted after it; a sweep at start and every hour deletes staged pictures older than a
+  day (row and files), files no row names that are older than an hour, and this PC's run folders older than two hours.
+- **Fetched by their owner only:** `GET /attachments/:id` (the clean picture) and `/attachments/:id/thumb` (WebP) answer
+  only the account that uploaded them (404 for anyone else, as for a picture that isn't there), `Cache-Control: private,
+  no-store`, `X-Content-Type-Options: nosniff`. The site fetches them with the sign-in header and shows them as object URLs.
+- **Deleted with** the game (`removeGame` reads its pictures before the rows cascade, then deletes their files; the
+  game's messages and version history go with it), the account (its staged pictures too), or a day unsent. The data
+  export lists each message's pictures (`Message.images`: id and size), not the pictures themselves.
+- **Into the run:** `StartRun.images` (ids and formats, in order); a build that waits in line keeps the ids in
+  `QueuedRun.images` and reads the rows at its turn. On this PC `runs.service` copies them into a private folder of the
+  run's own, `data/run-images/<messageId>/` (`<n>.<png|jpg|webp>` the picture, `<n>.view.webp` what the AI sees, n from 1),
+  passes `run.mjs --images <folder>` and deletes it when the run ends. On the live server the agent job carries the ids
+  (`RunnerJob.images`), and the runner copies the files out of `/data/attachments` (which only it and the API can enter)
+  into the job's home, `<home>/refs/` (0700, the job's user's, files 0600: the prompt file's way), adds `--images` itself
+  (an `--images` from the API is refused), and the home is wiped after the job. A picture whose files are missing is left
+  out (logged) rather than failing the build.
+- **The agent** (`packages/agent/run.mjs`): every session's first message carries the pictures' AI views as image blocks
+  (the Agent SDK's streaming input), each after a line naming it and its file, then the request; `rules/PICTURES.md` is
+  added to the rules on every AI, for new games and changes. The genre call and the size check get only how many
+  pictures came. The run's record says `images: n`.
+- **Cost:** the pictures are input the AI reads, so they are in the message's metered work and charge (`docs/pricing.md`).
+- **Limits per account:** at most 30 pictures waiting to be sent and 120 uploads an hour (429 `too_many`; in memory).
+- Migration `20261104000000_attachments` (additive): the enum `ImageFormat`, the table `Attachment` (user, message,
+  place, format, size; cascades from the user and the message) and `QueuedRun.images`. sharp (`^0.35.5`) is a dependency
+  of the API (it was already in the lock file through Next.js); the Docker build's `npm ci` installs its Linux binaries.
+- Tests: `npm run test:pictures -w @typeplay/server` (the checks and the cleaning, no database: a renamed program, a GIF, 10
+  MB and a byte, a cut JPEG, a 400-megapixel header, a JPEG in front of a PNG; a photo with GPS EXIF and orientation 6
+  comes out upright without it; a PNG with eXIf, tEXt and iTXt chunks comes out without them and without its GPS bytes;
+  the three sizes) and the e2e's "pictures" (56 checks: uploads by content, the 413, the location gone, owner-only fetches,
+  the 11th, the run getting each picture byte for byte, none in the game's folder or download, a picture sent again
+  copied, a build that waited in line, deleted with the game, the 30 waiting, the sweep, a closed account). The live
+  server's side, `test/runner-pictures.mjs`, runs the real runner as root in WSL with a fake run.mjs (15 checks, passed
+  11-04: the job's own `refs/` 0700 with 0600 files of its user, the API's folder shut to the job, `--images` and bad ids
+  refused, the home wiped after the job; how to run it is in its header).
+
 ## How a message runs
 
 1. Checks (in order): one run per project, going or waiting (409 `busy`), the plan's builds at once per user,
@@ -733,6 +797,8 @@ restart that keeps the line.
   game and day) and `GameReport`, and beta 1's `Invite` and `Feedback`. Schema `prisma/schema.prisma`;
   migrations `prisma/migrations/` (`npm run migrate -w @typeplay/server`; `20261020000000_billing` applied to the dev database 10-20).
 - `data/projects/<id>/`: the game, a git repo (a commit per successful run). `data/logs/`: run output.
+  `data/attachments/<shard>/`: the pictures players attach (three files each; "Pictures with a message" above);
+  `data/run-images/<messageId>/`: a run's pictures on this PC while it lasts.
 - **Disk:** a game folder is its files plus its git history (KB to a few MB for 2D games, more with 3D
   models); the engine files are removed after each publish (above). Nothing frees `.git/` objects of a
   run that was rolled back; a game is only ever freed by deleting it. The runner fails an agent job
@@ -761,7 +827,8 @@ two containers:
   die is **retired** (logged at error level, `/health` counts it) and tried again every 30 s; it is
   never handed to the next player while that is so. A job's output lines are cut at 64 KB and the
   stream read up to 50 MB. The prompt reaches run.mjs as `--prompt-file <home>/prompt.txt` (mode
-  0600), never in argv: `/proc/<pid>/cmdline` is readable by the other jobs' users. It holds no
+  0600), never in argv: `/proc/<pid>/cmdline` is readable by the other jobs' users. The pictures a message carries go
+  the same way: copied from `/data/attachments` (0700, the API's) into `<home>/refs/` (2026-11-04). It holds no
   secrets (it refuses to start if one is in its environment), runs with only the Linux capabilities
   that switching users needs, and its network is internal: no internet; it reaches the api container
   alone, i.e. the key proxy and the REST API, whose routes need a sign-in token (the share pages'

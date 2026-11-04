@@ -6,6 +6,7 @@ import type {
   AndroidLink,
   AndroidState,
   ApiError,
+  Attachment,
   ApiErrorCode,
   BetaCodeResult,
   BillingInfo,
@@ -52,8 +53,9 @@ const noToken = () => new ApiFailure("unauthorized", SIGNED_OUT, 0);
 
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
-/** Sends the request with the sign-in token; a non-2xx answer becomes an ApiFailure. */
-async function send(path: string, init: { method?: Method; body?: unknown } = {}): Promise<Response> {
+/** Sends the request with the sign-in token; a non-2xx answer becomes an ApiFailure. `file`: a file sent as it is (a
+ * picture's upload), instead of a JSON body. */
+async function send(path: string, init: { method?: Method; body?: unknown; file?: Blob } = {}): Promise<Response> {
   const token = await accessToken();
   if (!token) throw noToken();
   let res: Response;
@@ -62,9 +64,9 @@ async function send(path: string, init: { method?: Method; body?: unknown } = {}
       method: init.method ?? "GET",
       headers: {
         Authorization: `Bearer ${token}`,
-        ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(init.file ? { "Content-Type": init.file.type || "application/octet-stream" } : init.body !== undefined ? { "Content-Type": "application/json" } : {}),
       },
-      body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+      body: init.file ?? (init.body !== undefined ? JSON.stringify(init.body) : undefined),
       cache: "no-store",
     });
   } catch {
@@ -88,7 +90,7 @@ async function send(path: string, init: { method?: Method; body?: unknown } = {}
   return res;
 }
 
-async function call<T>(path: string, init: { method?: Method; body?: unknown } = {}): Promise<T> {
+async function call<T>(path: string, init: { method?: Method; body?: unknown; file?: Blob } = {}): Promise<T> {
   return (await (await send(path, init)).json()) as T;
 }
 
@@ -140,6 +142,14 @@ export const api = {
   feedback: (body: FeedbackBody) => call<{ id: string }>("/feedback", { method: "POST", body }),
   /** A beta code from the closed-beta page (the one call an uninvited account may make): 403 code_wrong, 429 too_many. */
   betaCode: (code: string) => call<BetaCodeResult>("/beta/code", { method: "POST", body: { code } }),
+  /** Pictures for a message (2026-11-04): each uploaded as it is attached (400 with the sentence that says why one isn't
+   * taken), taken back before sending, and fetched for the chat (their owner only). */
+  pictures: {
+    upload: (file: Blob) => call<Attachment>("/attachments", { method: "POST", file }),
+    remove: (id: string) => call<{ ok: true }>(`/attachments/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    thumb: (id: string) => picture(`/attachments/${encodeURIComponent(id)}/thumb`),
+    full: (id: string) => picture(`/attachments/${encodeURIComponent(id)}`),
+  },
   /** Notifications (2026-10-29): this device on (its browser's subscription) or off (its address). */
   push: {
     on: (body: PushSubscriptionBody) => call<{ ok: true }>("/me/push", { method: "POST", body }),

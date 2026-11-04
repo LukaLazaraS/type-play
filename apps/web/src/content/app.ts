@@ -230,3 +230,28 @@ export const gameTags: { id: GameTag; name: string; line: string }[] = [
   { id: "2players", name: "2 players", line: "Two people on one screen: split keys, or half the phone each." },
 ];
 export const tagsNone = "Pick any that fit, or none. One at most of 2D, 2.5D and 3D; of First-person and Third-person; of Cozy and Hard.";
+
+/**
+ * Pictures with a message (2026-11-04): what the player may attach (the API checks the same by each file's content:
+ * apps/server/src/attachments/limits.ts) and the words the box, the chat and the viewer use. `name` is the file's name.
+ */
+export const pictures = {
+  max: 10,
+  maxBytes: 10 * 1024 * 1024,
+  accept: "image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp",
+  types: ["image/png", "image/jpeg", "image/webp"],
+  add: "Add pictures",
+  list: "Pictures to send",
+  remove: (name: string) => `Remove ${name}`,
+  uploading: (n: number) => (n === 1 ? "Adding your picture…" : `Adding ${n} pictures…`),
+  added: (n: number) => (n === 1 ? "Picture added." : `${n} pictures added.`),
+  removed: "Picture removed.",
+  drop: "Drop them here to add them.",
+  wrongType: (name: string) => `“${name}” isn't a PNG, JPG or WebP picture.`,
+  tooBig: (name: string) => `“${name}” is over 10 MB. Make it smaller and attach it again.`,
+  tooMany: (left: number) => `A message can carry up to 10 pictures${left ? `: ${left === 1 ? "1 was" : `${left} were`} left out` : ""}.`,
+  failed: "A picture couldn't be added. Remove it and attach it again.",
+  /** In the chat: what a tile opens, and the viewer's title. */
+  yours: "Your picture",
+  open: (n: number, of: number) => (of === 1 ? "Open your picture" : `Open your picture ${n} of ${of}`),
+} as const;

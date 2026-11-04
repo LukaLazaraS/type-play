@@ -544,6 +544,42 @@ own Stop) is told wherever the player is. The API's side, from its one end-of-ru
   can't subscribe in headless Edge (no push service there), so the device's side is tried in a real browser: the reply of
   2026-10-29 says how.
 
+### Pictures (2026-11-04)
+
+Players attach pictures they made or generated elsewhere to a message (a drawing of the hero, colours, a level sketch, a
+screenshot of a game to be like), so the AI builds from them; the AI puts one into the game as art only when they ask.
+The API's side (the checks, where they live, who may fetch them, how the run gets them): `apps/server/README.md` "Pictures
+with a message".
+
+- **Where:** the composer on the game page and the idea box on /create (signed in), both with the same pieces. **Add
+  pictures** is a round picture button at the end of the words inside the box (`ui/FileButton.tsx` with `icon`; the
+  picker takes several at once, PNG, JPG and WebP); a picture pasted into the words (Ctrl+V, a phone's paste) or dropped
+  on the composer or the idea box joins too, and while files are dragged over it the box wears the keyboard's ring
+  (`ui/Field.tsx` `ringed`); a file dropped elsewhere on the page is ignored instead of opening in the tab.
+- **The box's pictures** (`components/app/Pictures.tsx`: `usePictureTray`, `PictureTray`, `AddPictures`,
+  `usePictureDrop`): each uploads as it is attached (`api.pictures.upload`, the file as it is), shown at once from the
+  local file as a square tile (`ui/Thumb.tsx`) dimmed under the breathing dot until it lands, with a small ink Remove circle
+  (24px drawn, 44px to a finger) that also deletes the upload. Up to 10 a message: a type, a size past 10 MB or an 11th is
+  refused before uploading, and what the API refuses (a program renamed .png) comes back as the API's sentence with the
+  file's name, in the error line ("“cat.png” isn't a PNG, JPG or WebP picture."). Send (and Build) waits for pictures still
+  on their way, then sends their ids (`images`); the box empties after a send. One `sr-only` status line says "2 pictures
+  added." and "Picture removed.".
+- **Sent again:** the size check's one tap ("Use Smart for this") puts that message's pictures back in the box with its
+  words, and Try again after a failed first build sends the first message's pictures again; the API copies them.
+- **In the chat** (`components/app/MessagePictures.tsx`, the player's bubble in `ChatLog.tsx`): the message's pictures
+  over its bubble as tiles from the right (80px, 68px on phones); a tap opens **the viewer** (`ui/PictureViewer.tsx`, a
+  `Dialog` with `look="picture"`): the picture whole on Field over ink at 92%, as large as the screen lets it be and never
+  more than twice its own size, "2 of 3" between Previous and Next (and the arrow keys, said by a polite live line), Close
+  in the screen's corner (and Escape, and a tap beside it); the keyboard goes back to the tile. Pictures are fetched with
+  the sign-in header and kept as object URLs for the page's life (`lib/pictures.ts`; a picture uploaded from this device
+  shows from its own file); the whole picture only when the viewer opens.
+- Words: `content/app.ts` `pictures`. Privacy: `content/legal.ts` "What we collect" (Pictures) and Anthropic's line.
+- Walk-through: `scripts/shot-pictures.mjs` (its own stack and database; shots in `.impeccable/review/pictures/`, at 1440,
+  390 and 320 px): /create with four pictures, Remove, a program renamed .png refused, Build with three, the chat and the
+  viewer (2 of 3, →, Escape back to the tile), the composer with a pasted and a dropped picture sent with a change, ten odd
+  pictures (tall, panorama, 8×8, lines on nothing, a long phone file name, a big photo) in the composer, the chat and the
+  viewer, and a full box at 320 px with the 11th refused; no sideways scrolling anywhere.
+
 ## Known trap
 
 Turbopack's file watcher on this PC misses edits to `globals.css` (and `app.css`): restart

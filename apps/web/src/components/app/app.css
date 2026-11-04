@@ -5063,3 +5063,266 @@ body:has(main.explore) > .ground-band {
     scroll-padding-bottom: 84px;
   }
 }
+
+/* ---- Pictures with a message (2026-11-04): the box's pictures, Add pictures, the chat's tiles and the viewer ---------- */
+
+/* The file picker's own input (ui/FileButton.tsx): out of sight and out of the layout, pinned 1px to the screen's corner
+   (fixed boxes never widen the page); its button opens it. */
+.filebutton__input {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Add pictures (ui/FileButton.tsx with an icon: IconButton's field look): in a Field box, no fill, the icon in muted ink;
+   the widget's paper under a pointer and when pressed, as if the recess lifted. */
+.iconbutton--field {
+  background: transparent;
+  color: var(--on-paper-muted);
+}
+.iconbutton--field:active {
+  transform: scale(0.97);
+  background: var(--paper);
+  color: var(--ink);
+}
+.iconbutton--field:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+@media (hover: hover) and (pointer: fine) {
+  .iconbutton--field:hover:not(:disabled) {
+    background: var(--paper);
+    color: var(--ink);
+  }
+}
+/* The small circle (Remove on a picture's tile): 24px drawn, a finger's 44px around it (it never grows: the tile is 56px).
+   Placed by its parent (absolute in a tile); relative only where nothing places it, so its finger's area has a box. */
+.iconbutton.iconbutton--small {
+  width: 24px;
+  height: 24px;
+}
+:where(.iconbutton--small) {
+  position: relative;
+}
+.iconbutton--small::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
+
+/* A picture's tile (ui/Thumb.tsx): square, the notice thumbnail's 12px radius, the picture covering it (the viewer shows it
+   whole); the widget's paper behind it in a Field box, Field behind it in the chat, while it comes. No clipping: Remove's
+   ring and the tile's own must show whole. */
+.thumb {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 56px;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  background: var(--paper);
+}
+.thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none; /* a long press on a tile is not "Save image": the tile is a control */
+}
+.thumb--chat {
+  width: 80px;
+  background: var(--field);
+}
+/* The picture's own edge: a hairline of ink at 10% inside it, so a white drawing on the white widget (or a dark one on
+   ink) still reads as a tile. */
+.thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(23 13 51 / 0.1);
+  pointer-events: none;
+}
+/* On its way: dimmed under the breathing dot. */
+.thumb[aria-busy="true"] img {
+  opacity: 0.45;
+}
+.thumb > .pulse {
+  position: absolute;
+  top: calc(50% - 4px);
+  left: calc(50% - 4px);
+}
+.thumb__remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+/* In the chat a tile opens the picture: it presses in like the app's other pictures and takes the two-tone ring. */
+.thumb--open {
+  padding: 0;
+  border: 0;
+  cursor: zoom-in;
+  transition: transform 160ms var(--ease-out);
+}
+.thumb--open:active {
+  transform: scale(0.97);
+}
+.thumb--open:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: var(--focus-inner);
+}
+
+/* The box's pictures (components/app/Pictures.tsx), before its words: rows of tiles across the whole box (four on a 320px
+   phone, six in the game page's chat, more on /create). A tile arrives with a short fade and grows in from 0.94; under
+   reduced motion it only fades in. */
+.tray {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 0 2px;
+  list-style: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tray .thumb {
+    transition:
+      opacity 160ms var(--ease-out),
+      transform 160ms var(--ease-out);
+  }
+  @starting-style {
+    .tray .thumb {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tray .thumb {
+    transition: opacity 160ms var(--ease-out);
+  }
+  @starting-style {
+    .tray .thumb {
+      opacity: 0;
+    }
+  }
+}
+/* The composer's and the idea's box: the pictures over the whole width, then the words with Add pictures at their end,
+   level with their last line as the words grow. */
+.composer__field,
+.make__field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: 4px;
+}
+.composer__field > .iconbutton--field {
+  margin: 0 -8px 4px 0;
+}
+.make__field > .iconbutton--field {
+  margin: 0 -10px 8px 0;
+}
+@media (pointer: coarse) {
+  .composer__field > .iconbutton--field {
+    margin-bottom: 0;
+  }
+  .make__field > .iconbutton--field {
+    margin-bottom: 4px;
+  }
+}
+
+/* The player's pictures in the chat (MessagePictures.tsx), over their bubble: tiles in rows from the right, as wide as
+   the bubble may be. */
+.msg__pictures {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 88%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (max-width: 640px) {
+  .thumb--chat {
+    width: 68px;
+  }
+}
+
+/* The viewer (ui/PictureViewer.tsx): no paper of its own, the picture whole at the field radius, as large as the screen
+   lets it be and never more than twice its own size; "2 of 5" between Previous and Next under it; Close in the screen's
+   top corner. Over ink at 92%: the picture is all there is to look at. Field behind it, as behind the chat's tiles: a
+   drawing with see-through parts (dark lines, a sprite) stays readable, which ink would swallow. */
+.dialog.dialog--picture {
+  width: auto;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--on-sky);
+  overflow: visible;
+}
+.dialog.dialog--picture::backdrop {
+  background: rgb(23 13 51 / 0.92);
+}
+.viewer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 56px 16px 16px;
+}
+.viewer__frame {
+  width: min(1100px, calc(100vw - 32px), calc((100dvh - 172px) * var(--ratio)), max(240px, calc(var(--w) * 2px)));
+  aspect-ratio: var(--ratio);
+  border-radius: var(--r-field);
+  background: var(--field);
+}
+.viewer__frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: contain;
+}
+.viewer__bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.viewer__count {
+  min-width: 64px;
+  font-size: 13px;
+  color: var(--on-sky-muted);
+  text-align: center;
+}
+/* Its buttons on the ink: Ink Recess circles (the launcher's pills), ink when pressed or hovered. */
+.viewer .iconbutton--scrim {
+  background: var(--ink-2);
+}
+.viewer .iconbutton--scrim:active {
+  background: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .viewer .iconbutton--scrim:hover {
+    background: #33245f;
+  }
+}
+.viewer__close {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+}
