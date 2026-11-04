@@ -1826,6 +1826,56 @@ body:has(.ws) .ground-band {
   }
 }
 
+/* The update bar (UpdateBar.tsx, 11-04): a version the AI made while the player was playing waits over the top of the
+   game, a toast (it floats over any game) with Restart and Later; after Later, the New version chip in its place. On the
+   page it sits at the top of the stage's screen, as wide as the stage allows, so a device preview that draws the game small
+   (scaled, or an upright phone) never squeezes it; in full screen the frame shows its own copy, which keeps clear of the
+   close control, and the page's goes. The chip is an InkPill with the toast's edge (float), so a dark game doesn't hide it. */
+.stage__update,
+.gameframe__bar {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  left: 50%;
+  display: flex;
+  justify-content: center;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  transform: translateX(-50%);
+}
+.gameframe__bar {
+  top: calc(var(--safe-t, 0px) + 12px);
+  max-width: calc(100% - 152px);
+}
+@media (max-width: 480px) {
+  .gameframe__bar {
+    max-width: calc(100% - 24px);
+  }
+}
+/* A wide game letterboxed on an upright phone has its close circle in the top band: the bar goes under it (as the ready
+   notice does). Elsewhere the close tab is on the left edge, and the bar stays at the top. */
+@media (max-width: 480px) and (orientation: portrait) {
+  .gameframe[data-orientation="landscape"] .gameframe__bar {
+    top: calc(var(--safe-t, 0px) + 64px);
+  }
+}
+.stage__screen:has(.gameframe[data-immersive]) .stage__update {
+  display: none;
+}
+.updatebar__text {
+  min-width: 0;
+  text-wrap: balance;
+}
+.updatebar__go {
+  flex: none;
+}
+/* The narrowest phones: Restart's word without its arrow, so the sentence keeps its room. */
+@media (max-width: 359px) {
+  .updatebar__go svg {
+    display: none;
+  }
+}
+
 /* Toasts (ui/Toast.tsx): the ink pills at the foot of the page that say what happened away from it (the build pill; a
    build that ended, the notices), stacked with the newest nearest the edge. The region itself takes no taps. */
 .toasts {
@@ -1880,6 +1930,16 @@ body:has(.ws) .ground-band {
     from {
       opacity: 0;
       transform: translateY(12px);
+    }
+  }
+  /* One at the top of something (Toast edge="top": the update bar) comes from that edge, as the ready notice does. */
+  .toast[data-edge="top"] {
+    animation-name: toast-in-top;
+  }
+  @keyframes toast-in-top {
+    from {
+      opacity: 0;
+      transform: translateY(-12px);
     }
   }
 }

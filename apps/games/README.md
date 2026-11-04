@@ -57,6 +57,15 @@ are in it says "Preparing graphics (first time only)…" ("Starting the game…"
 a `tp-graphics` flag in localStorage) and the bar becomes a moving segment (a compositor animation, so it moves while the
 page is busy); it goes when the game's first frame is on screen.
 
+**What the loader tells the site** (`postMessage` to the page that embeds it): `ready`, `error` and `escape` (any
+parent: they carry nothing but the game's id); since 2026-11-04 also `input`, once a load, at the player's first tap, click,
+key (not Escape, the site's way out of full screen, nor Tab, function, modifier or media keys) or gamepad button after the
+game's first frame (a browser that refuses the gamepad to a frame just counts no pad), sent only to the embedding
+page's origin when it is https://typeplay.app (or a local site while this loader runs locally; `location.ancestorOrigins`,
+else the referrer). The game page uses it to keep a game in play running when a new version is made meanwhile (its update
+bar). It lives in play.html, so one `node deploy/deploy.mjs games` gives it to every build, old ones too; a page served the
+old loader never hears it and loads each new version at once, as before.
+
 Live hosting (since 2026-10-15): Cloudflare R2 bucket `typeplay-games` with the custom domain typeplay.dev;
 `node scripts/publish.mjs` (or `node deploy/deploy.mjs games` at the root) uploads changed files. The API uploads
 `builds/<id>/` after each build the same way (`apps/server/src/games/publish.ts`, `GAMES_PUBLISH=r2` on its server).

@@ -304,6 +304,10 @@ a {
     background: #33245f;
   }
 }
+/* Over a game (InkPill float): the toast's edge, so the pill keeps its shape on a dark game; the focus ring wins. */
+.inkpill[data-float]:not(:focus-visible) {
+  outline: 2px solid var(--sky-3);
+}
 .inkpill[data-on] {
   background: var(--hot);
   color: var(--ink);

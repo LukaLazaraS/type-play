@@ -26,6 +26,7 @@ export function toMessage(m: Message): MessageView {
     if (m.status && m.status !== "running" && m.status !== "queued") view.credits = Number(m.credits ?? 0);
     if (m.versionN != null) view.versionN = m.versionN;
     if (m.startedAt) view.startedAt = m.startedAt.toISOString();
+    if (m.startedAt && m.finishedAt) view.finishedAt = m.finishedAt.toISOString();
     if (m.suggestions?.length) view.suggestions = m.suggestions;
     if (m.biggerModel) view.biggerModel = m.biggerModel as ModelChoice;
   }

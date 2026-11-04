@@ -233,6 +233,10 @@ export interface Message {
   versionN?: number;
   /** Agent messages: when the build started (later than createdAt when it waited in line). Added 2026-10-26. */
   startedAt?: string;
+  /** Agent messages that ran: when the run ended (done, failed, refused or stopped), so with startedAt how long it ran,
+   * without its time in line. Missing while it runs, on one that never started, and on answers from before 2026-10-26.
+   * Added 2026-11-04. */
+  finishedAt?: string;
   /** Up to 9 next changes the player might ask for (short lines in the player's language), best first, made with the
    * answer as part of its charge; the chat shows three under its newest answer and "More ideas" adds the other six.
    * Missing when there are none. */
@@ -779,6 +783,8 @@ export interface FeedbackBody {
 // DELETE /me/push                -> { ok: true }       (PushEndpointBody; that address's row, whichever account had it; none: ok)
 // GET    /me/events              -> text/event-stream of AccountEvent (below): the account's build ends, from any game
 // GET    /me/export              gains `notifications` (the devices, without their addresses)
+//
+// Added 2026-11-04 (the build time on each answer): Message.finishedAt on an agent message that started (with startedAt).
 
 export type ApiErrorCode =
   | "unauthorized" // no or bad token

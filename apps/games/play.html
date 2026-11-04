@@ -95,6 +95,8 @@
   // ?auto=1      press Space for the viewer now and then (the site's demo), until they take over
   // Tells the parent page how it goes: postMessage({ typeplay: "ready" | "error" | "escape", game }).
   // Listens for "typeplay:focus" (the site entered full screen; give the game the keyboard).
+  // { typeplay: "input", game }: the player's first tap, click, key or gamepad button since the game started, once, sent
+  //              only to the site (see watchInput).
   // ?mark=quiet the mark starts small, without its few seconds of "Made with" (the app's next version of a game the
   //              player is already playing). It never hides the mark.
   // game.json "badge": true (a Free plan build): "Made with TypePlay" while it loads, then a small mark on the game.
@@ -127,6 +129,49 @@
     if (e.key === "Escape") tell("escape"); // the site leaves full screen or closes the game
   });
   window.addEventListener("message", (e) => { if (e.data === "typeplay:focus") canvas.focus(); });
+
+  // The site keeps a game in play running when a new version is made meanwhile (it offers Restart instead), so it needs
+  // to know whether the player has played since the game started: told once, at the first tap, click, key (but Escape,
+  // the site's way out of full screen) or gamepad button. Only to the page that embeds this one, and only when that page
+  // is the site (typeplay.app; a local site when this loader itself runs locally): the target origin makes the browser
+  // drop the message anywhere else, and the site checks it came from this origin. Unknown parent: nothing is sent, and
+  // the site loads a new version at once, as it did before.
+  const site = (() => {
+    if (parent === window) return "";
+    let o = "";
+    try { o = (location.ancestorOrigins && location.ancestorOrigins[0]) || new URL(document.referrer).origin; } catch (e) {}
+    const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+    return o === "https://typeplay.app" || (local && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(o)) ? o : "";
+  })();
+  const watchInput = () => {
+    if (!site) return;
+    const kinds = ["pointerdown", "touchstart", "keydown"];
+    let told = false;
+    // Not play: Escape (the site's way out of full screen), Tab, function keys, a modifier alone, media keys.
+    const notPlay = /^(Escape|Tab|F\d{1,2}|Alt|AltGraph|Control|Shift|Meta|OS|ContextMenu|Media.*|Audio.*|Browser.*|Launch.*)$/;
+    const onInput = (e) => {
+      if (told || (e && (!e.isTrusted || notPlay.test(e.key || "")))) return;
+      told = true;
+      for (const k of kinds) removeEventListener(k, onInput, true);
+      removeEventListener("gamepadconnected", watchPads);
+      try { parent.postMessage({ typeplay: "input", game: id }, site); } catch (err) {}
+    };
+    for (const k of kinds) addEventListener(k, onInput, { capture: true, passive: true });
+    // A gamepad sends no events for its buttons: it shows itself at its first press ("gamepadconnected"; one already in
+    // use is listed at once), then its buttons, and on the standard layout its sticks, are read each frame until one moves.
+    // A browser may refuse the gamepad to a page in a frame (its permissions policy): then no pad counts, and the game runs on.
+    const pads = () => { try { return [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean); } catch (e) { return []; } };
+    const pressed = (g) => g.buttons.some((b) => b.pressed) || (g.mapping === "standard" && g.axes.some((a) => Math.abs(a) > 0.5));
+    let polling = false;
+    const poll = () => {
+      if (told) return;
+      if (pads().some(pressed)) return onInput(null);
+      requestAnimationFrame(poll);
+    };
+    const watchPads = () => { if (!polling) { polling = true; poll(); } };
+    addEventListener("gamepadconnected", watchPads);
+    if (pads().length) watchPads();
+  };
 
   // The mark over the running game: "Made with TypePlay" for a few seconds (or until the player's first tap or key),
   // then only the name, lighter. Taps, clicks and keys all go to the game (pointer-events: none, not focusable).
@@ -190,6 +235,7 @@
     clearTimeout(creditTimer);
     status.hidden = true;
     tell("ready");
+    try { watchInput(); } catch (e) {} // never the game's problem
     if (badge) showTag();
     if (auto) { setTimeout(press, 900); setInterval(press, 4000); }
   })().catch((e) => fail("The game could not load: " + (e && e.message ? e.message : e)));

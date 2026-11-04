@@ -705,8 +705,9 @@ When every builder is busy (`MAX_RUNS` agent runs going; an Android build counts
   than always being the one dropped.
 - **What the site sees:** `ProjectSummary.status` `queued` with `queue: { ahead, waitMin, lane, leavesAt }` (`leavesAt`:
   when the wait limit would take it out of the line; the site says so when the rough wait runs past it); the agent message
-  `queued`, then `running` with `startedAt` (and `finishedAt` in the database: how long builds wait and take on the
-  server is one query). An agent message without `startedAt` left the line without starting (the migration
+  `queued`, then `running` with `startedAt`, and once it ends `finishedAt` (since 11-04 in the API too: the chat's answer
+  line shows how long it ran, its time in line not counted; in the database how long builds wait and take on the server is
+  one query). An agent message without `startedAt` left the line without starting (the migration
   `20261026010000_started_backfill` gave the older ones their `createdAt`, as every build started when sent then). Events: `{ type: "queued", messageId, queue }` when a build joins the line and whenever its place
   or rough wait changes (looked at every 30 s while builds wait), `started` when it starts (with `startedAt`), `failed`
   when it leaves without starting.

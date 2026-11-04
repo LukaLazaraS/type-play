@@ -11,10 +11,18 @@ import { IconButton } from "./IconButton";
  * player is on (the build pill, 2026-10-26; a build that ended, 2026-10-29). Its words and one action are `children`;
  * `onClose` adds the round close button at its end. It never takes the focus and never goes by itself: the player
  * closes it. Live-region duty belongs to whoever says it (a `role` on the toast, or an announcer of its own).
+ * `edge="top"`: one placed at the top of something (the game page's update bar, over the game) comes in from above.
  */
-export function Toast({ onClose, closeLabel = "Close", className, children, ...rest }: Omit<ComponentPropsWithRef<"div">, "className"> & { onClose?: () => void; closeLabel?: string; className?: string }) {
+export function Toast({
+  onClose,
+  closeLabel = "Close",
+  edge = "bottom",
+  className,
+  children,
+  ...rest
+}: Omit<ComponentPropsWithRef<"div">, "className"> & { onClose?: () => void; closeLabel?: string; edge?: "bottom" | "top"; className?: string }) {
   return (
-    <div {...rest} className={cx("toast", className)}>
+    <div {...rest} className={cx("toast", className)} data-edge={edge === "top" ? "top" : undefined}>
       {children}
       {onClose && (
         <IconButton label={closeLabel} className="toast__close" onClick={onClose}>

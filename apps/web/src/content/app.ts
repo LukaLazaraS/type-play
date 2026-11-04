@@ -111,6 +111,25 @@ export const inLine = {
 };
 
 /**
+ * The update bar (2026-11-04): a version the AI made while the player was playing waits for them over the top of the game,
+ * instead of restarting the game in play; Later folds it into the New version chip.
+ */
+export const update = {
+  ready: (n: number) => `Version ${n} is ready.`,
+  restart: "Restart",
+  /** Restart's name for screen readers (its visible word first). */
+  restartLabel: (n: number) => `Restart with version ${n}`,
+  later: "Later",
+  /** Later's name for screen readers. */
+  laterLabel: "Later: keep playing",
+  chip: "New version",
+  /** The chip's name for screen readers: what pressing it does. */
+  chipLabel: (n: number) => `New version: restart with version ${n}`,
+  /** Read out once when it waits (the stage's live line): the game keeps running meanwhile. */
+  said: (n: number) => `Version ${n} is ready. Your game keeps running until you restart it.`,
+};
+
+/**
  * Notifications (2026-10-29): the site's own question at the first build an account starts on a device (never on page
  * load; never again there once answered), what it says after the answer, and the account page's switch.
  */

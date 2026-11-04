@@ -7,7 +7,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Pressable } from "@/components/ui/Pressable";
 import { Pulse } from "@/components/ui/Pulse";
 import { inLine } from "@/content/app";
-import { clock, creditsWord, placeWords } from "@/lib/format";
+import { clock, creditsWord, figuresLine, placeWords, ranWord } from "@/lib/format";
 
 const modelName: Record<ModelChoice, string> = { fast: "Fast", smart: "Smart", best: "Best" };
 /** Ideas shown at first; "More ideas" adds the rest of the 9 made under them (Luka, 10-25). */
@@ -199,19 +199,15 @@ function AgentMessage({
   const failed = m.status === "failed" || m.status === "refused";
   // A build that left the line without starting (stopped, waited too long, not allowed at its turn) never ran.
   const cost = failed
-    ? m.status === "refused"
-      ? "Not made, not charged"
-      : m.startedAt
-        ? "Didn't work, not charged"
-        : "Didn't start, not charged"
-    : `${creditsWord(m.credits ?? 0)}${m.versionN ? ` · version ${m.versionN}` : ""}`;
+    ? [m.status === "refused" ? "Not made, not charged" : m.startedAt ? "Didn't work, not charged" : "Didn't start, not charged"]
+    : [creditsWord(m.credits ?? 0), m.versionN ? `version ${m.versionN}` : null];
+  // The build time (HQ 11-04, a trial; to take it out, drop `ran` here and from the line): from the run's start to its
+  // end, not its time in line, on every answer that ran ("Best, high effort · 20 min · 61.4 credits · version 1").
+  const ran = m.startedAt && m.finishedAt ? ranWord(Date.parse(m.finishedAt) - Date.parse(m.startedAt)) : null;
   return (
     <li className="msg msg--agent" data-failed={failed || undefined}>
       <p className="bubble bubble--agent">{m.text || "Done."}</p>
-      <span className="msg__meta figures">
-        {model ? `${model} · ` : ""}
-        {cost}
-      </span>
+      <span className="msg__meta figures">{figuresLine([model, ran, ...cost])}</span>
       {current && !failed && (
         <Pressable className="msg__play" onClick={onPlay}>
           <Play size={14} weight="fill" aria-hidden="true" />

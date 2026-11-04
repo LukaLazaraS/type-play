@@ -99,8 +99,9 @@ function unlockOrientation() {
   }
 }
 
-/** What a parent can do with the frame: its own Full screen control calls this, in the click. */
-export type GameFrameHandle = { fullscreen: () => void };
+/** What a parent can do with the frame: its own Full screen control calls `fullscreen`, in the click; `focus` gives the
+ * game the keyboard again (after a control over it was used). */
+export type GameFrameHandle = { fullscreen: () => void; focus: () => void };
 
 type Immersive = "fullscreen" | "layer" | null;
 
@@ -127,9 +128,11 @@ export function GameFrame({
   fits = false,
   fullscreen = mode === "click",
   onReady,
+  onInput,
   onEscape,
   returnFocus,
   notice,
+  bar,
   ref,
 }: {
   slug: string;
@@ -145,15 +148,20 @@ export function GameFrame({
   /** Offer full screen. Off for the demo, whose frame is swapped every few seconds. */
   fullscreen?: boolean;
   onReady?: (slug: string) => void;
+  /** The player's first tap, click, key or gamepad button in the game since it loaded (play.html's "input", once a load). */
+  onInput?: (slug: string) => void;
   /** Escape pressed inside the game while it is not full screen (the launcher closes). */
   onEscape?: () => void;
   /** Focused after the close control is used: the parent's Full screen control. */
   returnFocus?: RefObject<HTMLElement | null>;
   /** Shown over the game while it is full screen, where the page around it can't be seen (the app: "Your game is ready"). */
   notice?: ReactNode;
+  /** Over the top of the game while it is full screen (the app's update bar). Not a live region: the page reads it out. */
+  bar?: ReactNode;
   ref?: Ref<GameFrameHandle>;
 }) {
-  // Parents pass key={slug}, so a new game mounts a fresh frame.
+  // Parents pass key={slug}, so a new game mounts a fresh frame; the game page keeps one frame for its versions instead
+  // (a new version loads in it, full screen stays full screen), so a new slug starts its load afresh here.
   const [playing, setPlaying] = useState(mode === "auto" || autoStart);
   const [ready, setReady] = useState(false);
   // The loader said the game couldn't load (play.html's "error"): Try again mounts a fresh frame.
@@ -161,6 +169,17 @@ export function GameFrame({
   // A poster that doesn't load (gone from the games origin) shows the frame's backdrop, not a broken picture.
   const [posterGone, setPosterGone] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // The Free mark starts small (mark=quiet) in a game the player is already playing. Fixed when a game's frame is made:
+  // a quiet that changed under a running frame would load the game again (the app's `played` turns on at its first frame).
+  const [quiet, setQuiet] = useState(autoStart);
+  const [loading, setLoading] = useState(slug);
+  if (slug !== loading) {
+    setLoading(slug);
+    setReady(false);
+    setFailed(false);
+    setPosterGone(false);
+    setQuiet(autoStart || playing);
+  }
   const [immersive, setImmersive] = useState<Immersive>(null);
   const [byTouch, setByTouch] = useState(false);
   // The orientation lock has answered: no hint flashes in the moment before Android turns.
@@ -248,20 +267,25 @@ export function GameFrame({
         setPlaying(true);
         enter(window.matchMedia(TOUCH).matches);
       },
+      focus: focusGame,
     }),
-    [enter],
+    [enter, focusGame],
   );
 
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
-      if (e.source !== frame.current?.contentWindow) return;
+      // Only this frame's loader, on the games origin.
+      if (e.origin !== gamesOrigin || e.source !== frame.current?.contentWindow) return;
       if (e.data?.game !== slug) return;
+      if (e.data.typeplay === "input") onInput?.(slug);
       if (e.data.typeplay === "ready") {
         setReady(true);
         setFailed(false);
         onReady?.(slug);
-        // Desktop: the keyboard works at once, without a click into the game first.
-        if (mode === "click" && !window.matchMedia(TOUCH).matches) focusGame();
+        // Desktop: the keyboard works at once, without a click into the game first; but a game that loaded by itself (a
+        // new version) never takes the keyboard from where the player is typing (the chat's box).
+        const at = document.activeElement;
+        if (mode === "click" && !window.matchMedia(TOUCH).matches && (!at || at === document.body || at === frame.current)) focusGame();
       }
       // The loader couldn't load the game (gone from the games origin, the engine download dropped).
       if (e.data.typeplay === "error") {
@@ -279,7 +303,7 @@ export function GameFrame({
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [slug, onReady, onEscape, mode, focusGame, leave]);
+  }, [slug, onReady, onInput, onEscape, mode, focusGame, leave]);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -322,6 +346,13 @@ export function GameFrame({
     };
   }, [fullscreen, leave, setMode, returnFocus]);
 
+  // The frame outlives a version (the game page), so full screen on a phone follows a new version's way up.
+  useEffect(() => {
+    if (!live.current.immersive || !byTouch) return;
+    if (fits) unlockOrientation();
+    else void lockOrientation(orientation);
+  }, [orientation, fits, byTouch]);
+
   const hint = immersive !== null && byTouch && settled && !stay && !fits && (orientation === "portrait") !== portrait;
 
   return (
@@ -353,7 +384,7 @@ export function GameFrame({
             key={`${slug}-${attempt}`}
             className="gameframe__frame"
             // A new version of a game the player is already playing: the Free mark doesn't introduce itself again.
-            src={playUrl(slug, mode === "auto", autoStart)}
+            src={playUrl(slug, mode === "auto", quiet)}
             title={`${name}, playable`}
             allow="autoplay; fullscreen"
           />
@@ -389,6 +420,7 @@ export function GameFrame({
           {notice}
         </div>
       )}
+      {immersive && bar && <div className="gameframe__bar">{bar}</div>}
       {immersive && (
         <Pressable className="gameframe__exit" aria-label="Close full screen" onClick={() => leave("control")}>
           <X size={20} weight="bold" aria-hidden="true" />
