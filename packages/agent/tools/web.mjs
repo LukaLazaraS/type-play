@@ -139,12 +139,15 @@ const WATCHDOG = [
 // status at once, which blocks until the browser has compiled it) and every animation frame (Godot draws one frame
 // per animation frame, so a long gap is a frame the player saw frozen). freezeReport() reads it.
 const FREEZE_PROBE = `(() => {
-  const T = window.__tpFreeze = { links: [], waits: [], frames: [] };
+  const T = window.__tpFreeze = { links: [], waits: [], frames: [], reads: [] };
   const now = () => performance.now();
   for (const C of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) {
     if (!C) continue;
-    const P = C.prototype, link = P.linkProgram, ask = P.getProgramParameter, askShader = P.getShaderParameter;
+    const P = C.prototype, link = P.linkProgram, ask = P.getProgramParameter, askShader = P.getShaderParameter, read = P.readPixels;
     P.linkProgram = function (p) { const t = now(); const r = link.call(this, p); T.links.push([t, now() - t]); return r; };
+    // A picture read back from the GPU (Texture2D.get_image(), a baked look read into an Image) makes the page wait
+    // for everything the GPU has queued.
+    P.readPixels = function (...a) { const t = now(); const r = read.apply(this, a); T.reads.push([t, now() - t]); return r; };
     P.getProgramParameter = function (p, n) { const t = now(); const r = ask.call(this, p, n); const d = now() - t; if (d > 1) T.waits.push([t, d]); return r; };
     P.getShaderParameter = function (s, n) { const t = now(); const r = askShader.call(this, s, n); const d = now() - t; if (d > 1) T.waits.push([t, d]); return r; };
   }
@@ -166,6 +169,10 @@ export async function openPage(url, { width = 1152, height = 648, viewport, touc
     // the container's loopback, so another run could drive this browser and read this game.
     '--headless=new', '--in-process-gpu', '--remote-debugging-pipe', `--user-data-dir=${profile}`,
     '--no-first-run', '--enable-unsafe-swiftshader', '--use-angle=swiftshader',
+    // Never treat the hidden page as a background tab: its timers and frames then run once a second (seen 11-04: the
+    // start-freeze check measured runs of exactly-1-s frames now and then, the same game smooth in the next run).
+    // The flags Puppeteer starts Chrome with for the same reason.
+    '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
     `--window-size=${width},${height}`, '--autoplay-policy=no-user-gesture-required',
     // The games it checks make sounds: never out of this PC's speakers (10-27: heard at night during test builds).
     '--mute-audio',
@@ -319,8 +326,10 @@ export async function openPage(url, { width = 1152, height = 648, viewport, touc
       const r = await this.evaluate(`(() => {
         const T = window.__tpFreeze; if (!T) return null; const s = ${Number(since) || 0};
         const links = T.links.filter((l) => l[0] >= s), waits = T.waits.filter((w) => w[0] >= s), frames = T.frames.filter((f) => f[0] >= s);
+        const reads = T.reads.filter((r) => r[0] >= s);
         const ms = frames.map((f) => f[1]).sort((a, b) => a - b);
         return { linksBefore: T.links.length - links.length, links: links.length, waitMs: Math.round(waits.reduce((a, w) => a + w[1], 0)),
+          reads: reads.length, readMs: Math.round(reads.reduce((a, r) => a + r[1], 0)), longest: frames.filter((f) => f[1] > 200).map((f) => [Math.round(f[0] - s), Math.round(f[1])]).slice(0, 8),
           frames: frames.length, over50: frames.filter((f) => f[1] > 50).length, worst: Math.round(ms.length ? ms[ms.length - 1] : 0),
           median: Math.round(ms.length ? ms[ms.length >> 1] : 0), linkTimes: links.map((l) => Math.round(l[0] - s)),
           firstFrameAt: T.frames.length ? Math.round(T.frames[0][0]) : null, lastLinkAt: T.links.length ? Math.round(T.links[T.links.length - 1][0]) : null };

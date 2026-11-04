@@ -262,9 +262,17 @@ if (built) {
 // laptop or phone the first time they play (renderer-independent, so it is counted, not timed).
 let freezeLine = '';
 if (freeze) {
-  freezeLine = `first visit on a 4x slower CPU: title settled in ${freeze.settleSec} s (${freeze.linksBefore} shaders compiled before play), then 8 s of play: ${freeze.links} shader${freeze.links === 1 ? '' : 's'} compiled, worst frame ${freeze.worst} ms, ${freeze.over50} of ${freeze.frames} frames over 50 ms (software drawing: frame times are a rough guide)`;
+  // Frame times are left out on purpose: the hidden browser draws in software and, on this PC, every game (fixed or
+  // not) showed runs of ~1 s frames a few seconds after the tap with no compile or read-back behind them (11-04).
+  freezeLine = `first visit on a 4x slower CPU: title settled in ${freeze.settleSec} s (${freeze.linksBefore} shaders compiled before play), then 8 s of play: ${freeze.links} shader${freeze.links === 1 ? '' : 's'} compiled${freeze.reads ? `, ${freeze.reads} picture${freeze.reads === 1 ? '' : 's'} read back from the GPU (${freeze.readMs} ms)` : ''}`;
   if (freeze.links > 0) {
     const msg = `[freeze] ${freeze.links} shader${freeze.links === 1 ? ' was' : 's were'} compiled after play started (${freeze.linkTimes.slice(0, 6).map((t) => `${(t / 1000).toFixed(1)} s`).join(', ')} after the first tap): on a laptop or phone each is a freeze of up to seconds the first time someone plays. Something was drawn for the first time during play (a particle effect, a new material or look, a polygon, a text size): build it once in the warm-up behind the title (lib/warmup.gd, "Fast games")`;
+    if (fast) errors.push(msg);
+    else notes.push(msg.replace('[freeze]', '[freeze, not failed: an older game]'));
+  }
+  // Reading a picture back from the GPU in play stalls the frame (45-80 ms on a real GPU, far more on a phone).
+  if (freeze.reads > 0) {
+    const msg = `[freeze] ${freeze.reads} picture${freeze.reads === 1 ? ' was' : 's were'} read back from the GPU after play started (get_image() on a viewport or texture): each stops the game while the GPU catches up. Bake looks before play with lib/looks.gd (it never reads back) and never call get_image() during play ("Fast games")`;
     if (fast) errors.push(msg);
     else notes.push(msg.replace('[freeze]', '[freeze, not failed: an older game]'));
   }

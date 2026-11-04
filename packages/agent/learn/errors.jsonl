@@ -1640,3 +1640,29 @@
 {"date":"2026-10-26T23:12:10.038Z","game":"tag-runner-hard","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
 {"date":"2026-10-26T23:12:10.039Z","game":"tag-runner-hard","error":"[test core_test.tscn] SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Node2D'. (at: _ready (res://test/core_test.gd:6))"}
 {"date":"2026-10-26T23:12:10.039Z","game":"tag-runner-hard","error":"[test core_test.tscn] printed no PASS:/FAIL: lines"}
+{"date":"2026-11-04T02:59:45.979Z","game":"night-runner","error":"[import] SCRIPT ERROR: Parse Error: The function signature doesn't match the parent. Parent signature is \"_get(StringName) -> Variant\". (at: GDScript::reload (res://obstacles.gd:33))"}
+{"date":"2026-11-04T02:59:45.979Z","game":"night-runner","error":"[import] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-11-04T02:59:45.980Z","game":"night-runner","error":"[import] ERROR: Failed to load script \"res://main.gd\" with error \"Parse error\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-11-04T02:59:45.980Z","game":"night-runner","error":"[run] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-11-04T02:59:45.980Z","game":"night-runner","error":"[run] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:51))"}
+{"date":"2026-11-04T02:59:45.981Z","game":"night-runner","error":"[test core_test.tscn] SCRIPT ERROR: Parse Error: The function signature doesn't match the parent. Parent signature is \"_get(StringName) -> Variant\". (at: GDScript::reload (res://obstacles.gd:33))"}
+{"date":"2026-11-04T02:59:45.981Z","game":"night-runner","error":"[test core_test.tscn] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-11-04T02:59:45.981Z","game":"night-runner","error":"[test core_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-11-04T02:59:45.981Z","game":"night-runner","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:51))"}
+{"date":"2026-11-04T02:59:45.982Z","game":"night-runner","error":"[test core_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'jump' in base 'Nil'. (at: _ready (res://test/core_test.gd:11))"}
+{"date":"2026-11-04T02:59:45.982Z","game":"night-runner","error":"[test core_test.tscn] FAIL: title shows first"}
+{"date":"2026-11-04T02:59:45.982Z","game":"night-runner","error":"[test core_test.tscn] FAIL: Space starts the run"}
+{"date":"2026-11-04T02:59:45.983Z","game":"night-runner","error":"[test stress_test.tscn] SCRIPT ERROR: Parse Error: The function signature doesn't match the parent. Parent signature is \"_get(StringName) -> Variant\". (at: GDScript::reload (res://obstacles.gd:33))"}
+{"date":"2026-11-04T02:59:45.983Z","game":"night-runner","error":"[test stress_test.tscn] SCRIPT ERROR: Compile Error: Failed to compile depended scripts. (at: GDScript::reload (res://main.gd:0))"}
+{"date":"2026-11-04T02:59:45.983Z","game":"night-runner","error":"[test stress_test.tscn] ERROR: Failed to load script \"res://main.gd\" with error \"Compilation failed\". (at: load (modules/gdscript/gdscript_resource_format.cpp:46))"}
+{"date":"2026-11-04T02:59:45.984Z","game":"night-runner","error":"[test stress_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'. (at: _ready (res://main.gd:51))"}
+{"date":"2026-11-04T02:59:45.984Z","game":"night-runner","error":"[test stress_test.tscn] SCRIPT ERROR: Invalid call. Nonexistent function 'reset' in base 'Nil'. (at: start (res://main.gd:135))"}
+{"date":"2026-11-04T02:59:45.984Z","game":"night-runner","error":"[test stress_test.tscn] FAIL: top speed, obstacles and mushrooms everywhere"}
+{"date":"2026-11-04T02:59:45.985Z","game":"night-runner","error":"[browser] ERROR: Can't add child '@CPUParticles2D@105' to '@Node2D@107', already has a parent '@Node2D@2'."}
+{"date":"2026-11-04T03:01:52.984Z","game":"night-runner","error":"[test core_test.tscn] FAIL: the fox jumps"}
+{"date":"2026-11-04T03:01:52.984Z","game":"night-runner","error":"[test core_test.tscn] FAIL: timed jumps clear the obstacles"}
+{"date":"2026-11-04T03:01:52.985Z","game":"night-runner","error":"[test core_test.tscn] FAIL: there were obstacles to jump (1)"}
+{"date":"2026-11-04T03:01:52.985Z","game":"night-runner","error":"[test stress_test.tscn] FAIL: top speed, obstacles and mushrooms everywhere"}
+{"date":"2026-11-04T03:04:38.518Z","game":"night-runner","error":"[test core_test.tscn] FAIL: timed jumps clear the obstacles"}
+{"date":"2026-11-04T03:04:38.519Z","game":"night-runner","error":"[test core_test.tscn] FAIL: there were obstacles to jump (1)"}
+{"date":"2026-11-04T03:04:38.519Z","game":"night-runner","error":"[test stress_test.tscn] FAIL: top speed, obstacles and mushrooms everywhere"}
