@@ -373,7 +373,7 @@ export function GameClient() {
           pane={shown === "assets" ? "assets" : "play"}
           onPane={show}
           fresh={fresh}
-          assets={<Assets projectId={project.id} buildId={project.buildId} active={shown === "assets"} onChange={changeAsset} onAsk={toChat} />}
+          assets={<Assets projectId={project.id} buildId={project.buildId} version={project.currentVersion} active={shown === "assets"} onChange={changeAsset} onAsk={toChat} />}
         />
       </div>
     </main>

@@ -190,8 +190,8 @@ export function stopSound() {
   }
 }
 
-/** Plays a sound (stopping any other); `key` names it for useSoundPlaying. */
-export function playSound(key: string, url: string) {
+/** Plays a sound (stopping any other); `key` names it for useSoundPlaying; `onError`: it couldn't be played. */
+export function playSound(key: string, url: string, onError?: () => void) {
   stopSound();
   const a = new Audio(url);
   audio = a;
@@ -199,9 +199,13 @@ export function playSound(key: string, url: string) {
   a.onended = () => {
     if (audio === a) stopSound();
   };
-  a.play().catch(() => {
-    if (audio === a) stopSound();
-  });
+  const failed = () => {
+    if (audio !== a) return;
+    stopSound();
+    onError?.();
+  };
+  a.onerror = failed;
+  a.play().catch(failed);
   tell();
 }
 

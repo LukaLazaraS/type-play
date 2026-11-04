@@ -15,7 +15,7 @@ import { fitWithin, inTurn, library } from "../attachments/images.js";
 import { collect, TooBig } from "../games/download.js";
 import { readGameFile } from "../games/files.js";
 import { MAX_MODEL_BYTES, NotTurnable, outsideFiles, packGlb, readGltf } from "./glb.js";
-import { fontFormat, soundFormat, soundSeconds } from "./media.js";
+import { fontFormat, soundFormat, soundSeconds, wavPeaks } from "./media.js";
 import { cleanLabel, type LookCall, lookName, looksIn, partName, plainName } from "./names.js";
 import { putBlob, type StoredAsset, type StoredList } from "./store.js";
 
@@ -102,7 +102,7 @@ function readCaptured(dir: string, commit: string, notes: string[]): Captured | 
  * A picture decoded once and encoded again: itself (its own format, or PNG) at most 2048 px, and a WebP thumbnail. `wide`:
  * a sprite sheet, whose frames side by side may run to 16384 px (its height still at most 2048).
  */
-async function picture(bytes: Buffer, wide = false): Promise<{ data: Buffer; type: string; thumb: Buffer; width: number; height: number }> {
+async function picture(bytes: Buffer, wide = false): Promise<{ data: Buffer; type: string; thumb: Buffer; width: number; height: number; light: boolean }> {
   const sharp = await library();
   return inTurn(async () => {
     const meta = await sharp(bytes, { limitInputPixels: false, animated: false }).metadata();
@@ -114,13 +114,49 @@ async function picture(bytes: Buffer, wide = false): Promise<{ data: Buffer; typ
       .raw({ depth: "uchar" })
       .toBuffer({ resolveWithObject: true });
     const { width, height, channels } = info;
+    const light = lightOnClear(data, channels);
     const from = () => sharp(data, { raw: { width, height, channels: channels as 1 | 2 | 3 | 4 } }).timeout({ seconds: 30 });
     const t = fitWithin(width, height, THUMB_EDGE);
     const own = meta.format === "jpeg" ? "jpeg" : meta.format === "webp" ? "webp" : "png";
     const encoded = own === "jpeg" ? from().jpeg({ quality: 90, mozjpeg: true }) : own === "webp" ? from().webp({ quality: 92, alphaQuality: 100 }) : from().png({ compressionLevel: 8, adaptiveFiltering: true });
     const [full, thumb] = await Promise.all([encoded.toBuffer(), from().resize(t.width, t.height, { fit: "fill" }).webp({ quality: 80, alphaQuality: 90 }).toBuffer()]);
-    return { data: full, type: `image/${own}`, thumb, width, height };
+    return { data: full, type: `image/${own}`, thumb, width, height, light };
   });
+}
+
+/**
+ * Drawn in light colours only, on a see-through ground (stars, glows, white sparks, a pale ring): the site shows it on
+ * ink, where Field would hide it. A drawing with dark parts (an outline, a shadow) or in a strong colour reads on Field and
+ * stays there. Counted over the visible pixels; at least a fifth of the picture is see-through.
+ */
+function lightOnClear(px: Buffer, channels: number): boolean {
+  if (channels !== 4 && channels !== 2) return false;
+  const bins = new Array<number>(32).fill(0);
+  let visible = 0;
+  let clear = 0;
+  let total = 0;
+  const step = channels * Math.max(1, Math.floor(px.length / channels / 200_000)); // at most ~200,000 pixels looked at
+  for (let i = 0; i + channels - 1 < px.length; i += step) {
+    total++;
+    const a = px[i + channels - 1] / 255;
+    if (a < 0.05) clear++;
+    if (a < 0.15) continue; // faint pixels (a star's soft edge) still count as seen
+    const l = channels === 4 ? (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255 : px[i] / 255;
+    bins[Math.min(31, Math.floor(l * 32))]++;
+    visible++;
+  }
+  if (!visible || clear / total < 0.2) return false;
+  // Its darkest tenth and its middle: pale all over (a star, a glow) and no dark parts (an outline puts its tenth near 0;
+  // a saturated colour, as a mid-green slime, has a middle well under 0.7 and reads on Field).
+  const at = (share: number) => {
+    let count = 0;
+    for (let b = 0; b < 32; b++) {
+      count += bins[b];
+      if (count >= visible * share) return b / 32;
+    }
+    return 1;
+  };
+  return at(0.1) >= 0.45 && at(0.5) >= 0.7;
 }
 
 /** An id that stays the same for the same file or look in every version of the game. */
@@ -257,6 +293,7 @@ export async function importAssets({ projectId, buildId, dir, commit }: ImportIn
           width: first.width,
           height: first.height,
           ...(frames > 1 && { frames }),
+          ...(first.light && { light: true }),
           bytes: file.length,
           format: "png",
           picture: true,
@@ -286,6 +323,7 @@ export async function importAssets({ projectId, buildId, dir, commit }: ImportIn
           where: where([`"${s.name}"`], (t) => new RegExp(`\\[\\s*"${esc(s.name)}"\\s*\\]\\s*=|"${esc(s.name)}"\\s*:`).test(t.text)),
           key: s.name,
           ...(soundSeconds(data, "wav") !== null && { seconds: soundSeconds(data, "wav") as number }),
+          ...(wavPeaks(data) && { peaks: wavPeaks(data) as number[] }),
           bytes: data.length,
           format: "wav",
           picture: false,
@@ -329,6 +367,7 @@ export async function importAssets({ projectId, buildId, dir, commit }: ImportIn
           {
             kind, name: plainName(base), made: credit ? "library" : "file", where: used, file: f.rel, ...(credit && { credit }),
             ...(shown && { width: shown.width, height: shown.height }),
+            ...(shown?.light && { light: true }),
             bytes: data.length, format: e, picture: !!shown,
             blobs: { file: keep(data), ...(shown && { picture: keep(shown.data), thumb: keep(shown.thumb) }) },
             types: { file: FILE_TYPES[e] ?? "application/octet-stream", ...(shown && { picture: shown.type }) },
@@ -384,7 +423,7 @@ export async function importAssets({ projectId, buildId, dir, commit }: ImportIn
         add(
           {
             kind, name: plainName(base), made: credit ? "library" : "file", where: used, file: f.rel, ...(credit && { credit }),
-            ...(seconds !== null && { seconds }), bytes: data.length, format, picture: false,
+            ...(seconds !== null && { seconds }), ...(format === "wav" && wavPeaks(data) && { peaks: wavPeaks(data) as number[] }), bytes: data.length, format, picture: false,
             blobs: { file: keep(data) }, types: { file: FILE_TYPES[format] },
           },
           `file:${f.rel}`,
@@ -411,5 +450,9 @@ export async function importAssets({ projectId, buildId, dir, commit }: ImportIn
       notes.push(`${kind} ${f.rel}: ${(err as Error).message}`.slice(0, 200));
     }
   }
-  return { v: 1, buildId, source: captured ? "build" : "files", made: new Date().toISOString(), commit, assets, notes };
+  // "All" shows the kinds together (the AI's pictures with the picture files, its sounds with the sound files), each kind
+  // in the order found: the capture's order (the game's own) first, then the files by path.
+  const kindOrder: AssetKind[] = ["picture", "model", "sound", "font"];
+  const sorted = assets.map((a, i) => ({ a, i })).sort((x, y) => kindOrder.indexOf(x.a.kind) - kindOrder.indexOf(y.a.kind) || x.i - y.i).map(({ a }) => a);
+  return { v: 1, buildId, source: captured ? "build" : "files", made: new Date().toISOString(), commit, assets: sorted, notes };
 }

@@ -264,7 +264,7 @@ export const pictures = {
 export const assets = {
   tab: "Assets",
   /** The switch in the game's bar on a computer (Play / Assets), read as one control. */
-  stage: "What the stage shows",
+  stage: "Show the game or its assets",
   play: "Play",
   list: "The game's assets",
   kinds: { all: "All", picture: "Pictures", model: "3D models", sound: "Sounds", font: "Fonts" },
@@ -280,7 +280,7 @@ export const assets = {
   empty: "This game draws everything as it runs, so there is nothing to list. Ask in the chat to change anything you see.",
   ask: "Ask in the chat",
   files: "Listed from the game's files: art the AI drew in code shows here after your next change.",
-  none: "This version was made before the asset list. Versions made from now on list their assets.",
+  none: "This version was made before the asset list. Ask for any change and the new version lists its assets.",
   /** How it was made, under its name in the viewer. */
   made: (a: { kind: string; made: string; credit?: string; frames?: number }) =>
     a.made === "code"
@@ -309,6 +309,14 @@ export const assets = {
   playFrames: "Play the frames",
   stopFrames: "Stop the frames",
   turn: "Drag to turn it, pinch or scroll to zoom.",
+  /** Under Change it and Download: what Change it does, and what it costs (nothing until Send). */
+  changeNote: "Change it puts this into your message. Nothing is sent or charged until you press Send.",
+  /** The handle in the viewer, named so it reads as what it is. */
+  inCode: (key: string) => `In the code: ${key}`,
+  inFile: (file: string) => `File: ${file}`,
+  soundFailed: "This sound couldn't be played. Try again.",
+  keys: "The arrow keys move between the assets; Enter opens one.",
+  version: (n: number) => `Version ${n}`,
   noTurn: "This model's file type can't be turned here: download it to open it in a 3D app.",
   close: "Close",
   previous: "Previous asset",
@@ -317,10 +325,10 @@ export const assets = {
   /** A tile's name for screen readers: "Gold coin, picture, 40 by 40". */
   tileLabel: (a: { name: string; kind: string; frames?: number; seconds?: number }) =>
     [a.name, a.frames ? `animation, ${a.frames} frames` : ({ picture: "picture", model: "3D model", sound: "sound", font: "font" } as Record<string, string>)[a.kind], a.seconds ? `${a.seconds.toFixed(1)} seconds` : ""].filter(Boolean).join(", "),
-  /** Change it's sentence: the player finishes it after the colon. */
+  /** Change it's sentence: the player finishes it ("…(coin) so it shines"); two in a row join with a comma. */
   starter: (a: { name: string; kind: string; key?: string; file?: string; frames?: number; seconds?: number }) => {
     const noun = a.kind === "picture" ? (a.frames ? "animation" : "picture") : a.kind === "model" ? "3D model" : a.kind === "font" ? "font" : (a.seconds ?? 0) >= 15 ? "music" : "sound";
-    return `Change the ${noun} “${a.name}” (${a.key ?? a.file ?? a.name}): `;
+    return `Change the ${noun} “${a.name}” (${a.key ?? a.file ?? a.name}) `;
   },
   changeFailed: "Its picture couldn't be fetched for the chat. Try again.",
   /** The update while the list is open: a new version is ready (said on the Play switch). */

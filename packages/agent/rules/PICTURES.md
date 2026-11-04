@@ -18,7 +18,7 @@ or generated them somewhere else to show you what they want.
   its proportions (a background covers the screen, cropped rather than stretched). Copy only the pictures the player
   asked to use, never a reference.
 - **A picture of one of the game's own assets** (the player pressed Change it in the game's list of assets: the message
-  names it, with its handle in brackets, e.g. `Change the animation “Slime enemy” (e_slime): make it blue`) shows that
+  names it, with its handle in brackets, e.g. `Change the animation “Slime enemy” (e_slime) to blue`) shows that
   asset as it is now. Change that look, model or file in place as the message asks; never add a second one beside it.
 - The pictures' folder is gone after this session, and nothing in the game may load from it: the game holds its own copy
   of every file it uses.

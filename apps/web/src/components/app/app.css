@@ -5643,6 +5643,8 @@ body:has(main.explore) > .ground-band {
 }
 /* A sound: one big play button and how far it has got, on Ink Recess. */
 .assetview__sound {
+  display: flex;
+  align-items: center;
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: center;
@@ -5735,4 +5737,93 @@ body:has(main.explore) > .ground-band {
   justify-content: center;
   gap: 10px;
   margin-top: 10px;
+}
+
+/* The review's second batch (2026-11-04). A sound's shape: on its tile in muted ink, in the viewer white, played from the
+   left as it goes (the played copy is clipped by --at, set frame by frame while it plays). */
+.waveform {
+  display: block;
+  fill: currentColor;
+}
+.assettile__wave {
+  width: 64%;
+  height: 30%;
+  margin-top: 14%; /* below the play button in the corner */
+  color: var(--on-paper-muted);
+}
+.assetview__wave {
+  position: relative;
+  display: block;
+  flex: 1 1 220px;
+  height: 56px;
+  color: var(--on-sky);
+}
+.assetview__wave .waveform {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.35;
+}
+.assetview__wave .assetview__wave-played {
+  opacity: 1;
+  clip-path: inset(0 calc((1 - var(--at, 0)) * 100%) 0 0);
+}
+/* The viewer keeps its parts where they were from one asset to the next: the asset in a stage of one height, its words
+   under it, and Previous / Next at the screen's foot (the column scrolls on a phone too short for it all). */
+.viewer--asset {
+  height: 100dvh;
+}
+.viewer--asset > .assetview__stage {
+  flex: none;
+  justify-content: center;
+  height: clamp(200px, calc(100dvh - 420px), 560px);
+}
+.viewer--asset > .viewer__bar {
+  margin-top: auto;
+}
+.assetview__note {
+  max-width: 44ch;
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--on-sky-muted);
+}
+/* The version above the list, on a phone only (a computer's bar says it). */
+.assets__version {
+  margin: 0;
+  font-size: 11px;
+  color: var(--on-sky-muted);
+}
+@media (min-width: 960px) {
+  .assets__version {
+    display: none;
+  }
+}
+/* On a phone the kinds scroll sideways in one row, as /explore's genres do, instead of leaving one alone on a second row. */
+@media (max-width: 640px) {
+  .assets__kinds {
+    flex: none;
+    flex-wrap: nowrap;
+    width: calc(100% + 28px);
+    margin: -6px -14px;
+    padding: 6px 14px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 14px;
+    scrollbar-width: none;
+  }
+  .assets__kinds::-webkit-scrollbar {
+    display: none;
+  }
+  .assets__kinds .pillbar__item {
+    flex: none;
+  }
+}
+
+/* A picture drawn in light colours on a see-through ground (stars, glows, white sparks: the API says `light`): Ink
+   Recess behind it instead of Field, which would hide it. */
+.assettile__square--light,
+.assetview__frame[data-light] {
+  background-color: var(--ink-2);
 }

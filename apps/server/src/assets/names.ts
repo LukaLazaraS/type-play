@@ -12,20 +12,31 @@ export function cleanLabel(raw: string): string {
   return s.length > MAX ? `${s.slice(0, MAX - 1).trimEnd()}…` : s;
 }
 
-/** Words from a key or a file name, the first letter capital: "e_toaster" -> "E toaster", "map0" -> "Map 0". */
+/** Words from a key or a file name, the first letter capital: "e_toaster" -> "E toaster", "map0" -> "Map 0", "hud" -> "HUD". */
 export function plainName(raw: string): string {
   const words = raw
     .replace(/\.[a-z0-9]{1,6}$/i, "")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
-    .replace(/([A-Za-z])(\d)/g, "$1 $2")
-    .replace(/(\d)([A-Za-z])/g, "$1 $2")
-    .replace(/[\s_\-.]+/g, " ")
-    .trim()
-    .toLowerCase();
-  if (!words) return "Untitled";
-  return cleanLabel(words.charAt(0).toUpperCase() + words.slice(1));
+    .split(/[\s_\-.]+/)
+    .filter(Boolean)
+    .flatMap((w) =>
+      ACRONYMS[w.toLowerCase()]
+        ? [ACRONYMS[w.toLowerCase()]]
+        : w
+            .replace(/([a-z])([A-Z])/g, "$1 $2")
+            .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+            .replace(/([A-Za-z])(\d)/g, "$1 $2")
+            .replace(/(\d)([A-Za-z])/g, "$1 $2")
+            .toLowerCase()
+            .split(" ")
+            .map((x) => ACRONYMS[x] ?? x),
+    );
+  if (!words.length) return "Untitled";
+  const shown = words.join(" ");
+  return cleanLabel(shown.charAt(0).toUpperCase() + shown.slice(1));
 }
+
+/** Short words games use that read as letters: "hud.gd" -> "HUD", "bg" -> "BG", "3d" -> "3D". */
+const ACRONYMS: Record<string, string> = { hud: "HUD", ui: "UI", fx: "FX", sfx: "SFX", vfx: "VFX", npc: "NPC", hp: "HP", xp: "XP", bg: "BG", ai: "AI", fps: "FPS", "2d": "2D", "3d": "3D" };
 
 /** A part of the game, from a script's or scene's path: "enemies/boss_robot.tscn" -> "Boss robot", "main.gd" -> "Main". */
 export function partName(rel: string): string {

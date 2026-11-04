@@ -32,6 +32,8 @@ type Props = {
   projectId: string;
   /** The version's build (the game's current version); null before the first build. */
   buildId: string | null;
+  /** Its number, said above the list on a phone (a computer's bar says it). */
+  version: number | null;
   /** The tab is showing: the list loads the first time it shows, and tiles fetch their pictures only while it shows. */
   active: boolean;
   /** Change it: puts the asset into the chat box (GameClient). */
@@ -45,7 +47,7 @@ type Props = {
  * uses, on the ink stage. Chips by kind with their counts, a search box for a long list, a grid of tiles (the arrow keys
  * move between them; one tab stop), and the viewer for one asset with Change it and Download.
  */
-export function Assets({ projectId, buildId, active, onChange, onAsk }: Props) {
+export function Assets({ projectId, buildId, version, active, onChange, onAsk }: Props) {
   // Nothing is asked until the tab is first opened; from then on the list follows the game's current version.
   const [opened, setOpened] = useState(active);
   if (active && !opened) setOpened(true);
@@ -100,7 +102,7 @@ export function Assets({ projectId, buildId, active, onChange, onAsk }: Props) {
     <section id="ws-assets" className="assets" aria-label={t.list} hidden={!active}>
       {state?.status === "loading" && (
         <p className="assets__lead" role="status">
-          <Pulse still />
+          <Pulse />
           {t.loading}
         </p>
       )}
@@ -114,6 +116,10 @@ export function Assets({ projectId, buildId, active, onChange, onAsk }: Props) {
       )}
       {state?.status === "ready" && (
         <>
+          {version !== null && <p className="figures assets__version">{t.version(version)}</p>}
+          <p id="assets-keys" className="sr-only">
+            {t.keys}
+          </p>
           {list.length > 0 && (
             <div className="assets__bar">
               {kinds.length > 1 && (
@@ -156,7 +162,7 @@ export function Assets({ projectId, buildId, active, onChange, onAsk }: Props) {
             <div className="assets__lead">
               <p>{t.empty}</p>
               {onAsk && (
-                <InkPill icon={<ChatCircleText size={18} weight="bold" aria-hidden="true" />} onClick={onAsk}>
+                <InkPill size="small" icon={<ChatCircleText size={16} weight="bold" aria-hidden="true" />} onClick={onAsk}>
                   {t.ask}
                 </InkPill>
               )}
@@ -185,6 +191,12 @@ export function Assets({ projectId, buildId, active, onChange, onAsk }: Props) {
                     setAt(i);
                     setOpen(i);
                     viewer.current?.open(tile);
+                  }}
+                  onPlayFailed={() => {
+                    // A sound that won't play from its tile opens in the viewer, which says so and can try again.
+                    setAt(i);
+                    setOpen(i);
+                    viewer.current?.open(tiles.current[i]);
                   }}
                 />
               ))}
@@ -227,6 +239,7 @@ function Tile({
   tileRef,
   onKeyDown,
   onOpen,
+  onPlayFailed,
 }: {
   projectId: string;
   buildId: string;
@@ -236,6 +249,7 @@ function Tile({
   tileRef: (el: HTMLButtonElement | null) => void;
   onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => void;
   onOpen: (tile: HTMLButtonElement) => void;
+  onPlayFailed: () => void;
 }) {
   // Its picture comes once the tile nears the screen, and only while the tab shows.
   const [item, seen] = useSeen<HTMLLIElement>();
@@ -265,9 +279,12 @@ function Tile({
       meta={metaOf(asset)}
       label={t.tileLabel(asset)}
       picture={thumb}
+      light={asset.light}
       width={asset.width}
       height={asset.height}
       mark={mark}
+      wave={asset.peaks}
+      describedBy={tabIndex === 0 ? "assets-keys" : undefined}
       tabIndex={tabIndex}
       onKeyDown={onKeyDown}
       onOpen={onOpen}
@@ -279,10 +296,7 @@ function Tile({
               stopLabel: t.stopSound(asset.name),
               onToggle: () => {
                 if (playing) return stopSound();
-                assetUrl(projectId, buildId, asset.id, "file").then(
-                  (url) => playSound(key, url),
-                  () => {},
-                );
+                assetUrl(projectId, buildId, asset.id, "file").then((url) => playSound(key, url, onPlayFailed), onPlayFailed);
               },
             }
           : undefined

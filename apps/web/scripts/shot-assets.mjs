@@ -21,6 +21,10 @@ const webDir = join(root, "apps/web");
 const serverDir = join(root, "apps/server");
 const out = process.argv[2] && !process.argv[2].startsWith("--") ? process.argv[2] : join(root, ".impeccable/review/assets");
 mkdirSync(out, { recursive: true });
+// --real <game folder>: also a real game the agent built (its files and capture, through the fake build REALGAME);
+// --only-real: that game alone.
+const realDir = process.argv.includes("--real") ? process.argv[process.argv.indexOf("--real") + 1] : null;
+const onlyReal = process.argv.includes("--only-real");
 const [SITE_PORT, API_PORT, GAMES_PORT] = await useOwnStack("assets", 3);
 const base = `http://localhost:${SITE_PORT}`;
 const apiBase = `http://127.0.0.1:${API_PORT}`;
@@ -93,7 +97,7 @@ const tsconfigBefore = readFileSync(tsconfig, "utf8");
 
 let browser = null;
 try {
-  const apiProc = start("api", ["dist/main.js"], serverDir, { PORT: String(API_PORT), DEV_AUTH: "1", AGENT_FAKE: "1", ADMIN_EMAILS: "", CORS_ORIGINS: base, BILLING_JOBS: "0" });
+  const apiProc = start("api", ["dist/main.js"], serverDir, { PORT: String(API_PORT), DEV_AUTH: "1", AGENT_FAKE: "1", ADMIN_EMAILS: "", CORS_ORIGINS: base, BILLING_JOBS: "0", ...(realDir ? { FAKE_GAME_DIR: realDir } : {}) });
   await until("the API", async () => (await (await fetch(`${apiBase}/health`)).json()).agent === "fake", 60, apiProc.log);
   const gamesProc = start("games", [join(root, "apps/games/scripts/serve.mjs"), String(GAMES_PORT)], root, {});
   await until("the games origin", async () => (await fetch(`http://127.0.0.1:${GAMES_PORT}/play.html`)).ok, 30, gamesProc.log);
@@ -111,12 +115,14 @@ try {
   console.log(`stack up: site :${SITE_PORT}, API :${API_PORT}, games :${GAMES_PORT}`);
   await api("GET", "/me");
   check("the account: Medium + 60 credits", admin("plan", who, "medium").status === 0 && admin("grant", who, "60").status === 0);
-  const g2 = await built("Slime Cave: slimes and bats in a cave ASSETS");
-  const g3 = await built("City Drive: a car in a little city ASSETS3D");
-  const g0 = await built("Dot Dash: a game that draws everything as it runs");
-  const gf = await built("Old Cave: made before the asset list ASSETS NOCAPTURE");
-  const gw = await built("Worst Case: the longest real names, the oddest sizes, 112 assets ASSETSWORST");
-  check("four games built (a 2D game, a 3D game, one with nothing to list, one listed from its files)", !!(g2 && g3 && g0 && gf));
+  const later = (p) => (onlyReal ? null : built(p));
+  const gr = realDir ? await built("Star Bugs: a space shooter, a real Fast build REALGAME") : null;
+  const g2 = await later("Slime Cave: slimes and bats in a cave ASSETS");
+  const g3 = await later("City Drive: a car in a little city ASSETS3D");
+  const g0 = await later("Dot Dash: a game that draws everything as it runs");
+  const gf = await later("Old Cave: made before the asset list ASSETS NOCAPTURE");
+  const gw = await later("Worst Case: the longest real names, the oddest sizes, 115 assets ASSETSWORST");
+  if (!onlyReal) check("four games built (a 2D game, a 3D game, one with nothing to list, one listed from its files)", !!(g2 && g3 && g0 && gf));
 
   browser = await chromium.launch({ channel: "msedge", headless: true });
   async function signIn(page) {
@@ -143,6 +149,40 @@ try {
     const page = await ctx.newPage();
     page.on("pageerror", (e) => console.log("page error:", e.message));
     await signIn(page);
+
+    // ---- A real game the agent built tonight (--real): its looks with the AI's names, its sounds with their shapes -----
+    if (gr) {
+      await openAssets(page, gr.id, phone);
+      const realTiles = page.locator(".assets__grid .assettile__open");
+      await realTiles.first().waitFor({ timeout: 30_000 });
+      await page.waitForFunction(() => document.querySelectorAll(".assets__grid .assettile__square img").length >= 3, null, { timeout: 30_000 }).catch(() => {});
+      check(`${label}: real: the real game's assets listed (${await realTiles.count()})`, (await realTiles.count()) > 10);
+      check(`${label}: real: no sideways scrolling`, await fits(page));
+      await shot(page, `real-${label}`);
+      await page.getByRole("button", { name: /^Queen bug/ }).click();
+      await page.locator("dialog[open] .assetview__frames").waitFor({ timeout: 30_000 }).catch(() => {});
+      await shot(page, `real-viewer-boss-${label}`);
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(250);
+      await page.locator(".assets__kinds").getByRole("radio", { name: /Sounds/ }).click();
+      await shot(page, `real-sounds-${label}`);
+      await realTiles.first().click();
+      await page.locator("dialog[open]").waitFor({ timeout: 10_000 });
+      await shot(page, `real-viewer-sound-${label}`);
+      await page.keyboard.press("Escape");
+      await page.locator(".assets__kinds").getByRole("radio", { name: /All/ }).click();
+    }
+    if (onlyReal) {
+      await ctx.close();
+      continue;
+    }
+
+    // ---- The game page as it opens: on a computer the Play / Assets switch in the game's bar, beside its pills ----------
+    await page.goto(`${base}/games/${g2.id}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
+    await page.locator(".stage__bar").waitFor({ timeout: 60_000 });
+    await page.waitForTimeout(1500);
+    check(`${label}: the game page, no sideways scrolling`, await fits(page));
+    await shot(page, `play-${label}`);
 
     // ---- A 2D game: its 9 assets -------------------------------------------------------------------
     await openAssets(page, g2.id, phone);
@@ -208,7 +248,7 @@ try {
     await page.locator("dialog[open]").waitFor({ state: "detached", timeout: 30_000 }).catch(() => {});
     await page.waitForFunction(() => document.querySelectorAll(".composer .tray .thumb img").length === 1 && !document.querySelector(".composer .tray .thumb[aria-busy=true]"), null, { timeout: 30_000 });
     const said = await page.locator("#say").inputValue();
-    check(`${label}: Change it: the picture in the box and the sentence`, said === "Change the picture “Gold coin” (coin): ", JSON.stringify(said));
+    check(`${label}: Change it: the picture in the box and the sentence`, said === "Change the picture “Gold coin” (coin) ", JSON.stringify(said));
     check(`${label}: …${phone ? "the Chat tab opens" : "the list stays open beside it"}`, phone ? (await page.locator(".ws").getAttribute("data-tab")) === "chat" : (await page.locator("#ws-assets").isVisible()));
     check(`${label}: …the keyboard in the box`, (await page.evaluate(() => document.activeElement?.id)) === "say");
     await shot(page, `change-${label}`);
@@ -247,7 +287,7 @@ try {
     // ---- The worst real data (break-ui): long and non-Latin names, odd sizes, 24 frames, 3 minutes of music, 112 assets -
     await openAssets(page, gw.id, phone);
     await tiles.first().waitFor({ timeout: 30_000 });
-    check(`${label}: worst: 112 assets listed, with a search box`, (await tiles.count()) === 112 && (await page.locator("#assets-search").count()) === 1, String(await tiles.count()));
+    check(`${label}: worst: 115 assets listed, with a search box`, (await tiles.count()) === 115 && (await page.locator("#assets-search").count()) === 1, String(await tiles.count()));
     await thumbsIn(page, 3);
     check(`${label}: worst: the list, no sideways scrolling`, await fits(page));
     await shot(page, `worst-list-${label}`);

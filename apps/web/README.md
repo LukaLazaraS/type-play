@@ -608,13 +608,15 @@ made, kept and checked): `apps/server/README.md` "The Assets tab".
 - **Change it** (`GameClient.tsx` `changeAsset`): the asset's picture (a picture, a look's first frame, a model's still)
   is fetched and handed to the composer's tray as a file (`prefill.files` → `tray.add`), exactly as a dropped picture, so
   it uploads and is checked like any attachment; the box gets the starter sentence with the asset's handle in brackets
-  ("Change the picture “Gold coin” (coin): ", rules/EDIT.md tells the AI what the handle is). A sound or a font goes in as
+  ("Change the picture “Gold coin” (coin) ", rules/EDIT.md tells the AI what the handle is; with no colon at its end, two in a row read as one sentence). A sound or a font goes in as
   the sentence alone. On a phone the Chat tab opens; on a computer the list stays open beside the box, for more.
 - Words: `content/app.ts` `assets`. Downloads go through `saveFile` (the file's name from the API).
 - Walk-through: `scripts/shot-assets.mjs` (its own stack and database, fake builds with assets; shots in
   `.impeccable/review/assets/` at 1440, 390 and 320 px): a 2D game's 9 assets with chips and counts, the arrow keys, the
   viewer (an animated look, a sound, a font; →, Escape back to the tile), Change it into the box, a 3D game's model loaded
-  in model-viewer, a game with nothing to list, one listed from its files; no sideways scrolling anywhere.
+  in model-viewer, a game with nothing to list (its Ask in the chat button), one listed from its files, Download, and
+  the worst real data (a fake build with German, Japanese and emoji names, a long key, 2048×64, 64×1024 and 1×1 pictures,
+  24 frames, 3 minutes of music, 115 assets: the search, the viewer within the screen); no sideways scrolling anywhere.
 
 ## Known trap
 

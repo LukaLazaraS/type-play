@@ -296,12 +296,16 @@ export interface GameAsset {
   key?: string;
   /** Who made it and its licence, from the game's assets/CREDITS.md ("Car Kit by Kenney (www.kenney.nl), CC0 1.0"). */
   credit?: string;
+  /** Pictures drawn mostly in light colours on a see-through ground (stars, glows): shown on ink, where they can be seen. */
+  light?: boolean;
   /** Pictures: the size in pixels (an animated look: one frame's) and, for an animated look, how many frames. */
   width?: number;
   height?: number;
   frames?: number;
   /** Sounds: how long, in seconds. */
   seconds?: number;
+  /** A WAV sound's shape: 40 bars from 0 to 1 (its loudest), for its tile and its player. Missing for other formats. */
+  peaks?: number[];
   /** What GET …/:assetId sends (Download): its size in bytes and its format: "png", "jpg", "webp", "glb", "gltf", "fbx",
    * "obj", "wav", "ogg", "mp3", "ttf", "otf", "woff", "woff2"… */
   bytes: number;

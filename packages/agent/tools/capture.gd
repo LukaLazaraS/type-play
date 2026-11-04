@@ -120,14 +120,18 @@ func _sounds() -> void:
 		var n: Node = stack.pop_back()
 		if n == self:
 			continue
-		if n is AudioStreamPlayer or n is AudioStreamPlayer2D or n is AudioStreamPlayer3D:
-			var s = n.get("stream")
-			if s is AudioStream:
-				_sound(s, String(n.name))
+		# A node's script variables first: their names ("_music", "sounds"["jump"]) say more than a player node's own.
 		if n.get_script() != null:
 			for p in n.get_property_list():
 				if p.usage & PROPERTY_USAGE_SCRIPT_VARIABLE:
 					_scan(n.get(p.name), str(p.name), 0)
+		if n is AudioStreamPlayer or n is AudioStreamPlayer2D or n is AudioStreamPlayer3D:
+			var s = n.get("stream")
+			if s is AudioStream:
+				var name := String(n.name)
+				if name.begins_with("@"): # a player made in code without a name: its parent's
+					name = "%s sound" % String(n.get_parent().name) if n.get_parent() != null else "Sound"
+				_sound(s, name)
 		stack.append_array(n.get_children())
 
 func _scan(value, name: String, depth: int) -> void:
@@ -135,6 +139,10 @@ func _scan(value, name: String, depth: int) -> void:
 		return
 	if value is AudioStream:
 		_sound(value, name)
+	elif value is AudioStreamPlayer or value is AudioStreamPlayer2D or value is AudioStreamPlayer3D:
+		var s = value.get("stream")
+		if s is AudioStream:
+			_sound(s, name) # a player kept in a variable ("_music"): the variable names its sound
 	elif value is Dictionary:
 		for k in (value as Dictionary).keys():
 			_scan(value[k], str(k), depth + 1)

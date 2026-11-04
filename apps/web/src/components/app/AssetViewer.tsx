@@ -10,6 +10,7 @@ import { IconButton } from "@/components/ui/IconButton";
 import { InkPill } from "@/components/ui/InkPill";
 import { ModelView } from "@/components/ui/ModelView";
 import { Viewer } from "@/components/ui/Viewer";
+import { Waveform } from "@/components/ui/Waveform";
 import { assets as t } from "@/content/app";
 import { assetUrl, downloadAsset, playSound, soundProgress, stopSound, useAssetFont, useAssetUrl, useSoundPlaying } from "@/lib/assets";
 import { figuresLine, sizeWord } from "@/lib/format";
@@ -71,8 +72,8 @@ export function AssetViewer({ ref, projectId, buildId, assets, index, onMove, on
         asset.width && asset.height ? `${asset.width} × ${asset.height} px` : null,
         asset.frames ? t.frames(asset.frames) : null,
         asset.seconds !== undefined ? t.seconds(asset.seconds) : null,
-        asset.format.toUpperCase(),
-        sizeWord(asset.bytes),
+        asset.made === "code" ? null : asset.format.toUpperCase(),
+        asset.made === "code" ? null : sizeWord(asset.bytes),
       ])
     : "";
   return (
@@ -105,7 +106,7 @@ export function AssetViewer({ ref, projectId, buildId, assets, index, onMove, on
             <p className="assetview__made">{t.made(asset)}</p>
             <p className="figures assetview__facts">{facts}</p>
             {asset.where.length > 0 && <p className="assetview__where">{t.used(asset.where)}</p>}
-            {(asset.file || asset.key) && <p className="figures assetview__file">{asset.file ?? asset.key}</p>}
+            {(asset.file || asset.key) && <p className="figures assetview__file">{asset.file ? t.inFile(asset.file) : t.inCode(asset.key ?? "")}</p>}
             {error?.id === asset.id && <ErrorLine tone="sky">{error.text}</ErrorLine>}
             <div className="assetview__actions">
               <Button busy={busy === "change"} onClick={() => void change()}>
@@ -115,6 +116,7 @@ export function AssetViewer({ ref, projectId, buildId, assets, index, onMove, on
                 {busy === "download" ? t.downloading : t.download}
               </InkPill>
             </div>
+            <p className="assetview__note">{t.changeNote}</p>
           </div>
         </>
       )}
@@ -163,6 +165,7 @@ function Preview({ projectId, buildId, asset }: { projectId: string; buildId: st
       <div className="assetview__stage">
         <div
           className="assetview__frame assetview__frames"
+          data-light={asset.light || undefined}
           style={{ ...frame, "--frames": asset.frames, backgroundImage: `url("${file}")` } as CSSProperties}
           data-playing={frames || undefined}
           role="img"
@@ -177,7 +180,7 @@ function Preview({ projectId, buildId, asset }: { projectId: string; buildId: st
   const shown = picture ?? thumb;
   return (
     <div className="assetview__stage">
-      <div className="assetview__frame" style={frame} aria-busy={!picture || undefined}>
+      <div className="assetview__frame" style={frame} data-light={asset.light || undefined} aria-busy={!picture || undefined}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {shown && <img src={shown} alt={asset.name} draggable={false} />}
       </div>
@@ -207,18 +210,27 @@ function SoundPreview({ projectId, buildId, asset }: { projectId: string; buildI
     if (playing) return stopSound();
     setFailed(false);
     try {
-      playSound(key, await assetUrl(projectId, buildId, asset.id, "file"));
+      playSound(key, await assetUrl(projectId, buildId, asset.id, "file"), () => setFailed(true));
     } catch {
       setFailed(true);
     }
   };
   return (
-    <div className="assetview__stage assetview__sound">
-      <IconButton look="scrim" className="assetview__playbig" label={playing ? t.stopSound(asset.name) : t.playSound(asset.name)} aria-pressed={playing} autoFocus onClick={() => void toggle()}>
-        {playing ? <Pause size={30} weight="fill" aria-hidden="true" /> : <Play size={30} weight="fill" aria-hidden="true" />}
-      </IconButton>
-      <span ref={bar} className="assetview__progress" aria-hidden="true" />
-      {failed && <ErrorLine tone="sky">{t.failed}</ErrorLine>}
+    <div className="assetview__stage">
+      <div className="assetview__sound">
+        <IconButton look="scrim" className="assetview__playbig" label={playing ? t.stopSound(asset.name) : t.playSound(asset.name)} aria-pressed={playing} autoFocus onClick={() => void toggle()}>
+          {playing ? <Pause size={30} weight="fill" aria-hidden="true" /> : <Play size={30} weight="fill" aria-hidden="true" />}
+        </IconButton>
+        {asset.peaks?.length ? (
+          <span ref={bar} className="assetview__wave" aria-hidden="true">
+            <Waveform peaks={asset.peaks} />
+            <Waveform peaks={asset.peaks} className="assetview__wave-played" />
+          </span>
+        ) : (
+          <span ref={bar} className="assetview__progress" aria-hidden="true" />
+        )}
+      </div>
+      {failed && <ErrorLine tone="sky">{t.soundFailed}</ErrorLine>}
     </div>
   );
 }

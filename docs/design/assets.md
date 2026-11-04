@@ -12,7 +12,7 @@ the same night is marked **Built**, the rest **Proposal**. Night log: `docs/over
   AI made in code** (most of our games have no picture files at all). Each has a preview (a picture, a turnable model,
   a play button), a plain name, where it is used, **Download** and **Change it**.
 - **Change it** puts the asset into the chat box as a picture attachment with a starter sentence naming it ("Change the
-  "Slime enemy" animation (e_slime): "). The player finishes the sentence and sends; it is charged like any change.
+  animation “Slime enemy” (e_slime) "). The player finishes the sentence and sends; it is charged like any change.
 - Code-drawn art is turned into pictures **once, at build time**, by playing a copy of the game in the hidden browser
   the check already uses. Nothing is drawn when the player opens the tab.
 - Private to the game's owner, fetched through the API with the sign-in header, like the game's download and pictures.
@@ -21,8 +21,8 @@ the same night is marked **Built**, the rest **Proposal**. Night log: `docs/over
 `packages/agent/tools/capture.mjs` + `capture.gd`, run.mjs's call, looks' plain names (`lib/looks.gd`, rules/FAST.md), the
 asset handle in rules/EDIT.md and PICTURES.md. API: `apps/server/src/assets/`, one call in `runs.service.ts`, the delete
 in `projects.service.ts`, fake builds with assets. Site: `components/app/Assets.tsx` and `AssetViewer.tsx`, the pieces
-`ui/AssetTile.tsx`, `ui/ModelView.tsx` and `ui/Viewer.tsx`, the tab in `GameClient.tsx` and `Stage.tsx`, Change it through
-the composer's tray. Not built: §9.
+`ui/AssetTile.tsx`, `ui/ModelView.tsx`, `ui/Viewer.tsx` and `ui/Waveform.tsx`, the tab in `GameClient.tsx` and `Stage.tsx`,
+Change it through the composer's tray. Not built: §9.
 
 ## 2. What our games really contain (measured 11-04)
 
@@ -72,8 +72,8 @@ plain words; the licence and origin in plain words ("3D model from Kenney's Car 
 ## 4. The player's journeys
 
 1. **"Make the boss bigger and red."** Assets → the Pictures chip (or search "boss") → tap the boss → the viewer shows
-   it large, animated if it has frames → **Change it** → the chat box holds the picture and "Change the "Boss"
-   animation (boss_walk): " → the player types "make him bigger and red" → Send. On a computer the box is beside the
+   it large, animated if it has frames → **Change it** → the chat box holds the picture and "Change the animation
+   “Boss” (boss_walk) " → the player types "make him bigger and red" → Send. On a computer the box is beside the
    list, so they can add the boss's bullet too before sending.
 2. **"I want the music."** Assets → Sounds → the play button on the tile to check it's the right one → open → Download
    (a .wav or the original file). Code-made sounds download as WAV; a file is the file.
@@ -89,9 +89,10 @@ plain words; the licence and origin in plain words ("3D model from Kenney's Car 
 **Phone (320-959 px):** the ink tab bar gets a third tab: ← Chat · Play · Assets. The Assets panel is the ink widget
 the game lives in: a figures line ("Version 4 · 49 assets"), filter chips (All · Pictures · 3D models · Sounds · Fonts,
 only kinds that exist, each with its count), a search field once there are more than 12, then the grid: square tiles on
-Field (a picture with see-through parts stays readable, as in the picture viewer), 3 columns at 390 px, 2-3 at 320 px.
-Under each tile its name (two lines at most) and one figures line ("4 frames", "0.4 s", "3D", "Font"). A sound tile has
-a round play button on its square. **Change it** on a phone goes to the Chat tab with the box filled.
+Field (a picture with see-through parts stays readable, as in the picture viewer; a light picture on a clear background,
+such as white stars, gets an ink square instead, decided once at import), 3 columns at 390 px, 2-3 at 320 px. Under each
+tile its name (two lines at most) and one figures line ("4 frames", "0.4 s", "3D", "Font"). A sound tile shows the
+sound's shape (its waveform) and a round play button. **Change it** on a phone goes to the Chat tab with the box filled.
 
 **Computer (960 px and up):** the chat stays on the left; the game's bar starts with a Play / Assets switch (the same
 ink pill bar as the phone's tabs, small). On Assets the device, turn, full screen and new tab pills hide (they act on
@@ -101,7 +102,8 @@ the game's frame, which stays loaded and running underneath); Share, Android and
 **The viewer** (one asset, a dialog over ink at 92%, as the picture viewer): the asset as large as the screen allows
 (a picture never more than four times its own size; an animated look plays its frames at 8 a second, still under reduced
 motion with a Play button; a model turns by drag or the arrow keys, pinch or wheel to zoom, slowly by itself unless the
-player asked for reduced motion; a sound has a big play button and a progress bar; a font shows a pangram, the alphabet
+player asked for reduced motion; a sound has a big play button and its waveform, lit from the left as it plays (a
+progress bar when the sound is a file with no waveform); a font shows a pangram, the alphabet
 and digits in it). Under it: the name, how it was made, the facts in figures ("72 × 72 px · 4 frames", "0.45 s",
 "84 KB"), where it is used, and the file in the game in small figures when it is a file. **Change it** (the one hot
 button) and **Download** (quiet). Previous / Next and the arrow keys move through the list as filtered; Escape closes.
@@ -155,7 +157,7 @@ All `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`, a san
 files.
 
 **In the site:** `components/app/Assets.tsx` (the panel), `AssetViewer.tsx`; shared pieces in `components/ui`
-(`AssetTile`, `ModelView` around `<model-viewer>`, `SoundButton`); `lib/assets.ts` fetches with the sign-in header and
+(`AssetTile`, `ModelView` around `<model-viewer>`, `Viewer` (the one-asset dialog), `Waveform`); `lib/assets.ts` fetches with the sign-in header and
 keeps object URLs for the page's life. Change it hands the picture to the composer's tray (`prefill.files` →
 `tray.add`), exactly as a dropped file, so it uploads and checks like any attachment.
 
@@ -181,7 +183,8 @@ Cheapest first:
 
 - **AI:** none for listing. Change it is an ordinary message. Look names: a few output tokens per look in the build.
 - **Build time:** ~15-18 s of the runner per successful build (the copy's export ~5 s, the browser ~10 s), run beside the
-  closing AI calls: the player waits ~5-10 s longer. Measured again on the real Fast build (night log).
+  closing AI calls: the player waits ~5-10 s longer. The real Fast build of 11-04 (Star Bugs, `packages/agent/RESULTS.md`):
+  15 looks and 13 sounds in 18.1 s, listed by the API in 0.33 s.
 - **Storage:** a 2D game ~50-300 KB per version (looks are small flat PNGs: night-siege's 71 looks were 278 KB with three
   full maps); a 3D game ~1-3 MB once, versions after that only what changed. 1,000 games ≈ 0.5-2 GB on the API's disk.
 - **API CPU at publish:** sharp thumbnails for ~70 small PNGs ≈ 0.3-1 s on the live API's one vCPU; one import at a time.

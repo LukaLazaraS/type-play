@@ -75,3 +75,51 @@ export function soundSeconds(b: Buffer, format: SoundFormat): number | null {
     return null;
   }
 }
+
+/**
+ * A WAV's shape for its tile (the Assets tab): `count` bars, each the loudest sample in its slice, scaled so the loudest
+ * bar is 1 (a quiet sound still shows its shape), to two decimals. PCM 8 or 16 bit only; null for anything else.
+ */
+export function wavPeaks(b: Buffer, count = 40): number[] | null {
+  try {
+    let channels = 0;
+    let bits = 0;
+    let format = 0;
+    for (let at = 12; at + 8 <= b.length; ) {
+      const id = b.toString("latin1", at, at + 4);
+      const len = b.readUInt32LE(at + 4);
+      if (id === "fmt " && at + 24 <= b.length) {
+        format = b.readUInt16LE(at + 8);
+        channels = b.readUInt16LE(at + 10);
+        bits = b.readUInt16LE(at + 22);
+      }
+      if (id === "data") {
+        if (format !== 1 || !channels || (bits !== 8 && bits !== 16)) return null;
+        const step = (bits / 8) * channels;
+        const end = Math.min(b.length, at + 8 + len);
+        const frames = Math.floor((end - at - 8) / step);
+        if (frames < count) return null;
+        const peaks: number[] = [];
+        for (let i = 0; i < count; i++) {
+          let max = 0;
+          const from = Math.floor((frames * i) / count);
+          const to = Math.floor((frames * (i + 1)) / count);
+          // At most ~2,000 samples looked at per bar: a long piece of music costs the same as a click.
+          const stride = Math.max(1, Math.floor((to - from) / 2000));
+          for (let f = from; f < to; f += stride) {
+            const p = at + 8 + f * step;
+            const v = bits === 16 ? Math.abs(b.readInt16LE(p)) / 32768 : Math.abs(b[p] - 128) / 128;
+            if (v > max) max = v;
+          }
+          peaks.push(max);
+        }
+        const top = Math.max(...peaks);
+        return top > 0 ? peaks.map((p) => Math.round((p / top) * 100) / 100) : peaks.map(() => 0);
+      }
+      at += 8 + len + (len % 2);
+    }
+  } catch {
+    // a header that lies about its sizes
+  }
+  return null;
+}

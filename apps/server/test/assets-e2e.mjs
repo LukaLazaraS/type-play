@@ -100,16 +100,16 @@ try {
   ok(list2.status === 200 && list2.body.source === "build" && list2.body.buildId === g2.buildId, `listed when built (${list2.status}, ${list2.body?.source})`);
   const a2 = list2.body.assets;
   const by = (list, name) => list.find((a) => a.name === name);
-  ok(a2.length === 9 && by(a2, "Sky bg")?.key === "bg", `9 assets: 4 looks, 2 sounds made in code, a picture, a sound and a font (${a2.map((a) => a.name).join(", ")})`);
+  ok(a2.length === 9 && by(a2, "Sky BG")?.key === "bg", `9 assets: 4 looks, 2 sounds made in code, a picture, a sound and a font (${a2.map((a) => a.name).join(", ")})`);
   ok(by(a2, "Gold coin")?.made === "code" && by(a2, "Gold coin")?.key === "coin" && by(a2, "Gold coin")?.width === 40, "the look the AI named: Gold coin, 40 px");
-  ok(JSON.stringify(by(a2, "Gold coin")?.where) === JSON.stringify(["Hud"]), `…used in the HUD, not in art.gd that draws it (${JSON.stringify(by(a2, "Gold coin")?.where)})`);
+  ok(JSON.stringify(by(a2, "Gold coin")?.where) === JSON.stringify(["HUD"]), `…used in the HUD, not in art.gd that draws it (${JSON.stringify(by(a2, "Gold coin")?.where)})`);
   const slime = by(a2, "Enemy slime");
   ok(slime?.frames === 4 && slime.width === 64 && slime.format === "png", "an animated look named by its drawing function: Enemy slime, 4 frames of 64 px");
   ok(JSON.stringify(slime?.where) === JSON.stringify(["Enemy"]), `…used in Enemy (${JSON.stringify(slime?.where)})`);
   ok(by(a2, "Jump")?.kind === "sound" && by(a2, "Jump")?.made === "code" && by(a2, "Jump")?.seconds === 0.13 && JSON.stringify(by(a2, "Jump")?.where) === JSON.stringify(["Player"]), "a sound made in code: Jump, 0.13 s, plays in Player");
   ok(by(a2, "Hero")?.made === "file" && by(a2, "Hero")?.file === "assets/hero.png" && JSON.stringify(by(a2, "Hero")?.where) === JSON.stringify(["Player"]), "a picture file: Hero, used in Player");
   ok(by(a2, "Coin")?.kind === "sound" && by(a2, "Coin")?.format === "wav", "a sound file: Coin");
-  ok(by(a2, "Font")?.kind === "font" && by(a2, "Font")?.format === "ttf" && JSON.stringify(by(a2, "Font")?.where) === JSON.stringify(["Hud"]), "a font file, used in the HUD");
+  ok(by(a2, "Font")?.kind === "font" && by(a2, "Font")?.format === "ttf" && JSON.stringify(by(a2, "Font")?.where) === JSON.stringify(["HUD"]), "a font file, used in the HUD");
   ok(a2.every((a) => !("blobs" in a) && !("types" in a)), "nothing of how files are kept reaches the site");
 
   console.log("the files");

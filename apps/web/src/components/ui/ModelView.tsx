@@ -67,7 +67,7 @@ export function ModelView({ src, poster, alt, className }: { src: string | null;
       auto-rotate-delay="0"
       rotation-per-second="18deg"
       interaction-prompt="none"
-      shadow-intensity="0.7"
+      shadow-intensity="0"
       exposure="1"
       environment-image="neutral"
     />

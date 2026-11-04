@@ -645,7 +645,10 @@ Every picture, 3D model, sound and font a game's version uses, for its owner (`d
   shared with the pictures' work); a glTF model is re-packed as one self-contained .glb (`glb.ts`: its JSON parsed and
   written again, buffers and textures read only through the folder's rules and put inside, textures only PNG, JPEG or
   WebP, no extension that needs a decoder the browser would download: Draco, meshopt, Basis), else it is not turnable;
-  sounds and fonts are checked by their first bytes. A version lists at most 500 assets and 200 MB.
+  sounds and fonts are checked by their first bytes. A version lists at most 500 assets and 200 MB. A WAV sound also gets
+  its shape (`peaks`: 40 bars, `media.ts` `wavPeaks`) for its tile; a picture drawn in light colours only on a see-through
+  ground (stars, glows: even its darkest tenth is light) is marked `light`, and the site shows it on ink; the list is in kind order (pictures, models, sounds,
+  fonts), each kind in the order found.
 - **Where they live:** `DATA_DIR/assets/<project>/blobs/<sha256>` (each file once per game, however many versions use it)
   and `DATA_DIR/assets/<project>/builds/<build>.json` (the list; builds are immutable, a restore shares its build's list).
   Folders 0700, files 0600. No database table, no migration. Deleted with the game (`removeGame`) and so with the account.

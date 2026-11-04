@@ -4,10 +4,12 @@
 //              sound file and a font, each used by a script
 //   ASSETS3D   a 3D game: a model from "the library" (a .glb whose texture sits beside it, with its CREDITS.md line and a
 //              still), a .gltf model with an outside .bin, a picture file, and 16 s of music as a WAV file
+//   ASSETSWORST  the worst real data (names, sizes, lengths, 112 assets: break-ui)
+//   REALGAME   (walk-throughs) a real game the agent built, from FAKE_GAME_DIR: its files and its capture, stamped anew
 //   NOCAPTURE  no capture at all (a build whose capture failed, or a game from before the tab)
 // and none of these: a capture with nothing in it (a game that draws everything as it runs: nothing to list).
 // The files are drawn here (PNG, WAV, GLB written by hand), the font copied from the site's own.
-import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { ROOT } from "../env.js";
@@ -158,8 +160,16 @@ function write(dir: string, rel: string, data: Buffer | string) {
   writeFileSync(join(dir, rel), data);
 }
 
+/** REALGAME's source: a real game folder (FAKE_GAME_DIR, set by a walk-through for its own API), or null. */
+const realGame = (prompt: string) => (prompt.includes("REALGAME") && process.env.FAKE_GAME_DIR && existsSync(join(process.env.FAKE_GAME_DIR, "project.godot")) ? process.env.FAKE_GAME_DIR : null);
+
 /** The game's files for a prompt's kind (before the build's commit). */
 export function fakeAssetFiles(dir: string, prompt: string) {
+  const real = realGame(prompt);
+  if (real) {
+    for (const entry of readdirSync(real)) if (![".git", ".godot", "export"].includes(entry)) cpSync(join(real, entry), join(dir, entry), { recursive: true });
+    return;
+  }
   if (prompt.includes("ASSETSWORST")) {
     // The worst real data (break-ui): a player's photo with a phone's long name deep in folders, a model in a long pack
     // path, a font with a long name, a sound used everywhere; the looks and sounds made in code come with the capture.
@@ -205,6 +215,14 @@ export function fakeAssetFiles(dir: string, prompt: string) {
 export async function fakeCapture(dir: string, prompt: string) {
   if (prompt.includes("NOCAPTURE")) return;
   const commit = await git(dir, "rev-parse", "HEAD");
+  const real = realGame(prompt);
+  if (real && existsSync(join(real, "export/assets/captured.json"))) {
+    // The real capture, stamped with this build's commit (its files are the real game's).
+    cpSync(join(real, "export/assets"), join(dir, "export/assets"), { recursive: true });
+    const captured = JSON.parse(readFileSync(join(dir, "export/assets/captured.json"), "utf8")) as Record<string, unknown>;
+    write(dir, "export/assets/captured.json", JSON.stringify({ ...captured, commit }));
+    return;
+  }
   const out = (rel: string, data: Buffer) => write(dir, `export/assets/${rel}`, data);
   const looks: unknown[] = [];
   const sounds: unknown[] = [];

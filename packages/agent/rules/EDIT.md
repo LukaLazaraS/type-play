@@ -15,8 +15,8 @@ change touches and the scripts it has to work with.
   +25-40%**, so the player can ask again. Change it only for the thing they named: grep for who
   else uses that number (rivals, enemies, other levels, a test) and give those their own value.
   Say how much in your last message ("about 30% faster").
-- **An asset named with a handle in brackets** (the game page's list of assets writes `Change the sound “Jump” (jump):
-  …`, `Change the picture “Tower base saw 2” (tb_saw_2): …`): the handle is the look's key in `Looks.add`, the sound's
+- **An asset named with a handle in brackets** (the game page's list of assets writes `Change the sound “Jump” (jump)
+  louder`, `Change the picture “Tower base saw 2” (tb_saw_2) so it glows`): the handle is the look's key in `Looks.add`, the sound's
   name in the code, or the file's path in the game. Change that one thing in place, as asked.
 - **Pick the simplest design that does what was asked** and build it; don't weigh alternatives
   at length. The player can ask for more.
