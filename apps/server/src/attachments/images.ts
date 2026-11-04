@@ -3,7 +3,7 @@
 // every metadata block (EXIF with a phone's location, XMP, IPTC, comments, colour profiles, PNG text) is dropped by
 // re-encoding, and the picture is turned upright by its EXIF orientation first. sharp (libvips) is the decoder.
 import { availableParallelism } from "node:os";
-import sharp, { type Metadata, type OutputInfo, type Sharp, type SharpOptions } from "sharp";
+import type { Metadata, OutputInfo, Sharp, SharpOptions } from "sharp";
 import type { ImageFormat } from "../generated/prisma/client.js";
 import { FULL_EDGE, MAX_IMAGE_BYTES, MAX_PIXELS, PICTURE_PROBLEM, THUMB_EDGE, VIEW_EDGE, VIEW_PIXELS } from "./limits.js";
 
@@ -34,10 +34,27 @@ export interface CleanPicture {
   thumb: Buffer;
 }
 
-// No operation cache (it would keep decoded pictures in memory between uploads) and at most two threads a picture: the
-// live API container has one vCPU and 1 GB.
-sharp.cache(false);
-sharp.concurrency(Math.min(2, availableParallelism()));
+type SharpModule = typeof import("sharp");
+let loaded: Promise<SharpModule["default"]> | null = null;
+/**
+ * The image library, loaded at the first picture rather than when the API starts: a native library that failed to install
+ * on a server then breaks uploads (500, logged) instead of the whole API. No operation cache (it would keep decoded
+ * pictures in memory between uploads) and at most two threads a picture: the live API container has one vCPU and 1 GB.
+ */
+function library(): Promise<SharpModule["default"]> {
+  loaded ??= import("sharp").then(
+    (m) => {
+      m.default.cache(false);
+      m.default.concurrency(Math.min(2, availableParallelism()));
+      return m.default;
+    },
+    (e: unknown) => {
+      loaded = null; // tried again at the next picture
+      throw e;
+    },
+  );
+  return loaded;
+}
 
 /** At most this many pictures are decoded at once in this process; the rest wait their turn, in order. */
 const AT_ONCE = 2;
@@ -77,6 +94,7 @@ export async function cleanPicture(bytes: Buffer): Promise<CleanPicture> {
   if (bytes.length > MAX_IMAGE_BYTES) throw new PictureProblem(PICTURE_PROBLEM.tooBig);
   const format = sniff(bytes);
   if (!format) throw new PictureProblem(PICTURE_PROBLEM.notPicture);
+  const sharp = await library();
   return inTurn(async () => {
     const input: SharpOptions = { failOn: "warning", limitInputPixels: MAX_PIXELS, autoOrient: true, animated: false };
     let meta: Metadata;
