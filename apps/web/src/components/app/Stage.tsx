@@ -12,7 +12,7 @@ import { TextField } from "@/components/ui/Field";
 import { InkPill, InkPillLink } from "@/components/ui/InkPill";
 import { Pulse } from "@/components/ui/Pulse";
 import { android } from "@/content/android";
-import { fitHint, inLine, update } from "@/content/app";
+import { fitHint, inLine, questions, update } from "@/content/app";
 import { posterUrl } from "@/lib/urls";
 import { api } from "@/lib/api";
 import { aheadWord, clock, placeWords, playsWord, tooLong, waitWord, whenParts } from "@/lib/format";
@@ -109,6 +109,8 @@ export function Stage({
   onPlayed,
   onRestore,
   onRetry,
+  onQuestions = null,
+  questionCount = 0,
   onChange,
   onAsk,
   android: androidOn,
@@ -122,6 +124,10 @@ export function Stage({
   onRestore: (n: number) => Promise<void>;
   /** No version yet and nothing running: build the first sentence again. */
   onRetry: (() => Promise<void>) | null;
+  /** The AI's questions are open (2026-11-04; a first build's or a change's): the way to them in the chat (a phone's
+   * other tab), and how many there are. */
+  onQuestions?: (() => void) | null;
+  questionCount?: number;
   /** A rename or a share changed the project. */
   onChange: (p: Project) => void;
   /** Puts a request in the chat's box (the "Made for phones" hint's one tap); the player still sends it. */
@@ -218,7 +224,8 @@ export function Stage({
       ? (madeFor === "phone" && device.kind === "computer") || (madeFor === "computer" && device.kind === "phone" && !sideways)
       : madeFor === "computer" && phone && upright);
   // Hidden while a build or an export says what it's doing; its line keeps the room meanwhile (no jump in the frame).
-  const hint = mismatch && !running && !queued && project.status !== "exporting" ? fitHint[madeFor!] : null;
+  // Open questions (2026-11-04) take the line's place: the player's move comes first.
+  const hint = mismatch && !running && !queued && project.status !== "exporting" && !onQuestions ? fitHint[madeFor!] : null;
   const [room, setRoom] = useState<{ w: number; h: number } | null>(null);
   useEffect(() => {
     const el = screen.current;
@@ -347,6 +354,20 @@ export function Stage({
             </>
           ) : ready ? (
             readyLine
+          ) : onQuestions ? (
+            // The AI asked before building (2026-11-04): nothing failed, the questions wait in the chat.
+            <>
+              <span className="stage__busy-text">{questions.pill}</span>
+              <InkPill
+                size="small"
+                onClick={() => {
+                  setWaiting(null);
+                  onQuestions();
+                }}
+              >
+                {questions.go}
+              </InkPill>
+            </>
           ) : (
             <>
               <span className="stage__busy-text">Your game didn&apos;t build. Nothing was charged.</span>
@@ -386,6 +407,8 @@ export function Stage({
                 <span className="stage__busy-text">{android.exporting.stage}</span>
               </>
             )}
+            {/* A change the AI asks about first (2026-11-04): said here too, where a phone's Play tab shows it. */}
+            {onQuestions && !running && !queued && <span className="stage__busy-text">{questions.live(questionCount, nextN)}</span>}
             {hint && <span className="fithint">{hint.made}</span>}
             {/* The update bar's one announcer (the bar itself, here and in full screen, is not a live region). */}
             {waitingVersion != null && later !== project.buildId && <span className="sr-only">{update.said(waitingVersion)}</span>}
@@ -393,6 +416,11 @@ export function Stage({
           {hint && (
             <InkPill size="small" className="fithint__ask" icon={<ChatCircleText size={16} weight="bold" aria-hidden="true" />} onClick={() => onAsk(hint.ask)}>
               {hint.button}
+            </InkPill>
+          )}
+          {onQuestions && !running && !queued && (
+            <InkPill size="small" className="stage__toquestions" icon={<ChatCircleText size={16} weight="bold" aria-hidden="true" />} onClick={onQuestions}>
+              {questionCount === 1 ? questions.goOne : questions.go}
             </InkPill>
           )}
         </div>
@@ -458,7 +486,9 @@ export function Stage({
               <span role="status">{live?.text || "Getting started"}</span>
               {since && <span className="figures"> {clock(since, now)}</span>}
             </p>
-            <p className="stage__note">This takes a few minutes. You can leave this page: it keeps building.</p>
+            {/* Said once the build is under way: while the idea is read the AI may still ask first (2026-11-04), and then
+                it waits for the player instead of building. */}
+            {live?.text && live.text !== "Reading your idea" && <p className="stage__note">This takes a few minutes. You can leave this page: it keeps building.</p>}
             <NotifyAsk tone="ink" />
             <WhileYouWait
               projectId={project.id}
@@ -493,6 +523,21 @@ export function Stage({
                 setGoFull((n) => n + 1);
               }}
             />
+          </div>
+        ) : onQuestions ? (
+          <div className="stage__empty stage__empty--wait">
+            {/* The AI asks before it builds (2026-11-04): the questions are in the chat; nothing is built until Build it. The
+                sky and the ground stand still, as for a build waiting its turn: paused, the player's move. The way to the
+                chat only where it is another tab (phones); beside the chat its line says where they are. */}
+            <AppTile waiting className="stage__build">
+              <BuildLayers />
+            </AppTile>
+            <p className="stage__line">{questions.stageLine}</p>
+            <p className="stage__note">{questions.stageNote}</p>
+            <Button className="stage__toquestions" onClick={onQuestions}>
+              <ChatCircleText size={18} weight="bold" aria-hidden="true" />
+              {questionCount === 1 ? questions.goOne : questions.go}
+            </Button>
           </div>
         ) : (
           <div className="stage__empty">

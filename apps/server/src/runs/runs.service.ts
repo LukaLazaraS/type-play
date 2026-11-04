@@ -20,6 +20,7 @@ import type { Message, Plan, Version } from "../generated/prisma/client.js";
 import { noticeOf, type EndWhy } from "../notify/notices.js";
 import { PushService } from "../notify/push.service.js";
 import { PrismaService } from "../prisma.js";
+import { questionsOf } from "../projects/questions.js";
 import { ProjectViews, toMessage, toVersion } from "../projects/views.js";
 import { MODEL_FLAG, runAgent, sweep, type AgentResult } from "./agent.js";
 import { runFakeAgent } from "./fake-agent.js";
@@ -44,6 +45,13 @@ export interface StartRun {
   tags?: GameTag[];
   /** The pictures the player's message carries (attachments/), in their order: references for the AI, or art when asked. */
   images?: RunImage[];
+  /** Questions before the build (2026-11-04): the AI may ask first (the player's "Ask me first"); the prompt ends with the
+   * player's answers to questions asked before (it never asks again); a change answering them on the same AI skips the
+   * size check (it ran with the questions). `label`: such a build's version label, in the player's words. */
+  ask?: boolean;
+  answered?: boolean;
+  sized?: boolean;
+  label?: string | null;
   /** The credits held for this run (credits.service `assertCanRun`); released when it ends. */
   hold: CreditHold | null;
   /** When it started, as its message's `startedAt` says (after its time in line, if it waited). */
@@ -69,13 +77,14 @@ class CancelledLate extends Error {
 
 const NO_RESULT: AgentResult = { ok: false, costUsd: 0, messageCostUsd: 0, chargeUsd: 0 };
 
-type Costs = Pick<AgentResult, "costUsd" | "messageCostUsd" | "suggestionsCostUsd" | "classifyCostUsd" | "sizeCheckCostUsd">;
+type Costs = Pick<AgentResult, "costUsd" | "messageCostUsd" | "suggestionsCostUsd" | "classifyCostUsd" | "sizeCheckCostUsd" | "askCostUsd">;
 /**
  * The run's AI calls beside the agent's own work, each a part of the answer's charge (Luka, 10-24 and 10-29: every AI
  * call a player causes is theirs): the player-message rewrite, the next-step ideas, a new game's genre and size call,
- * and a change's size check.
+ * a change's size check, and the questions call before a build (2026-11-04).
  */
-export const sideUsd = (r: Costs) => r.messageCostUsd + (r.suggestionsCostUsd ?? 0) + (r.classifyCostUsd ?? 0) + (r.sizeCheckCostUsd ?? 0);
+export const sideUsd = (r: Costs) =>
+  r.messageCostUsd + (r.suggestionsCostUsd ?? 0) + (r.classifyCostUsd ?? 0) + (r.sizeCheckCostUsd ?? 0) + (r.askCostUsd ?? 0);
 
 /**
  * What a run cost us in AI, for the Free kill switch: what the agent reported, or what the key proxy metered when that is
@@ -188,7 +197,8 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
    * The one place a build's end goes out (notifications, 2026-10-29): its game's stream (the game page, BuildPill), then,
    * unless the player stopped it, the account's notice: on the account's stream (every other page of the site, the tab's
    * title and icon) and to its devices with notifications on (Web Push). Every end comes here: a run's (succeed,
-   * stopTooBig, fail), a build that left the queue without starting (queue.service.ts), and those a restart interrupted.
+   * stopTooBig, stopAsked, fail), a build that left the queue without starting (queue.service.ts), and those a restart
+   * interrupted.
    * Never throws: the rows are written by now, and what can't be said is logged (a reload shows it).
    */
   async ended(e: Ended): Promise<void> {
@@ -215,6 +225,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
         model: e.message.model,
         bigger: e.message.biggerModel,
         version: e.message.versionN,
+        asked: questionsOf(e.message.questions)?.items.length ?? 0,
         text: e.message.text,
         timeoutMin: config.runTimeoutMin,
         at: e.message.finishedAt ?? new Date(),
@@ -267,6 +278,9 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       images,
       imagesDir,
       bigger,
+      ask: !!run.ask,
+      answered: !!run.answered,
+      sized: !!run.sized,
       logFile: join(config.dataDir, "logs", `${run.projectId}-${run.messageId}.log`),
       onProgress: (text: string) => {
         const e = { type: "progress" as const, messageId: run.messageId, text, at: new Date().toISOString() };
@@ -292,11 +306,11 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       }
     });
     if (result.error) this.log.warn(`run ${run.projectId}: ${result.error}`);
-    if ((result.ok || result.tooBig) && !run.cancelled && !run.timedOut) {
+    if ((result.ok || result.tooBig || result.asked) && !run.cancelled && !run.timedOut) {
       try {
-        return await (result.tooBig ? this.stopTooBig(run, result, metered, bigger) : this.succeed(run, result, metered));
+        return await (result.tooBig ? this.stopTooBig(run, result, metered, bigger) : result.asked ? this.stopAsked(run, result, metered) : this.succeed(run, result, metered));
       } catch (e) {
-        if (!(e instanceof CancelledLate)) this.log.error(`${result.tooBig ? "saving the stop of" : "publishing"} ${run.projectId}: ${(e as Error).stack ?? e}`);
+        if (!(e instanceof CancelledLate)) this.log.error(`${result.tooBig || result.asked ? "saving the stop of" : "publishing"} ${run.projectId}: ${(e as Error).stack ?? e}`);
       }
     }
     await this.fail(run, result, metered);
@@ -349,7 +363,8 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
         // The user's row first (the ledger's one lock order), so the version, the message, the
         // project and the charge commit together and nothing else moves the credits meanwhile.
         await this.ledger.lock(tx, run.userId);
-        const version = await tx.version.create({ data: { projectId: run.projectId, n, label: run.prompt, buildId, commit, poster } });
+        // An answered build's label is the player's own words (the request and their answers), not the prompt the agent got.
+        const version = await tx.version.create({ data: { projectId: run.projectId, n, label: run.label || run.prompt, buildId, commit, poster } });
         const message = await tx.message.update({
           where: { id: run.messageId },
           data: { status: "done", text, credits, costUsd, meteredUsd: metered, versionN: n, suggestions: result.suggestions ?? [], finishedAt: new Date() },
@@ -425,6 +440,65 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       message,
       why: "toobig",
       first: false,
+      event: async () => ({
+        type: "done",
+        message: toMessage(message),
+        version: null,
+        project: await this.views.summary(run.projectId),
+        credits: await this.creditsOf(run.userId),
+      }),
+    });
+  }
+
+  /**
+   * The AI asked before building (2026-11-04, the player's "Ask me first"; run.mjs --ask): nothing was built. The answer
+   * is its line and the questions, charged at once like the size check's stop for the calls the run made (the questions
+   * call, and the genre call or the size check beside it: at least 0.1 credit, or the metered calls when more), in the
+   * ledger with the message and counted by the Free kill switch; an answer never given costs nothing more. A new game's
+   * folder held only the template run.mjs made before it asked: cleared (it has no version). The player's next message
+   * is their answer (projects.service), and that build never asks again.
+   */
+  private async stopAsked(run: ActiveRun, result: AgentResult, metered: number | null) {
+    const asked = result.asked!;
+    const agentUsd = result.costUsd + sideUsd(result); // nothing was built: the calls are the work
+    const chargeUsd = Math.max(agentUsd, metered ?? 0);
+    const credits = creditsForUsd(chargeUsd);
+    const { decide, own, lang } = asked.questions;
+    const questions = {
+      decide,
+      ...(own ? { own } : {}),
+      ...(lang ? { lang } : {}),
+      items: asked.questions.items.map(({ label, text, options }) => ({ label, text, options })),
+    };
+    const message = await this.prisma.$transaction(async (tx) => {
+      // A Stop that landed meanwhile wins, as it does over a finished build: stopped, nothing charged (fail()).
+      if (run.cancelled) throw new CancelledLate();
+      // The user's row first (the ledger's one lock order), so the answer and its charge commit together.
+      await this.ledger.lock(tx, run.userId);
+      const m = await tx.message.update({
+        where: { id: run.messageId },
+        data: { status: "done", text: asked.intro, questions, credits, costUsd: agentUsd, meteredUsd: metered, finishedAt: new Date() },
+      });
+      if (m.plan === "free") await this.ledger.addFreeSpend(tx, aiSpentUsd(result, metered));
+      await this.ledger.chargeIn(tx, run.userId, toTenths(credits), { messageId: run.messageId, note: `${run.kind} on ${run.model}` });
+      return m;
+    }, TX_OPTIONS);
+    if (run.kind === "new") {
+      const project = await this.prisma.project.findUnique({ where: { id: run.projectId }, select: { currentVersion: true } });
+      if (project) await this.settleOrMark(run.projectId, project.currentVersion);
+    }
+    this.registry.active.delete(run.projectId);
+    run.hold?.release();
+    this.registry.free();
+    this.log.log(
+      `run ${run.projectId} asked ${asked.questions.items.length} question(s) before the build: $${chargeUsd.toFixed(4)} charged (metered ${metered === null ? "n/a" : "$" + metered.toFixed(4)}), ${credits} credits`,
+    );
+    await this.ended({
+      userId: run.userId,
+      projectId: run.projectId,
+      message,
+      why: "asked",
+      first: run.kind === "new",
       event: async () => ({
         type: "done",
         message: toMessage(message),

@@ -219,6 +219,12 @@ model User {
   feedback              Feedback[]
   pushSubscriptions     PushSubscription[]
   attachments           Attachment[]
+
+  /// "Ask me first" (2026-11-04: questions before a build), as the player last left the tick: on /create (a new game,
+  /// on until they untick it) and in a game's chat (a change, off until they tick it). Only the tick's starting state:
+  /// every send says for itself whether the AI may ask.
+  askFirstNew  Boolean @default(true)
+  askFirstEdit Boolean @default(false)
 }
 
 /// A device that turned notifications on (Web Push, 2026-10-29; src/notify/push.service.ts): the address its browser's push
@@ -316,6 +322,10 @@ model Message {
   /// status done, charged, no version): the bigger AI the answer offers, whose one tap puts the message back in the box
   /// with it picked. Null on every other answer, and on a stop for a plan without a bigger AI (Free).
   biggerModel ModelChoice?
+  /// The AI asked before building (2026-11-04, packages/agent/tools/questions.mjs; status done, charged, no version):
+  /// { intro, decide, items: [{ label, text, options }] }, 1-3 questions in the player's language. The chat shows them
+  /// with tap answers while this is the game's newest message; the next message sent is their answer. Null otherwise.
+  questions Json?
   /// The plan the run started on (agent messages): the Free kill switch sums costUsd by plan and day.
   plan      Plan?
   createdAt DateTime       @default(now())
@@ -353,6 +363,14 @@ model QueuedRun {
   tags       String[]    @default([])
   /// The pictures sent with the build's message (Attachment ids, in order): they go to the run when it starts.
   images     String[]    @default([])
+  /// Questions before a build (2026-11-04): the AI may ask first (the player's "Ask me first"); the prompt ends with the
+  /// player's answers to questions asked before (never asks again); a change answering them on the same AI skips the
+  /// size check, which ran with the questions.
+  ask        Boolean     @default(false)
+  answered   Boolean     @default(false)
+  sized      Boolean     @default(false)
+  /// An answered build's version label in the player's words (the request, then their answers); null: the prompt.
+  label      String?
   lane       QueueLane
   queuedAt   DateTime    @default(now())
   /// Its place in the line: queuedAt for a paid build, queuedAt + the free delay for a free one. The wait limit

@@ -1215,6 +1215,229 @@ body:has(.ws) .ground-band {
     color: HighlightText;
   }
 }
+
+/* ---- Questions before a build (2026-11-04) ---------------------------------------------------------------------
+   The AI's questions in the chat (components/app/QuestionsCard.tsx), each answered with pill radios (ui/ChipChoice.tsx),
+   one hot Build it; answered or passed by, the questions listed in the AI's bubble. */
+.chipchoice {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.chipchoice__legend {
+  float: left; /* a legend that wraps like a heading, not over the fieldset's edge */
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.chipchoice__list {
+  clear: both;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* A Field pill (the chip's size and words) with a 16px dot: a 2px ring while not picked; picked, the pill is ink with
+   white words and the dot paper with an ink check. Every state has the same width. */
+.chipchoice__chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  max-width: 100%;
+  padding: 9px 15px 9px 11px;
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--ink);
+  font: 600 14px/1.25 var(--font-ui);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out);
+}
+.chipchoice__chip:active {
+  transform: scale(0.97);
+}
+.chipchoice__dot {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 2px #8a80a3;
+  color: var(--ink);
+}
+.chipchoice__chip[data-on] {
+  background: var(--ink);
+  color: var(--paper);
+}
+.chipchoice__chip[data-on] .chipchoice__dot {
+  background: var(--paper);
+  box-shadow: none;
+}
+.chipchoice__chip:has(input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: var(--focus-inner);
+}
+@media (hover: hover) and (pointer: fine) {
+  .chipchoice__chip:not([data-on]):hover {
+    background: #e6dff5;
+  }
+  .chipchoice__chip[data-on]:hover {
+    background: var(--ink-2);
+  }
+  .chipchoice:disabled .chipchoice__chip:hover {
+    background: var(--field);
+  }
+  .chipchoice:disabled .chipchoice__chip[data-on]:hover {
+    background: var(--ink);
+  }
+}
+@media (pointer: coarse) {
+  .chipchoice__chip {
+    min-height: 44px;
+  }
+}
+/* Sending: the picks stay, the others mute to the locked colour, no pointer. */
+.chipchoice:disabled .chipchoice__chip {
+  cursor: default;
+}
+.chipchoice:disabled .chipchoice__chip:not([data-on]) {
+  color: #8a80a3;
+}
+@media (forced-colors: active) {
+  .chipchoice__chip[data-on] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+  .chipchoice__dot {
+    border: 2px solid CanvasText;
+    box-shadow: none;
+  }
+}
+/* The open questions under the AI's line: one question after another, then Build it with its AI and cost. */
+.questions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 92%;
+  margin: 4px 0 2px;
+  padding: 0 2px;
+}
+.questions__one {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.questions__own {
+  max-width: 100%;
+}
+.questions__go {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.questions__cost {
+  color: var(--on-paper-muted);
+}
+/* The own answer grows with its words over the card's width (Enter moves on, never builds). */
+.questions__one .questions__own {
+  max-width: none;
+}
+.questions__error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+/* The pills after this start a row of their own (You decide and Type my own: always in the same place). */
+.chipchoice__break {
+  flex-basis: 100%;
+  height: 0;
+}
+/* The way from the stage to the chat's questions: only where the chat is the other tab (phones). */
+@media (min-width: 960px) {
+  .stage__toquestions {
+    display: none;
+  }
+}
+/* The composer's tick on a line of its own, under Effort and the cost. */
+.checkbox.composer__ask {
+  flex-basis: 100%;
+}
+/* Answering: Send alone at the row's end. */
+.composer__row[data-answering] {
+  justify-content: flex-end;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .questions {
+    animation: line-in 220ms var(--ease-out) backwards;
+  }
+}
+/* Answered (or passed by): the AI's line, then its questions as a short list in the same bubble. */
+.asked__line {
+  margin: 0;
+}
+.asked {
+  margin: 4px 0 0;
+  padding: 0 0 0 20px;
+  list-style: disc outside;
+  white-space: normal;
+}
+.asked li::marker {
+  color: var(--on-paper-muted);
+}
+.asked li + li {
+  margin-top: 2px;
+}
+/* The composer's tick (ui/Checkbox.tsx size small): no panel, an 18px box, the words on one line beside Effort. */
+.checkbox.checkbox--small {
+  position: relative;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+}
+.checkbox.checkbox--small input {
+  position: relative;
+  z-index: 1; /* over the finger's wider target below, so a tap on the box is the box's */
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+.checkbox.checkbox--small span {
+  font-size: 13px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.checkbox.checkbox--small:has(input:disabled) {
+  cursor: default;
+  color: #8a80a3;
+}
+/* A finger gets 44px around the small tick, without growing the row. */
+@media (pointer: coarse) {
+  .checkbox.checkbox--small::before {
+    content: "";
+    position: absolute;
+    inset: -13px -6px; /* 18px + 26px: 44px tall */
+  }
+}
 /* The ideas arrive with the answer: the label, then each idea 40 ms apart; More ideas' six follow the same way, the
    first three staying put. */
 @media (prefers-reduced-motion: no-preference) {

@@ -16,6 +16,7 @@ import { picksOf } from "../games/picks.js";
 import type { Attachment, Message, Project, Version } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
 import { RunRegistry } from "../runs/registry.js";
+import { questionsOf } from "./questions.js";
 
 /** A message row as views read it: with its pictures (in their order) when they were read with it. */
 type MessageRow = Message & { attachments?: Pick<Attachment, "id" | "width" | "height" | "position">[] };
@@ -33,6 +34,9 @@ export function toMessage(m: MessageRow): MessageView {
     if (m.startedAt && m.finishedAt) view.finishedAt = m.finishedAt.toISOString();
     if (m.suggestions?.length) view.suggestions = m.suggestions;
     if (m.biggerModel) view.biggerModel = m.biggerModel as ModelChoice;
+    // The questions asked before a build (2026-11-04), as written: read back through the same check.
+    const questions = m.status === "done" ? questionsOf(m.questions) : null;
+    if (questions) view.questions = questions;
   }
   return view;
 }

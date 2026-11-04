@@ -9,6 +9,7 @@ import { ChatLog, type LiveLine } from "@/components/app/ChatLog";
 import { Composer } from "@/components/app/Composer";
 import { setFeedbackGame } from "@/components/app/Feedback";
 import { LiveStatus } from "@/components/app/LiveStatus";
+import { focusQuestions } from "@/components/app/QuestionsCard";
 import { SignIn } from "@/components/app/SignIn";
 import { Stage } from "@/components/app/Stage";
 import { useEstimates } from "@/components/app/useEstimates";
@@ -18,7 +19,7 @@ import { ButtonLink } from "@/components/ui/ButtonLink";
 import { PageWidget } from "@/components/ui/PageWidget";
 import { Tabs } from "@/components/ui/PillBar";
 import { api, ApiFailure, watchProject, type StreamState } from "@/lib/api";
-import { inLine } from "@/content/app";
+import { inLine, questions } from "@/content/app";
 import { aheadWord, creditsWord } from "@/lib/format";
 import { refreshMe, setCredits, signOut, useSession } from "@/lib/session";
 
@@ -121,6 +122,8 @@ export function GameClient() {
       case "failed":
         // A build that left the line without starting: why, read out (nobody may have pressed anything).
         if (e.type === "failed" && !e.message.startedAt) setSaid(e.message.text);
+        // The AI asks before it builds (2026-11-04): said once, wherever the player is on the page.
+        if (e.type === "done" && e.message.questions) setSaid(questions.said(e.message.questions.items.length));
         setProject((p) => (p ? settle(p, e.message, e.type === "done" ? e.version : null, e.project) : p));
         setLive(null);
         setCredits(e.credits);
@@ -183,6 +186,13 @@ export function GameClient() {
   const me = session.status === "in" ? session.me : null;
   const [effort, setEffort] = useState<Effort>("medium");
   const estimates = useEstimates(kind, me?.plan ?? null, effort);
+  // Questions the AI asked before a build (2026-11-04), open while they are the newest message and nothing runs: Build it
+  // builds on the AI and effort they were asked on, at that price (the estimate shown beside it).
+  const lastMessage = project?.messages.at(-1);
+  const asked = lastMessage?.role === "agent" && lastMessage.status === "done" && lastMessage.questions && lastMessage.model ? lastMessage : null;
+  const askedEstimates = useEstimates(kind, me?.plan ?? null, asked?.effort ?? effort);
+  // The card's answers as they are picked, for words typed in the box meanwhile (by the questions' message).
+  const draft = useRef<{ id: string; answers: (string | null)[] } | null>(null);
   const shown: Tab = tab ?? "chat";
   useEffect(() => {
     current.current = project;
@@ -203,10 +213,29 @@ export function GameClient() {
     if (t === "play") setFresh(false);
   };
 
-  const send = async (text: string, model: ModelChoice, effort: Effort, confirm: boolean, images: string[] = []) => {
-    const p = await api.send(id, { text, model, effort, confirm: confirm || undefined, images: images.length ? images : undefined });
+  const send = async (text: string, model: ModelChoice, effort: Effort, confirm: boolean, images: string[] = [], ask = false) => {
+    // Words typed while questions are open answer them, with any of the card's answers tapped so far (none is lost).
+    const d = draft.current;
+    const answers = asked && d?.id === asked.id && d.answers.some((a) => a !== null) ? d.answers : undefined;
+    const p = await api.send(id, { text, model, effort, confirm: confirm || undefined, images: images.length ? images : undefined, ask: ask || undefined, answers });
     setProject(p);
     void refreshMe();
+  };
+  // Build it under open questions: the answers, on the AI and effort they were asked on. A first build: a phone goes to
+  // Play, where the build shows; with a mouse the keyboard goes to the chat's box (the card it was on is gone).
+  const answer = async (answers: (string | null)[]) => {
+    if (!asked?.model) return;
+    const first = !project?.buildId;
+    const p = await api.send(id, { answers, model: asked.model, effort: asked.effort ?? "medium" });
+    setProject(p);
+    void refreshMe();
+    if (first && window.matchMedia("(max-width: 959px)").matches) show("play");
+    else if (window.matchMedia("(pointer: fine)").matches) requestAnimationFrame(() => document.getElementById("say")?.focus({ preventScroll: true }));
+  };
+  // "Answer them" on the stage: the chat (a phone's other tab), the keyboard on the first question.
+  const toQuestions = () => {
+    show("chat");
+    requestAnimationFrame(focusQuestions);
   };
   const stop = async () => setProject(await api.cancel(id));
   const restore = async (n: number) => {
@@ -216,7 +245,7 @@ export function GameClient() {
   const firstPrompt = first?.text;
   // Building again after a failed first build: the first message's words and pictures (the API copies them for it).
   const retry =
-    project && !running && !queued && !project.buildId && firstPrompt
+    project && !running && !queued && !project.buildId && firstPrompt && !asked
       ? () => send(firstPrompt, me?.models.includes("smart") ? "smart" : "fast", effort, false, (first?.images ?? []).map((i) => i.id))
       : null;
 
@@ -312,6 +341,14 @@ export function GameClient() {
             const asked = project.messages.at(-2);
             setPrefill((p) => ({ text, model, images: asked?.role === "user" ? asked.images : undefined, n: (p?.n ?? 0) + 1 }));
           }}
+          answering={{
+            busy: running || queued || exporting,
+            cost: asked?.model ? (askedEstimates[asked.model] ?? null) : null,
+            onAnswer: answer,
+            onDraft: (answers) => {
+              if (asked) draft.current = { id: asked.id, answers };
+            },
+          }}
         />
         <Composer
           kind={kind}
@@ -329,6 +366,7 @@ export function GameClient() {
           onSend={send}
           onStop={stop}
           prefill={prefill}
+          answering={asked && !running && !queued && !exporting ? { model: asked.model!, effort: asked.effort ?? "medium" } : null}
         />
       </section>
 
@@ -341,6 +379,8 @@ export function GameClient() {
           onPlayed={() => setPlayed(true)}
           onRestore={restore}
           onRetry={retry}
+          onQuestions={asked && !running && !queued && !exporting ? toQuestions : null}
+          questionCount={asked?.questions?.items.length ?? 0}
           onChange={setProject}
           onAsk={(text) => {
             setPrefill((p) => ({ text, n: (p?.n ?? 0) + 1 }));

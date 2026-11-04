@@ -580,6 +580,32 @@ with a message".
   pictures (tall, panorama, 8×8, lines on nothing, a long phone file name, a big photo) in the composer, the chat and the
   viewer, and a full box at 320 px with the 11th refused; no sideways scrolling anywhere.
 
+### Questions before a build (2026-11-04)
+
+With **Ask me first** the AI may ask up to three short questions before it builds, only where the idea leaves a real gap.
+The API's side (where the call runs, the money, the price question): `apps/server/README.md` "Questions before a build".
+
+- **The tick:** /create's `Checkbox` under Effort, ticked at first; the composer's small one (`size="small"`) beside
+  Effort, off at first. Each saves the account's choice at once (`saveAskFirst` in `lib/session.ts`, `PATCH /me`); every
+  send says `ask` itself.
+- **The questions** (`components/app/QuestionsCard.tsx`, shown by `ChatLog.tsx` for an answer with `questions` while it is
+  the newest message and nothing runs): each question a `ui/ChipChoice.tsx` (pill radios: the answers, then on their own
+  row You decide picked at first and Type my own, which opens a growing box where Enter moves on and never builds), then
+  **Build it**, which sends `answers` on the AI and effort the questions were asked on (no price question: agreed when the
+  idea was sent), described by that AI and its estimate. The card takes the questions' `lang`; the page's announcer says
+  they came. Afterwards the AI's bubble lists the questions and the player's bubble says the answers (the API writes it).
+- **Around it:** while questions are open the composer is its box and Send only (the card's AI and price are the only
+  ones), and what is sent there answers them, with the card's taps so far (`onDraft`, `answers` with `text`); a first
+  build's stage says "A few questions first." under the still sky and ground, with **Answer them** on a phone
+  (`focusQuestions`: the Chat tab, the keyboard on the first question), and Try again is not offered then; a change's line
+  over the game says a question waits; a game played meanwhile, the build pill and the notices have an `asked` state
+  ("Answer them"). After Build it a phone goes to Play for a first build; with a mouse the keyboard goes to the box.
+- Words: `content/app.ts` `questions`.
+- Walk-through: `scripts/shot-questions.mjs` (its own stack and database; shots in `.impeccable/review/questions/`, at
+  1440, 390 and 320 px): the tick on /create, a vague idea's questions in the chat (the phone's stage and Answer them),
+  the arrow keys, Type my own, Build it and the chat after it, the composer's tick remembered, a change's question answered
+  from the box, and three questions at the length limits in another script at 320 and 1440 px; no sideways scrolling.
+
 ## Known trap
 
 Turbopack's file watcher on this PC misses edits to `globals.css` (and `app.css`): restart

@@ -4,12 +4,13 @@
 import type { ModelChoice, NoticeKind, RunNotice } from "@typeplay/shared";
 
 /**
- * How a build ended. built: a new version. toobig: the size check stopped the change (no version). failed and refused:
- * the agent's run (a first build or a change). timeout, interrupted: stopped on our side. expired, notStarted: it left the
- * queue without starting (waited too long; not allowed at its turn). stopped: the player's Stop, or the game or the account
- * deleted meanwhile: no notification.
+ * How a build ended. built: a new version. toobig: the size check stopped the change (no version). asked: the AI asks
+ * before it builds (2026-11-04; nothing built until the player answers). failed and refused: the agent's run (a first
+ * build or a change). timeout, interrupted: stopped on our side. expired, notStarted: it left the queue without starting
+ * (waited too long; not allowed at its turn). stopped: the player's Stop, or the game or the account deleted meanwhile:
+ * no notification.
  */
-export type EndWhy = "built" | "toobig" | "failed" | "refused" | "timeout" | "interrupted" | "expired" | "notStarted" | "stopped";
+export type EndWhy = "built" | "toobig" | "asked" | "failed" | "refused" | "timeout" | "interrupted" | "expired" | "notStarted" | "stopped";
 
 const MODEL_NAME: Record<ModelChoice, string> = { fast: "Fast", smart: "Smart", best: "Best" };
 
@@ -26,6 +27,8 @@ export interface NoticeFacts {
   bigger: ModelChoice | null;
   /** The version a finished build made. */
   version: number | null;
+  /** How many questions the AI asked before building (an `asked` end); 0 otherwise. */
+  asked?: number;
   /** The answer's own text in the chat (a build that didn't start says why there, in one sentence). */
   text: string;
   /** How long a build may run before it is stopped (RUN_TIMEOUT_MIN). */
@@ -36,6 +39,7 @@ export interface NoticeFacts {
 const KIND: Record<NoticeFacts["why"], NoticeKind> = {
   built: "ready",
   toobig: "toobig",
+  asked: "asked",
   failed: "failed",
   refused: "failed",
   timeout: "failed",
@@ -55,6 +59,13 @@ function words(f: NoticeFacts): { title: string; body: string } {
       return {
         title: `${f.name}: that change is too big for ${ai}`,
         body: f.bigger ? `${MODEL_NAME[f.bigger]} can do it in one go, or ask for one part at a time.` : "Ask for one part at a time: the chat says how.",
+      };
+    }
+    case "asked": {
+      const one = (f.asked ?? 0) <= 1;
+      return {
+        title: `${f.name}: ${one ? "one question" : `${f.asked} questions`} before the build`,
+        body: `${one ? "Answer it" : "Answer them"}, or leave ${one ? "it" : "them"} to the AI, and the build starts.`,
       };
     }
     case "failed":

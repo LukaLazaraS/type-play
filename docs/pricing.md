@@ -53,6 +53,10 @@ number (Rork, a0.dev, Base44, Emergent all sell exactly that).
   what to send instead (or the bigger AI, when the plan has it), charged as any answer: 0.1 credit. Best is not checked.
 - **Pictures** (11-04): the pictures attached to a message are part of what the AI reads (up to ~1,500 tokens each, at
   most 10), so they are in the message's metered work and its charge like everything else; no separate price.
+- **Questions before a build** (11-04, "Ask me first"; on for new games, off for changes): one cheap Haiku call
+  (~$0.0006-0.001 measured) decides whether the idea leaves a real gap. None: it is part of the build's charge, like the
+  genre call. Questions: that answer is charged at once like the size check's stop (its calls, at least 0.1 credit) and the
+  build after the answers is charged on its own, never asking again; an answer never given costs nothing more.
 
 Typical cost of one message (measured, `packages/agent/RESULTS.md`; Smart edit is an estimate):
 

@@ -231,6 +231,44 @@ export const gameTags: { id: GameTag; name: string; line: string }[] = [
 ];
 export const tagsNone = "Pick any that fit, or none. One at most of 2D, 2.5D and 3D; of First-person and Third-person; of Cozy and Hard.";
 
+/** Questions before a build (2026-11-04): the "Ask me first" tick and the questions in the chat. */
+export const questions = {
+  tick: "Ask me first",
+  /** Under the tick on /create (a Checkbox note, two lines at most on a phone), and the composer's tip once touched. */
+  tickNote: "If your idea leaves a big gap, the AI asks up to 3 quick questions first.",
+  tickTip: (on: boolean) =>
+    on
+      ? "Ask me first: if a change could mean very different things, the AI asks a quick question before it builds."
+      : "Ask me first is off: the AI decides anything you leave open and says what it picked.",
+  /** The answer you type yourself: the pill that opens the box (the AI writes it in the player's language; this when it
+   * didn't), the box's name and its placeholder. */
+  own: "Type my own",
+  ownLabel: (question: string) => `Your own answer: ${question}`,
+  ownPlaceholder: "A few words",
+  /** Before each question, for screen readers. */
+  count: (n: number, of: number) => `Question ${n} of ${of}: `,
+  build: "Build it",
+  building: "Starting…",
+  /** Beside Build it: the AI it builds on and its cost (the price agreed when the idea was sent). */
+  buildsOn: (model: string, cost: string | null) => (cost ? `Builds on ${model} · about ${cost}` : `Builds on ${model}`),
+  /** Build it refused for credits: the way to more. */
+  getCredits: "Get credits",
+  /** The composer while questions are open: a typed message is their answer, on the AI they were asked on. */
+  answerHere: "Or type your answer",
+  answerTip: (model: string) => `What you send now answers the questions above, with any you tapped. It builds on ${model}.`,
+  /** Read out when they arrive (the page's one announcer). */
+  said: (n: number) => `The AI has ${n === 1 ? "a question" : `${n} questions`} before it builds. ${n === 1 ? "It's" : "They're"} in the chat.`,
+  /** The stage of a game with no version while its questions are open (and a game played meanwhile). */
+  stageLine: "A few questions first.",
+  stageNote: "Tap your answers in the chat, or keep You decide, then press Build it. Nothing more is charged until it builds.",
+  /** A change's line over the game while its questions are open. */
+  live: (n: number, version: number) => `${n === 1 ? "A question" : `${n} questions`} before version ${version}.`,
+  /** The build pill, the stage and the device notice's button. */
+  pill: "Your game has questions",
+  go: "Answer them",
+  goOne: "Answer it",
+} as const;
+
 /**
  * Pictures with a message (2026-11-04): what the player may attach (the API checks the same by each file's content:
  * apps/server/src/attachments/limits.ts) and the words the box, the chat and the viewer use. `name` is the file's name.

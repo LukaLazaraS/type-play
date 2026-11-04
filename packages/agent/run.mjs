@@ -21,6 +21,11 @@
 //          --images <dir> (the player's pictures for this message, 2026-11-04: <n>.<png|jpg|webp>, the picture itself,
 //          and <n>.view.webp, what the AI sees, n from 1 in their order; the server makes the folder. Every session gets
 //          them in its first message, with rules/PICTURES.md; the genre call and the size check get how many came)
+//          --ask (the player's "Ask me first", 2026-11-04: before anything is built, one cheap call, tools/questions.mjs,
+//          decides whether the request leaves a real gap and writes up to 3 questions; questions end the run with
+//          asked: true and them as the answer; none: the build goes on, the call's cost (askCostUsd) in its charge)
+//          --answered (the request ends with the player's answers to those questions: rules/ANSWERS.md)
+//          --sized (a change answering questions on the same AI: the size check ran before the questions, not again)
 //          --events (also print `@@event <json>` lines: started, progress in plain words (also
 //          "Planning your change…" while the model thinks, tools/thinking.mjs), result;
 //          read by the server, apps/server. The result carries costUsd = every attempt, and
@@ -40,6 +45,7 @@ import { fileURLToPath } from 'node:url';
 import { thinkingLine } from './tools/thinking.mjs';
 import { nextSteps } from './tools/next-steps.mjs';
 import { BIGGER, NAMES, SIZED, sizeCheck } from './tools/size-check.mjs';
+import { askQuestions } from './tools/questions.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MODELS = { opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5-5', haiku: 'claude-haiku-5-5' };
@@ -82,6 +88,9 @@ const pictures = (imagesDir ? readdirSync(imagesDir) : [])
   .map((p, i) => ({ ...p, n: i + 1 }));
 const playtest = flag('playtest');
 const slim = flag('slim');
+// Questions before the build (tools/questions.mjs): --ask may ask; --answered builds with the answers; never both.
+const ask = flag('ask') && !flag('answered');
+const answered = flag('answered');
 let modelKey = opt('model', isEdit ? 'auto' : 'sonnet');
 if (!game || !prompt) { console.error('need --game (or --dir) and --prompt'); process.exit(2); }
 // The screens a game is made for (Luka, 10-25). One shape, scaled to fit any screen with bars around it: auto
@@ -202,15 +211,31 @@ const pickedGenre = !isEdit && !['auto', 'none'].includes(genre);
 let size = 'small';
 let classifyCostUsd = 0; // part of the charge, like every AI call the player causes
 const route = modelKey === 'auto' ? 'haiku' : modelKey;
+// The questions call (--ask): its result, and what it cost (part of the charge, as the genre call's).
+let asked = null;
+let askCostUsd = 0;
+const askOptions = { ...ISOLATED, model: MODELS.haiku, effort: 'low', tools: [], maxTurns: 1 };
+const logAsked = (a) => console.log(`questions: ${a.questions ? a.questions.items.map((q) => `${q.label}: ${q.text} [${q.options.join(' / ')}]`).join(' | ') : 'none'} ($${a.costUsd.toFixed(4)})`);
 if (isEdit) genre = existsSync(genreFile) ? readFileSync(genreFile, 'utf8').trim() : 'none';
 else {
-  // Size matters only for Haiku's step count; skip the call when nothing needs it.
-  if (genre === 'auto' || (route === 'haiku' && !opt('steps'))) {
-    const c = await classify(prompt);
+  // Size matters only for Haiku's step count; skip the call when nothing needs it. A new game's questions go at the
+  // same time (they see the player's picks, never the genre the call picks), so a clear idea waits for neither twice.
+  const sizeIt = genre === 'auto' || (route === 'haiku' && !opt('steps'));
+  const picks = { genre: pickedGenre ? genre : null, tags: pickedTags, platform: opt('platform', 'auto') };
+  const [c, a] = await Promise.all([
+    sizeIt ? classify(prompt) : null,
+    ask ? askQuestions({ request: prompt, kind: 'new', picks, pictures, query, options: askOptions }) : null,
+  ]);
+  if (c) {
     if (genre === 'auto') genre = c.genre;
     size = c.size;
     classifyCostUsd = c.costUsd;
     console.log(`classified: "${c.answer}" ($${c.costUsd.toFixed(4)})`);
+  }
+  if (a) {
+    asked = a;
+    askCostUsd = a.costUsd;
+    logAsked(a);
   }
   writeFileSync(genreFile, genre + '\n');
 }
@@ -228,30 +253,58 @@ const report = (record, refused = false) => {
 };
 const recordBase = () => ({
   date: new Date().toISOString(), game, kind: isEdit ? 'edit' : 'new', prompt, route: modelKey === 'auto' ? `auto→${route}` : route,
-  genre, tags, size, platform, playtest, slim, images: pictures.length,
+  genre, tags, size, platform, playtest, slim, images: pictures.length, ...(ask ? { ask } : {}), ...(answered ? { answered } : {}),
 });
 
 // The size check (tools/size-check.mjs): a change on Fast or Smart too big for it stops here, before anything in the
-// game folder changes; Best (and the CLI's auto, which moves to Sonnet itself) is not checked.
+// game folder changes; Best (and the CLI's auto, which moves to Sonnet itself) is not checked, nor a change answering
+// questions on the same AI (--sized: it was checked before them). A change's questions (--ask) go at the same time; the
+// size check's stop wins over them (no questions about a request too big to build anyway).
 let sized = null;
-if (isEdit && SIZED.includes(modelKey)) {
-  sized = await sizeCheck({
-    request: prompt, key: modelKey, bigger: bigger === 'none' ? null : bigger, images: pictures.length, query,
-    options: { ...ISOLATED, model: MODELS.haiku, effort: 'low', tools: [], maxTurns: 1 },
-  });
-  console.log(`size check for ${NAMES[modelKey]}: ${sized.fits ? 'fits' : 'too big'} (${sized.jobs.map((j) => `${j.kind}: ${j.what}`).join(' | ') || 'no jobs read'}), $${sized.costUsd.toFixed(4)}`);
+const checkSize = isEdit && SIZED.includes(modelKey) && !flag('sized');
+if (isEdit && (checkSize || ask)) {
+  const notesFile = join(dir, 'NOTES.md');
+  const [s, a] = await Promise.all([
+    checkSize
+      ? sizeCheck({ request: prompt, key: modelKey, bigger: bigger === 'none' ? null : bigger, images: pictures.length, query, options: askOptions })
+      : null,
+    ask
+      ? askQuestions({ request: prompt, kind: 'edit', notes: existsSync(notesFile) ? readFileSync(notesFile, 'utf8') : '', pictures, query, options: askOptions })
+      : null,
+  ]);
+  sized = s;
+  if (sized) console.log(`size check for ${NAMES[modelKey]}: ${sized.fits ? 'fits' : 'too big'} (${sized.jobs.map((j) => `${j.kind}: ${j.what}`).join(' | ') || 'no jobs read'}), $${sized.costUsd.toFixed(4)}`);
+  if (a) {
+    asked = a;
+    askCostUsd = a.costUsd;
+    logAsked(a);
+  }
 }
 const sizeCheckCostUsd = sized?.costUsd ?? 0;
 const sizeRecord = sized && { fits: sized.fits, jobs: sized.jobs.map((j) => `${j.kind}: ${j.what}`) };
+const stopped = { steps: 0, ok: false, messageCostUsd: 0, suggestions: [], suggestionsCostUsd: 0, costUsd: 0, chargeUsd: 0, minutes: 0, attempts: [] };
 if (sized && !sized.fits) {
-  // Nothing was built: no attempts, no rewrite, no ideas. The player is charged the check alone (the server).
+  // Nothing was built: no attempts, no rewrite, no ideas. The player is charged the check alone (the server), and the
+  // questions call that went beside it.
   report({
-    ...recordBase(), steps: 0, ok: false, tooBig: true, bigger, playerMessage: sized.reply, messageCostUsd: 0, suggestions: [], suggestionsCostUsd: 0,
-    classifyCostUsd: 0, sizeCheckCostUsd: +sizeCheckCostUsd.toFixed(4), sizeCheck: sizeRecord, costUsd: 0, chargeUsd: 0, minutes: 0, attempts: [],
+    ...recordBase(), ...stopped, tooBig: true, bigger, playerMessage: sized.reply,
+    classifyCostUsd: 0, sizeCheckCostUsd: +sizeCheckCostUsd.toFixed(4), askCostUsd: +askCostUsd.toFixed(4), sizeCheck: sizeRecord,
   });
   console.log(`\n--- shown to the player ---\n${sized.reply}\n`);
-  console.log(`--- STOPPED, too big for ${NAMES[modelKey]}: the game is unchanged; the check cost ~$${sizeCheckCostUsd.toFixed(4)}`);
+  console.log(`--- STOPPED, too big for ${NAMES[modelKey]}: the game is unchanged; the check cost ~$${(sizeCheckCostUsd + askCostUsd).toFixed(4)}`);
   await new Promise((done) => process.stdout.write('', done)); // the result line out through the pipe first
+  process.exit(0);
+}
+if (asked?.questions) {
+  // Questions before the build: nothing was built (a change's folder is untouched; a new game's holds the template the
+  // server clears). The answer is the questions; the player is charged the calls that ran (the server).
+  report({
+    ...recordBase(), ...stopped, asked: true, questions: asked.questions, playerMessage: asked.questions.intro,
+    classifyCostUsd: +classifyCostUsd.toFixed(4), sizeCheckCostUsd: +sizeCheckCostUsd.toFixed(4), askCostUsd: +askCostUsd.toFixed(4), sizeCheck: sizeRecord,
+  });
+  console.log(`\n--- shown to the player ---\n${asked.questions.intro}\n${asked.questions.items.map((q) => `${q.text} ${q.options.join(' / ')} / ${asked.questions.decide}`).join('\n')}\n`);
+  console.log(`--- ASKED FIRST: nothing built; the calls cost ~$${(classifyCostUsd + sizeCheckCostUsd + askCostUsd).toFixed(4)}`);
+  await new Promise((done) => process.stdout.write('', done));
   process.exit(0);
 }
 
@@ -304,6 +357,8 @@ const rules = [
   isEdit ? read('EDIT.md') : '',
   // The player's pictures: references by default, the game's art only when asked (new games and changes, every AI).
   pictures.length ? read('PICTURES.md') : '',
+  // The player's answers to the questions asked before this build: how to read them, You decide included.
+  answered ? read('ANSWERS.md') : '',
 ].join('\n').replaceAll('{CHECK}', checkPath).replaceAll('{ASSETS}', assetsPath).replaceAll('{GODOT}', GODOT);
 
 // The agent's last message, rewritten for a player who isn't a developer: rules alone don't
@@ -313,9 +368,10 @@ const rules = [
 async function playerMessage(request, reply, { isNew = false } = {}) {
   if (!reply.trim()) return { text: '', costUsd: 0 };
   let text = reply, costUsd = 0;
+  // What the builder picked for a point the player left open (or answered "You decide" to) stays, in a few words.
   const what = isNew
-    ? 'This is a brand-new game the player has not seen yet: describe the game as a whole (not as changes) and how to play (controls)'
-    : 'what was changed and how to play (controls)';
+    ? 'This is a brand-new game the player has not seen yet: describe the game as a whole (not as changes), how to play (controls), and what the builder picked for anything the player left open, if it says'
+    : 'what was changed, how to play (controls), and what the builder picked for anything the player left open, if it says';
   try {
     for await (const m of query({
       prompt: `Player's request: "${request}"\n\nMessage from the game builder:\n${reply}\n\nRewrite the message for the player, who is not a developer: ${what}, in 2-4 short friendly sentences, in the language of the request (never mention the language). Leave out anything about tests, checks, bots, screenshots, files, code, notes, or what wasn't verified (on phones or anywhere). If something the player asked for couldn't be done, say so simply. Reply with the message only.`,
@@ -496,6 +552,7 @@ const record = {
   ...recordBase(), steps, ok: final.ok, playerMessage: message.text, messageCostUsd: +message.costUsd.toFixed(4),
   suggestions: next.list, suggestionsCostUsd: +next.costUsd.toFixed(4),
   classifyCostUsd: +classifyCostUsd.toFixed(4), sizeCheckCostUsd: +sizeCheckCostUsd.toFixed(4), sizeCheck: sizeRecord,
+  ...(ask ? { askCostUsd: +askCostUsd.toFixed(4) } : {}),
   costUsd: +attempts.reduce((s, a) => s + a.costUsd, 0).toFixed(3),
   chargeUsd: final.ok ? +attempts.filter((a) => a.ok).reduce((s, a) => s + a.costUsd, 0).toFixed(3) : 0,
   minutes: +attempts.reduce((s, a) => s + a.minutes, 0).toFixed(1),

@@ -1,5 +1,6 @@
-// GET /me, GET /estimate, and the account page: the credit history, the data export, closing the account.
-import { Body, Controller, Delete, Get, HttpCode, Query, Res } from "@nestjs/common";
+// GET /me, GET /estimate, and the account page: the credit history, the data export, closing the account; PATCH /me for
+// what the player sets on their account ("Ask me first", 2026-11-04).
+import { Body, Controller, Delete, Get, HttpCode, Patch, Query, Res } from "@nestjs/common";
 import type { Response } from "express";
 import type { Effort, Estimate, Me, ModelChoice, PlanId, UsagePage } from "@typeplay/shared";
 import { AccountService } from "./account/account.service.js";
@@ -12,6 +13,7 @@ import { badRequest } from "./common/api-error.js";
 import { EFFORTS, estimate, MODELS, planModels } from "./credits/credits.js";
 import { CreditsService } from "./credits/credits.service.js";
 import type { User } from "./generated/prisma/client.js";
+import { PrismaService } from "./prisma.js";
 
 @Controller()
 export class MeController {
@@ -21,6 +23,7 @@ export class MeController {
     private readonly auth: AuthService,
     private readonly billing: BillingService,
     private readonly android: AndroidService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get("me")
@@ -38,10 +41,26 @@ export class MeController {
       credits: await this.credits.balance(user),
       billing: this.billing.meBilling(user),
       features: { android: this.android.enabled },
+      askFirst: { new: user.askFirstNew, edit: user.askFirstEdit },
     };
     // A Free account that signed up without the free credits (its email closed an account lately).
     if (plan === "free" && (await this.auth.closedRecently(user.email))) me.notice = NO_SIGNUP_CREDITS_NOTICE;
     return me;
+  }
+
+  /** What the player sets on their account: "Ask me first" as they leave the tick (on /create, in a game's chat). */
+  @Patch("me")
+  @HttpCode(200)
+  async update(@CurrentUser() user: User, @Body() body: unknown): Promise<Me> {
+    const b = (body && typeof body === "object" ? body : {}) as { askFirst?: unknown };
+    const a = b.askFirst && typeof b.askFirst === "object" ? (b.askFirst as Record<string, unknown>) : null;
+    if (!a || (a.new === undefined && a.edit === undefined)) throw badRequest("Say what to change: askFirst.new or askFirst.edit.");
+    if ((a.new !== undefined && typeof a.new !== "boolean") || (a.edit !== undefined && typeof a.edit !== "boolean")) throw badRequest("askFirst's values are true or false.");
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: { ...(a.new !== undefined ? { askFirstNew: a.new as boolean } : {}), ...(a.edit !== undefined ? { askFirstEdit: a.edit as boolean } : {}) },
+    });
+    return this.me(updated);
   }
 
   @Get("estimate")

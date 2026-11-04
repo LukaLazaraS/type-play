@@ -20,14 +20,16 @@ export interface CreditHold {
 const MODEL_NAME: Record<ModelChoice, string> = { fast: "Fast", smart: "Smart", best: "Best" };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** A ledger row in plain words. Charges carry `<new|edit> on <model>` as their note (runs.service). `stopped`: a change
- * the size check stopped as too big for its AI (charged for the check, nothing built). */
-function whatOf(e: CreditEntry, model: ModelChoice | null, stopped = false): string {
+/** A ledger row in plain words. Charges carry `<new|edit> on <model>` as their note (runs.service). `stop`: an answer
+ * that built nothing: a change the size check stopped as too big for its AI, or the questions the AI asked before a
+ * build (2026-11-04); each charged for its calls. */
+function whatOf(e: CreditEntry, model: ModelChoice | null, stop: "toobig" | "asked" | null = null): string {
   if (e.kind === "charge") {
     const m = /^(new|edit) on (fast|smart|best)$/.exec(e.note ?? "");
     const name = MODEL_NAME[(m?.[2] as ModelChoice | undefined) ?? model ?? "fast"];
+    if (stop === "asked") return `Questions before a ${m?.[1] === "new" ? "new game" : "change"} on ${name}`;
     const what = m?.[1] === "new" ? `New game on ${name}` : m || model ? `Change on ${name}` : "Credits used";
-    return stopped ? `${what}, stopped: too big for ${name}` : what;
+    return stop === "toobig" ? `${what}, stopped: too big for ${name}` : what;
   }
   if (e.kind === "refund") return e.note?.trim() || "Credits back";
   if (e.kind === "expire") return e.note?.trim() || "Credits ended";
@@ -166,7 +168,7 @@ export class CreditsService {
     const messages = ids.length
       ? await this.prisma.message.findMany({
           where: { id: { in: ids } },
-          select: { id: true, projectId: true, model: true, versionN: true, status: true, createdAt: true, project: { select: { id: true, name: true } } },
+          select: { id: true, projectId: true, model: true, versionN: true, status: true, createdAt: true, questions: true, project: { select: { id: true, name: true } } },
         })
       : [];
     const byId = new Map(messages.map((m) => [m.id, m]));
@@ -176,8 +178,9 @@ export class CreditsService {
       ? await this.prisma.version.findMany({ where: { OR: pairs }, select: { projectId: true, n: true, label: true } })
       : [];
     const label = new Map(versions.map((v) => [`${v.projectId}:${v.n}`, v.label]));
-    // A charged answer with no version is a change the size check stopped (runs.service stopTooBig): the prompt is the
-    // player's message, the one sent just before the answer (a game runs one message at a time).
+    // A charged answer with no version is a change the size check stopped (runs.service stopTooBig), or questions asked
+    // before a build (stopAsked): the prompt is the player's message, the one sent just before the answer (a game runs one
+    // message at a time).
     const stopped = messages.filter((m) => m.versionN == null && m.status === "done");
     const asked = new Map(
       await Promise.all(
@@ -199,7 +202,7 @@ export class CreditsService {
         at: e.createdAt.toISOString(),
         amount: fromTenths(e.tenths ?? toTenths(Number(e.amount))),
         kind: e.kind,
-        what: whatOf(e, (m?.model as ModelChoice | null) ?? null, !!m && asked.has(m.id)),
+        what: whatOf(e, (m?.model as ModelChoice | null) ?? null, !m || !asked.has(m.id) ? null : m.questions != null ? "asked" : "toobig"),
         prompt: prompt && prompt.length > 200 ? `${prompt.slice(0, 199)}…` : prompt,
         game: m ? { id: m.project.id, name: m.project.name } : null,
       };

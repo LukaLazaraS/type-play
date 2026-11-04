@@ -11,19 +11,20 @@ import { useEstimates } from "@/components/app/useEstimates";
 import { Ask } from "@/components/ui/Ask";
 import { Button } from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/ButtonLink";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Chip } from "@/components/ui/Chip";
 import { ErrorLine } from "@/components/ui/ErrorLine";
 import { TextArea } from "@/components/ui/Field";
 import { HintLines } from "@/components/ui/HintLines";
 import { IconChoice } from "@/components/ui/IconChoice";
 import { PageWidget } from "@/components/ui/PageWidget";
-import { DRAFT_KEY, gameTags, genreAbout, genreAgain, genreNone, genres, MAX_TEXT, PICKS_KEY, tagsNone, type PlatformChoice } from "@/content/app";
+import { DRAFT_KEY, gameTags, genreAbout, genreAgain, genreNone, genres, MAX_TEXT, PICKS_KEY, questions, tagsNone, type PlatformChoice } from "@/content/app";
 import { CLOSED_BETA_NOTE, closedBeta } from "@/content/beta";
 import { checkoutHref, planIdOf } from "@/content/billing";
 import { genreName } from "@/content/gallery";
 import { api, ApiFailure } from "@/lib/api";
 import { credits, creditsWord } from "@/lib/format";
-import { refreshMe, useSession } from "@/lib/session";
+import { refreshMe, saveAskFirst, useSession } from "@/lib/session";
 
 function subscribe(onChange: () => void) {
   window.addEventListener("storage", onChange);
@@ -138,6 +139,9 @@ export function CreateApp() {
   const [picked, setPicked] = useState<ModelChoice | null>(null);
   const model: ModelChoice = picked && allowed.includes(picked) ? picked : allowed.includes("smart") ? "smart" : "fast";
   const [effort, setEffort] = useState<Effort>("medium");
+  // "Ask me first" (2026-11-04): on for a new game until the player unticks it, then as they left it (for the account).
+  const [askPick, setAskPick] = useState<boolean | null>(null);
+  const askFirst = askPick ?? me?.askFirst?.new ?? true;
   // The screens it is made for: Best fit (the agent picks the shape) until the player taps another (Luka, 10-26).
   const [platform, setPlatform] = useState<PlatformChoice>("auto");
   const estimates = useEstimates("new", me?.plan ?? null, effort);
@@ -215,6 +219,7 @@ export function CreateApp() {
         genre: picks.genre ?? undefined,
         tags: picks.tags.length ? picks.tags : undefined,
         images: images.length ? images : undefined,
+        ask: askFirst,
       });
       save("");
       savePicks(NO_PICKS);
@@ -361,6 +366,18 @@ export function CreateApp() {
               />
               <p className="field-hint">{effortLine(effort)}</p>
             </div>
+            {/* Questions before the build (2026-11-04): by the AI picker, ticked unless the player unticked it before. */}
+            <Checkbox
+              checked={askFirst}
+              disabled={busy}
+              note={questions.tickNote}
+              onChange={(on) => {
+                setAskPick(on);
+                void saveAskFirst("new", on);
+              }}
+            >
+              {questions.tick}
+            </Checkbox>
             <div className="make__go">
               <p className="make__balance">
                 {me ? (

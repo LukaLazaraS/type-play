@@ -7,6 +7,7 @@ import type { RunNotice } from "@typeplay/shared";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 import { InkPillLink } from "@/components/ui/InkPill";
 import { Toast } from "@/components/ui/Toast";
+import { questions } from "@/content/app";
 import { closeNotices, startNotices, stopNotices, useNotices } from "@/lib/notices";
 import { closeShown, syncDevice } from "@/lib/push";
 import { useWaiting } from "./WhileYouWait";
@@ -20,6 +21,9 @@ const ICON_PNG = "/icons/attention-32.png";
  * The game's name in 700 and what happened after it ("Spike Cat is ready", "Spike Cat: your change didn't work"). A long
  * name gives way on its one line, the colon stays with it, and what happened always shows.
  */
+/** The way to the game when there is nothing to play yet: why it stopped, the questions to answer, or what to do. */
+const goLabel = (kind: RunNotice["kind"]) => (kind === "toobig" ? "See why" : kind === "asked" ? questions.go : "See what to do");
+
 function Who({ notice: n }: { notice: RunNotice }) {
   const after = n.title.startsWith(n.name) ? n.title.slice(n.name.length) : `: ${n.title}`;
   const colon = after.startsWith(":");
@@ -125,10 +129,10 @@ export function Notices({ userId }: { userId: string }) {
               href={n.url}
               size="small"
               className="runnotice__go"
-              aria-label={`${n.kind === "toobig" ? "See why" : "See what to do"}: ${n.name}`}
+              aria-label={`${goLabel(n.kind)}: ${n.name}`}
               icon={<ArrowRight size={16} weight="bold" aria-hidden="true" />}
               iconAfter
-              label={n.kind === "toobig" ? "See why" : "See what to do"}
+              label={goLabel(n.kind)}
             />
           )}
         </Toast>

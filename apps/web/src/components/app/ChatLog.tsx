@@ -2,12 +2,13 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowClockwise, Play, Plus } from "@phosphor-icons/react";
-import type { Message, ModelChoice, QueuePlace } from "@typeplay/shared";
+import type { Estimate, Message, ModelChoice, QueuePlace } from "@typeplay/shared";
 import { Chip } from "@/components/ui/Chip";
 import { Pressable } from "@/components/ui/Pressable";
 import { Pulse } from "@/components/ui/Pulse";
 import { inLine } from "@/content/app";
 import { MessagePictures } from "./MessagePictures";
+import { QuestionsCard } from "./QuestionsCard";
 import { clock, creditsWord, figuresLine, placeWords, ranWord } from "@/lib/format";
 
 const modelName: Record<ModelChoice, string> = { fast: "Fast", smart: "Smart", best: "Best" };
@@ -27,6 +28,7 @@ export function ChatLog({
   onPlay,
   onSuggest,
   onBigger,
+  answering,
 }: {
   messages: Message[];
   live: LiveLine;
@@ -43,6 +45,10 @@ export function ChatLog({
   models: ModelChoice[];
   /** A stop's one tap (a change too big for its AI): the same message back in the box, the bigger AI picked; never sent. */
   onBigger: (text: string, model: ModelChoice) => void;
+  /** Questions before a build (2026-11-04): the newest answer's are open while nothing else runs on the game (`busy`);
+   * `cost` is the build's estimate on the AI they were asked on, `onAnswer` sends the answers, `onDraft` hears them as
+   * they are picked. */
+  answering?: { busy: boolean; cost: Estimate | null; onAnswer: (answers: (string | null)[]) => Promise<void>; onDraft?: (answers: (string | null)[]) => void };
 }) {
   // The newest answer's ideas for the next change, while its version is the one playing (a restore hides them): up to
   // 9, best first. Three show; "More ideas" adds the other six under them (the first three stay where they were, so
@@ -57,6 +63,8 @@ export function ChatLog({
   // side like the ideas, puts the message they sent back in the box with the bigger AI picked.
   const asked = messages.at(-2);
   const bigger = last?.role === "agent" && last.status === "done" && last.biggerModel && models.includes(last.biggerModel) && asked?.role === "user" ? last.biggerModel : null;
+  // The newest answer's questions (asked before a build) take their answers while nothing else runs on the game.
+  const openQuestions = last?.role === "agent" && last.status === "done" && last.questions && answering && !answering.busy ? last.id : null;
   const list = useRef<HTMLOListElement>(null);
   const stick = useRef(true); // follow new messages while the reader is at the bottom
 
@@ -101,6 +109,7 @@ export function ChatLog({
             now={now}
             current={m.versionN != null && m.versionN === currentVersion}
             onPlay={onPlay}
+            answering={m.id === openQuestions ? answering : undefined}
           />
         ),
       )}
@@ -157,6 +166,7 @@ function AgentMessage({
   now,
   current,
   onPlay,
+  answering,
 }: {
   m: Message;
   live: string | null;
@@ -164,6 +174,9 @@ function AgentMessage({
   now: number;
   current: boolean;
   onPlay: () => void;
+  /** Its questions are open (the newest answer, nothing else running): how to send their answers, and who hears them as
+   * they are picked (the composer's Send carries them). */
+  answering?: { cost: Estimate | null; onAnswer: (answers: (string | null)[]) => Promise<void>; onDraft?: (answers: (string | null)[]) => void };
 }) {
   // "Fast", or "Fast, high effort" when the effort wasn't the usual medium.
   const model = m.model ? `${modelName[m.model]}${m.effort && m.effort !== "medium" ? `, ${m.effort} effort` : ""}` : null;
@@ -206,6 +219,46 @@ function AgentMessage({
   // The build time (HQ 11-04, a trial; to take it out, drop `ran` here and from the line): from the run's start to its
   // end, not its time in line, on every answer that ran ("Best, high effort · 20 min · 61.4 credits · version 1").
   const ran = m.startedAt && m.finishedAt ? ranWord(Date.parse(m.finishedAt) - Date.parse(m.startedAt)) : null;
+  // Questions asked before a build (2026-11-04): open, the AI's line, what it cost, then the answers to pick with Build it;
+  // answered or passed by (any message after them), the line with the questions listed under it, read only. No build time
+  // on it: nothing was built.
+  if (m.questions && !failed) {
+    const lineId = `asked-${m.id}`;
+    const meta = <span className="msg__meta figures">{figuresLine([model, ...cost])}</span>;
+    return (
+      <li className="msg msg--agent">
+        {answering ? (
+          <>
+            <p id={lineId} className="bubble bubble--agent" lang={m.questions.lang}>
+              {m.text}
+            </p>
+            {meta}
+            <QuestionsCard
+              messageId={m.id}
+              questions={m.questions}
+              model={model ?? "Fast"}
+              cost={answering.cost}
+              labelledBy={lineId}
+              onAnswer={answering.onAnswer}
+              onDraft={answering.onDraft}
+            />
+          </>
+        ) : (
+          <>
+            <div className="bubble bubble--agent" lang={m.questions.lang}>
+              <p className="asked__line">{m.text}</p>
+              <ul className="asked">
+                {m.questions.items.map((q, i) => (
+                  <li key={i}>{q.text}</li>
+                ))}
+              </ul>
+            </div>
+            {meta}
+          </>
+        )}
+      </li>
+    );
+  }
   return (
     <li className="msg msg--agent" data-failed={failed || undefined}>
       <p className="bubble bubble--agent">{m.text || "Done."}</p>

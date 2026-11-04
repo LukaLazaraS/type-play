@@ -23,6 +23,7 @@ import { PrismaService } from "../prisma.js";
 import { BuildQueue, type QueuedRunData } from "../runs/queue.service.js";
 import { RunRegistry } from "../runs/registry.js";
 import { projectDir, RunsService } from "../runs/runs.service.js";
+import { parseAnswers, questionsOf, replyTo } from "./questions.js";
 import { ProjectViews } from "./views.js";
 
 const EFFORTS: Effort[] = ["low", "medium", "high"];
@@ -35,16 +36,28 @@ export interface RunRequest {
   confirm: boolean;
 }
 
-/** Checks a create/message body: the sentence, the model the user picked, effort, confirm. */
-export function parseRunBody(body: unknown, textKey: "prompt" | "text"): RunRequest {
+/** Checks a create/message body: the sentence, the model the user picked, effort, confirm. `textOptional`: a message
+ * answering questions with `answers` (the API writes its words from them). */
+export function parseRunBody(body: unknown, textKey: "prompt" | "text", textOptional = false): RunRequest {
   const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
   const text = typeof b[textKey] === "string" ? (b[textKey] as string).trim() : "";
-  if (!text) throw badRequest("Type what you want first.");
+  if (!text && !textOptional) throw badRequest("Type what you want first.");
   if (text.length > MAX_PROMPT) throw badRequest(`That's too long: keep it under ${MAX_PROMPT} characters.`);
   if (!MODELS.includes(b.model as ModelChoice)) throw badRequest("Pick Fast, Smart or Best.");
   if (b.effort !== undefined && !EFFORTS.includes(b.effort as Effort)) throw badRequest("Effort is low, medium or high.");
   return { text, model: b.model as ModelChoice, effort: (b.effort as Effort) ?? "medium", confirm: b.confirm === true };
 }
+
+/** "Ask me first" (2026-11-04): the AI may ask before it builds. true or false; left out, false (an older site never asks). */
+export function parseAsk(body: unknown): boolean {
+  const a = body && typeof body === "object" ? (body as Record<string, unknown>).ask : undefined;
+  if (a === undefined || a === null) return false;
+  if (typeof a !== "boolean") throw badRequest("ask is true or false.");
+  return a;
+}
+
+/** The longest request a build may get with the questions and the answer (the runner takes 8,000 letters an argument). */
+const MAX_COMPOSED = 7900;
 
 const PLATFORMS: Platform[] = ["phone", "computer", "fill"];
 /** The new-game screen's pick of screens; left out: the agent picks one shape. */
@@ -99,6 +112,7 @@ export class ProjectsService {
 
   async create(user: User, body: unknown): Promise<ProjectView> {
     const req = parseRunBody(body, "prompt");
+    const ask = parseAsk(body); // "Ask me first": the run may ask before it builds (questions.ts)
     const platform = parsePlatform(body);
     const { genre, tags } = parsePicks(body);
     // The pictures the player attached (uploaded already, POST /attachments): checked before anything is written.
@@ -117,7 +131,7 @@ export class ProjectsService {
       const asked = randomUUID(); // the player's message, which owns the pictures
       const queued = claim.now
         ? null
-        : this.queue.rowFor({ projectId: id, userId: user.id, kind: "new", prompt: req.text, platform, genre, tags, images: prepared.images.map((i) => i.id), plan: user.plan, hold, at: sent });
+        : this.queue.rowFor({ projectId: id, userId: user.id, kind: "new", prompt: req.text, platform, genre, tags, images: prepared.images.map((i) => i.id), ask, plan: user.plan, hold, at: sent });
       const { project, images } = await this.prisma.$transaction(async (tx) => {
         const project = await tx.project.create({
           data: {
@@ -141,7 +155,7 @@ export class ProjectsService {
       undo = null;
       const messageId = project.messages[0].id;
       if (queued) this.queue.added({ ...queued, messageId }, req.model, req.effort, hold);
-      else this.runs.start({ projectId: id, userId: user.id, messageId, kind: "new", prompt: req.text, model: req.model, effort: req.effort, platform, genre, tags, images, hold, startedAt: sent });
+      else this.runs.start({ projectId: id, userId: user.id, messageId, kind: "new", prompt: req.text, model: req.model, effort: req.effort, platform, genre, tags, images, ask, hold, startedAt: sent });
       hold = null;
     } finally {
       undo?.();
@@ -151,36 +165,77 @@ export class ProjectsService {
     return this.views.full(id);
   }
 
+  /**
+   * The game's open questions (2026-11-04): its newest message is an answer that asked (status done, with questions).
+   * With the request they were about (the player's message before it: its words and its pictures, in their order) and
+   * the AI and effort it was sent on. Null when none are open.
+   */
+  private async openQuestions(projectId: string) {
+    const [last, before] = await this.prisma.message.findMany({
+      where: { projectId },
+      orderBy: { createdAt: "desc" },
+      take: 2,
+      include: { attachments: { select: { id: true, position: true } } },
+    });
+    if (last?.role !== "agent" || last.status !== "done" || before?.role !== "user") return null;
+    const questions = questionsOf(last.questions);
+    if (!questions) return null;
+    const images = [...before.attachments].sort((a, b) => a.position - b.position).map((a) => a.id);
+    return { questions, request: before.text, images, model: last.model, effort: last.effort ?? "medium" };
+  }
+
   async send(user: User, id: string, body: unknown): Promise<ProjectView> {
     const project = await this.views.owned(user.id, id);
-    const req = parseRunBody(body, "text");
+    const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+    // Questions open (the game's newest answer asked them, 2026-11-04): this message is their answer, tapped (`answers`)
+    // or typed. The build gets the request they were about, the questions and the answer (questions.ts), and never asks
+    // again: the AI asks once per request.
+    const open = await this.openQuestions(project.id);
+    if (b.answers !== undefined && b.answers !== null && !open) throw badRequest("Those questions were answered already.");
+    const answers = open && b.answers !== undefined && b.answers !== null ? parseAnswers(b.answers, open.questions.items.length) : null;
+    const req = parseRunBody(body, "text", !!answers);
+    const reply = open ? replyTo(open.request, open.questions, { answers, text: req.text }) : null;
+    if (reply && reply.prompt.length > MAX_COMPOSED) throw badRequest("With the first message and the questions that's too long: keep your answer shorter.");
+    const text = reply?.text ?? req.text; // the player's message in the chat
+    const prompt = reply?.prompt ?? req.text; // what the build gets
+    const ask = reply ? false : parseAsk(body);
+    // Sent on the AI and effort the questions were asked on, the price agreed for them then holds (no second question). A
+    // change answered by taps on the same AI skips the size check: it ran with the questions, on the same request.
+    const confirm = req.confirm || (!!open && open.model === req.model && open.effort === req.effort);
     // The pictures it carries: uploaded for it, or sent before with this game (copied for this message).
-    const picked = await this.attachments.pick(user, (body as { images?: unknown } | null)?.images, project.id);
-    const kind = project.currentVersion == null ? "new" : "edit"; // the first build failed: build again
+    const picked = await this.attachments.pick(user, b.images, project.id);
+    const kind = project.currentVersion == null ? "new" : "edit"; // the first build failed (or asked first): build now
+    // Taps alone change nothing the size check judged; words typed with them may, so those are checked again.
+    const sized = !!answers && !req.text && kind === "edit" && open?.model === req.model;
     const claim = this.registry.claimRun(project.id, ownerOf(user), { kind, model: req.model, effort: req.effort });
     let hold: CreditHold | null = null;
     let undo: (() => void) | null = null;
     try {
-      hold = await this.credits.assertCanRun(user, kind, req.model, req.confirm, req.effort);
+      hold = await this.credits.assertCanRun(user, kind, req.model, confirm, req.effort);
       const now = Date.now();
       const sent = new Date(now + 1);
       // The first build failed and this builds again: for the screens, genre and tags the player picked.
       const { genre, tags } = picksOf({ genre: project.pickedGenre, tags: project.tags });
       const prepared = this.attachments.prepare(picked);
       undo = prepared.undo;
+      // An answer's build also gets the pictures of the request asked about (they stay that message's), first; 10 at most.
+      const ownIds = prepared.images.map((i) => i.id);
+      const runIds = open ? [...open.images, ...ownIds].slice(0, 10) : ownIds;
+      const flags = { ask, answered: !!reply, sized, label: reply?.label ?? null };
       const queued = claim.now
         ? null
-        : this.queue.rowFor({ projectId: id, userId: user.id, kind, prompt: req.text, platform: project.platform, genre, tags, images: prepared.images.map((i) => i.id), plan: user.plan, hold, at: sent });
+        : this.queue.rowFor({ projectId: id, userId: user.id, kind, prompt, platform: project.platform, genre, tags, images: runIds, ...flags, plan: user.plan, hold, at: sent });
       // The player's message and its pictures together: a picture another tab sent a moment ago leaves no message behind.
-      const images = await this.prisma.$transaction(async (tx) => {
-        const asked = await tx.message.create({ data: { projectId: id, role: "user", text: req.text, createdAt: new Date(now) } });
+      const own = await this.prisma.$transaction(async (tx) => {
+        const asked = await tx.message.create({ data: { projectId: id, role: "user", text, createdAt: new Date(now) } });
         return this.attachments.attachIn(tx, user.id, asked.id, prepared);
       });
       undo = null;
+      const images = open ? [...(await this.attachments.forRun(open.images)), ...own].slice(0, 10) : own;
       const agent = await this.prisma.message.create({ data: { projectId: id, ...this.agentMessage(user, req, sent, queued), createdAt: sent } });
       await this.prisma.project.update({ where: { id }, data: { updatedAt: new Date() } });
       if (queued) this.queue.added({ ...queued, messageId: agent.id }, req.model, req.effort, hold);
-      else this.runs.start({ projectId: id, userId: user.id, messageId: agent.id, kind, prompt: req.text, model: req.model, effort: req.effort, platform: project.platform, genre, tags, images, hold, startedAt: sent });
+      else this.runs.start({ projectId: id, userId: user.id, messageId: agent.id, kind, prompt, model: req.model, effort: req.effort, platform: project.platform, genre, tags, images, ...flags, hold, startedAt: sent });
       hold = null;
     } finally {
       undo?.();

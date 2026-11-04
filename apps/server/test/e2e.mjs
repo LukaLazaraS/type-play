@@ -1987,6 +1987,221 @@ async function pictureChecks(db) {
   ok((await api(R, "DELETE", "/me", { confirm: "DELETE" })).status === 200 && files(closing.body.id).length === 0, "…goes with its account when it closes");
 }
 
+/**
+ * Questions before a build (2026-11-04; apps/server/README.md "Questions before a build"; the fake's VAGUE and ASKUSD:<n>):
+ * with "Ask me first" a vague idea stops before the build with the AI's questions as its answer, charged at once like the
+ * size check's stop; a clear one builds at once with the call in its charge; the tick off never asks. The answers (tapped,
+ * You decide, or typed in the box) reach the build, which never asks again and is charged alone; a change answered on the
+ * same AI skips its size check; a size-check stop wins over questions; an unanswered question costs nothing more; the
+ * price agreed holds for Build it; builds in line keep their flags; the tick is remembered per account (PATCH /me).
+ */
+async function questionChecks(db) {
+  console.log("questions before a build: a vague idea asks, a clear one builds, the answers reach the build, charged once");
+  const { noticeOf } = await import("../dist/notify/notices.js");
+  const { cleanAsked, parseAnswers, replyTo } = await import("../dist/projects/questions.js");
+  const FREE = `dev:e2e-${stamp}-ask-free@test.local`;
+  const PAID = `dev:e2e-${stamp}-ask-paid@test.local`;
+  const LINE = `dev:e2e-${stamp}-ask-line@test.local`;
+  const fake = (id) => readFileSync(join(DATA, "projects", id, "FAKE.md"), "utf8");
+  const row = async (messageId) =>
+    (await db.query(`SELECT status, credits::float AS credits, "costUsd"::float AS cost, "versionN", questions, plan FROM "Message" WHERE id = $1`, [messageId])).rows[0];
+  const charges = async (messageId) => (await db.query(`SELECT tenths FROM "CreditEntry" WHERE "messageId" = $1 AND kind = 'charge'`, [messageId])).rows.map((r) => r.tenths);
+  const lastUsage = async (token, n = 1) => (await api(token, "GET", `/me/usage?limit=${n}`)).body.entries;
+  /** Starts a game and waits for its first answer. */
+  const start = async (token, body, base = API) => {
+    const made = await api(token, "POST", "/projects", body, base);
+    const id = made.body?.id;
+    if (id) projects.push(id);
+    const s = id ? await openEvents(token, id, base) : null;
+    const end = s ? await s.until(finished) : null;
+    return { id, s, end, made };
+  };
+  /** Sends a message and waits for its answer. */
+  const send = async (token, id, s, body) => {
+    const sent = await api(token, "POST", `/projects/${id}/messages`, body);
+    const messageId = sent.body?.messages?.at(-1)?.id;
+    const end = sent.status === 201 ? await s.until((e) => finished(e) && e.message?.id === messageId) : null;
+    return { sent, messageId, end };
+  };
+
+  console.log("  the words and the shapes");
+  const facts = { why: "asked", projectId: "p", messageId: "m", name: "Spike Cat", first: true, model: "fast", bigger: null, version: null, text: "", timeoutMin: 40, at: new Date() };
+  const one = noticeOf({ ...facts, asked: 1 });
+  const two = noticeOf({ ...facts, asked: 2 });
+  ok(one.kind === "asked" && one.title === "Spike Cat: one question before the build" && one.body === "Answer it, or leave it to the AI, and the build starts.", `the notice for one: "${one.title}", "${one.body}"`);
+  ok(two.title === "Spike Cat: 2 questions before the build" && two.body === "Answer them, or leave them to the AI, and the build starts.", `the notice for two: "${two.title}"`);
+  const ru = { decide: "Решайте сами", items: [{ label: "Герой", text: "Кем вы играете?", options: ["Драконом", "Рыцарем"] }] };
+  const r1 = replyTo("игра про драконов", ru, { answers: [null] });
+  ok(r1.text === "Герой: Решайте сами" && r1.prompt.endsWith("- Кем вы играете? -> You decide") && r1.label === "игра про драконов · Герой: Решайте сами", "You decide: the player's line in their language, the build's request says it plainly");
+  ok(cleanAsked({ decide: "x", items: [{ label: "A", text: "One?", options: ["a"] }] }, "Hi") === null && cleanAsked({ items: [] }, "Hi") === null, "a question with one answer, or none: nothing to ask (a failed run, free)");
+  let threw = 0;
+  for (const bad of [["a"], ["a", 5], ["a", "x".repeat(121)], "a"]) {
+    try {
+      parseAnswers(bad, 2);
+    } catch {
+      threw++;
+    }
+  }
+  ok(threw === 4 && parseAnswers(["  a  ", ""], 2).join("|") === "a|", "answers: one per question, words or null, 120 letters at most; an empty one is You decide");
+
+  console.log("  the tick, remembered per account");
+  const me0 = (await api(PAID, "GET", "/me")).body;
+  ok(me0.askFirst?.new === true && me0.askFirst?.edit === false, "Ask me first starts on for a new game, off for a change");
+  const me1 = await api(PAID, "PATCH", "/me", { askFirst: { edit: true } });
+  ok(me1.status === 200 && me1.body.askFirst?.new === true && me1.body.askFirst?.edit === true, "PATCH /me keeps the chat's tick (and answers with Me)");
+  const me2 = await api(PAID, "PATCH", "/me", { askFirst: { new: false } });
+  ok(me2.body.askFirst?.new === false && me2.body.askFirst?.edit === true && (await api(PAID, "GET", "/me")).body.askFirst?.new === false, "… and /create's, for the account");
+  ok((await api(PAID, "PATCH", "/me", {})).status === 400 && (await api(PAID, "PATCH", "/me", { askFirst: { new: "yes" } })).status === 400, "PATCH /me with nothing to change, or a word for a tick: 400");
+  await api(PAID, "PATCH", "/me", { askFirst: { new: true, edit: false } });
+  ok(admin("plan", emailOf(PAID), "medium").status === 0 && admin("grant", emailOf(PAID), "200").status === 0, "a maker on Medium + 200 credits");
+
+  console.log("  Free: a vague idea asks, Build it builds with the answers");
+  await api(FREE, "GET", "/me");
+  const spentBefore = await freeToday();
+  const v = await start(FREE, { prompt: "Make a game VAGUE ASKUSD:0.003", model: "fast", ask: true });
+  if (!v.id || !v.end) return ok(false, `the Free maker's vague game starts (${v.made.status})`);
+  try {
+    const m = v.end.message;
+    ok(v.end.type === "done" && v.end.version === null && m.status === "done", "a vague idea with Ask me first: a done answer, no version");
+    ok(m.questions?.items.length === 2 && m.questions.decide === "You decide" && m.questions.items[0].options.length === 3 && /Two quick questions/.test(m.text), "the answer: the AI's line, two questions with tap answers");
+    ok(m.credits === 0.1 && v.end.credits.available === 19.9 && v.end.credits.todayLeft === 4.9, "charged at once like the size check's stop: 0.1 credits");
+    ok(v.end.project.status === "idle" && v.end.project.buildId === null, "the game waits, idle, nothing built");
+    ok(!existsSync(join(DATA, "projects", v.id, "project.godot")), "no game files on disk");
+    const r = await row(m.id);
+    ok(r.status === "done" && r.credits === 0.1 && Math.abs(r.cost - 0.003) < 1e-9 && r.versionN === null && r.questions?.items?.length === 2 && r.plan === "free", "database: done, 0.1 credits, $0.003 (the call), the questions kept, no version");
+    ok((await charges(m.id)).join() === "-1", "the ledger: one charge of 0.1 with the answer");
+    ok(Math.abs((await freeToday()) - spentBefore - 0.003) < 1e-6, "the Free kill switch counts the call's $0.003");
+    const u0 = (await lastUsage(FREE))[0];
+    ok(u0?.amount === -0.1 && u0.what === "Questions before a new game on Fast" && u0.prompt === "Make a game VAGUE ASKUSD:0.003" && u0.game?.id === v.id, `credit history: -0.1, "${u0?.what}", the idea as its prompt`);
+
+    const b = await send(FREE, v.id, v.s, { answers: ["A cat", null], model: "fast" });
+    ok(b.sent.status === 201, `Build it with the answers, no text: 201 (${b.sent.status} ${b.sent.body?.message ?? ""})`);
+    const said = b.sent.body?.messages?.at(-2);
+    ok(said?.role === "user" && said.text === "You play: A cat\nGoal: You decide", `the player's message reads their answers: "${said?.text}"`);
+    ok(b.end?.type === "done" && b.end.version?.n === 1 && !b.end.message.questions, "the build: version 1, no second questions");
+    const f = fake(v.id);
+    ok(f.includes("[The player's answers to your questions before this build]\n- Who do you play as? -> A cat\n- What is the goal? -> You decide") && f.includes("- answered\n") && !f.includes("sized"), "the answers reached the build (You decide said as such), marked answered");
+    ok(b.end?.message.credits === 1.7, "its charge is the build's alone: 1.7 credits (the questions were paid already)");
+    const [u1, u2] = await lastUsage(FREE, 2);
+    const label = "Make a game VAGUE ASKUSD:0.003 · You play: A cat · Goal: You decide";
+    ok(u1?.what === "New game on Fast" && u1.amount === -1.7 && u1.prompt === label && u2?.what === "Questions before a new game on Fast", "credit history: the questions, then the build, each once");
+    const full = (await api(FREE, "GET", `/projects/${v.id}`)).body;
+    ok(full.versions[0]?.label === label, "the version's label is the player's own words (the idea, their answers)");
+    ok(full.messages.length === 4 && full.messages[1].questions?.items.length === 2 && full.messages[3].versionN === 1, "the chat keeps the questions (closed now), the answers, the build");
+    const again = await api(FREE, "POST", `/projects/${v.id}/messages`, { answers: ["A dog", null], model: "fast" });
+    ok(again.status === 400 && /answered already/.test(again.body?.message ?? ""), `answers with none open: 400 "${again.body?.message}"`);
+  } finally {
+    v.s?.close();
+  }
+  const off = await start(FREE, { prompt: "Make a game VAGUE ASKUSD:0.003", model: "fast" });
+  ok(off.end?.type === "done" && off.end.version?.n === 1 && !off.end.message.questions && off.end.message.credits === 1.7, "the tick off (ask left out): the same idea builds at once, no question, no call paid (1.7)");
+  off.s?.close();
+
+  console.log("  Medium: a clear idea builds at once; a change asks; the size check's stop wins");
+  const clear = await start(PAID, { prompt: "A robot runner that jumps over cactuses ASKUSD:0.003", model: "fast", ask: true });
+  if (!clear.id || !clear.end) return ok(false, `the clear game starts (${clear.made.status})`);
+  const cs = clear.s;
+  try {
+    ok(clear.end.type === "done" && clear.end.version?.n === 1 && !clear.end.message.questions, "a clear idea with Ask me first: built at once, no questions");
+    ok(clear.end.message.credits === creditsForUsd(0.1 + 0.003) && clear.end.message.credits === 1.8, "the call is part of its charge: $0.10 + $0.003 -> 1.8 credits");
+    ok(Math.abs((await row(clear.end.message.id)).cost - 0.143) < 1e-9, "database: $0.143 (the work and the call)");
+    const head = gitIn(clear.id, "rev-parse", "HEAD");
+    const ch = await send(PAID, clear.id, cs, { text: "add a second player VAGUE ASKUSD:0.002 CHECKUSD:0.001", model: "fast", ask: true });
+    ok(ch.end?.type === "done" && ch.end.version === null && ch.end.message.questions?.items.length === 1, "a change with Ask me first that could mean two things: one question, nothing built");
+    ok(ch.end?.message.credits === 0.1 && Math.abs((await row(ch.messageId)).cost - 0.003) < 1e-9, "charged 0.1 for its calls: the question and the size check beside it ($0.003)");
+    ok(gitIn(clear.id, "rev-parse", "HEAD") === head && gitIn(clear.id, "status", "--porcelain") === "", "the game's folder untouched");
+    ok((await lastUsage(PAID))[0]?.what === "Questions before a change on Fast", "credit history: Questions before a change on Fast");
+    const chb = await send(PAID, clear.id, cs, { answers: ["Both at once"], model: "fast" });
+    ok(chb.end?.type === "done" && chb.end.version?.n === 2 && chb.end.message.credits === 1.7, "Build it: version 2, 1.7 credits (no question or size check paid twice)");
+    ok(/- answered sized\n/.test(fake(clear.id)), "a change answered on the same AI skips its size check (it ran with the question)");
+    const big = await send(PAID, clear.id, cs, { text: "Add 10 levels and flying traps TOOBIG VAGUE ASKUSD:0.002 CHECKUSD:0.001", model: "fast", ask: true });
+    ok(big.end?.type === "done" && big.end.version === null && big.end.message.biggerModel === "smart" && !big.end.message.questions, "too big for Fast and vague: the size check's stop wins, no questions");
+    ok(big.end?.message.credits === 0.1 && Math.abs((await row(big.messageId)).cost - 0.003) < 1e-9, "its charge has the question call that went beside it ($0.003 -> 0.1)");
+    ok((await lastUsage(PAID))[0]?.what === "Change on Fast, stopped: too big for Fast", "credit history: the size check's stop as before");
+  } finally {
+    cs?.close();
+  }
+
+  console.log("  a reply typed instead, an unanswered question, the price agreed");
+  const t = await start(PAID, { prompt: "a game VAGUE", model: "fast", ask: true });
+  try {
+    ok(t.end?.message.questions?.items.length === 2, "another vague idea: two questions");
+    const tr = await send(PAID, t.id, t.s, { text: "a dragon who collects gold", model: "fast", ask: true });
+    const tf = fake(t.id);
+    ok(tr.end?.type === "done" && tr.end.version?.n === 1 && !tr.end.message.questions, "a message typed in the box answers them: built, never asked again (its tick was on)");
+    ok(tf.includes("[You asked the player before this build]\n- Who do you play as? (A robot / A cat / A dragon)") && tf.includes("[The player's reply, in their own words]\na dragon who collects gold") && tf.includes("- answered"), "the build got the questions and the reply in the player's words");
+    ok(tr.sent.body?.messages?.at(-2)?.text === "a dragon who collects gold", "the player's message is what they typed");
+  } finally {
+    t.s?.close();
+  }
+  const both = await start(PAID, { prompt: "one more game VAGUE", model: "fast", ask: true });
+  try {
+    ok(both.end?.message.questions?.lang === "en", "the questions carry their language's code (the page's lang)");
+    const bt = await send(PAID, both.id, both.s, { text: "and make it at night", answers: ["A cat", null], model: "fast" });
+    const bf = fake(both.id);
+    ok(bt.sent.body?.messages?.at(-2)?.text === "You play: A cat\nGoal: You decide\nand make it at night", `taps sent with words typed in the box: both in the player's message ("${bt.sent.body?.messages?.at(-2)?.text}")`);
+    ok(bf.includes("- Who do you play as? -> A cat") && bf.includes("[The player also wrote, in their own words]\nand make it at night"), "… and both reach the build: no tap is lost");
+  } finally {
+    both.s?.close();
+  }
+  const un = await start(PAID, { prompt: "something VAGUE", model: "fast", ask: true });
+  try {
+    const before = (await api(PAID, "GET", "/me")).body.credits.available;
+    await new Promise((res) => setTimeout(res, 1500));
+    const left = (await api(PAID, "GET", `/projects/${un.id}`)).body;
+    ok(left.status === "idle" && left.messages.at(-1)?.questions && (await api(PAID, "GET", "/me")).body.credits.available === before, "unanswered: the game waits idle, nothing more is charged");
+    ok((await db.query(`SELECT count(*)::int AS n FROM "QueuedRun" WHERE "projectId" = $1`, [un.id])).rows[0].n === 0, "… and nothing waits in line for it");
+    ok((await api(PAID, "DELETE", `/projects/${un.id}`)).status === 200, "a game with open questions can be deleted");
+    const kept = (await lastUsage(PAID, 5)).find((e) => e.gameDeleted && e.amount === -0.1);
+    ok(!!kept, "its 0.1 stays in the credit history (game deleted)");
+  } finally {
+    un.s?.close();
+  }
+  const pb = await start(PAID, { prompt: "a world VAGUE", model: "best", effort: "high", confirm: true, ask: true });
+  try {
+    ok(pb.end?.message.questions && pb.end.message.model === "best" && pb.end.message.effort === "high", "Best, high effort, its price confirmed: asks first");
+    const pa = await send(PAID, pb.id, pb.s, { answers: [null, null], model: "best", effort: "high" });
+    ok(pa.sent.status === 201 && pa.end?.type === "done", `Build it on the same AI and effort: no second price question (${pa.sent.status} ${pa.sent.body?.error ?? ""})`);
+    const need = await api(PAID, "POST", "/projects", { prompt: "another world", model: "best", effort: "high" });
+    ok(need.status === 409 && need.body?.error === "needs_confirm", "… while a new send at that price still asks first (needs_confirm)");
+  } finally {
+    pb.s?.close();
+  }
+
+  console.log("  a build in line keeps what it is (an API of our own with one builder)");
+  await api(LINE, "GET", "/me");
+  ok(admin("plan", emailOf(LINE), "medium").status === 0 && admin("grant", emailOf(LINE), "40").status === 0, "a second maker on Medium");
+  const lineApi = await spawnApi({ MAX_RUNS: "1" });
+  try {
+    const hold = await api(PAID, "POST", "/projects", { prompt: "HOLD the builder", model: "fast" }, lineApi.url);
+    if (hold.body?.id) projects.push(hold.body.id);
+    const w = await api(LINE, "POST", "/projects", { prompt: "a thing VAGUE", model: "fast", ask: true }, lineApi.url);
+    if (w.body?.id) projects.push(w.body.id);
+    ok(w.status === 201 && w.body.status === "queued", "a vague idea with Ask me first waits in line like any build");
+    ok((await db.query(`SELECT ask FROM "QueuedRun" WHERE "projectId" = $1`, [w.body?.id])).rows[0]?.ask === true, "its line row keeps Ask me first");
+    const ws = await openEvents(LINE, w.body.id, lineApi.url);
+    try {
+      await api(PAID, "POST", `/projects/${hold.body.id}/cancel`, undefined, lineApi.url);
+      const asked = await ws.until(finished);
+      ok(asked.message.questions?.items.length === 2, "at its turn it asked");
+      const hold2 = await api(PAID, "POST", "/projects", { prompt: "HOLD again", model: "fast" }, lineApi.url);
+      if (hold2.body?.id) projects.push(hold2.body.id);
+      const wa = await api(LINE, "POST", `/projects/${w.body.id}/messages`, { answers: ["A robot", "Collect the stars"], model: "fast" }, lineApi.url);
+      ok(wa.status === 201 && wa.body?.status === "queued", "Build it while the builder is busy: the answer waits in line");
+      const qr = (await db.query(`SELECT ask, answered, sized, label FROM "QueuedRun" WHERE "projectId" = $1`, [w.body.id])).rows[0];
+      ok(qr?.answered === true && qr.ask === false && qr.sized === false && qr.label === "a thing VAGUE · You play: A robot · Goal: Collect the stars", "its line row keeps answered and the label in the player's words");
+      await api(PAID, "POST", `/projects/${hold2.body.id}/cancel`, undefined, lineApi.url);
+      const built = await ws.until((e) => finished(e) && e.message?.id === wa.body.messages.at(-1).id);
+      ok(built.type === "done" && built.version?.n === 1 && fake(w.body.id).includes("- answered"), "at its turn it built with the answers");
+      ok((await api(LINE, "GET", `/projects/${w.body.id}`, undefined, lineApi.url)).body.versions[0]?.label === "a thing VAGUE · You play: A robot · Goal: Collect the stars", "… and its version's label");
+    } finally {
+      ws.close();
+    }
+  } finally {
+    lineApi.kill();
+  }
+}
+
 async function main() {
   console.log(`e2e against ${API}`);
   // Never against a real server: a run would burn the agent, and cleanup deletes users under it.
@@ -2568,6 +2783,7 @@ async function main() {
   await securityChecks();
   await pushChecks(db);
   await pictureChecks(db);
+  await questionChecks(db);
 
   // The Supabase sign-in record: the API deletes it with this statement (account.service.ts). Real
   // Google users can't sign in here, so try it on a throwaway Supabase user made with the admin API.

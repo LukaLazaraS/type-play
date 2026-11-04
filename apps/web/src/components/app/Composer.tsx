@@ -6,16 +6,18 @@ import type { CreditBalance, Effort, Estimate, Me, MessageImage, ModelChoice, Qu
 import { Ask } from "@/components/ui/Ask";
 import { Button } from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/ButtonLink";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { ErrorLine } from "@/components/ui/ErrorLine";
 import { TextArea } from "@/components/ui/Field";
 import { Strip } from "@/components/ui/Strip";
 import { TextLink } from "@/components/ui/TextLink";
 import { android } from "@/content/android";
-import { inLine, MAX_TEXT, pictures } from "@/content/app";
+import { inLine, MAX_TEXT, pictures, questions } from "@/content/app";
 import { checkoutHref, HOLD_LINE, pack, planAbove, planFacts } from "@/content/billing";
 import { credits as siteCredits } from "@/content/site";
 import { ApiFailure } from "@/lib/api";
 import { creditsWord, dayOf, tooLong, untilUtcMidnight, usd, whenParts } from "@/lib/format";
+import { saveAskFirst } from "@/lib/session";
 import { planName } from "./AccountSlot";
 import { EffortSwitch, effortLine, ModelSwitch, modelLine } from "./ModelPicker";
 import { NotifyAsk } from "./NotifyAsk";
@@ -41,8 +43,12 @@ type Props = {
   me: Me | null;
   /** Where a purchase comes back to: this game's page. */
   backTo: string;
-  /** `images`: the ids of the pictures in the box (2026-11-04), uploaded already; none: []. */
-  onSend: (text: string, model: ModelChoice, effort: Effort, confirm: boolean, images: string[]) => Promise<void>;
+  /** `images`: the ids of the pictures in the box (2026-11-04), uploaded already; none: []. `ask`: "Ask me first" is ticked
+   * (the AI may ask before it builds; 2026-11-04). */
+  onSend: (text: string, model: ModelChoice, effort: Effort, confirm: boolean, images: string[], ask: boolean) => Promise<void>;
+  /** The AI's questions are open (2026-11-04): what is sent now is their answer (never asks again: no tick), and on the AI
+   * and effort they were asked on its price was agreed already (no price question). */
+  answering?: { model: ModelChoice; effort: Effort } | null;
   onStop: () => Promise<void>;
   /** A tapped next-step idea (`n` counts the taps, so each tap lands once): added to the box (withIdea), focused. With
    * `model` (a stop's one tap: a change too big for its AI) the box holds just that text again, on that AI, with the
@@ -65,19 +71,28 @@ export function withIdea(current: string, idea: string): string {
   return `${now}, ${joined}`;
 }
 
+const modelNames: Record<ModelChoice, string> = { fast: "Fast", smart: "Smart", best: "Best" };
+
 /** The API's answers that mean "no credits for this": each gets its own panel with the way out. */
 type PanelKind = "no_credits" | "daily_limit" | "free_paused" | "billing_hold";
 const PANELS: PanelKind[] = ["no_credits", "daily_limit", "free_paused", "billing_hold"];
 
 /** Say what to change: the box, Fast / Smart / Best and the effort with their cost, Send, or Stop while building. */
-export function Composer({ kind, allowed, estimates, effort, onEffort, running, queued = false, queue = null, exporting = false, balance, me, backTo, onSend, onStop, prefill }: Props) {
+export function Composer({ kind, allowed, estimates, effort, onEffort, running, queued = false, queue = null, exporting = false, balance, me, backTo, onSend, onStop, prefill, answering = null }: Props) {
   const going = running || queued; // a build of this game going or waiting: Stop instead of Send
   const [text, setText] = useState("");
   const [picked, setPicked] = useState<ModelChoice | null>(null);
   // The tip under the box explains whichever control was touched last.
-  const [explain, setExplain] = useState<"model" | "effort">("model");
+  const [explain, setExplain] = useState<"model" | "effort" | "ask">("model");
+  // "Ask me first" for changes: off until the player ticks it, then as they left it (remembered for the account).
+  const [askPick, setAskPick] = useState<boolean | null>(null);
+  const askFirst = askPick ?? me?.askFirst?.edit ?? false;
   const fallback: ModelChoice = kind === "new" && allowed.includes("smart") ? "smart" : "fast";
-  const model: ModelChoice = picked && allowed.includes(picked) ? picked : fallback;
+  const chosen: ModelChoice = picked && allowed.includes(picked) ? picked : fallback;
+  // While questions are open (2026-11-04) what is sent answers them, on the AI and effort they were asked on: one AI and
+  // one price on the page (the card's), so the picker, the effort and the cost step aside.
+  const model: ModelChoice = answering?.model ?? chosen;
+  const sendEffort: Effort = answering?.effort ?? effort;
   const est = estimates[model];
   const [busy, setBusy] = useState(false);
   const [ask, setAsk] = useState<string | null>(null);
@@ -121,7 +136,8 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
       box.current?.focus();
       return;
     }
-    if (!confirm && est?.needsConfirm) {
+    // An answer to open questions goes on the AI and effort they were asked on: its price was agreed when the idea was sent.
+    if (!confirm && est?.needsConfirm && !answering) {
       setAsk(`This could cost up to ${creditsWord(est.high)}. Send it?`);
       return;
     }
@@ -131,7 +147,7 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
     setPanel(null);
     try {
       // Pictures still on their way are waited for: Send says it is busy meanwhile.
-      await onSend(t, model, effort, confirm, await tray.ids());
+      await onSend(t, model, sendEffort, confirm, await tray.ids(), !answering && askFirst);
       setText("");
       tray.clear();
     } catch (e) {
@@ -225,7 +241,7 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
         value={text}
         maxLength={MAX_TEXT}
         enterKeyHint="send"
-        placeholder={going || exporting ? "Say your next change" : kind === "new" ? "Say what game to make" : "Say what to change"}
+        placeholder={going || exporting ? "Say your next change" : answering ? questions.answerHere : kind === "new" ? "Say what game to make" : "Say what to change"}
         onChange={(e) => {
           setText(e.target.value);
           if (error) setError(null);
@@ -234,43 +250,64 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
         onKeyDown={onKey}
         describedBy="say-tip"
       />
-      <div className="composer__row">
-        <ModelSwitch
-          kind={kind}
-          value={model}
-          onChange={(m) => {
-            setPicked(m);
-            setExplain("model");
-            if (ask) setAsk(null);
-          }}
-          allowed={allowed}
-          disabled={busy || exporting}
-        />
+      <div className="composer__row" data-answering={answering ? "" : undefined}>
+        {!answering && (
+          <ModelSwitch
+            kind={kind}
+            value={model}
+            onChange={(m) => {
+              setPicked(m);
+              setExplain("model");
+              if (ask) setAsk(null);
+            }}
+            allowed={allowed}
+            disabled={busy || exporting}
+          />
+        )}
         {going ? (
           <Button look="quiet" size="small" onClick={() => void stop()} busy={busy}>
             <Stop size={16} weight="fill" aria-hidden="true" />
             <span className="composer__label">Stop</span>
           </Button>
         ) : (
-          <Button type="submit" size="small" busy={busy} disabled={exporting} aria-disabled={ask !== null || undefined}>
+          // While questions are open, Build it is the one hot action; Send turns hot once an answer is typed here.
+          <Button type="submit" size="small" look={answering && !text.trim() ? "quiet" : undefined} busy={busy} disabled={exporting} aria-disabled={ask !== null || undefined}>
             <ArrowUp size={16} weight="bold" aria-hidden="true" />
             <span className="composer__label">Send</span>
           </Button>
         )}
       </div>
-      <div className="composer__foot">
-        <EffortSwitch
-          name={`effort-${kind}`}
-          value={effort}
-          onChange={(e) => {
-            onEffort(e);
-            setExplain("effort");
-            if (ask) setAsk(null);
-          }}
-          disabled={busy || exporting}
-        />
-        {!going && est && <span className="composer__cost figures">about {creditsWord(est.typical)}</span>}
-      </div>
+      {/* While questions are open the AI, the effort and the cost are the card's (beside Build it): none here. */}
+      {!answering && (
+        <div className="composer__foot">
+          <EffortSwitch
+            name={`effort-${kind}`}
+            value={effort}
+            onChange={(e) => {
+              onEffort(e);
+              setExplain("effort");
+              if (ask) setAsk(null);
+            }}
+            disabled={busy || exporting}
+          />
+          {!going && est && <span className="composer__cost figures">about {creditsWord(est.typical)}</span>}
+          {/* "Ask me first" (2026-11-04), on a line of its own under Effort and the cost. */}
+          <Checkbox
+            size="small"
+            className="composer__ask"
+            checked={askFirst}
+            disabled={busy || exporting}
+            describedBy="say-tip"
+            onChange={(on) => {
+              setAskPick(on);
+              setExplain("ask");
+              void saveAskFirst("edit", on);
+            }}
+          >
+            {questions.tick}
+          </Checkbox>
+        </div>
+      )}
       <p id="say-tip" className="composer__tip" aria-live="polite">
         {drop.over ? (
           pictures.drop
@@ -289,6 +326,10 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
           </>
         ) : est && balance?.todayLeft != null && balance.todayLeft < est.low ? (
           "Today's free credits are used up. More tomorrow."
+        ) : answering ? (
+          questions.answerTip(`${modelNames[answering.model]}${answering.effort !== "medium" ? `, ${answering.effort} effort` : ""}`)
+        ) : explain === "ask" ? (
+          questions.tickTip(askFirst)
         ) : explain === "effort" ? (
           effortLine(effort)
         ) : (

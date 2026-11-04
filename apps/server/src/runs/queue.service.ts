@@ -37,7 +37,7 @@ const TAKEN_TEXT = "This build was interrupted by a restart on our side just as 
 /** What a new build in line needs written: QueuedRun's columns (nested under its agent message, in the same write). */
 export type QueuedRunData = Omit<QueuedRun, "messageId">;
 
-const entryOf = (row: Omit<QueuedRun, "prompt" | "platform" | "genre" | "tags" | "images" | "holdTenths">, model: ModelChoice, effort: Effort): QueuedEntry => ({
+const entryOf = (row: Pick<QueuedRun, "projectId" | "messageId" | "userId" | "kind" | "lane" | "queuedAt" | "turnAt">, model: ModelChoice, effort: Effort): QueuedEntry => ({
   projectId: row.projectId,
   messageId: row.messageId,
   userId: row.userId,
@@ -108,11 +108,45 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
     this.unsubscribe?.();
   }
 
-  /** The row for a build going into the line now: its turn (paid now, free after the delay) and its hold. */
-  rowFor(r: { projectId: string; userId: string; kind: RunKind; prompt: string; platform: Platform | null; genre: Genre | null; tags: GameTag[]; images: string[]; plan: Plan; hold: CreditHold; at: Date }): QueuedRunData {
+  /** The row for a build going into the line now: its turn (paid now, free after the delay) and its hold. `ask`,
+   * `answered`, `sized` and `label`: questions before the build (2026-11-04), as StartRun's. */
+  rowFor(r: {
+    projectId: string;
+    userId: string;
+    kind: RunKind;
+    prompt: string;
+    platform: Platform | null;
+    genre: Genre | null;
+    tags: GameTag[];
+    images: string[];
+    ask?: boolean;
+    answered?: boolean;
+    sized?: boolean;
+    label?: string | null;
+    plan: Plan;
+    hold: CreditHold;
+    at: Date;
+  }): QueuedRunData {
     const lane = r.plan === "free" ? "free" : "paid";
     const turnAt = new Date(turnAtOf(r.at.getTime(), lane, config.queue.freeDelayMin * 60_000));
-    return { projectId: r.projectId, userId: r.userId, kind: r.kind, prompt: r.prompt, platform: r.platform, genre: r.genre, tags: r.tags, images: r.images, lane, queuedAt: r.at, turnAt, holdTenths: toTenths(r.hold.credits) };
+    return {
+      projectId: r.projectId,
+      userId: r.userId,
+      kind: r.kind,
+      prompt: r.prompt,
+      platform: r.platform,
+      genre: r.genre,
+      tags: r.tags,
+      images: r.images,
+      ask: !!r.ask,
+      answered: !!r.answered,
+      sized: !!r.sized,
+      label: r.label ?? null,
+      lane,
+      queuedAt: r.at,
+      turnAt,
+      holdTenths: toTenths(r.hold.credits),
+    };
   }
 
   /** A build just written into the line (its message and row): mirrored, its hold kept, announced; it starts when it can. */
@@ -240,6 +274,10 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
       platform: row.platform,
       ...picksOf(row),
       images,
+      ask: row.ask,
+      answered: row.answered,
+      sized: row.sized,
+      label: row.label,
       hold,
       startedAt,
     });

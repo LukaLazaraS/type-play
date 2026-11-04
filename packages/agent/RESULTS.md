@@ -834,3 +834,52 @@ pupils, the orange antenna ball, the orange mouth, dark feet. NOTES.md says so i
 tokens are small (a 600×600 view is ~484 image tokens); the cost is the night's fast-games rules' Haiku build, not the
 picture. Not tried for real: a picture used as the game's art ("use my drawing as the player"), a screenshot as a style
 reference, Smart and Best (the rule is the same on every AI).
+
+## 2026-11-04: questions before a build ("Ask me first")
+
+Luka: the builder never asks anything. Now, with the player's "Ask me first" (on for new games, off for changes), one
+Haiku call with no tools (`tools/questions.mjs`, run first by `run.mjs --ask`: a new game's beside the genre call, a
+change's beside the size check) decides whether the idea leaves a real gap that changes the game (what you play, the goal,
+the controls, the look's direction) and writes up to 3 short questions with 2-4 tap answers, in the player's language,
+as one JSON object. None: the build goes on in the same run. Questions: the run stops before anything is built and they
+are the chat's answer; the next run builds with the answers (`--answered`, `rules/ANSWERS.md`) and never asks again.
+
+Real calls on this PC, no builds (`tests/questions-eval.mjs`): 18 requests, 13 new games (a few with picks) and 5
+changes to a sample runner's notes. Second run, after "You decide" was made clear (the first run, also 18 of 18, wrote it
+in Russian as "Решу сам", "I'll decide"; now "Решайте сами"):
+
+| Request | Kind | Picks | Want | Got | Cost | Time |
+|---|---|---|---|---|---|---|
+| make a game | new | | ask | 2 questions | $0.0004 | 3.8 s |
+| a space game | new | | ask | 2 | $0.0005 | 4.7 s |
+| something with dinosaurs | new | | ask | 2 | $0.0007 | 4.0 s |
+| a game for my little sister | new | | ask | 2 | $0.0007 | 6.4 s |
+| a game about cats | new | puzzle | either | 2 | $0.0008 | 9.0 s |
+| a space game | new | shooter, retro | either | none | $0.0007 | 6.7 s |
+| Make an endless runner where a little robot jumps over cactuses and it gets faster over time. | new | | none | none | $0.0006 | 5.2 s |
+| Match-3 with fruit, 10 levels, each with a target score and a move limit | new | | none | none | $0.0006 | 5.5 s |
+| snake, but you are a cat eating fish | new | | none | none | $0.0005 | 4.7 s |
+| A tower defence game where you place cannons to stop slimes walking down a path | new | | none | none | $0.0007 | 5.6 s |
+| игра про драконов | new | | ask | 2 | $0.0004 | 4.2 s |
+| თამაში მანქანებზე | new | | ask | 2 | $0.0008 | 8.5 s |
+| Un jeu de course de voitures en 3D sur une plage, vue de derrière la voiture | new | | none | none | $0.0008 | 6.1 s |
+| add a second player | change | | either | 1 | $0.0007 | 6.3 s |
+| Add a double jump | change | | none | none | $0.0006 | 5.5 s |
+| make it better | change | | either | 1 | $0.0007 | 6.9 s |
+| Make the robot red and a bit faster | change | | none | none | $0.0003 | 4.4 s |
+| change the controls | change | | either | 1 | $0.0007 | 5.2 s |
+
+18 of 18 as wanted; $0.0112 in all (~$0.0006 a call: 0.01 credit, so a questions answer is the 0.1 minimum). Each call
+starts a Claude Code process: 4-9 s. Beside the genre call (a new game) or the size check (a change) it adds a few seconds
+to a clear idea's build, which then goes on in the same run. The questions read well ("Who do you play as? A dinosaur /
+A caveman hunter / A park ranger / A dino-tamer / You decide"; "How do the two players play? Both at once / Taking turns");
+the Georgian and Russian ones are in the player's language, the clear ideas and the clear changes ask nothing, and with a
+genre and tags picked a short idea asks less. One `run.mjs --ask --model haiku --prompt "a game about space"` end to end:
+the genre call and the questions side by side ($0.0005 + $0.0007), the result `asked: true` with two questions, nothing
+built, the folder only the template (the server clears it).
+
+After the design review the call also returns its language's BCP 47 code (`lang`, the page's `lang` for a screen
+reader's voice) and "Type my own" in the player's language (`own`), and "You decide" got example translations in the
+prompt: a third run had written Russian "Решу сам" ("I'll decide") again. Final run, all 18: 18 of 18 as wanted, $0.0111,
+4.9-8.9 s; every asked call gave `lang` (en, ru, ka) and `own` ("Напишу свой вариант", "ჩემი პასუხის ჩაწერა"); Russian
+"Решай сам", Georgian "შენ გადაწყვიტე".

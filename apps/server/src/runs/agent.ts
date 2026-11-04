@@ -6,9 +6,10 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createWriteStream, mkdirSync } from "node:fs";
 import { basename, dirname } from "node:path";
-import type { Effort, GameTag, Genre, ModelChoice, Platform } from "@typeplay/shared";
+import type { Effort, GameTag, Genre, ModelChoice, Platform, Questions } from "@typeplay/shared";
 import type { RunImage } from "../attachments/attachments.service.js";
 import { config, ENV_FILE_KEYS } from "../env.js";
+import { cleanAsked } from "../projects/questions.js";
 import type { ModelFamily } from "./key-proxy.js";
 import { readLines } from "./lines.js";
 import { startRunnerJob, type JobExit } from "./runner-client.js";
@@ -38,6 +39,11 @@ export interface AgentJob {
    * into the job's home; on this PC `imagesDir` holds them already (store.ts prepareRunImages). Both: run.mjs --images. */
   images?: RunImage[];
   imagesDir?: string | null;
+  /** Questions before the build (2026-11-04, run.mjs --ask / --answered / --sized): the AI may ask first; the request ends
+   * with the player's answers (it never asks again); a change answering them on the same AI skips the size check. */
+  ask?: boolean;
+  answered?: boolean;
+  sized?: boolean;
   logFile: string;
   onProgress: (text: string) => void;
   auth?: AgentAuth;
@@ -64,6 +70,11 @@ export interface AgentResult {
   /** The size check stopped a change too big for the AI it was sent on: nothing was built, `playerMessage` says why, and
    * the answer is charged for the check (runs.service `stop`). */
   tooBig?: boolean;
+  /** The AI asked before building (2026-11-04, --ask): nothing was built; the answer is `intro` and the questions, charged
+   * for the calls that ran (runs.service `stopAsked`). Missing when it didn't ask. */
+  asked?: { intro: string; questions: Questions };
+  /** What the questions call cost: part of the answer's charge, as the genre call's (asked or not). */
+  askCostUsd?: number;
   /** The last check exported a step that was then rolled back: export again before publishing. */
   staleExport?: boolean;
   error?: string;
@@ -148,6 +159,9 @@ interface FinalRecord {
   classifyCostUsd?: number;
   sizeCheckCostUsd?: number;
   tooBig?: boolean;
+  asked?: boolean;
+  questions?: unknown;
+  askCostUsd?: number;
   attempts?: { ok?: boolean }[];
 }
 
@@ -207,6 +221,9 @@ export function runAgent(job: AgentJob): AgentHandle {
     if (job.tags?.length) args.push("--tags", job.tags.join(","));
   }
   if (job.imagesDir && !config.runnerSocket) args.push("--images", job.imagesDir);
+  if (job.answered) args.push("--answered");
+  else if (job.ask) args.push("--ask");
+  if (job.sized && job.kind === "edit") args.push("--sized");
   // 0700: run logs carry the prompt and the agent's narration; on the live server the runner's
   // throwaway users can traverse /data and must not read them (runner.mjs sets the same).
   mkdirSync(dirname(job.logFile), { recursive: true, mode: 0o700 });
@@ -234,6 +251,7 @@ export function runAgent(job: AgentJob): AgentHandle {
     const sideCosts = {
       classifyCostUsd: Number(r?.classifyCostUsd ?? 0),
       sizeCheckCostUsd: Number(r?.sizeCheckCostUsd ?? 0),
+      askCostUsd: Number(r?.askCostUsd ?? 0),
     };
     if (!r || error) {
       return {
@@ -247,11 +265,14 @@ export function runAgent(job: AgentJob): AgentHandle {
         error: error ?? "the agent stopped without a result",
       };
     }
+    // Questions need something to show: unreadable ones make it a plain failure (free), never an empty charged answer.
+    const asked = !r.ok && !r.tooBig && r.asked ? cleanAsked(r.questions, r.playerMessage) : null;
     return {
       ok: !!r.ok,
       refused: !!r.refused,
       // A size-check stop needs its message: without one it is a plain failure (free), never an empty charged answer.
       tooBig: !r.ok && !!r.tooBig && !!r.playerMessage?.trim(),
+      ...(asked ? { asked } : {}),
       playerMessage: r.playerMessage ?? "",
       costUsd: Number(r.costUsd ?? 0),
       messageCostUsd: Number(r.messageCostUsd ?? 0),

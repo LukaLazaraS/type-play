@@ -83,7 +83,9 @@ build runs); `NOPOSTER` writes a picture that isn't a PNG, so the
 build publishes without a poster; `FILL` on a change makes the game fill every screen (its `PLATFORM` word and window, as
 the agent does when asked to make a game fit other screens too); a first build sets them for the request's platform, and
 writes `GENRE` for a picked genre and `TAGS` for tags, as run.mjs does; a build that works brings nine fixed next-step ideas; with `FAKE_METER=1`, `METER:<n>` makes one Haiku call through the key proxy at the
-start, whose (mock) answer reports `<n>` output tokens. Real git commits, real builds, real ledger entries.
+start, whose (mock) answer reports `<n>` output tokens; with Ask me first, `VAGUE` asks before the build (`LONGQ` the worst
+case) and `ASKUSD:<n>` is that call's cost ("Questions before a build" below). Real git commits, real builds, real ledger
+entries.
 
 Each database test run gets a database of its own, `typeplay_autotest_<script>_<id>` (`test/test-db.mjs` starts this
 PC's Postgres if needed, makes it from this checkout's migrations and drops it when the run ends), and every API it
@@ -620,6 +622,42 @@ does the agent copy one into the game as its art (`packages/agent/rules/PICTURES
   11-04: the job's own `refs/` 0700 with 0600 files of its user, the API's folder shut to the job, `--images` and bad ids
   refused, the home wiped after the job; how to run it is in its header).
 
+## Questions before a build (2026-11-04)
+
+The player's **Ask me first** (`ask: true` on `POST /projects` and `POST /projects/:id/messages`; /create ticks it for a
+new game, the chat's composer leaves it off for a change; each account's tick is remembered, `User.askFirstNew` /
+`askFirstEdit`, `PATCH /me`): the AI may ask up to 3 short questions before it builds, only where the idea leaves a real
+gap (what you play, the goal, the controls, the look's direction). Competitors and why it works this way:
+`docs/research/clarifying-questions-2026-11-04.md`; the night's decisions: `docs/overnight/2026-11-04_questions.md`.
+
+- **Where it runs:** first in the build's own run (`run.mjs --ask`, `packages/agent/tools/questions.mjs`: Haiku, low
+  effort, no tools, one turn), so it has the run's isolation (the runner live), meter, hold, queue place and events. It
+  sees the request, the picks (genre, tags, screens), the pictures themselves and, for a change, the game's notes. A new
+  game's call goes beside the genre call; a change's beside the size check, whose stop wins. None asked: the build goes
+  on in the same run. Questions: the run ends before anything is built (`stopAsked`; a new game's template folder is
+  cleared) with a `done` answer carrying `questions` (`Message.questions`, JSON `{ decide, items: [{ label, text,
+  options }] }`, checked again here by `projects/questions.ts`), no version; notice kind `asked`.
+- **The answer:** while that answer is the game's newest message its questions are open. The next message sent is their
+  answer: `answers` (one per question: the words, or null for You decide; the API writes the player's message, one
+  "Label: answer" line each), a typed `text`, or both (the site's box sends the card's taps with its words: both lines in
+  the player's message, both in the build's request). The build gets the request asked about, the questions and the answer
+  (`replyTo`, read by `packages/agent/rules/ANSWERS.md`) and the request's pictures, runs with `--answered` (never asks
+  again), and a change answered by taps on the same AI also skips its size check (`--sized`). Its version's label is the
+  player's words (the request and their message on one line, " · " between: `QueuedRun.label` keeps it while it waits).
+  `answers` with none open: 400.
+- **Money:** a clear idea: the call (`askCostUsd`) is in the build's charge with the other side calls. Questions: that
+  answer is charged at once like the size check's stop (the calls the run made, metered wins, at least 0.1), its credit
+  line "Questions before a new game on Fast" (or a change) with the request as its prompt; nothing more is ever charged
+  for it, answered or not. The build after it is charged on its own.
+- **The price question:** sent on the AI and effort the questions were asked on, the answer counts as confirmed (that
+  price was agreed when the request was sent; the estimate never depends on the words). Another AI or effort is a new
+  request: `needs_confirm` as usual.
+- **Fake runs:** with `ask`, a prompt with `VAGUE` asks (two questions for a new game, one for a change), `VAGUE LONGQ` the
+  worst case the chat must hold; `ASKUSD:<n>` is the call's cost. A build answering writes `- answered` (`sized` too) into
+  FAKE.md.
+- Tests: the e2e's "questions before a build" section; `packages/agent/tests/questions.mjs` (the answer's parsing, no
+  model call) and `tests/questions-eval.mjs` (real calls on this PC); the screens: `apps/web/scripts/shot-questions.mjs`.
+
 ## How a message runs
 
 1. Checks (in order): one run per project, going or waiting (409 `busy`), the plan's builds at once per user,
@@ -701,7 +739,8 @@ account deleted meanwhile), the account's notice (`RunNotice`, its words written
   429, 5xx or no answer: one more try after Retry-After (at most 10 s). Never awaited by a run; logged by the push
   service's host and the row's id, never by the address (it works like a password for the device).
 
-Which ends: a new version (`ready`), the size check's stop (`toobig`, with the bigger AI the plan has), and every way a build
+Which ends: a new version (`ready`), the size check's stop (`toobig`, with the bigger AI the plan has), questions before
+the build (`asked`, 2026-11-04: "Spike Cat: 2 questions before the build"), and every way a build
 didn't build or didn't start (`failed`: failed, refused, timed out, interrupted, left the queue). A deploy stops running
 builds without writing anything (`fail` returns while the server stops), so the next start marks them interrupted, resets
 their folders and tells the players, as it does after a crash.

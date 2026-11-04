@@ -7,7 +7,7 @@ import type { QueuePlace } from "@typeplay/shared";
 import { InkPillLink } from "@/components/ui/InkPill";
 import { Pulse } from "@/components/ui/Pulse";
 import { Toast } from "@/components/ui/Toast";
-import { inLine } from "@/content/app";
+import { inLine, questions } from "@/content/app";
 import { watchProject } from "@/lib/api";
 import { aheadWord, clock, waitWord } from "@/lib/format";
 import { ReadyLine } from "./ReadyLine";
@@ -16,7 +16,7 @@ import { forgetWaiting, useWaiting } from "./WhileYouWait";
 
 /** `at`: when it was last heard of, so the clock is right before the first tick (the pill lives as long as the page).
  * `place`: while it waits for its turn. */
-type Seen = { name: string; status: "queued" | "running" | "ready" | "failed"; since: string | null; line: string; place: QueuePlace | null; at: number };
+type Seen = { name: string; status: "queued" | "running" | "ready" | "asked" | "failed"; since: string | null; line: string; place: QueuePlace | null; at: number };
 
 /**
  * The way back from the gallery (WhileYouWait's "More in the gallery"): on every other page of this tab, a pill
@@ -37,9 +37,10 @@ export function BuildPill() {
       (e) => {
         if (e.type === "snapshot") {
           const running = e.project.messages.findLast((m) => m.role === "agent" && m.status === "running");
+          const asked = !e.project.buildId && !!e.project.messages.at(-1)?.questions;
           setSeen({
             name: e.project.name,
-            status: e.project.status === "running" ? "running" : e.project.status === "queued" ? "queued" : e.project.buildId ? "ready" : "failed",
+            status: e.project.status === "running" ? "running" : e.project.status === "queued" ? "queued" : e.project.buildId ? "ready" : asked ? "asked" : "failed",
             since: running ? (running.startedAt ?? running.createdAt) : null,
             line: "",
             place: e.project.queue ?? null,
@@ -52,7 +53,9 @@ export function BuildPill() {
         } else if (e.type === "progress") {
           setSeen((s) => (s ? { ...s, line: e.text, at: Date.now() } : s));
         } else if (e.type === "done" || e.type === "failed") {
-          setSeen((s) => ({ name: e.project.name, status: e.project.buildId ? "ready" : "failed", since: s?.since ?? null, line: "", place: null, at: Date.now() }));
+          // A first build whose AI asked first (2026-11-04): its questions wait on the game's page.
+          const status = e.project.buildId ? "ready" : e.type === "done" && e.message.questions ? "asked" : "failed";
+          setSeen((s) => ({ name: e.project.name, status, since: s?.since ?? null, line: "", place: null, at: Date.now() }));
         }
       },
       () => {},
@@ -106,6 +109,15 @@ export function BuildPill() {
         </>
       ) : seen.status === "ready" ? (
         <ReadyLine name={seen.name} href={href} />
+      ) : seen.status === "asked" ? (
+        <>
+          <span className="buildpill__text">
+            <b>{questions.pill}</b>
+          </span>
+          <InkPillLink href={href} size="small" className="buildpill__back" icon={<ArrowRight size={16} weight="bold" aria-hidden="true" />} iconAfter>
+            <span className="buildpill__label">{questions.go}</span>
+          </InkPillLink>
+        </>
       ) : (
         <>
           <span className="buildpill__text">Your game didn&apos;t build. Nothing was charged.</span>

@@ -60,6 +60,9 @@ export interface Me {
   billing?: MeBilling;
   /** What this server can do (Android export, 2026-10-18): the site hides the Android pill when the toolchain is off. */
   features?: { android: boolean };
+  /** "Ask me first" as the player last left it (2026-11-04): on /create (`new`, on until unticked) and in a game's chat
+   * (`edit`, off until ticked). The tick's starting state only; PATCH /me changes it. */
+  askFirst?: { new: boolean; edit: boolean };
 }
 
 /** Me.billing: enough for the strips on the game and account pages. */
@@ -249,7 +252,31 @@ export interface Message {
   /** User messages: the pictures the player attached to it, in their order (added 2026-11-04). Missing when there are none.
    * GET /attachments/:id/thumb and /attachments/:id fetch them, with the sign-in header (owner only). */
   images?: MessageImage[];
+  /** Added 2026-11-04 (questions before a build). The AI asked before building (status done, charged for the call, no
+   * version): `text` is its line before them. While this is the game's newest message they are open: the chat shows tap
+   * answers and Build it, and the next message sent (POST /projects/:id/messages, with `answers` or typed) is their
+   * answer. Missing on other answers. */
+  questions?: Questions;
   createdAt: string;
+}
+
+/** What the AI asks before a build (2026-11-04): 1-3 questions in the player's language. */
+export interface Questions {
+  items: Question[];
+  /** "You decide" in the player's language: the answer that leaves a point to the AI. */
+  decide: string;
+  /** "Type my own" in the player's language: the answer they write themselves. Missing: the site's English words. */
+  own?: string;
+  /** The player's language as a BCP 47 code ("ka", "ru", "en"), for the page's `lang` (a screen reader's voice). Missing
+   * when the AI didn't say. */
+  lang?: string;
+}
+
+/** One question: a short label (the player's answer line starts with it), the question, 2-4 answers to tap. */
+export interface Question {
+  label: string;
+  text: string;
+  options: string[];
 }
 
 /** A picture attached to a message (2026-11-04): its id and the clean picture's size (for the thumbnail's shape). */
@@ -544,9 +571,10 @@ export interface ReportBody {
 // never told: they know.
 
 /** ready: a new version to play. toobig: the size check stopped a change as too big for its AI (no version; the chat
- * offers the bigger AI). failed: it didn't build, or didn't start (failed, refused, timed out, interrupted, or it left
- * the queue without starting): nothing was charged. */
-export type NoticeKind = "ready" | "toobig" | "failed";
+ * offers the bigger AI). asked: the AI asks a few questions before it builds (2026-11-04; nothing built until they are
+ * answered). failed: it didn't build, or didn't start (failed, refused, timed out, interrupted, or it left the queue
+ * without starting): nothing was charged. */
+export type NoticeKind = "ready" | "toobig" | "asked" | "failed";
 
 /** One build's end, as the notifications say it: the same words in the site's notice and the device's notification. */
 export interface RunNotice {
@@ -583,17 +611,37 @@ export interface CreateProjectBody {
   /** Pictures for the AI to build from (2026-11-04): up to 10 ids from POST /attachments, in their order. They are
    * references (look, colours, characters, layout) unless the prompt asks for one to be used in the game itself. */
   images?: string[];
+  /** "Ask me first" (2026-11-04): the AI may ask up to 3 short questions before it builds, only when the idea leaves a
+   * real gap (what you play, the goal, the controls, the look). Left out: false, it builds at once. */
+  ask?: boolean;
 }
 
 /** POST /projects/:id/messages: ask for a change. 409 while a run is active or waiting in line on this project. */
 export interface SendMessageBody {
-  text: string;
+  /** Required, except with `answers` (then the API writes the player's message from them). */
+  text?: string;
   model: ModelChoice;
   effort?: Effort;
   confirm?: boolean;
   /** Pictures sent with it (2026-11-04): up to 10 ids, each from POST /attachments or an earlier message of this game (a
    * picture sent again is copied for this message). */
   images?: string[];
+  /** "Ask me first" for this change (2026-11-04), as CreateProjectBody.ask. Ignored when it answers questions (the AI
+   * asks once per request). */
+  ask?: boolean;
+  /** The answers to the open questions (the game's newest message asked them), one per question in their order: the
+   * answer's words (a tapped one, or the player's own, up to 120 letters), or null for You decide. 400 when no questions
+   * are open. A message with `text`, while questions are open, is their answer in the player's own words, with `answers`
+   * too when some were tapped. Either way the build gets the request asked about, the questions and the answers, and
+   * never asks again; sent on the AI and effort the questions were asked on, the price agreed then holds (no
+   * needs_confirm). */
+  answers?: (string | null)[];
+}
+
+/** PATCH /me (2026-11-04): what the player changes about their account here. Answers with Me. */
+export interface UpdateMeBody {
+  /** "Ask me first" as the player leaves the tick: on /create (`new`) or in a game's chat (`edit`). */
+  askFirst?: { new?: boolean; edit?: boolean };
 }
 
 /** POST /projects/:id/restore: make an old version the current one (as a new version). */
@@ -825,6 +873,17 @@ export interface FeedbackBody {
 // GET    /me/export              gains `notifications` (the devices, without their addresses)
 //
 // Added 2026-11-04 (the build time on each answer): Message.finishedAt on an agent message that started (with startedAt).
+//
+// Added 2026-11-04 (questions before a build, packages/agent/tools/questions.mjs; "Ask me first"):
+// POST /projects, POST /projects/:id/messages   `ask`: the run asks first when the idea leaves a real gap: its answer is a
+//                                 done message with `questions`, no version, charged for the calls it made (at least 0.1;
+//                                 the "done" event as for any answer); a clear idea builds at once, the call in its charge
+// POST /projects/:id/messages     `answers` (or a typed `text`) while the newest message holds questions: their answer; the
+//                                 build gets them and never asks again; 400 bad_request for `answers` with none open
+// PATCH  /me                      -> Me                 (UpdateMeBody: the tick's starting state, remembered per account)
+// GET    /me                      `askFirst`
+// GET    /me/usage                a questions answer's line says "Questions before a new game on Fast" (or a change)
+// GET    /me/events               a notice of kind "asked" when the AI asks
 
 export type ApiErrorCode =
   | "unauthorized" // no or bad token

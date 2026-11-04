@@ -29,6 +29,7 @@ import type {
   SetupAndroidBody,
   StartAndroidBuildBody,
   UpdateAndroidBody,
+  UpdateMeBody,
   UpdateProjectBody,
   UsagePage,
 } from "@typeplay/shared";
@@ -119,6 +120,7 @@ const id = (projectId: string) => encodeURIComponent(projectId);
 
 export const api = {
   me: () => call<Me>("/me"),
+  updateMe: (body: UpdateMeBody) => call<Me>("/me", { method: "PATCH", body }),
   projects: () => call<ProjectSummary[]>("/projects"),
   project: (projectId: string) => call<Project>(`/projects/${id(projectId)}`),
   create: (body: CreateProjectBody) => call<Project>("/projects", { method: "POST", body }),

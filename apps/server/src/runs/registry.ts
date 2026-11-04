@@ -28,6 +28,11 @@ export interface ActiveRun {
   tags?: GameTag[];
   /** The pictures its message carries, as StartRun's. */
   images?: RunImage[];
+  /** Questions before the build, as StartRun's (2026-11-04). */
+  ask?: boolean;
+  answered?: boolean;
+  sized?: boolean;
+  label?: string | null;
   /** The credits held for this run while it goes (released when its charge or failure is written). */
   hold: CreditHold | null;
   handle: AgentHandle | null;

@@ -10,6 +10,11 @@
 // what that check (or, for a new game, the genre call) reports it cost; $0 otherwise, so the tests' figures stay exact.
 // The pictures a run gets (2026-11-04: the folder run.mjs --images reads) are written into FAKE.md, each one's name, size
 // and SHA-256, so a test sees that they reached the run byte for byte.
+// Questions before a build (2026-11-04, packages/agent/tools/questions.mjs) as run.mjs asks them: with "Ask me first"
+// (job.ask) a prompt with "VAGUE" stops before anything is built with two questions (one for a change) as the answer;
+// "ASKUSD:<n>" is what that call reports it cost, asked or not ($0 otherwise); "VAGUE LONGQ" asks the worst case the chat
+// must hold. A size-check stop wins over questions. A build answering them (job.answered) writes "- answered" (and
+// "sized" when the size check was skipped) into FAKE.md.
 // It makes a real git commit, like the agent would.
 import { createHash } from "node:crypto";
 import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -123,6 +128,7 @@ async function fakeWork(job: AgentJob) {
     setPlatform(job.dir, "fill"); // as the agent does when asked to make a game fit other screens too
   }
   appendFileSync(join(job.dir, "FAKE.md"), `- ${job.kind}: ${job.prompt}\n`);
+  if (job.answered) appendFileSync(join(job.dir, "FAKE.md"), `- answered${job.sized ? " sized" : ""}\n`);
   if (job.imagesDir) appendFileSync(join(job.dir, "FAKE.md"), picturesLine(job.imagesDir));
   // A first build's picks in the files run.mjs keeps them in: GENRE for a picked genre (with none, run.mjs writes the
   // one it picks itself), TAGS for the tags (no tags, no file).
@@ -177,10 +183,45 @@ const IDEAS = {
 
 const MODEL_NAME = { fast: "Fast", smart: "Smart", best: "Best" } as const;
 
-/** A fake run's size check: { tooBig, costUsd } for a change on Fast or Smart; null where run.mjs makes none. */
+/** A fake run's size check: { tooBig, costUsd } for a change on Fast or Smart; null where run.mjs makes none (a new game,
+ * Best, or a change answering questions on the same AI: --sized). */
 function fakeSizeCheck(job: AgentJob): { tooBig: boolean; costUsd: number } | null {
-  if (job.kind !== "edit" || job.model === "best") return null;
+  if (job.kind !== "edit" || job.model === "best" || job.sized) return null;
   return { tooBig: job.prompt.includes("TOOBIG"), costUsd: Number(/CHECKUSD:([\d.]+)/.exec(job.prompt)?.[1] ?? 0) };
+}
+
+/** A fake run's questions call (job.ask, never on a build answering questions): its questions for a "VAGUE" prompt, and
+ * what it cost (ASKUSD:<n>). Null where run.mjs makes none. */
+function fakeAsk(job: AgentJob): { asked: AgentResult["asked"] | null; costUsd: number } | null {
+  if (!job.ask || job.answered) return null;
+  const costUsd = Number(/ASKUSD:([\d.]+)/.exec(job.prompt)?.[1] ?? 0);
+  if (!job.prompt.includes("VAGUE")) return { asked: null, costUsd };
+  // "LONGQ": the worst case the chat must hold (the walk-through's break-ui pass): three questions at the length limits,
+  // four answers each, a long word that can't break, and another script.
+  if (job.prompt.includes("LONGQ")) {
+    const items = [
+      {
+        label: "Spielfigur und Rolle",
+        text: "Wen oder was steuerst du in diesem Spiel, und wie soll sich deine Spielfigur von allen anderen Figuren unterscheiden?",
+        options: ["Einen Weltraumpiratenkapitän", "Eine Drachenreiterin mit Schild", "Superlangesunbrechbareswortohnepause", "Einen kleinen Roboter"],
+      },
+      { label: "Ziel", text: "Was ist das Ziel?", options: ["So weit wie möglich kommen", "Alle Sterne sammeln, bevor die Zeit abläuft", "Die Burg verteidigen", "Den Boss besiegen"] },
+      { label: "かたち", text: "ゲームの見た目はどんな感じにしますか？", options: ["かわいいドット絵", "ネオンの宇宙", "水彩の森"] },
+    ];
+    return {
+      asked: { intro: "Drei kurze Fragen, damit ich genau das Spiel baue, das du dir vorstellst. (This is a test answer.)", questions: { decide: "Du entscheidest", own: "Selbst schreiben", lang: "de", items } },
+      costUsd,
+    };
+  }
+  const items =
+    job.kind === "new"
+      ? [
+          { label: "You play", text: "Who do you play as?", options: ["A robot", "A cat", "A dragon"] },
+          { label: "Goal", text: "What is the goal?", options: ["Run as far as you can", "Collect the stars"] },
+        ]
+      : [{ label: "Two players", text: "How do the two players play?", options: ["Both at once", "Taking turns"] }];
+  const intro = items.length === 1 ? "One quick question before I change it. (This is a test answer.)" : "Two quick questions, so I build the game you have in mind. (This is a test answer.)";
+  return { asked: { intro, questions: { decide: "You decide", lang: "en", items } }, costUsd };
 }
 
 export function runFakeAgent(job: AgentJob): AgentHandle {
@@ -197,10 +238,25 @@ export function runFakeAgent(job: AgentJob): AgentHandle {
   const hold = job.prompt.includes("HOLD");
   const sized = fakeSizeCheck(job);
   const tooBig = !!sized?.tooBig;
-  // The genre call (a new game) or the size check (a change on Fast or Smart): part of the answer's charge.
-  const side = { classifyCostUsd: job.kind === "new" ? Number(/CHECKUSD:([\d.]+)/.exec(job.prompt)?.[1] ?? 0) : 0, sizeCheckCostUsd: sized?.costUsd ?? 0 };
-  LINES.slice(0, hold || tooBig ? 1 : LINES.length).forEach((text, i) => timers.push(setTimeout(() => job.onProgress(text), (300 + i * 1000) * stretch)));
-  if (tooBig) {
+  const asking = fakeAsk(job);
+  const asked = !tooBig ? (asking?.asked ?? null) : null; // a size-check stop wins over questions
+  // The genre call (a new game), the size check (a change on Fast or Smart) and the questions call: part of the answer's charge.
+  const side = {
+    classifyCostUsd: job.kind === "new" ? Number(/CHECKUSD:([\d.]+)/.exec(job.prompt)?.[1] ?? 0) : 0,
+    sizeCheckCostUsd: sized?.costUsd ?? 0,
+    askCostUsd: asking?.costUsd ?? 0,
+  };
+  LINES.slice(0, hold || tooBig || asked ? 1 : LINES.length).forEach((text, i) => timers.push(setTimeout(() => job.onProgress(text), (300 + i * 1000) * stretch)));
+  if (asked) {
+    // Questions before the build, as run.mjs asks them: nothing built, the questions as the answer.
+    timers.push(
+      setTimeout(() => {
+        if (killed) return;
+        started = true;
+        finish({ ok: false, asked, playerMessage: asked.intro, costUsd: 0, messageCostUsd: 0, chargeUsd: 0, suggestions: [], suggestionsCostUsd: 0, ...side });
+      }, 1500),
+    );
+  } else if (tooBig) {
     // Stopped before the build, as run.mjs stops it: the game folder untouched, the check's message as the answer.
     timers.push(
       setTimeout(() => {

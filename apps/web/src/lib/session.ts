@@ -127,6 +127,25 @@ export function setCredits(credits: CreditBalance) {
   if (state.status === "in" && state.me) set({ ...state, me: { ...state.me, credits } });
 }
 
+/** The account as PATCH /me answered it ("Ask me first", 2026-11-04), so every page has the change without a request. */
+export function setMe(me: Me) {
+  if (state.status === "in") set({ ...state, me });
+}
+
+/**
+ * "Ask me first" left as the player set it (2026-11-04): on /create (`new`) or in a game's chat (`edit`), remembered for
+ * the account. Shown at once; a save that fails leaves it as set on this page (the next send says it for itself anyway).
+ */
+export async function saveAskFirst(kind: "new" | "edit", on: boolean): Promise<void> {
+  if (state.status === "in" && state.me) set({ ...state, me: { ...state.me, askFirst: { new: true, edit: false, ...state.me.askFirst, [kind]: on } } });
+  const { api } = await import("./api");
+  try {
+    setMe(await api.updateMe({ askFirst: { [kind]: on } }));
+  } catch {
+    // kept on this page; the account keeps what it had
+  }
+}
+
 function signedIn(via: "google" | "dev", email: string | null) {
   const keep = state.status === "in" && state.via === via ? state : null;
   set(keep ?? { status: "in", via, me: null, problem: null, uninvited: rememberedUninvited(email) });
