@@ -14,7 +14,7 @@ const MAX_BYTES = 256 << 20;
 export class TooBig extends Error {}
 
 /** Every file of the game, relative paths with forward slashes, sorted. */
-function collect(dir: string): { rel: string; mtime: Date }[] {
+export function collect(dir: string): { rel: string; mtime: Date }[] {
   const found: { rel: string; mtime: Date }[] = [];
   let bytes = 0;
   const walk = (rel: string) => {

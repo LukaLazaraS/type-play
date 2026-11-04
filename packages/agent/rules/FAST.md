@@ -8,8 +8,9 @@ grow with play time or progress.** Build it fast from the first line; the check 
 - **Draw each look once** with our helper `res://lib/looks.gd` (never change the files in `lib/`): every kind of
   enemy, tower, bullet, coin, tile or prop is drawn once at start into a shared picture, and every copy is a
   `Sprite2D` showing it:
-  `Looks.add("ant", Vector2i(64, 64), func(c: CanvasItem) -> void: Enemy.draw_ant(c))`, the same for each look
-  (`Looks.add_frames(key, size, count, func(c, i))` for a walk cycle, a spin, a hit flash), then
+  `Looks.add("ant", Vector2i(64, 64), func(c: CanvasItem) -> void: Enemy.draw_ant(c), "Red ant")`, the same for each
+  look (`Looks.add_frames(key, size, count, func(c, i), "Red ant walking")` for a walk cycle, a spin, a hit flash; the
+  last argument is the look's plain name, which the player sees in the game's list of assets), then
   `await Looks.bake(self)` once; in play `var s := Looks.sprite("ant")`. Animate the sprite (position, rotation,
   scale, modulate, `Looks.set_frame(s, key, i)`), never by redrawing shapes. (0, 0) is the look's centre. The same
   draw function still draws the look on cards, buttons and the title (drawn once there too).

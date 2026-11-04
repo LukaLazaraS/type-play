@@ -34,7 +34,7 @@
 // allows a key.
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { cpSync, existsSync, readFileSync, appendFileSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { thinkingLine } from './tools/thinking.mjs';
@@ -478,13 +478,36 @@ progress('Almost done');
 const builderReply = PLAN && final.ok
   ? attempts.filter((a) => a.ok).map((a) => a.reply).join('\n\n')
   : final.reply;
+// The asset capture (tools/capture.mjs, 2026-11-04): the art and sounds the game made in code, and a still of each 3D
+// model, as files for the game page's Assets tab, from the version the player gets. ~15-20 s of Godot and the hidden
+// browser, run beside the two closing AI calls (network time), so the build ends only a few seconds later. It never
+// fails the build; its line goes in the log.
+function captureAssets() {
+  return new Promise((done) => {
+    const t = Date.now();
+    let out = '';
+    const child = spawn('node', [join(HERE, 'tools', 'capture.mjs')], { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
+    child.stdout.on('data', (d) => (out += d));
+    child.stderr.on('data', (d) => (out += d));
+    const kill = setTimeout(() => child.kill(), 200_000);
+    const end = () => {
+      clearTimeout(kill);
+      const line = out.split(/\r?\n/).find((l) => l.startsWith('CAPTURE:')) ?? `CAPTURE: no result (${out.trim().split(/\r?\n/).at(-1)?.slice(0, 160) || 'no output'})`;
+      done({ line, seconds: +((Date.now() - t) / 1000).toFixed(1) });
+    };
+    child.on('close', end);
+    child.on('error', end);
+  });
+}
 // Beside it, the chat's 9 next-step ideas: only when the game changed; part of the answer's charge (below).
-const [message, next] = await Promise.all([
+const [message, next, captured] = await Promise.all([
   playerMessage(prompt, builderReply, { isNew: !isEdit }),
   final.ok
     ? nextSteps({ dir, reply: final.reply, query, options: { ...ISOLATED, model: MODELS.haiku, effort: 'low', tools: [], maxTurns: 1, systemPrompt: 'You suggest the next small change for a game a player is making by chat. Reply with a JSON array of strings only.' } })
     : { list: [], costUsd: 0 },
+  final.ok ? captureAssets() : null,
 ]);
+if (captured) console.log(`${captured.line} (${captured.seconds} s with its start)`);
 
 // costUsd is the agent's work only (every attempt, for our own accounting); the player-message
 // rewrite (messageCostUsd), the next-step ideas (suggestionsCostUsd), the genre call (classifyCostUsd)
@@ -500,6 +523,7 @@ const record = {
   chargeUsd: final.ok ? +attempts.filter((a) => a.ok).reduce((s, a) => s + a.costUsd, 0).toFixed(3) : 0,
   minutes: +attempts.reduce((s, a) => s + a.minutes, 0).toFixed(1),
   attempts: attempts.map(({ reply, checkOutput, ...a }) => a),
+  ...(captured && { captureSeconds: captured.seconds }),
 };
 report(record, !record.ok && attempts.some((a) => a.refused));
 

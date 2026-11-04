@@ -41,7 +41,7 @@ let loaded: Promise<SharpModule["default"]> | null = null;
  * on a server then breaks uploads (500, logged) instead of the whole API. No operation cache (it would keep decoded
  * pictures in memory between uploads) and at most two threads a picture: the live API container has one vCPU and 1 GB.
  */
-function library(): Promise<SharpModule["default"]> {
+export function library(): Promise<SharpModule["default"]> {
   loaded ??= import("sharp").then(
     (m) => {
       m.default.cache(false);
@@ -60,7 +60,7 @@ function library(): Promise<SharpModule["default"]> {
 const AT_ONCE = 2;
 let busy = 0;
 const waiting: (() => void)[] = [];
-async function inTurn<T>(work: () => Promise<T>): Promise<T> {
+export async function inTurn<T>(work: () => Promise<T>): Promise<T> {
   if (busy >= AT_ONCE) await new Promise<void>((r) => waiting.push(r));
   busy++;
   try {
