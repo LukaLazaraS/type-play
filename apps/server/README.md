@@ -615,7 +615,10 @@ does the agent copy one into the game as its art (`packages/agent/rules/PICTURES
   comes out upright without it; a PNG with eXIf, tEXt and iTXt chunks comes out without them and without its GPS bytes;
   the three sizes) and the e2e's "pictures" (56 checks: uploads by content, the 413, the location gone, owner-only fetches,
   the 11th, the run getting each picture byte for byte, none in the game's folder or download, a picture sent again
-  copied, a build that waited in line, deleted with the game, the 30 waiting, the sweep, a closed account).
+  copied, a build that waited in line, deleted with the game, the 30 waiting, the sweep, a closed account). The live
+  server's side, `test/runner-pictures.mjs`, runs the real runner as root in WSL with a fake run.mjs (15 checks, passed
+  11-04: the job's own `refs/` 0700 with 0600 files of its user, the API's folder shut to the job, `--images` and bad ids
+  refused, the home wiped after the job; how to run it is in its header).
 
 ## How a message runs
 
