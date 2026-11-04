@@ -11,7 +11,8 @@ Use these as defaults, then make the game the player's own: theme, hero, places,
   each area's edges); side-on only if the idea asks.
 - **Scripts**: `main.gd` (states TITLE / PLAY / DIALOGUE / MENU / WON / OVER, area loading,
   saving to `user://`), `world.gd` (areas as Arrays of strings, one letter per 64 px tile, with
-  exits to the next area), `player.gd` (`CharacterBody2D`), `npc.gd`, `enemy.gd`, `items.gd`
+  exits to the next area; only the current area exists, its tiles drawn once into pictures),
+  `player.gd` (`CharacterBody2D`), `npc.gd`, `enemy.gd` (sprites of baked looks), `items.gd`
   (inventory, pickups, what each item opens), `quests.gd` (each quest: steps, state, reward),
   `dialogue.gd` (lines as data, a box along the bottom, one tap or key per line), `hud.gd`,
   `sfx.gd`.
@@ -30,3 +31,5 @@ Use these as defaults, then make the game the player's own: theme, hero, places,
 - **Test**: `test/core_test.tscn`: start, walk to the first character, talking shows the quest,
   picking up the quest item and bringing it back finishes the quest and gives the reward, a
   locked way opens with its item, an exit loads the next area, losing all health shows game over.
+  `test/stress_test` ("Fast games"): the biggest area with all its characters and enemies awake
+  and fighting, the hero walking through it, unable to die.

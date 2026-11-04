@@ -12,8 +12,10 @@ Use these as defaults, then make the game the player's own: theme, cars, track, 
   into a centreline: long straights and a few tight corners. Road ~260 px wide (4 cars), red /
   white kerbs, a dashed centre line, a chequered start line, grass with trees, tyres and stands
   outside it; the grass reaches at least a screen beyond the track on every side, so the
-  camera never shows the empty background. Draw the whole track once in `track._draw()`; cars,
-  skid marks and dust are separate nodes.
+  camera never shows the empty background. Draw the whole track and its scenery once into
+  pictures (`Looks.bake_one`, in tiles of at most 2048 px for a big track) shown by sprites;
+  cars are sprites of baked looks (the sprite turns); skid marks keep a maximum (~150, the oldest
+  reused) and dust is one reused particle node per car.
 - **Driving (arcade)**: top speed ~620 px/s, acceleration ~420, brake ~900; turning ~2.6 rad/s
   × min(1, speed / 200) (no turning on the spot); grip: each frame the velocity turns towards
   the car's facing (lerp ~6 × delta), so it slides a little in fast corners. Off the road: top
@@ -42,4 +44,5 @@ Use these as defaults, then make the game the player's own: theme, cars, track, 
 - **Test**: `test/core_test`: nothing moves during the countdown; then the car drives forward
   and steering turns it; it is slower off the road; a lap counts only after the halfway
   checkpoint; the AI cars stay on the road and gain progress over ~600 frames; finishing the
-  last lap shows the results with a place.
+  last lap shows the results with a place. `test/stress_test` ("Fast games"): every car racing
+  on the last lap, the camera on the busiest corner, skid marks and dust at their maximum.

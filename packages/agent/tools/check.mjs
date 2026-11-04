@@ -47,6 +47,12 @@ const platformFile = join(project, 'PLATFORM');
 const platform = existsSync(platformFile) ? readFileSync(platformFile, 'utf8').trim() : '';
 const fill = platform === 'fill';
 const aspect = setting('stretch/aspect');
+// Games made since 2026-11-04 (run.mjs writes TEMPLATE 2) are held to rules/FAST.md: their stress test and the
+// start-freeze check can fail them. Older games get the same measurements as notes once they have a stress test.
+const templateFile = join(project, 'TEMPLATE');
+const fast = existsSync(templateFile) && Number(readFileSync(templateFile, 'utf8').trim()) >= 2;
+const stressTest = existsSync(join(project, 'test', 'stress_test.tscn'));
+const notes = []; // measurements that don't fail this game (older games), shown after the errors
 
 const ANSI = /\x1b\[[0-9;]*m/g;
 const errors = [];
@@ -56,6 +62,11 @@ if (platform && fill && aspect !== 'expand') errors.push('[setup] this game fill
 if (platform && !fill && aspect !== 'keep') errors.push('[setup] this game has one shape, scaled to fit with bars: project.godot must keep window/stretch/aspect="keep"');
 if (platform === 'phone' && !portrait) errors.push('[setup] this game is made for phones held upright: keep it portrait (720×1280, window/handheld/orientation=1)');
 if (platform === 'computer' && portrait) errors.push('[setup] this game is made for computers: keep it landscape (1152×648, window/handheld/orientation=0)');
+if (fast) {
+  const physics = readFileSync(join(project, 'project.godot'), 'utf8').match(/^common\/max_physics_steps_per_frame\s*=\s*(\d+)/m);
+  if (!physics || Number(physics[1]) > 3) errors.push('[setup] project.godot must keep physics/common/max_physics_steps_per_frame=3 under [physics] ("Fast games")');
+  if (!stressTest) errors.push('[setup] no test/stress_test.tscn: every game has a stress test that puts it straight into its busiest moment and calls measure() ("Fast games")');
+}
 
 // Keeps Godot error lines plus the "at:" line that follows each one.
 function collectErrors(stage, output) {
@@ -82,15 +93,50 @@ godot('run', ['--fixed-fps', '60', '--quit-after', '300'], 60_000);
 const testDir = join(project, 'test');
 const tests = existsSync(testDir) ? readdirSync(testDir).filter((f) => f.endsWith('_test.tscn')) : [];
 const testSummary = [];
+const perf = []; // the stress test's measure() lines (test/helpers.gd)
 for (const t of tests) {
-  const r = spawnSync(GODOT, ['--headless', '--path', project, '--fixed-fps', '60', '--quit-after', '3600', `res://test/${t}`], { encoding: 'utf8', timeout: 120_000 });
+  // The stress test measures up to ~30 s of real time after its own setup: it gets longer than the others.
+  const long = t === 'stress_test.tscn';
+  const r = spawnSync(GODOT, ['--headless', '--path', project, '--fixed-fps', '60', '--quit-after', long ? '9000' : '3600', `res://test/${t}`], { encoding: 'utf8', timeout: long ? 180_000 : 120_000 });
   const out = ((r.stdout || '') + '\n' + (r.stderr || '')).replace(ANSI, '');
   collectErrors(`test ${t}`, out);
   const passed = (out.match(/^\s*PASS:.*$/gm) || []).length;
   const failed = out.match(/^\s*FAIL:.*$/gm) || [];
   for (const f of failed) errors.push(`[test ${t}] ${f.trim()}`);
-  if (!passed && !failed.length) errors.push(`[test ${t}] printed no PASS:/FAIL: lines`);
+  for (const line of out.match(/^\s*PERF: .*$/gm) || []) {
+    try { perf.push(JSON.parse(line.trim().slice(6))); } catch {}
+  }
+  if (long && !(out.match(/^\s*PERF: /m))) errors.push(`[test ${t}] never called measure(): the stress test must end with await measure("…") before finish() ("Fast games")`);
+  if (!passed && !failed.length && !(long && perf.length)) errors.push(`[test ${t}] printed no PASS:/FAIL: lines`);
   testSummary.push(`${t}: ${passed} passed, ${failed.length} failed`);
+}
+
+// The busiest moment's budget (rules/FAST.md). Measured headless (no drawing on screen): the game's own code per
+// frame, on this machine. REF_BENCH_MS is helpers.gd's fixed piece of work on the PC the budgets were set on (Luka's,
+// 2026-11-04); a slower machine (the live server, a busy PC) gets proportionally more time.
+const REF_BENCH_MS = 4.0;
+const SPEED = { frameMs: 4.0, customRedraws: 30, nodesGrowth: 500 };
+const perfLines = [];
+for (const p of perf) {
+  const scale = Math.max(0.5, Math.min(4, (p.bench_ms || REF_BENCH_MS) / REF_BENCH_MS));
+  const budget = +(SPEED.frameMs * scale).toFixed(1);
+  const where = `at the busiest moment ("${p.label}")`;
+  const top = Object.entries(p.redrawn || {}).map(([k, v]) => `${k} ${v}`).join(', ');
+  const nodes = p.nodes || [];
+  const growing = nodes.length >= 4 && nodes.every((n, i) => i === 0 || n >= nodes[i - 1]) && nodes.at(-1) - nodes[0] > SPEED.nodesGrowth;
+  const found = [];
+  if (p.median_ms > budget) {
+    found.push(`[speed] ${where} a frame takes ${p.median_ms} ms of game code on this machine, over the budget of ${budget} ms: on a cheap phone that is a slide show. `
+      + (p.custom_redraws_per_frame > SPEED.customRedraws ? 'Most of it is drawing: see the redraws below.' : 'Look for work that grows with the number of things: searches per frame, every pair checked, targets picked every frame, nodes made per hit ("Fast games").'));
+  }
+  if (p.custom_redraws_per_frame > SPEED.customRedraws) {
+    found.push(`[speed] ${where} ${p.custom_redraws_per_frame} things redraw themselves every frame (${top}; at most ${SPEED.customRedraws}): draw each look once with lib/looks.gd and show it as a sprite, and redraw only when a look changes ("Fast games")`);
+  }
+  if (growing) found.push(`[speed] ${where} the number of nodes keeps growing (${nodes.join(' → ')}): something is never freed (bullets, effects, labels, marks, world pieces behind the player)`);
+  if (p.second_half_ms > p.first_half_ms * 1.5 + 1) found.push(`[speed] ${where} frames get slower the longer it runs (${p.first_half_ms} → ${p.second_half_ms} ms): something grows with play time`);
+  if (fast) errors.push(...found);
+  else notes.push(...found.map((f) => f.replace('[speed]', '[speed, not failed: an older game]')));
+  perfLines.push(`busiest moment ("${p.label}"): ${p.median_ms} ms a frame of game code (budget ${budget} ms on this machine), slowest frames ${p.p95_ms} ms, ${p.custom_redraws_per_frame} things redrawn a frame${top ? ` (${top})` : ''}, ${nodes.at(-1) ?? '?'} nodes, ${p.nodes_added_per_s} new nodes a second`);
 }
 
 const webDir = join(project, 'export', 'web');
@@ -105,6 +151,7 @@ if (!built) errors.push('[export] no web build was produced');
 
 const shots = [];
 const frameRates = [];
+let freeze = null; // the start-freeze check's numbers (below)
 // The first page gets the three screenshots over time; `more` resizes that same page (fill games); a game with a
 // platform then opens once more on a computer, with no touch screen (keys and mouse: its touch controls hide).
 const first = !platform
@@ -167,6 +214,36 @@ if (built) {
       await sleep(3000);
       const file = join(project, 'export', 'screenshot-computer.png');
       if (await computer.shot(file)) shots.push(`on a computer (keys and mouse, no touch screen), 3 s after a click + Space: ${file}`);
+      await computer.close();
+    }
+    // The start-freeze check (rules/FAST.md, docs/research/game-performance-2026-11-01.md): a browser that has never
+    // run the game (a fresh profile: nothing compiled yet) on a CPU 4x slower, as a tester's first visit. It waits
+    // for the title to settle (no shader compiled for 3 s), then taps and presses Space as above and watches 8 s of
+    // play: every shader program the browser compiles from the tap on froze a real device for up to seconds. Frame
+    // times are only reported: the hidden browser draws in software, slowly and unevenly, unlike a real GPU.
+    if (fast || stressTest) {
+      const fz = await openPage(url, { viewport: first.viewport, touch: first.touch, freeze: true, cpuSlowdown: 4 });
+      pages.push(fz);
+      const t0 = Date.now();
+      let seen = -1, still = Date.now(), r = null;
+      while (Date.now() - t0 < 45_000) {
+        await sleep(500);
+        r = await fz.freezeReport(0);
+        if (!r) continue;
+        if (r.links !== seen) { seen = r.links; still = Date.now(); }
+        if (r.frames > 30 && Date.now() - still > 3000) break;
+      }
+      const mark = await fz.pageNow();
+      if (mark !== null) {
+        const [fx, fy] = first.viewport ? [first.viewport.width / 2, first.viewport.height / 2] : [576, 324];
+        if (first.touch) await fz.tap(fx, fy);
+        else await fz.click(fx, fy);
+        await fz.key('Space');
+        await sleep(8000);
+        freeze = await fz.freezeReport(mark);
+        if (freeze) freeze.settleSec = +((Date.now() - t0 - 8000) / 1000).toFixed(1);
+      }
+      await fz.close();
     }
   } finally {
     for (const p of pages) await p.close();
@@ -178,6 +255,18 @@ if (built) {
     if (l.type === 'error' || l.type === 'exception' || /SCRIPT ERROR|ERROR:/.test(text)) {
       errors.push(`[browser] ${text.trim()}`);
     }
+  }
+}
+
+// The start-freeze check's verdict: a shader compiled after the first tap is a freeze of up to seconds on a tester's
+// laptop or phone the first time they play (renderer-independent, so it is counted, not timed).
+let freezeLine = '';
+if (freeze) {
+  freezeLine = `first visit on a 4x slower CPU: title settled in ${freeze.settleSec} s (${freeze.linksBefore} shaders compiled before play), then 8 s of play: ${freeze.links} shader${freeze.links === 1 ? '' : 's'} compiled, worst frame ${freeze.worst} ms, ${freeze.over50} of ${freeze.frames} frames over 50 ms (software drawing: frame times are a rough guide)`;
+  if (freeze.links > 0) {
+    const msg = `[freeze] ${freeze.links} shader${freeze.links === 1 ? ' was' : 's were'} compiled after play started (${freeze.linkTimes.slice(0, 6).map((t) => `${(t / 1000).toFixed(1)} s`).join(', ')} after the first tap): on a laptop or phone each is a freeze of up to seconds the first time someone plays. Something was drawn for the first time during play (a particle effect, a new material or look, a polygon, a text size): build it once in the warm-up behind the title (lib/warmup.gd, "Fast games")`;
+    if (fast) errors.push(msg);
+    else notes.push(msg.replace('[freeze]', '[freeze, not failed: an older game]'));
   }
 }
 
@@ -205,6 +294,9 @@ else if (fill) console.log(`screen: fills every screen (stretch aspect expand, b
 else console.log(`screen: one shape, ${portrait ? 'portrait' : 'landscape'} ${viewW}×${viewH}, scaled to fit any screen with bars (stretch aspect keep)`);
 if (frameRates.length) console.log(`frames a second while playing (hidden browser, software rendering; 0 is normal on a still screen): ${frameRates.map((f) => f ?? 'froze').join(', then ')}`);
 if (testSummary.length) console.log(`tests: ${testSummary.join('; ')}`);
+for (const l of perfLines) console.log(`speed at the ${l}`);
+if (freezeLine) console.log(`start freezes: ${freezeLine}`);
+for (const n of notes) console.log(`note ${n}`);
 for (const s of shots) console.log(`screenshot ${s}`);
 if (shots.length) console.log('Open the screenshots with the Read tool to see the game.');
 process.exit(errors.length ? 1 : 0);

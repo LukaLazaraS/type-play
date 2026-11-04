@@ -25,5 +25,10 @@ Use these as defaults, then make the game the player's own: theme, look, one twi
   stays playable. Snake turns are buffered (one turn per tick, never back into itself); a brick
   breaker's ball never goes perfectly horizontal or vertical (keep a minimum angle) and never
   tunnels through a brick at speed (move it in small steps). Restart in one tap.
+- **Grows without slowing**: a stack's blocks far below the screen are freed (or merged into one
+  picture), a snake is one node that draws its body (redrawn once per tick), bricks and falling
+  things are sprites of baked looks, multi-balls have a cap.
 - **Test**: `test/core_test.tscn`: start, one scoring action scores, one miss ends the round
-  (or costs a life), a tap restarts with the score at 0 and the best kept.
+  (or costs a life), a tap restarts with the score at 0 and the best kept. `test/stress_test`
+  ("Fast games"): top speed and the biggest state the game reaches (a stack hundreds high, the
+  longest snake the grid holds, every brick with the most balls), the player unable to lose.

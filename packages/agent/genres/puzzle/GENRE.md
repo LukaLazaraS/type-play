@@ -4,7 +4,8 @@ Use these as defaults, then make the game the player's own: theme, pieces, one t
 
 - **Scripts**: `main.gd` (states TITLE / PLAY / WIN or OVER, input, score/moves/timer),
   `board.gd` (grid data + rules, no drawing), `pieces.gd` or `board_view.gd` (drawing and
-  tweens), `levels.gd` (level data, if the game has levels), `hud.gd` (`CanvasLayer`).
+  tweens: each piece kind a baked look, each piece a sprite; the empty board drawn once),
+  `levels.gd` (level data, if the game has levels), `hud.gd` (`CanvasLayer`).
   Keep the rules in plain data (an Array of rows) so tests and solvers can use them.
 - **Portrait** (the project's default): board centred, HUD above it, buttons below it.
   Cell size from the viewport = min(available width / columns, available height / rows), so
@@ -32,3 +33,5 @@ Use these as defaults, then make the game the player's own: theme, pieces, one t
 - **Test**: `test/core_test.tscn`: the board loads valid (match-3: no starting matches, a move
   exists; levels: the solver solves level 1), a valid move changes the board as the rules
   say, an invalid move is rejected, and winning/losing shows the right screen.
+  `test/stress_test` ("Fast games"): the biggest board of the last level, a bot making moves the
+  whole time (match-3: cascades and specials going off).

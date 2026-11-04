@@ -12,21 +12,26 @@ Use these as defaults, then make the game the player's own: theme, towers, enemi
   wave count; `build_wave(level, w)` and hp / speed formulas), `waves.gd` (spawn queue,
   countdown), `map.gd` (grid, taps, layers), `tower.gd` (+ static `draw_shape(canvas, kind,
   level, aim)` also used by the cards and the title), `enemy.gd`, `projectile.gd`, `fx.gd`,
-  `hud.gd`, `screens.gd`, `ui.gd`.
+  `hud.gd`, `screens.gd`, `ui.gd`. All looks (each tower's base and head per level, each
+  enemy's walk frames, shots, every level's map) are baked with `Looks` in `main._ready()`.
 - **Map**: 9×11 cells of 80 px between the bars. The road is a list of waypoints from a spawn
   portal at one board edge to the base (castle, gate) at another, 4-6 turns so towers cover it
   twice. Checkered grass, road with a darker edge, seeded tufts / flowers / rocks, trees outside
-  the grid. Draw the map once in `map._draw()`; the portal swirl, selection pulse and range
-  circle go in a small overlay node that redraws every frame.
+  the grid. Each level's map is drawn once into one picture (`Looks.bake_one`, every level at
+  start) shown by one Sprite2D; the portal swirl, selection pulse and range circle go in a small
+  overlay node that redraws every frame.
 - **Build**: tap a grass tile (it pulses), then a card: the tower pops in. Or tap a card, then
   tiles. Tap a tower: range circle, and the cards swap for its stats + Upgrade (price) / Sell
   (70% back). Not on the road or another tower; "Not enough gold!" toast.
 - **Towers** (4 if asked): fast archer (cheap), cannon (splash), frost (slows), long-range or
-  chain lightning. Target the enemy furthest along the road, turn to face it, recoil on a shot.
+  chain lightning. Target the enemy furthest along the road in range, re-picked every 0.15 s (a
+  timer per tower) from the waves' list of live enemies; the head sprite turns to face it and
+  recoils on a shot.
   3 levels: damage ×1 / 1.75 / 2.9, range +12% / +25%; upgrade costs 0.8× then 1.4× the price;
   level pips under the tower.
-- **Enemies**: grunt, fast scout (wave 2+), tough brute (wave 3+), boss on the last wave; hp
-  bar, hit flash, blue tint when slowed; 5-15 gold each, boss 100, leak costs 1 life (boss 10).
+- **Enemies**: grunt, fast scout (wave 2+), tough brute (wave 3+), boss on the last wave; a
+  sprite with baked walk frames, hit flash and blue tint (slowed) through `modulate`, an hp bar
+  that redraws only when hp changes; 5-15 gold each, boss 100, leak costs 1 life (boss 10).
 - **Waves**: first wave after a 15 s countdown, 8 s between waves; "Next wave" sends one early;
   speed via `Engine.time_scale` (back to 1 on menus). Size 7 + 2w (+2 per level); hp ×(1 +
   0.2w + 0.015w²) × 1 / 1.4 / 1.9 per level; clear bonus 20 + 5w. Toasts: "Wave 3!", "FINAL
@@ -36,10 +41,14 @@ Use these as defaults, then make the game the player's own: theme, towers, enemi
   icons, big PLAY, levels below (locked ones greyed; a win unlocks the next, saved with
   `ConfigFile`). Win: stars by lives left, "Next level"; lose: "Retry" / "Menu".
 - **Juice**: tower pop-in + dust; upgrade squash + gold ring; kill burst in the enemy's colour
-  + floating "+7"; leak: shake + red flash.
+  + floating "+7" (from small pools: a few particle nodes and labels, reused); leak: shake + red
+  flash. Shots are pooled too.
 - **Tests** (the check's tap + Space never builds a tower, so only these prove the game):
   `test/core_test`: through the hooks, building on grass costs gold and on the road fails,
   upgrade and sell work, tapping a tile then a card builds; then a full wave: send it, enemies
   walk the road, towers kill some (gold up), a leak costs a life, 0 lives shows the lose screen.
   `test/balance_test`: a bot builds on the cells nearest the road and upgrades, plays all of
-  level 1 at `Engine.time_scale = 8`, and must win.
+  level 1 at `Engine.time_scale = 8`, and must win. `test/stress_test` ("Fast games"): the last
+  level, every free cell built with towers of every kind at the top level, the last wave's
+  enemies held at its full size all along the road (hp ×50 so they last) plus the boss, lives
+  huge.

@@ -13,6 +13,11 @@
   #status[hidden] { display: none; }
   #bar { width: min(280px, 60vw); height: 6px; background: #251948; border-radius: 3px; overflow: hidden; margin: 12px auto 0; }
   #bar i { display: block; height: 100%; width: 0; background: #ffb347; transition: width 200ms linear; }
+  /* Downloaded, now the browser prepares the game's graphics (compiles its shaders): seconds on a first visit, during
+     which the page can't draw. The bar becomes a moving segment so a full bar never looks stuck. */
+  #bar.busy i { width: 36%; transition: none; animation: tp-busy 1.2s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+  @keyframes tp-busy { from { transform: translateX(-100%); } to { transform: translateX(280%); } }
+  @media (prefers-reduced-motion: reduce) { #bar.busy i { width: 100%; animation: none; opacity: 0.6; } }
 
   /* The Free plan's mark (game.json "badge": true; paid plans' builds and older builds have none). While the game
      loads it is a link to typeplay.app; over the game it is a label that never takes a tap, a click or a key, because
@@ -157,15 +162,31 @@
       requestAnimationFrame(() => requestAnimationFrame(() => (credit.dataset.on = "")));
     }, 700);
     await loadScript(`engine/${version}/index.js`);
+    const exe = `engine/${version}/index`, pack = `builds/${id}/${meta.pack || "index.pck"}`;
+    let downloaded = false;
     const engine = new Engine({
-      executable: `engine/${version}/index`,
-      mainPack: `builds/${id}/${meta.pack || "index.pck"}`,
+      executable: exe,
       canvasResizePolicy: 2,
       focusCanvas: false,
       args: [],
-      onProgress(current, total) { if (total > 0) fill.style.width = Math.round(100 * current / total) + "%"; },
+      onProgress(current, total) { if (total > 0 && !downloaded) fill.style.width = Math.round(100 * current / total) + "%"; },
     });
-    await engine.startGame();
+    // Engine.startGame() in its steps (init + the pack, then start), so the loader can tell the two waits apart.
+    await Promise.all([engine.init(exe), engine.preloadFile(pack, pack)]);
+    // Downloaded. Now the browser compiles the engine's shaders before the game's first frame: 2-14 s the first time a
+    // browser runs a TypePlay game (docs/research/game-performance-2026-11-01.md), well under a second after that (it
+    // keeps them). The page can't draw meanwhile, so the words go up first and the bar moves on the compositor.
+    downloaded = true;
+    let firstTime = true;
+    try { firstTime = localStorage.getItem("tp-graphics") !== "1"; } catch (e) {}
+    msg.textContent = firstTime ? "Preparing graphics (first time only)…" : "Starting the game…";
+    fill.style.width = "";
+    fill.parentElement.classList.add("busy");
+    await new Promise((painted) => requestAnimationFrame(() => setTimeout(painted, 0)));
+    await engine.start({ args: ["--main-pack", pack] });
+    // The game's first frames compile the rest: the loader stays until the first one is on screen.
+    await new Promise((drawn) => requestAnimationFrame(() => requestAnimationFrame(drawn)));
+    try { localStorage.setItem("tp-graphics", "1"); } catch (e) {}
     clearTimeout(creditTimer);
     status.hidden = true;
     tell("ready");

@@ -21,14 +21,9 @@
   cactus group, a row in the gap), never on separate timers that let them overlap.
 - Every on-screen copy of a value (best score in the HUD and on the game-over screen) must be
   updated from the same place when it changes.
-- Draw a static board or map once in its own node (its `_draw()` runs again only after
-  `queue_redraw()`: call that on load and resize); redraw only what changes (pieces,
-  enemies, a small overlay for selections). A map redrawn every frame made a game crawl.
-- Even drawn once, thousands of tiny `draw_*` calls (scattered props, windows, grass, a town)
-  crawl in the web build: the renderer replays every command each frame (a racer and a stack
-  game both fell to 2-3 fps). Keep static scenery to a few hundred shapes near the camera, or
-  merge it into one `ArrayMesh`; if the frame rate the check prints at game start is under
-  ~10, fix that before polishing.
+- A map redrawn every frame made a game crawl, and even drawn once, thousands of tiny `draw_*`
+  calls (scattered props, windows, grass, a town) crawl in the web build: the renderer replays
+  every command each frame (a racer and a stack game fell to 2-3 fps). "Fast games" says how.
 
 - `Color.with_alpha()` doesn't exist. Use `Color(c, alpha)` or copy the colour and set `.a`.
 - "Invalid polygon data, triangulation failed": a Polygon2D / `draw_colored_polygon()` needs

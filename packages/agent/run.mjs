@@ -141,6 +141,9 @@ if (isEdit) {
     writeFileSync(join(dir, 'project.godot'), text);
   }
   writeFileSync(join(dir, 'PLATFORM'), opt('platform', 'auto') + '\n');
+  // The template generation the game was made with: 2 (2026-11-04) = fast games (rules/FAST.md): the check requires
+  // its stress test and fails shader compiles after play starts. Older games (no file) get those as warnings.
+  writeFileSync(join(dir, 'TEMPLATE'), '2\n');
   // The tags the same way, in TAGS (one line, as picked); no tags, no file.
   if (pickedTags.length) writeFileSync(join(dir, 'TAGS'), pickedTags.join(' ') + '\n');
   if (opt('seed')) cpSync(resolve(opt('seed')), dir, { recursive: true }); // ports and tests: files the game starts with (Builder only)
@@ -239,6 +242,23 @@ if (sized && !sized.fits) {
 const helpers = join(dir, 'test', 'helpers.gd');
 mkdirSync(dirname(helpers), { recursive: true });
 cpSync(join(HERE, 'templates', 'blank', 'test', 'helpers.gd'), helpers);
+// The same for the game helpers in lib/ (shared looks, warm-up: rules/FAST.md): every game gets the current ones, so
+// an older game can use them in its next change.
+mkdirSync(join(dir, 'lib'), { recursive: true });
+for (const f of readdirSync(join(HERE, 'templates', 'blank', 'lib'))) cpSync(join(HERE, 'templates', 'blank', 'lib', f), join(dir, 'lib', f));
+// At most 3 catch-up physics steps a frame (Godot's default is 8): a late frame then turns into a moment of slow motion,
+// not a slide show (docs/research/game-performance-2026-11-01.md, 2b). Older games get the line on their next run.
+{
+  const projectFile = join(dir, 'project.godot');
+  const text = existsSync(projectFile) ? readFileSync(projectFile, 'utf8') : '';
+  if (text && !/^common\/max_physics_steps_per_frame\s*=/m.test(text)) {
+    const eol = text.includes('\r\n') ? '\r\n' : '\n';
+    const line = 'common/max_physics_steps_per_frame=3';
+    writeFileSync(projectFile, /^\[physics\]\s*$/m.test(text)
+      ? text.replace(/^\[physics\]\s*$/m, (m) => `${m}${eol}${eol}${line}`)
+      : `${text.replace(/\s*$/, '')}${eol}${eol}[physics]${eol}${eol}${line}${eol}`);
+  }
+}
 
 const checkPath = join(HERE, 'tools', 'check.mjs').replaceAll('\\', '/');
 const assetsPath = join(HERE, 'tools', 'assets.mjs').replaceAll('\\', '/'); // the 3D model library
@@ -250,6 +270,7 @@ const screen = read(`SCREEN_${platform.toUpperCase()}.md`).trimEnd()
 const rules = [
   read('BASE.md').replace('{SCREEN}', () => screen).replace('{PLAYTEST}', playtest ? read('PLAYTEST.md') : ''),
   read('GOTCHAS.md'),
+  read('FAST.md'),
   genre !== 'none' && GENRES.includes(genre)
     ? (pickedGenre
       // Picked by the player on /create (10-27): the game is this genre, with their idea inside it.

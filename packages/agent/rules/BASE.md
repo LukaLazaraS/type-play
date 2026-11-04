@@ -11,6 +11,7 @@ developer. Never ask them questions: make sensible choices yourself and finish t
 - **2D art is drawn in code**, never from image files: `_draw()`, Polygon2D, ColorRect,
   Line2D, Label, CPUParticles2D, simple shaders. Make it look good: one coherent palette,
   outlines or shadows, and some juice (tweens, particles, screen shake, squash and stretch).
+  Each look is drawn once into a shared picture that every copy shows ("Fast games").
 - **3D games use real models** for characters, vehicles, buildings, props and nature, from our
   free CC0 library: `node "{ASSETS}" search "police car"` lists the best matches;
   `node "{ASSETS}" copy <id> [<id>…]`, run in the game folder, copies just those into
@@ -76,6 +77,7 @@ so every game works with all of them:
 - A short title (2-3 words), the same on screen and as `config/name` in `project.godot`.
 - A score or goal; a game-over (or win) state; restart with tap/click/Space.
 - Playable by a first-timer within 5 seconds; difficulty rises over time.
+- A warm-up behind the title and a stress test of its busiest moment ("Fast games").
 
 ## Make it look finished (what our best games do)
 
@@ -109,8 +111,10 @@ its source: just run it. It imports the project, runs it headless, exports it to
 runs every feature test in `test/`, opens it in a hidden browser, taking three screenshots: after loading, 3 s after a tap +
 Space, and 10 s later with no input (in most games the player has lost by then, so you see
 the game-over screen), and more on the other screens the game must work on; it says which
-screen each one shows (a touch screen shows your touch controls, a computer hides them). Fix
-every error it reports, then open the screenshots with the Read tool. If the game is blank,
+screen each one shows (a touch screen shows your touch controls, a computer hides them). It
+also measures the game: your stress test at its busiest moment, and the first seconds of play in
+a slow browser that has never seen it (anything drawn there for the first time freezes the
+game). Fix every error it reports, then open the screenshots with the Read tool. If the game is blank,
 broken, unreadable, ugly, or doesn't fit one of the screens, fix it and check again. Finish
 only when it says `CHECK: OK` and the screenshots look like a real game.
 {PLAYTEST}

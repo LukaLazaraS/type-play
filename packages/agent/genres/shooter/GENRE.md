@@ -25,8 +25,11 @@ Use these as defaults, then make the game the player's own: theme, ship or hero,
 - **Juice**: muzzle flash, a hit flash on enemies, explosions of particles and a little screen
   shake, score numbers popping, a slow-down beat when the boss falls.
 - **Pitfalls**: thousands of nodes for bullets slow the web build: pool them and draw them in
-  one node. Waves must leave a path to dodge through. No unfair spawns on top of the player:
+  one node (or as sprites of one baked look), with a cap on how many fly at once; enemies are
+  sprites of baked looks; bullets × enemies are checked in a grid of cells, not every pair. Waves must leave a path to dodge through. No unfair spawns on top of the player:
   enemies enter from off-screen. After a hit: 1.5 s of blinking safety.
 - **Test**: `test/core_test.tscn`: start, a bullet hits and destroys the first enemy, an enemy
   bullet costs a life, a power-up changes the shot, losing all lives shows game over, a tap
-  restarts.
+  restarts. `test/stress_test` ("Fast games"): the last wave (or the boss) with the most
+  enemies and bullets the game allows on screen, the best power-up firing, the player unable
+  to die.

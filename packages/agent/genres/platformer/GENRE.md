@@ -13,7 +13,8 @@ Use these as defaults, then make the game the player's own: theme, hero, enemies
   loading), `levels.gd` (each level as an Array of strings, one letter per 64 px tile: `#`
   ground, `=` platform, `o` coin, `e` enemy, `^` spikes, `P` start, `G` goal, `C` checkpoint),
   `player.gd` (`CharacterBody2D`, physics + drawing), `enemy.gd`, `world.gd` (sky, parallax,
-  tiles drawn from the level), `hud.gd`, `sfx.gd`.
+  tiles drawn from the level once into pictures, in pieces of at most 2048 px, never per
+  frame), `hud.gd`, `sfx.gd`. Enemies, coins and gems are sprites of baked looks.
 - **Feel that works**: run speed ~420 px/s with acceleration ~2400 and friction ~3000 (no ice
   unless asked); gravity ~2400 px/s²; jump velocity ~-900; variable jump (release early: half
   the upward speed); coyote time 0.1 s; jump buffer 0.1 s; fall speed capped at ~1100. One-way
@@ -32,3 +33,5 @@ Use these as defaults, then make the game the player's own: theme, hero, enemies
 - **Test**: `test/core_test.tscn`: start, run right, a jump clears the first gap, stomping an
   enemy removes it, touching its side costs a life, reaching the goal finishes the level. Plus
   one test that walks every level's gaps with the jump numbers (each reachable).
+  `test/stress_test` ("Fast games"): the biggest level, every enemy awake, the hero running at
+  its far end and unable to die.

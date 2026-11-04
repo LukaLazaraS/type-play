@@ -49,6 +49,14 @@ an older Free version brings its mark back. Android builds never carry it (paid 
 - Nothing is fetched for it: the wordmark is Gabarito Black cut to the letters of "TypePlay" (about 1.7 KB, SIL OFL 1.1),
   inline in play.html. Its design: `DESIGN.md`, "Game frame".
 
+**The loader's two waits** (2026-11-04, `docs/research/game-performance-2026-11-01.md` fix 1c): the bar fills while the
+engine and the pack download ("Loading the game…"); then the browser compiles the engine's shaders before the first
+frame, 2-14 s the first time a browser runs a TypePlay game and well under a second after that, and the page can't draw
+meanwhile. So `play.html` runs `Engine.startGame()` in its steps (`init` + `preloadFile`, then `start`): once both files
+are in it says "Preparing graphics (first time only)…" ("Starting the game…" once this browser has started a game here,
+a `tp-graphics` flag in localStorage) and the bar becomes a moving segment (a compositor animation, so it moves while the
+page is busy); it goes when the game's first frame is on screen.
+
 Live hosting (since 2026-10-15): Cloudflare R2 bucket `typeplay-games` with the custom domain typeplay.dev;
 `node scripts/publish.mjs` (or `node deploy/deploy.mjs games` at the root) uploads changed files. The API uploads
 `builds/<id>/` after each build the same way (`apps/server/src/games/publish.ts`, `GAMES_PUBLISH=r2` on its server).

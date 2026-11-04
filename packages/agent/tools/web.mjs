@@ -134,7 +134,26 @@ const WATCHDOG = [
   'kill -9 -- -$$ 2>/dev/null',
 ].join('\n');
 
-export async function openPage(url, { width = 1152, height = 648, viewport, touch = false } = {}) {
+// The start-freeze probe (openPage's `freeze` option), run in the page before any of its own scripts: every WebGL
+// shader program the game links (when, and how long the page then waited for the compile: Godot asks for the link
+// status at once, which blocks until the browser has compiled it) and every animation frame (Godot draws one frame
+// per animation frame, so a long gap is a frame the player saw frozen). freezeReport() reads it.
+const FREEZE_PROBE = `(() => {
+  const T = window.__tpFreeze = { links: [], waits: [], frames: [] };
+  const now = () => performance.now();
+  for (const C of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) {
+    if (!C) continue;
+    const P = C.prototype, link = P.linkProgram, ask = P.getProgramParameter, askShader = P.getShaderParameter;
+    P.linkProgram = function (p) { const t = now(); const r = link.call(this, p); T.links.push([t, now() - t]); return r; };
+    P.getProgramParameter = function (p, n) { const t = now(); const r = ask.call(this, p, n); const d = now() - t; if (d > 1) T.waits.push([t, d]); return r; };
+    P.getShaderParameter = function (s, n) { const t = now(); const r = askShader.call(this, s, n); const d = now() - t; if (d > 1) T.waits.push([t, d]); return r; };
+  }
+  let last = 0;
+  const tick = (t) => { if (last) T.frames.push([last, t - last]); last = t; requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+})();`;
+
+export async function openPage(url, { width = 1152, height = 648, viewport, touch = false, freeze = false, cpuSlowdown = 1 } = {}) {
   limitThisProcess(); // the browser and its renderers inherit the core limit and low priority
   sweepOrphans();
   await takeLock();
@@ -244,6 +263,9 @@ export async function openPage(url, { width = 1152, height = 648, viewport, touc
   if (touch) await page('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   const metrics = (v) => page('Emulation.setDeviceMetricsOverride', { ...v, deviceScaleFactor: 1, mobile: touch });
   if (viewport) await metrics(viewport);
+  if (freeze) await page('Page.addScriptToEvaluateOnNewDocument', { source: FREEZE_PROBE });
+  // A slower CPU, as DevTools' "CPU: 4x slowdown" does (a cheap laptop or a mid-range phone).
+  if (cpuSlowdown > 1) await page('Emulation.setCPUThrottlingRate', { rate: cpuSlowdown });
   await page('Page.navigate', { url });
 
   return {
@@ -289,6 +311,22 @@ export async function openPage(url, { width = 1152, height = 648, viewport, touc
     },
     // A new screen size for the same page (a phone turned, a tablet): the game fits itself to it.
     async resize(size) { await metrics(size); },
+    // The page's clock (performance.now(), ms), to mark a moment for freezeReport(); null when the page is stuck.
+    async pageNow() { const r = await this.evaluate('performance.now()'); return r.timedOut ? null : r.value; },
+    // The start-freeze probe's numbers (openPage with freeze: true) from `since` on: shader programs linked and how
+    // long the page waited for compiles, frames, those over 50 ms and the worst; null if the probe isn't there.
+    async freezeReport(since = 0) {
+      const r = await this.evaluate(`(() => {
+        const T = window.__tpFreeze; if (!T) return null; const s = ${Number(since) || 0};
+        const links = T.links.filter((l) => l[0] >= s), waits = T.waits.filter((w) => w[0] >= s), frames = T.frames.filter((f) => f[0] >= s);
+        const ms = frames.map((f) => f[1]).sort((a, b) => a - b);
+        return { linksBefore: T.links.length - links.length, links: links.length, waitMs: Math.round(waits.reduce((a, w) => a + w[1], 0)),
+          frames: frames.length, over50: frames.filter((f) => f[1] > 50).length, worst: Math.round(ms.length ? ms[ms.length - 1] : 0),
+          median: Math.round(ms.length ? ms[ms.length >> 1] : 0), linkTimes: links.map((l) => Math.round(l[0] - s)),
+          firstFrameAt: T.frames.length ? Math.round(T.frames[0][0]) : null, lastLinkAt: T.links.length ? Math.round(T.links[T.links.length - 1][0]) : null };
+      })()`, 10_000);
+      return r.timedOut ? null : r.value;
+    },
     async close() {
       clearTimeout(lifetime);
       process.off('exit', kill);

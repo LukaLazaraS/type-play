@@ -7,8 +7,10 @@ Use these as defaults, then make the game the player's own: theme, art, characte
   numbers turned upright, the camera only moves up, falling below the screen ends the run.
 - **Scripts**: `main.gd` (states TITLE / PLAY / OVER, input, score, speed ramp, juice),
   `player.gd` (physics + drawing), `obstacles.gd` (ONE spawner that owns obstacles AND
-  pickups), `world.gd` (sky, parallax layers, ground; sized from the viewport), `hud.gd`
-  (`CanvasLayer`), `sfx.gd` (sounds generated in code).
+  pickups: sprites of baked looks, reused from a pool once they leave the screen), `world.gd`
+  (sky, parallax layers, ground; sized from the viewport; each layer drawn once into a picture
+  and scrolled, two copies side by side), `hud.gd` (`CanvasLayer`), `sfx.gd` (sounds generated
+  in code).
 - **Side view**: the character faces the direction of travel and runs in place (legs or
   wheels animate); the world scrolls past. Draw it in profile, not facing the camera.
 - **Feel that works**: gravity ~2600 px/s²; jump velocity ~-1000 (peak ~190 px); variable
@@ -28,3 +30,5 @@ Use these as defaults, then make the game the player's own: theme, art, characte
   function; the game-over overlay repeats score and best.
 - **Test**: `test/core_test.tscn`: start, the player clears the first obstacle with a timed
   jump, crashing shows game over, a tap restarts. Plus one test per extra move or pickup.
+  `test/stress_test` ("Fast games"): top speed, the densest spawning (pairs, coin arcs), the
+  player unable to crash, 20 s of running.

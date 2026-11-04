@@ -19,6 +19,11 @@ change touches and the scripts it has to work with.
   at length. The player can ask for more.
 - Everything NOTES.md lists as "must not break" keeps working, unless the player asks to
   change exactly that: the player decides; then update NOTES.md.
+- **Keep it fast** ("Fast games"): a new look goes into `Looks` and the warm-up, a new thing that
+  multiplies (enemies, bullets, towers, pickups) into the stress test's busy moment at its cap. A
+  game without `test/stress_test.tscn` gets one when the change adds such things, and whenever the
+  player says it is slow, laggy, stutters or freezes: then find what grows with play (things redrawn
+  every frame, searches per frame, nodes never freed, a world that only grows) and fix it by the rules.
 - **Test what you changed.** If the change adds or changes how something behaves (a move, a
   pickup, a rule, an enemy, a power-up), add a feature test (see "Feature tests"): start the
   game, drive it like a player (or call the game's functions), and check the behaviour at
