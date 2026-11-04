@@ -5,8 +5,8 @@ import { randomInt } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import { ApiException, badRequest } from "../common/api-error.js";
 import type { User } from "../generated/prisma/client.js";
+import { AccessService } from "../access/access.service.js";
 import { PrismaService } from "../prisma.js";
-import { ProjectViews } from "../projects/views.js";
 
 /** The longest note, each of its two parts (as the site's text boxes allow). */
 export const FEEDBACK_TEXT_MAX = 4000;
@@ -32,10 +32,11 @@ export class FeedbackService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly views: ProjectViews,
+    private readonly access: AccessService,
   ) {}
 
-  /** POST /feedback (FeedbackBody). The game, when given, must be the user's own (404), and the message one of its own (400). */
+  /** POST /feedback (FeedbackBody). The game, when given, must be one the user is in (their own, or one they build with its
+   * owner: 404 otherwise), and the message one of its own (400). */
   async send(user: User, body: unknown, userAgent: string | undefined): Promise<{ id: string }> {
     const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
     const text = note(b.text, "what happened");
@@ -46,7 +47,7 @@ export class FeedbackService {
     let game: { id: string; currentVersion: number | null } | null = null;
     if (b.gameId !== undefined && b.gameId !== null) {
       if (typeof b.gameId !== "string") throw badRequest("That game id isn't valid.");
-      game = await this.views.owned(user.id, b.gameId);
+      game = (await this.access.game(user.id, b.gameId, "view")).project;
     }
     let messageId: string | null = null;
     if (b.messageId !== undefined && b.messageId !== null) {

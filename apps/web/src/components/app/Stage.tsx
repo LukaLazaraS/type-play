@@ -119,7 +119,10 @@ export function Stage({
   onPane,
   fresh = false,
   assets: assetsPanel,
+  onLeft,
 }: {
+  /** A member left the game from its More menu (pair developing): the page goes. */
+  onLeft?: () => void;
   project: Project;
   live: LiveLine;
   now: number;
@@ -149,6 +152,8 @@ export function Stage({
   assets?: ReactNode;
 }) {
   const frame = useRef<GameFrameHandle>(null);
+  // Pair developing (2026-11-04): the owner's controls (Share, Android) show only for the owner; an older API: the owner.
+  const owns = !project.access || project.access.role === "owner";
   // A new version doesn't restart a game in play (Luka, 11-04: a change he sent finished while he kept playing, and his
   // progress was gone). The frame runs `shown`; a version the AI just made takes its place by itself only while the
   // player hasn't touched the game since it loaded (play.html's "input"; a loader without it never says so, and every
@@ -349,8 +354,9 @@ export function Stage({
               icon={<DeviceRotate size={18} weight="bold" aria-hidden="true" />}
             />
           )}
-          {project.buildId && <ShareMenu project={project} onChange={onChange} />}
-          {project.buildId && androidOn && (
+          {/* Sharing and Android are the owner's (pair developing: a member builds, the owner publishes). */}
+          {project.buildId && owns && <ShareMenu project={project} onChange={onChange} />}
+          {project.buildId && androidOn && owns && (
             <InkPillLink
               href={`/games/${project.id}/android`}
               on={project.status === "exporting"}
@@ -361,7 +367,7 @@ export function Stage({
           )}
           {framed && <FullScreenPill ref={full} onClick={() => frame.current?.fullscreen()} />}
           {project.buildId && !listing && <NewTabPill slug={project.buildId} className="stage__newtab" />}
-          <GameMenu project={project} onRename={() => setRenaming(true)} />
+          <GameMenu project={project} onRename={() => setRenaming(true)} onLeft={onLeft} />
         </div>
       </header>
 

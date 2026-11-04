@@ -643,6 +643,49 @@ made, kept and checked): `apps/server/README.md` "The Assets tab".
   the worst real data (a fake build with German, Japanese and emoji names, a long key, 2048×64, 64×1024 and 1×1 pictures,
   24 frames, 3 minutes of music, 115 assets: the search, the viewer within the screen); no sideways scrolling anywhere.
 
+### Pair developing (2026-11-04)
+
+The owner invites someone by email to build the game with them; what a member sends is paid from the owner's credits
+(`docs/design/pair-developing.md`; the API's side and the rules: `apps/server/README.md` "Pair developing").
+
+- **People** (`components/app/People.tsx`, a `Popover` with `dim`: it opens over paper, so the page behind it dims): on a
+  computer the quiet button at the end of the chat's header, after "12.4 credits used" (the faces of the others,
+  ui/Faces.tsx, and for the owner the plus, with the word Invite while no one else is in; a full header cuts the credits
+  figure, never "Your games"); on a phone, where that header is hidden, an ink pill at the end of the page's tab bar
+  (`Tabs` `after`, beside the tab list, not in it, 44px wide at least: the plus while the owner is alone, else the
+  people and how many are in; under 390px the tabs and the pill take less padding, under 360px the pill shows its icon
+  only, so the bar fits at 320px). The page holds two of them, so every id inside one is its own (`useId`). The owner types an
+  address and Invite (a wrong one: the API's sentence under the box), then gets the link to send, with the keyboard on
+  Share… (where the phone has a share sheet) or Copy link, described by "Now send this link to … for 7 days" ("the link
+  sent before no longer works" after New link); sees each member (email, credits this month, Remove after an inline
+  question whose keyboard waits on Keep) and each invitation waiting (its address whole, until when, New link and Take
+  back under it), and the limit. Each list change shows at once and the list reads again on the stream's people events
+  (`changed`). A member sees who is in and Leave this game (also in More, in place of Delete game).
+- **The chat** (`ChatLog.tsx`): in a game more than one person has written in, each player message has its sender's name
+  above it (You for yours), and someone else's is ink with white words; a build going or waiting for someone else says
+  "for <name>"; the AI's questions take answers only from the one who asked (others see them read only, and who answers).
+- **A member's composer** (`Composer.tsx` `paidBy`, `othersBuild`): the owner's plan's AIs and estimates
+  (`useEstimates(…, game)`: `GET /estimate?game=`), "about 0.3 credits · luka pays" (wrapping when the name is long), no
+  balance and no past-due strip of their own, the out-of-credits answers in the owner's terms with no checkout, and no
+  Stop on someone else's build (Send waits, the tip says whose change is building). The owner may stop a member's build,
+  after an inline question. Share and Android are the owner's (`Stage.tsx`).
+- **/invite/<token>** (`app/invite/[token]/`): who invites you, the game's picture, who pays ("From luka, until …" with
+  the owner's face); Accept and open it, No thanks; signed out: sign in and back; another account: which address it is
+  for, which one you're signed in as, and Use another account (signs out); ended or declined: says so (declined moves
+  the keyboard to its title, `PageWidget` `titleRef`); accepted already: opens the game. Never indexed, no referrer (the
+  address holds the secret).
+- **My games** (`GamesClient.tsx`): Invitations first (a quiet Accept that opens the game and a No thanks text button:
+  the page's hot button stays New game), then your games, then **Shared with you** (each tile says whose game it is).
+  `/me/usage` lines a member sent say "sent by <name>" (`UsageList.tsx`).
+- Words: `content/app.ts` `people`.
+- Walk-through: `scripts/shot-members.mjs` (its own stack and database, fake builds; two browsers, the owner's and a
+  friend's, at 1440 and 390 px; shots in `.impeccable/review/members/`): invite from the panel (its label, the arrow keys
+  staying in the box on a phone, an error under the box, the keyboard on sending the link), the invitation in My games
+  and on its page, accept (and the link again opens the game), both send and the chat says who, the member's composer,
+  Shared with you, the member's panel, the owner's panel with the member's credits, the worst case (a long name, the
+  game full of invitations to long addresses, each shown whole), leaving; then the tab bar at 320, 360 and 375px with
+  1, 3 and 10 people in; no sideways scrolling anywhere.
+
 ## Known trap
 
 Turbopack's file watcher on this PC misses edits to `globals.css` (and `app.css`): restart

@@ -1,5 +1,5 @@
 // The Assets tab's routes of the contract (packages/shared/src/index.ts, "the Assets tab"): a version's list, and each
-// asset's file (Download), picture and thumbnail, for the game's owner only.
+// asset's file (Download), picture and thumbnail, for anyone in the game (its owner and its members: access.service).
 import { createReadStream } from "node:fs";
 import { Controller, Get, Param, Res } from "@nestjs/common";
 import type { Response } from "express";

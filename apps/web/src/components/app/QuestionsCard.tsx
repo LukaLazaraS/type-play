@@ -51,6 +51,7 @@ export function QuestionsCard({
   labelledBy,
   onAnswer,
   onDraft,
+  ownCredits = true,
 }: {
   messageId: string;
   questions: Questions;
@@ -60,6 +61,8 @@ export function QuestionsCard({
   labelledBy: string;
   onAnswer: (answers: (string | null)[]) => Promise<void>;
   onDraft?: (answers: (string | null)[]) => void;
+  /** False in someone else's game (pair developing): its owner's credits pay, so a refusal for credits offers no checkout. */
+  ownCredits?: boolean;
 }) {
   const count = questions.items.length;
   const [picks, setPicks] = useState<string[]>(() => Array.from({ length: count }, () => DECIDE));
@@ -171,7 +174,7 @@ export function QuestionsCard({
       {error && (
         <div className="questions__error" lang="en">
           <ErrorLine>{error.text}</ErrorLine>
-          {error.credits && (
+          {error.credits && ownCredits && (
             <ButtonLink href="/billing?change=1" size="small">
               {words.getCredits}
             </ButtonLink>

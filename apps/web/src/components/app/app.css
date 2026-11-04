@@ -234,6 +234,14 @@ body:has(.ws) .ground-band {
     background-color 160ms var(--ease-out),
     color 160ms var(--ease-out);
 }
+/* Tabs with something beside them in the bar (the way back, the people): the tab list is a row of its own in the bar. */
+.pillbar__tabs {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: inherit;
+  min-width: 0;
+}
 .pillbar--apart {
   flex-wrap: wrap;
   gap: 8px;
@@ -1500,6 +1508,13 @@ body:has(.ws) .ground-band {
   flex: none;
   color: var(--on-paper-muted);
   white-space: nowrap;
+}
+/* A member's cost names who pays (pair developing): a long name wraps instead of being cut at the widget's edge. */
+.composer__cost--payer {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .composer__tip {
   margin: 0;
@@ -2798,6 +2813,26 @@ body:has(.ws) {
     .pop--bar:popover-open::backdrop {
       opacity: 0;
     }
+  }
+}
+
+/* Dim (Popover dim): a panel that opens over paper (the chat's People panel) has no edge there, so the page behind it
+   dims at every width, as the account menu's does on a phone (ink at 60%, 160 ms in, 120 ms out). */
+.pop--dim::backdrop {
+  background: rgb(23 13 51 / 0.6);
+  opacity: 0;
+  transition:
+    opacity 120ms var(--ease-out),
+    overlay 120ms allow-discrete,
+    display 120ms allow-discrete;
+}
+.pop--dim:popover-open::backdrop {
+  opacity: 1;
+  transition-duration: 160ms;
+}
+@starting-style {
+  .pop--dim:popover-open::backdrop {
+    opacity: 0;
   }
 }
 
@@ -6049,4 +6084,384 @@ body:has(main.explore) > .ground-band {
 .assettile__square--light,
 .assetview__frame[data-light] {
   background-color: var(--ink-2);
+}
+
+/* ---- Pair developing (2026-11-04; docs/design/pair-developing.md) ---- */
+
+/* A face (ui/Faces.tsx): someone in a game. Ink, like their bubbles: a Google picture, or the first letter in white. The
+   paper edge keeps faces side by side apart (a cut, not a shadow: the border is the paper they lie on). 26px; small 20px
+   (the chat's name line), row 36px (the People panel). Waiting: invited, not in yet: Field with muted ink. */
+.face {
+  --face: 26px;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--face);
+  height: var(--face);
+  border: 2px solid var(--paper);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--on-sky);
+  font: 700 calc(var(--face) * 0.42) / 1 var(--font-ui);
+}
+.face img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.face--small {
+  --face: 20px;
+  border-width: 0;
+}
+.face--row {
+  --face: 36px;
+  border-width: 0;
+}
+.face.face--waiting {
+  background: var(--field);
+  color: var(--on-paper-muted);
+}
+/* Overlapping: each face after the first slides under-left by a third (the paper edge shows where one ends). */
+.faces {
+  display: inline-flex;
+  align-items: center;
+}
+.faces .face + .face {
+  margin-left: -8px;
+}
+/* On the quiet button (Field) the edge is the button's Field, so the faces cut out of it the same way. */
+.button--quiet .face {
+  border-color: var(--field);
+}
+.faces__more {
+  margin-left: 4px;
+  font-family: var(--font-figures);
+  font-size: 11px;
+  letter-spacing: -0.02em;
+  color: var(--on-paper-muted);
+}
+
+/* The chat header holds the people button too, after the credits used ("12.4 credits used"). */
+.ws__head .people__button,
+.ws__tabs .people__button {
+  flex: none;
+}
+/* On a phone's tab bar (ink): the ink pill with the plus (or the people) and how many are in, as tall as the tabs and
+   at least as wide (a finger's 44px when it holds the mark alone). */
+.ws__tabs .people__button {
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin-left: 2px;
+  padding-inline: 12px;
+  gap: 5px;
+}
+.people__count {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+/* The smallest phones (under 390px): the three tabs and the people pill take less side room, so the bar still fits at
+   320px; under 360px the pill shows only its icon (the number stays in its label). */
+@media (max-width: 389px) {
+  .ws__tabs .pillbar__item {
+    padding-inline: 10px;
+  }
+  .ws__tabs .people__button {
+    padding-inline: 10px;
+  }
+}
+@media (max-width: 359px) {
+  .ws__tabs .people__count {
+    display: none;
+  }
+}
+.ws__all {
+  flex: none;
+  margin-right: auto;
+  white-space: nowrap; /* "Your games" on one line: with people in, the header is full */
+}
+/* With people in, the header holds the faces too: the credits figure gives way first (cut, its title keeps the words). */
+.ws__head .ws__spent {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The chat header's people button (People.tsx): the quiet small button holding the faces, the owner's plus and word. */
+.people__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding-block: 4px;
+}
+.people__button:has(.faces) {
+  padding-left: 6px;
+}
+/* Fingers get 44px here too (a tablet's chat header), as every small button does. */
+@media (pointer: coarse) {
+  .people__button {
+    min-height: 44px;
+  }
+}
+/* The People panel (a Popover): the title and its line, the address and Invite, the link to send, the list. */
+.people__head b {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+}
+.people__head span {
+  display: block;
+  margin-top: 3px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--on-paper-muted);
+  text-wrap: pretty;
+}
+.people__form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+/* Invite stays beside the box; the box's error takes the line under both. */
+.people__form > .button {
+  grid-row: 1;
+  grid-column: 2;
+}
+.people__form .error-line {
+  grid-row: 2;
+  grid-column: 1 / -1;
+}
+.people__email input,
+.people__url input {
+  font-size: 16px; /* a phone doesn't zoom in on a field of 16px or more */
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+.people__link {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.people__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.people__note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--on-paper-muted);
+  text-wrap: pretty;
+}
+.people__list {
+  display: flex;
+  flex-direction: column;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.people__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 10px 0;
+}
+.people__row + .people__row {
+  border-top: 1px solid var(--field); /* the settings rows' divider */
+}
+.people__who {
+  flex: 1;
+  min-width: 0;
+}
+.people__who b {
+  display: block;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.people__who span {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--on-paper-muted);
+  overflow-wrap: anywhere;
+}
+/* An invitation's address is all there is to tell it by: whole, wrapping anywhere, never cut. */
+.people__who .people__address {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* A waiting invitation's two actions go under its address (the panel is 360px at most: beside it, the address got
+   120px); a row's error the same, under the face's column. */
+.people__acts {
+  display: flex;
+  flex-basis: 100%;
+  gap: 14px;
+  padding-left: 48px;
+}
+.people__row > .error-line {
+  flex-basis: 100%;
+  margin: 0;
+  padding-left: 48px;
+}
+.people__act {
+  align-self: center;
+}
+/* The remove question opens under its row, as wide as the row. */
+.people__ask {
+  flex-basis: 100%;
+  margin-top: 6px;
+}
+.people__leave {
+  align-self: flex-start;
+}
+
+/* A shared game's chat (ChatLog.tsx): who sent each player message, above it ("You" for yours), and someone else's
+   message in ink with white words; yours stay hot (what you press). The AI's answers stay Field on the other side. */
+.msg__by {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 88%;
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--on-paper-muted);
+}
+.msg__by span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Under someone else's open questions: who answers them (a sentence: the 13px note size, not the figures line's). */
+.msg__note {
+  padding: 0 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--on-paper-muted);
+  text-wrap: pretty;
+}
+.msg--other .bubble {
+  background: var(--ink);
+  color: var(--on-sky);
+}
+
+/* My games (GamesClient.tsx): the invitations waiting, then the games others share with you. */
+.mine__section {
+  margin: clamp(36px, 5vw, 56px) 0 18px;
+  font: 800 clamp(24px, 2.6vw, 32px) / 1.05 var(--font-display);
+  letter-spacing: -0.02em;
+  color: var(--on-sky);
+}
+.invites {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 760px; /* the app's widget width: the answers stay near the words they answer */
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+.invite {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px 14px 14px;
+  border-radius: var(--r-widget);
+  background: var(--paper);
+  color: var(--on-paper);
+}
+.invite__tile {
+  --icon: 64px;
+  --r-icon: 16px;
+  flex: none;
+}
+.invite__text {
+  flex: 1;
+  min-width: 0;
+}
+.invite__text p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.invite__text p + p {
+  margin-top: 3px;
+  font-size: 13px;
+  color: var(--on-paper-muted);
+}
+.invite__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+}
+.invite__actions .textbutton {
+  align-self: center; /* the standalone look sits at the start of its line elsewhere: here beside Accept */
+}
+@media (max-width: 640px) {
+  .invite {
+    flex-wrap: wrap;
+    border-radius: 32px;
+  }
+  .invite__actions {
+    flex-basis: 100%;
+  }
+}
+
+/* The invitation page (/invite/<token>): the game's picture beside its name, over the two buttons. */
+.invitepage__game {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 4px 0 6px;
+}
+.invitepage__tile {
+  --icon: 88px;
+  --r-icon: 22px;
+  flex: none;
+}
+.invitepage__game b {
+  font-size: 19px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.invitepage__note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--on-paper-muted);
+}
+.invitepage__note .face {
+  flex: none;
+}
+.invitepage__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+/* The game's name is the user's: one long word wraps instead of leaving the widget. */
+.invitepage .make__title {
+  overflow-wrap: anywhere;
+}
+/* A phone: the two answers one under the other, full width (a thumb's reach). */
+@media (max-width: 640px) {
+  .invitepage__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

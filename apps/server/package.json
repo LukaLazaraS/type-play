@@ -27,7 +27,8 @@
     "runner": "node runner/runner.mjs",
     "paddle:destination": "tsx scripts/paddle-destination.ts",
     "test:assets": "node test/assets.mjs",
-    "test:assets:e2e": "node test/assets-e2e.mjs"
+    "test:assets:e2e": "node test/assets-e2e.mjs",
+    "test:members:e2e": "node test/members-e2e.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.1.3",

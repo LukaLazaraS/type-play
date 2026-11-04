@@ -270,6 +270,105 @@ export const questions = {
 } as const;
 
 /**
+ * Pair developing (2026-11-04; docs/design/pair-developing.md): the owner invites someone by email to build the game with
+ * them; every change a member sends is paid from the owner's credits. `who` is a person's name as the API gives it.
+ */
+export const people = {
+  /** The chat header's button: the owner's (invite), a member's (who is in). */
+  invite: "Invite",
+  inviteLabel: "Invite someone to build this game with you",
+  peopleLabel: (n: number) => `People in this game: ${n}`,
+  /** The People panel. */
+  title: "Build it together",
+  lead: "People you invite change this game with the AI, in this chat. What they send is paid from your credits.",
+  memberTitle: "People in this game",
+  memberLead: (owner: string) => `It's ${owner}'s game: what you send is paid from ${owner}'s credits.`,
+  emailLabel: "Their Google account's email",
+  emailPlaceholder: "Their Google email",
+  send: "Invite",
+  sending: "Inviting…",
+  /** After an invitation is made: its link, to send yourself (no email goes out yet). A new link: the old one is dead. */
+  linkLabel: "Invitation link",
+  linkNote: (email: string, renewed = false) =>
+    `Now send this link to ${email}.${renewed ? " The link sent before no longer works." : ""} It works only for that address's Google account, for 7 days.`,
+  copy: "Copy link",
+  copied: "Copied",
+  shareSheet: "Share…",
+  shareText: (game: string) => `Build ${game} with me on TypePlay`,
+  betaNote: "TypePlay is in a closed beta: they also need a beta code to get in.",
+  you: "You",
+  owner: "Owner",
+  editor: "Can edit",
+  spent: (credits: string) => `${credits} this month`,
+  remove: "Remove",
+  removeLabel: (who: string) => `Remove ${who} from this game`,
+  removeAsk: (who: string) => `Remove ${who}? They lose this game at once, and a change of theirs still building stops. What they sent stays in the chat.`,
+  removing: "Removing…",
+  keep: "Keep",
+  waiting: "Invited",
+  until: (day: string) => `Link works until ${day}`,
+  ended: "Link ended",
+  newLink: "New link",
+  newLinkLabel: (email: string) => `New link for ${email}`,
+  takeBack: "Take back",
+  takeBackLabel: (email: string) => `Take back the invitation to ${email}`,
+  leave: "Leave this game",
+  leaveAsk: (owner: string) => `Leave ${owner}'s game? A change of yours still building stops, and you can come back only with a new invitation.`,
+  leaving: "Leaving…",
+  stay: "Stay",
+  max: (n: number) => `Up to ${n} people besides you.`,
+  full: (n: number) => `${n} people are in or invited, the most a game can have. Take an invitation back or remove someone to invite another.`,
+  /** In the chat of a shared game. */
+  formerMember: "A former member",
+  forWhom: (who: string) => `for ${who}`,
+  othersBuild: (who: string) => `${who}'s change is building now. You can type yours and send it when it's done.`,
+  othersWait: (who: string) => `${who}'s change is waiting for its turn. You can send yours when it's done.`,
+  answering: (who: string) => `${who} answers these questions; anything you send is a new request.`,
+  answerGone: "These questions can't be answered here any more. Send what you want as a message.",
+  /** The composer of a member: whose credits pay. */
+  cost: (credits: string, owner: string) => `about ${credits} · ${owner} pays`,
+  /** A member's Free builds paused across TypePlay (the kill switch), with the wait as the site says waits. */
+  paused: (owner: string, until: string) => `Free builds are paused; they start again ${until}. This game is on ${owner}'s Free plan.`,
+  /** The owner, while a member's change builds: Stop asks first. */
+  ownersTip: (who: string) => `${who}'s change is building now. You can stop it; nothing is charged then.`,
+  stopAsk: (who: string) => `Stop ${who}'s change? It ends now, and nothing is charged.`,
+  stopIt: "Stop it",
+  keepBuilding: "Keep building",
+  /** My games. */
+  invitations: "Invitations",
+  invitedBy: (owner: string) => `${owner} invites you to build`,
+  invitedNote: (owner: string, day: string) => `Changes you send are paid from ${owner}'s credits. Until ${day}.`,
+  accept: "Accept",
+  acceptLabel: (game: string) => `Accept the invitation to ${game}`,
+  accepting: "Joining…",
+  decline: "No thanks",
+  declineLabel: (game: string) => `No thanks to ${game}`,
+  declining: "Declining…",
+  shared: "Shared with you",
+  sharedStat: (owner: string) => `${owner}'s game`,
+  /** The page a link opens (/invite/<token>). */
+  pageTitle: (game: string) => `Build ${game} together.`,
+  pageLead: (owner: string) =>
+    `${owner} invites you to build this game with them: you'll see its chat, its versions and its pictures, and change it with the AI. Every change you send is paid from ${owner}'s credits.`,
+  pageNote: (owner: string, day: string) => `From ${owner}, until ${day}.`,
+  acceptOpen: "Accept and open it",
+  opening: "Opening your invitation…",
+  waitingTitle: "You're invited to build a game.",
+  signIn: "Sign in with the Google account the invitation was sent to, to see the game and accept.",
+  wrongTitle: "This invitation is for another account.",
+  signedInAs: (email: string) => `You're signed in as ${email}.`,
+  otherAccount: "Use another account",
+  endedTitle: "This invitation has ended.",
+  failedTitle: "Can't open this invitation.",
+  declined: "Invitation declined.",
+  declinedLead: (owner: string) => `Nothing changed in ${owner}'s game. If you change your mind, ask ${owner} for a new invitation.`,
+  yourGames: "Your games",
+  /** You were taken out of a game (removed, or you left in another tab). */
+  removedTitle: "You're no longer in this game.",
+  removedLead: "Its owner took you out of it, or you left it. What you sent stays in its chat.",
+} as const;
+
+/**
  * Pictures with a message (2026-11-04): what the player may attach (the API checks the same by each file's content:
  * apps/server/src/attachments/limits.ts) and the words the box, the chat and the viewer use. `name` is the file's name.
  */

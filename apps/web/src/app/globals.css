@@ -330,7 +330,8 @@ a {
   text-underline-offset: 3px;
   cursor: pointer;
 }
-.textbutton:disabled {
+.textbutton:disabled,
+.textbutton[aria-disabled="true"] {
   cursor: progress;
 }
 

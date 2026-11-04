@@ -22,7 +22,7 @@ import { noticeOf, type EndWhy } from "../notify/notices.js";
 import { PushService } from "../notify/push.service.js";
 import { PrismaService } from "../prisma.js";
 import { questionsOf } from "../projects/questions.js";
-import { ProjectViews, toMessage, toVersion } from "../projects/views.js";
+import { ProjectViews, toMessage, toVersion, WITH_AUTHOR } from "../projects/views.js";
 import { MODEL_FLAG, runAgent, sweep, type AgentResult } from "./agent.js";
 import { runFakeAgent } from "./fake-agent.js";
 import { KeyProxy } from "./key-proxy.js";
@@ -32,7 +32,10 @@ export const projectDir = (projectId: string) => join(config.dataDir, "projects"
 
 export interface StartRun {
   projectId: string;
+  /** Who pays: the game's owner (access.service `payerOf`), charged and held for under their plan. */
   userId: string;
+  /** Who asked for it (pair developing: the owner, or a member of the game): told when it ends. Left out: `userId`. */
+  senderId?: string;
   messageId: string;
   kind: "new" | "edit";
   prompt: string;
@@ -110,7 +113,9 @@ type EndEvent = Extract<RunEvent, { type: "done" | "failed" }>;
 
 /** What `ended` needs about a build that ended: its answer as written, and how it ended. */
 export interface Ended {
-  userId: string;
+  /** Who is told: the one who asked for the build (pair developing: the owner, or a member); null: nobody (an account
+   * closed since). */
+  userId: string | null;
   projectId: string;
   /** The answer's row as the end wrote it (status, text, version, the bigger AI). */
   message: Message;
@@ -150,7 +155,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       // No finishedAt: when it really ended (the server going down) isn't known, and the chat's answer shows no build time
       // rather than one that counts the time the server was down.
       const message = await this.prisma.message.update({ where: { id: m.id }, data: { status: "failed", text: FAILED_TEXT.interrupted, credits: 0 } });
-      await this.ended({ userId: m.project.ownerId, projectId: m.projectId, message, why: "interrupted", first: m.project.currentVersion == null });
+      await this.ended({ userId: m.authorId, projectId: m.projectId, message, why: "interrupted", first: m.project.currentVersion == null });
     }
     if (stale.length) this.log.warn(`marked ${stale.length} interrupted run(s) as failed`);
     this.log.log(config.agentFake ? "AGENT_FAKE=1: runs are simulated" : `game agent: ${config.agentRunner}`);
@@ -168,8 +173,18 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
 
   /** Starts the run; the project is in `active` when this returns. */
   start(s: StartRun) {
-    const { startedAt, ...rest } = s;
-    const run: ActiveRun = { ...rest, startedAt: startedAt.getTime(), handle: null, export: null, cancelled: false, timedOut: false, lastProgress: null, finished: Promise.resolve() };
+    const { startedAt, senderId, ...rest } = s;
+    const run: ActiveRun = {
+      ...rest,
+      senderId: senderId ?? s.userId,
+      startedAt: startedAt.getTime(),
+      handle: null,
+      export: null,
+      cancelled: false,
+      timedOut: false,
+      lastProgress: null,
+      finished: Promise.resolve(),
+    };
     this.registry.active.set(s.projectId, run);
     this.events.emit(s.projectId, { type: "started", messageId: s.messageId, model: s.model, effort: s.effort, startedAt: startedAt.toISOString() });
     run.finished = this.execute(run)
@@ -214,7 +229,8 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
         this.log.error(`end event ${e.projectId}: ${err}`);
       }
     }
-    if (e.why === "stopped") return;
+    if (e.why === "stopped" || !e.userId) return;
+    const told = e.userId;
     try {
       name ??= (await this.prisma.project.findUnique({ where: { id: e.projectId }, select: { name: true } }))?.name ?? null;
       if (name === null) return; // deleted meanwhile
@@ -232,8 +248,8 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
         timeoutMin: config.runTimeoutMin,
         at: e.message.finishedAt ?? new Date(),
       });
-      this.events.notify(e.userId, notice);
-      void this.push.send(e.userId, notice);
+      this.events.notify(told, notice);
+      void this.push.send(told, notice);
     } catch (err) {
       this.log.error(`notice ${e.projectId}: ${err}`);
     }
@@ -370,6 +386,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
         const message = await tx.message.update({
           where: { id: run.messageId },
           data: { status: "done", text, credits, costUsd, meteredUsd: metered, versionN: n, suggestions: result.suggestions ?? [], finishedAt: new Date() },
+          include: WITH_AUTHOR,
         });
         // The kill switch's number (kept apart from the message: a deleted game's runs still count).
         if (message.plan === "free") await this.ledger.addFreeSpend(tx, aiSpentUsd(result, metered));
@@ -394,7 +411,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       `run ${run.projectId} done: v${n}, $${chargeUsd.toFixed(3)} charged (agent $${agentUsd.toFixed(3)}, metered ${metered === null ? "n/a" : "$" + metered.toFixed(3)}), ${credits} credits`,
     );
     await this.ended({
-      userId: run.userId,
+      userId: run.senderId,
       projectId: run.projectId,
       message,
       why: "built",
@@ -427,6 +444,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       const m = await tx.message.update({
         where: { id: run.messageId },
         data: { status: "done", text: result.playerMessage!.trim(), credits, costUsd: agentUsd, meteredUsd: metered, biggerModel: bigger, finishedAt: new Date() },
+        include: WITH_AUTHOR,
       });
       if (m.plan === "free") await this.ledger.addFreeSpend(tx, aiSpentUsd(result, metered));
       await this.ledger.chargeIn(tx, run.userId, toTenths(credits), { messageId: run.messageId, note: `${run.kind} on ${run.model}` });
@@ -439,7 +457,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       `run ${run.projectId} too big for ${run.model}: stopped before the build, $${chargeUsd.toFixed(4)} charged (metered ${metered === null ? "n/a" : "$" + metered.toFixed(4)}), ${credits} credits`,
     );
     await this.ended({
-      userId: run.userId,
+      userId: run.senderId,
       projectId: run.projectId,
       message,
       why: "toobig",
@@ -482,6 +500,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       const m = await tx.message.update({
         where: { id: run.messageId },
         data: { status: "done", text: asked.intro, questions, credits, costUsd: agentUsd, meteredUsd: metered, finishedAt: new Date() },
+        include: WITH_AUTHOR,
       });
       if (m.plan === "free") await this.ledger.addFreeSpend(tx, aiSpentUsd(result, metered));
       await this.ledger.chargeIn(tx, run.userId, toTenths(credits), { messageId: run.messageId, note: `${run.kind} on ${run.model}` });
@@ -498,7 +517,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       `run ${run.projectId} asked ${asked.questions.items.length} question(s) before the build: $${chargeUsd.toFixed(4)} charged (metered ${metered === null ? "n/a" : "$" + metered.toFixed(4)}), ${credits} credits`,
     );
     await this.ended({
-      userId: run.userId,
+      userId: run.senderId,
       projectId: run.projectId,
       message,
       why: "asked",
@@ -542,6 +561,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
         meteredUsd: metered,
         finishedAt: new Date(),
       },
+      include: WITH_AUTHOR,
     });
     // Failed runs count towards the Free kill switch too (the AI was paid for): a Stop's or a timeout's metered calls included.
     if (message.plan === "free") await this.ledger.addFreeSpend(this.prisma, aiSpentUsd(result, metered)).catch((e) => this.log.error(`free spend ${run.projectId}: ${e}`));
@@ -550,7 +570,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     this.registry.free();
     this.log.log(`run ${run.projectId} ${why ?? (run.cancelled ? "cancelled" : refused ? "refused" : "failed")}`);
     await this.ended({
-      userId: run.userId,
+      userId: run.senderId,
       projectId: run.projectId,
       message,
       // A Stop (or the game or the account deleted meanwhile) wins over how far the run got, as the text above says.

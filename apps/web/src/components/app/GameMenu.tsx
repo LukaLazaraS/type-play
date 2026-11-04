@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowSquareOut, ChatCircleText, DotsThree, DownloadSimple, PencilSimple, Trash } from "@phosphor-icons/react";
+import { ArrowSquareOut, ChatCircleText, DotsThree, DownloadSimple, PencilSimple, SignOut, Trash } from "@phosphor-icons/react";
 import type { Project } from "@typeplay/shared";
 import { playUrl } from "@/components/GameFrame";
 import { Button } from "@/components/ui/Button";
@@ -10,18 +10,22 @@ import { ErrorLine } from "@/components/ui/ErrorLine";
 import { InkPill } from "@/components/ui/InkPill";
 import { Menu, MenuAsk, MenuItem } from "@/components/ui/Menu";
 import { Popover, type PopoverHandle } from "@/components/ui/Popover";
+import { people as together } from "@/content/app";
 import { api, saveFile } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { FeedbackDialog, type FeedbackHandle } from "./Feedback";
 
-/** The game's own menu: rename, download the project, open in a new tab, send feedback about it, delete (asks first). */
-export function GameMenu({ project, onRename }: { project: Project; onRename: () => void }) {
+/** The game's own menu: rename, download the project, open in a new tab, send feedback about it, delete (asks first). A
+ * member of someone else's game (pair developing) leaves it there instead of deleting it (asks first too). */
+export function GameMenu({ project, onRename, onLeft }: { project: Project; onRename: () => void; onLeft?: () => void }) {
   const router = useRouter();
   const session = useSession();
   const menu = useRef<PopoverHandle>(null);
   const feedback = useRef<FeedbackHandle>(null);
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState<"download" | "delete" | null>(null);
+  const member = project.access?.role === "editor";
+  const ownerName = project.access?.owner.name ?? "";
   const [error, setError] = useState<string | null>(null);
   const reset = useCallback(() => {
     setAsking(false);
@@ -48,6 +52,13 @@ export function GameMenu({ project, onRename }: { project: Project; onRename: ()
     setBusy("delete");
     setError(null);
     try {
+      if (member) {
+        await api.people.leave(project.id);
+        close();
+        if (onLeft) onLeft();
+        else router.replace("/games");
+        return;
+      }
       await api.remove(project.id);
       router.replace("/games");
     } catch (e) {
@@ -65,16 +76,32 @@ export function GameMenu({ project, onRename }: { project: Project; onRename: ()
         width={300}
         onClose={reset}
         trigger={(t) => (
-          <InkPill {...t} aria-label="More: rename, download, feedback, delete" icon={<DotsThree size={20} weight="bold" aria-hidden="true" />} label="More" />
+          <InkPill {...t} aria-label={`More: rename, download, feedback, ${member ? "leave" : "delete"}`} icon={<DotsThree size={20} weight="bold" aria-hidden="true" />} label="More" />
         )}
       >
-        {asking ? (
+        {asking && member ? (
+          <MenuAsk
+            id={`delete-q-${project.id}`}
+            question={together.leaveAsk(ownerName)}
+            actions={
+              <>
+                <Button look="ink" size="small" busy={busy === "delete"} busyLabel={together.leaving} onClick={() => void remove()}>
+                  {together.leave}
+                </Button>
+                <Button look="quiet" size="small" disabled={busy === "delete"} onClick={() => setAsking(false)}>
+                  {together.stay}
+                </Button>
+              </>
+            }
+          />
+        ) : asking ? (
           <MenuAsk
             id={`delete-q-${project.id}`}
             question={
               <>
                 <b>Delete {project.name}?</b> Every version goes, and its share page
-                {running ? ", and the build that is running now" : queued ? ", and the build waiting for its turn" : ""}. You can&apos;t undo this.
+                {running ? ", and the build that is running now" : queued ? ", and the build waiting for its turn" : ""}
+                {project.access?.members.length ? ", and everyone you build it with loses it" : ""}. You can&apos;t undo this.
               </>
             }
             actions={
@@ -125,7 +152,11 @@ export function GameMenu({ project, onRename }: { project: Project; onRename: ()
                 feedback.current?.open({ id: project.id, name: project.name, messageId: last?.id ?? null }, menu.current?.trigger);
               }}
             />
-            <MenuItem icon={<Trash size={18} weight="bold" aria-hidden="true" />} label="Delete game" onClick={() => setAsking(true)} />
+            {member ? (
+              <MenuItem icon={<SignOut size={18} weight="bold" aria-hidden="true" />} label={together.leave} onClick={() => setAsking(true)} />
+            ) : (
+              <MenuItem icon={<Trash size={18} weight="bold" aria-hidden="true" />} label="Delete game" onClick={() => setAsking(true)} />
+            )}
           </Menu>
         )}
         {error && <ErrorLine>{error}</ErrorLine>}

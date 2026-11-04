@@ -589,8 +589,9 @@ does the agent copy one into the game as its art (`packages/agent/rules/PICTURES
   beside the game folders (`data/projects/`), never in a game folder (Godot would pack it into the build). Files are
   written before their row and deleted after it; a sweep at start and every hour deletes staged pictures older than a
   day (row and files), files no row names that are older than an hour, and this PC's run folders older than two hours.
-- **Fetched by their owner only:** `GET /attachments/:id` (the clean picture) and `/attachments/:id/thumb` (WebP) answer
-  only the account that uploaded them (404 for anyone else, as for a picture that isn't there), `Cache-Control: private,
+- **Fetched by the people of their game only:** `GET /attachments/:id` (the clean picture) and `/attachments/:id/thumb`
+  (WebP) answer the account that uploaded them and, once sent, everyone in the game the message is in (its owner and its
+  members: pair developing, 2026-11-04); 404 for anyone else, as for a picture that isn't there; `Cache-Control: private,
   no-store`, `X-Content-Type-Options: nosniff`. The site fetches them with the sign-in header and shows them as object URLs.
 - **Deleted with** the game (`removeGame` reads its pictures before the rows cascade, then deletes their files; the
   game's messages and version history go with it), the account (its staged pictures too), or a day unsent. The data
@@ -659,7 +660,8 @@ gap (what you play, the goal, the controls, the look's direction). Competitors a
   model call) and `tests/questions-eval.mjs` (real calls on this PC); the screens: `apps/web/scripts/shot-questions.mjs`.
 ## The Assets tab (2026-11-04)
 
-Every picture, 3D model, sound and font a game's version uses, for its owner (`docs/design/assets.md`; the site's side:
+Every picture, 3D model, sound and font a game's version uses, for the people of the game (its owner and, since pair
+developing, its members) (`docs/design/assets.md`; the site's side:
 `apps/web/README.md` "Assets"). Code: `src/assets/` (`importer.ts` makes a version's list, `names.ts` plain names,
 `glb.ts` the model re-pack, `media.ts` sounds and fonts by content, `store.ts` the files, `assets.service.ts`,
 `assets.controller.ts`).
@@ -689,7 +691,7 @@ Every picture, 3D model, sound and font a game's version uses, for its owner (`d
 - **Where they live:** `DATA_DIR/assets/<project>/blobs/<sha256>` (each file once per game, however many versions use it)
   and `DATA_DIR/assets/<project>/builds/<build>.json` (the list; builds are immutable, a restore shares its build's list).
   Folders 0700, files 0600. No database table, no migration. Deleted with the game (`removeGame`) and so with the account.
-- **Routes** (owner only, 404 for anyone else and for a build that is none of the game's versions; `Cache-Control:
+- **Routes** (anyone in the game, 404 for anyone else and for a build that is none of the game's versions; `Cache-Control:
   private, no-store`, `nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`): `GET
   /projects/:id/assets/:buildId` (`GameAssets`), `…/:assetId` (the asset as Download saves it, `Content-Disposition:
   attachment` with a name from the asset's), `…/:assetId/picture` (a picture, a look's first frame, a model's still),
@@ -705,6 +707,51 @@ Every picture, 3D model, sound and font a game's version uses, for its owner (`d
   a capture; 45 checks) and `npm run test:assets:e2e -w @typeplay/server` (its own API and database: each kind, the
   headers, owner only, a restore, an older version, deleted with the game). The site's walk-through:
   `apps/web/scripts/shot-assets.mjs`.
+
+## Pair developing (2026-11-04)
+
+A game's owner invites someone by email to build the game with them (`docs/design/pair-developing.md`; why it works
+this way: `docs/research/pair-developing-2026-11-04.md`; the site's side: `apps/web/README.md` "Pair developing"). Code:
+`src/access/access.service.ts`, `src/members/` (`members.service.ts`, `members.controller.ts`), migration
+`20261104180000_pair_developing` (additive: `ProjectMember`, `ProjectInvite`, `Message.authorId` filled with each game's
+owner).
+
+- **One place decides who may do what** (`AccessService.game(userId, id, need)`, need `view`, `edit` or `owner`; one
+  query: `ownerId = me OR a member row of mine`). Every game route asks it: projects (get, events, messages, restore,
+  cancel, rename, share, gallery, download, delete), assets, pictures (`attachments.service.ts` `file`: a picture of a
+  message in a game you are in), Android (owner only), feedback with a game, `GET /estimate?game=`, people and
+  invitations. Someone not in the game gets 404, as for a game that isn't there; a member asking for the owner's part 403
+  `owner_only`. Members are editors: they send to the AI, answer the questions the AI asked them, restore, rename,
+  download, and stop the builds they asked for; only the owner invites, removes, shares, puts it in the gallery or on
+  Android, deletes it, and stops anyone's build.
+- **The owner pays** (`payerOf`, the one line to change for "the sender pays"): a member's message is held, checked,
+  claimed, laned and charged as the owner's (`credits.assertCanRun(payer, …, paidBy)` words its refusals in the owner's
+  terms; `claimRun(id, payer)`; `QueuedRun.userId` and `Message.plan` are the owner's), and the run knows its sender
+  (`StartRun.senderId`, `ActiveRun.senderId`, `QueuedEntry.senderId`, `Message.authorId` on both the player's message and
+  the answer): the end's notice and push go to the sender, the owner's balance (`credits` on done and failed) only to
+  the owner's streams. `GET /me/usage` says `by` on a charge for a member's message.
+- **Invitations:** one per game and address (`ProjectInvite`, matched like beta invites: Gmail's dots and +tags
+  ignored); the link's secret (32 random bytes) is returned once, only its SHA-256 is kept; 7 days; a new link replaces
+  the old one; declined or taken back, the row goes. Accepted, it is marked (`acceptedAt`, the member row made in the
+  same transaction) and stays while its person is in the game: its link then answers `accepted: true` and the site opens
+  the game, and accepting again (a second tab) answers the game's id. At most 10 people besides the owner (invitations
+  waiting included; counted under the game's row lock) and 30 new links a day per owner. Neither an address nor a link
+  is ever logged. No email is sent yet (no sending service): the owner sends the link, and an account with that address
+  sees it in `GET /invites`. A game invitation is no way past the closed beta.
+- **Leaving:** the owner removes anyone, a member leaves; a build that person asked for that is still going or waiting
+  stops (nothing charged), the invitation they accepted goes (their address isn't kept; its link is 404), their open
+  streams hear `removed` and end, the others hear `people`. Their messages stay. A member's closed account takes their
+  memberships, those invitations and their pictures in others' games with it (rows by cascade, files after); their
+  messages stay without an author ("a former member"). A change to an invitation alone is `{ type: "people", invites:
+  true }` on the stream (who is in is the same: only an open people list reads again).
+- **Two at once:** one build per game, as always: of two sends at the same moment exactly one claims the game; the 409
+  for the other says whose change is building.
+- Tests: `npm run test:members:e2e -w @typeplay/server` (its own API and database: every game route for the owner, an
+  editor, someone invited but not in yet, an outsider and no sign-in; inviting, Gmail matching, a new link, taking back,
+  declining, expiry, the 10-people and 30-links limits; accepting, and the link once accepted; Shared with you; who pays and what each stream says;
+  a Free owner's plan; two people sending at once; stopping someone else's build; questions; pictures; notices; removing
+  (the build stops, the stream ends); leaving; a closed account; the game deleted). The site's walk-through:
+  `apps/web/scripts/shot-members.mjs`.
 
 ## How a message runs
 

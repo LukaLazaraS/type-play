@@ -7,8 +7,8 @@ import type { GameAsset, GameAssets } from "@typeplay/shared";
 import { ApiException, notFound } from "../common/api-error.js";
 import { config } from "../env.js";
 import type { User } from "../generated/prisma/client.js";
+import { AccessService } from "../access/access.service.js";
 import { PrismaService } from "../prisma.js";
-import { ProjectViews } from "../projects/views.js";
 import { fileSlug } from "../games/download.js";
 import { RunRegistry } from "../runs/registry.js";
 import { importAssets } from "./importer.js";
@@ -32,7 +32,7 @@ export class AssetsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly views: ProjectViews,
+    private readonly access: AccessService,
     private readonly registry: RunRegistry,
   ) {}
 
@@ -64,9 +64,9 @@ export class AssetsService {
     }
   }
 
-  /** The owner's game and its version with this build, or 404. */
+  /** The game (anyone in it: its owner and its members) and its version with this build, or 404. */
   private async version(user: User, projectId: string, buildId: string) {
-    const project = await this.views.owned(user.id, projectId);
+    const { project } = await this.access.game(user.id, projectId, "view");
     if (typeof buildId !== "string" || !BUILD.test(buildId)) throw notFound("We couldn't find that version.");
     const version = await this.prisma.version.findFirst({ where: { projectId: project.id, buildId }, select: { n: true } });
     if (!version) throw notFound("We couldn't find that version.");

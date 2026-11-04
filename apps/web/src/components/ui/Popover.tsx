@@ -75,7 +75,8 @@ export type PopoverTrigger = { ref: RefObject<HTMLButtonElement | null>; popover
  * the top layer, so no clipped panel cuts it off; it grows out of its button (opacity and scale 0.97, 160 ms in, 120 ms
  * out; reduced motion keeps only the fade), scrolls when taller than the screen, and the browser closes it on Escape or a
  * tap outside. Under its trigger; `bar`: pinned under the status bar at the right (the account menu), which also dims the
- * page behind it on a phone. `menu`: rows instead of a panel's content (8px around them).
+ * page behind it on a phone. `menu`: rows instead of a panel's content (8px around them). `dim`: it opens over paper (the
+ * chat's People panel, 2026-11-04), where paper on paper has no edge, so the page behind it dims at every width.
  */
 export function Popover({
   id,
@@ -83,6 +84,7 @@ export function Popover({
   width,
   menu,
   bar,
+  dim,
   className,
   onOpen,
   onClose,
@@ -95,6 +97,7 @@ export function Popover({
   width?: number;
   menu?: boolean;
   bar?: boolean;
+  dim?: boolean;
   className?: string;
   onOpen?: (panel: HTMLElement) => void;
   onClose?: () => void;
@@ -117,7 +120,7 @@ export function Popover({
   return (
     <>
       {trigger({ ref: button, popoverTarget: id })}
-      <div ref={panel} id={id} popover="auto" className={cx("pop", menu && "pop--menu", bar && "pop--bar", className)} data-width={width}>
+      <div ref={panel} id={id} popover="auto" className={cx("pop", menu && "pop--menu", bar && "pop--bar", dim && "pop--dim", className)} data-width={width}>
         {children}
       </div>
     </>

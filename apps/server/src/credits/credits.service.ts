@@ -5,6 +5,7 @@
 // (in memory) and the next message of the same user is checked against what is left after the holds.
 import { Injectable } from "@nestjs/common";
 import type { CreditBalance, Effort, Estimate, ModelChoice, PlanId, UsageEntry, UsagePage } from "@typeplay/shared";
+import { PERSON, personOf } from "../access/access.service.js";
 import { ApiException } from "../common/api-error.js";
 import type { CreditEntry, User } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
@@ -85,8 +86,8 @@ export class CreditsService {
    * daily limit, ask first); otherwise holds the estimate's `high` for the run. The caller releases
    * the hold when the run's charge is written (runs.service), or at once if the run never starts.
    */
-  async assertCanRun(user: User, kind: "new" | "edit", model: ModelChoice, confirm: boolean | undefined, effort: Effort = "medium"): Promise<CreditHold> {
-    const est = await this.check(user, kind, model, effort, { confirm: !!confirm, own: null });
+  async assertCanRun(user: User, kind: "new" | "edit", model: ModelChoice, confirm: boolean | undefined, effort: Effort = "medium", paidBy?: string): Promise<CreditHold> {
+    const est = await this.check(user, kind, model, effort, { confirm: !!confirm, own: null, paidBy });
     return this.hold(user.id, est.high);
   }
 
@@ -99,18 +100,37 @@ export class CreditsService {
     await this.check(user, kind, model, effort, { confirm: true, own });
   }
 
-  private async check(user: User, kind: "new" | "edit", model: ModelChoice, effort: Effort, opts: { confirm: boolean; own: CreditHold | null }): Promise<Estimate> {
+  /**
+   * `paidBy`: a member of someone else's game sends (pair developing, 2026-11-04): `user` is the game's owner, who pays,
+   * and this is the owner's name; every refusal then says it in the owner's terms (nothing about their payments).
+   */
+  private async check(user: User, kind: "new" | "edit", model: ModelChoice, effort: Effort, opts: { confirm: boolean; own: CreditHold | null; paidBy?: string }): Promise<Estimate> {
     const plan = user.plan as PlanId;
+    const owner = opts.paidBy ? `${opts.paidBy}'s` : null;
     // A disputed payment (chargeback) holds the account until an admin clears it: no builds, no buying.
     if (user.billingFlag === "chargeback") {
-      throw new ApiException(403, "billing_hold", "A payment was disputed with your bank, so building is paused. Write to hello@typeplay.app.");
+      throw new ApiException(
+        403,
+        "billing_hold",
+        owner ? `Building is paused on ${owner} account for now, so changes to this game wait.` : "A payment was disputed with your bank, so building is paused. Write to hello@typeplay.app.",
+      );
     }
     if (!planModels(plan).includes(model)) {
-      throw new ApiException(403, "model_not_in_plan", "The Free plan builds with Fast. Pick Fast, or upgrade for Smart and Best.");
+      throw new ApiException(
+        403,
+        "model_not_in_plan",
+        owner ? `This game is on ${owner} Free plan, which builds with Fast. Pick Fast.` : "The Free plan builds with Fast. Pick Fast, or upgrade for Smart and Best.",
+      );
     }
     // The kill switch (docs/pricing.md): Free builds stop for the day once they have cost $20 of AI across everyone.
     if (plan === "free" && (await this.ledger.freeAiUsdToday()) >= FREE_DAILY_AI_USD) {
-      throw new ApiException(402, "free_paused", "Free builds are paused until 00:00 UTC: today's free allowance is used up across TypePlay. Get a plan to keep going.");
+      throw new ApiException(
+        402,
+        "free_paused",
+        owner
+          ? `Free builds are paused until 00:00 UTC, and this game is on ${owner} Free plan: today's free allowance is used up across TypePlay.`
+          : "Free builds are paused until 00:00 UTC: today's free allowance is used up across TypePlay. Get a plan to keep going.",
+      );
     }
     const est = estimate(kind, model, plan, effort);
     const { available, todayLeft } = await this.balance(user);
@@ -122,7 +142,13 @@ export class CreditsService {
       throw new ApiException(
         402,
         "no_credits",
-        held > 0 ? "Your build that's going now may need the credits you have left. Wait for it to finish." : "You're out of credits for this message.",
+        owner
+          ? held > 0
+            ? `A build going now on ${owner} credits may need what is left. Wait for it to finish.`
+            : `${owner} credits can't pay for this message. Ask ${opts.paidBy} to add credits.`
+          : held > 0
+            ? "Your build that's going now may need the credits you have left. Wait for it to finish."
+            : "You're out of credits for this message.",
       );
     }
     // The same rule as the balance (and as the site shows): enough left today for the low estimate.
@@ -130,13 +156,15 @@ export class CreditsService {
       throw new ApiException(
         402,
         "daily_limit",
-        todayLeft <= 0
-          ? "You've used today's 5 free credits. More tomorrow."
-          : `Not enough of today's 5 free credits left for this (${todayLeft} left; it needs at least ${est.low}). More tomorrow.`,
+        owner
+          ? `This game is on ${owner} Free plan, and today's 5 free credits are used. More tomorrow.`
+          : todayLeft <= 0
+            ? "You've used today's 5 free credits. More tomorrow."
+            : `Not enough of today's 5 free credits left for this (${todayLeft} left; it needs at least ${est.low}). More tomorrow.`,
       );
     }
     if (est.needsConfirm && !opts.confirm) {
-      throw new ApiException(409, "needs_confirm", `This could cost up to ${est.high} credits. Send it again to confirm.`);
+      throw new ApiException(409, "needs_confirm", `This could cost up to ${est.high} ${owner ? `of ${owner} ` : ""}credits. Send it again to confirm.`);
     }
     return est;
   }
@@ -152,23 +180,35 @@ export class CreditsService {
     });
     const more = rows.length > limit;
     const page = rows.slice(0, limit);
-    return { entries: await this.describe(page), next: more ? page.at(-1)!.id : null };
+    return { entries: await this.describe(page, user.id), next: more ? page.at(-1)!.id : null };
   }
 
   /** Every entry (the account export), newest first. */
   async all(user: User): Promise<UsageEntry[]> {
     await this.ledger.settle(user);
     const rows = await this.prisma.creditEntry.findMany({ where: { userId: user.id }, orderBy: [{ createdAt: "desc" }, { id: "desc" }] });
-    return this.describe(rows);
+    return this.describe(rows, user.id);
   }
 
-  /** Ledger rows -> UsageEntry: the game each charge was for and the prompt that ran. */
-  private async describe(rows: CreditEntry[]): Promise<UsageEntry[]> {
+  /** Ledger rows -> UsageEntry: the game each charge was for, the prompt that ran, and who sent it when it was a member of
+   * the owner's game (pair developing: the owner pays). `userId`: whose ledger it is. */
+  private async describe(rows: CreditEntry[], userId: string): Promise<UsageEntry[]> {
     const ids = [...new Set(rows.map((r) => r.messageId).filter((id): id is string => !!id && UUID.test(id)))];
     const messages = ids.length
       ? await this.prisma.message.findMany({
           where: { id: { in: ids } },
-          select: { id: true, projectId: true, model: true, versionN: true, status: true, createdAt: true, questions: true, project: { select: { id: true, name: true } } },
+          select: {
+            id: true,
+            projectId: true,
+            model: true,
+            versionN: true,
+            status: true,
+            createdAt: true,
+            questions: true,
+            authorId: true,
+            author: { select: PERSON },
+            project: { select: { id: true, name: true } },
+          },
         })
       : [];
     const byId = new Map(messages.map((m) => [m.id, m]));
@@ -207,6 +247,8 @@ export class CreditsService {
         game: m ? { id: m.project.id, name: m.project.name } : null,
       };
       if (e.messageId && !m) entry.gameDeleted = true;
+      // A member's message in the owner's game: charged here, with who sent it.
+      if (m && e.kind === "charge" && m.authorId !== userId) entry.by = m.author ? personOf(m.author).name : "A former member";
       return entry;
     });
   }

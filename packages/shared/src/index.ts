@@ -257,6 +257,10 @@ export interface Message {
    * answers and Build it, and the next message sent (POST /projects/:id/messages, with `answers` or typed) is their
    * answer. Missing on other answers. */
   questions?: Questions;
+  /** Added 2026-11-04 (pair developing). A user message: who sent it. An agent message: whose message it answers (they
+   * hear when it ends, they may stop it, only they answer its questions). Missing: someone who has closed their account
+   * since ("a former member"), or an API from before. */
+  by?: Person;
   createdAt: string;
 }
 
@@ -369,6 +373,104 @@ export interface Project extends ProjectSummary {
   versions: Version[];
   /** n of the version playing now (the newest), null before the first build. */
   currentVersion: number | null;
+  /** Added 2026-11-04 (pair developing): who you are in this game and who else is in it. Missing from an API before:
+   * you are its owner. */
+  access?: GameAccess;
+}
+
+// ---- Pair developing (2026-11-04; docs/design/pair-developing.md) -----------------------------------
+// The owner of a game invites someone by email to build it with them. Every change a member sends is paid from the
+// owner's credits, under the owner's plan (Lovable and Replit do the same; docs/research/pair-developing-2026-11-04.md).
+// Members are editors: they chat with the AI, answer the questions it asks them, restore, rename, download and stop their
+// own builds; only the owner invites and removes, shares, puts it in the gallery or on Android, and deletes it. Someone
+// not in the game gets 404 on every route of it, as for a game that isn't there; a member asking for the owner's part
+// gets 403 owner_only.
+
+/** What you are in a game: its owner, or an editor who builds it with them. */
+export type GameRole = "owner" | "editor";
+
+/** Someone in a game, as the others see them: the name from their Google sign-in (else the start of their email) and
+ * their picture. */
+export interface Person {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
+/** Project.access: you and this game. */
+export interface GameAccess {
+  role: GameRole;
+  /** Who owns it: every change sent here is paid from their credits. */
+  owner: Person;
+  /** The others in it (editors), in the order they joined. */
+  members: Person[];
+  /** The plan every message here goes by (the owner's): the AIs it may use and the estimates' ask-first limit. */
+  plan: PlanId;
+  models: ModelChoice[];
+}
+
+/** GET /shared: a game someone else owns that you build with them. */
+export interface SharedGame extends ProjectSummary {
+  owner: Person;
+  role: GameRole;
+  /** When you joined it. */
+  since: string;
+}
+
+/** An invitation to build a game, as the invited person sees it (GET /invites, GET /invites/link/:token). */
+export interface Invitation {
+  id: string;
+  game: { id: string; name: string; buildId: string | null; poster: boolean; orientation: Orientation };
+  /** Who invites you: the game's owner, who pays for every change you send there. */
+  owner: Person;
+  role: GameRole;
+  /** It works until then (7 days after its link was made). */
+  expiresAt: string;
+  /** GET /invites/link/:token only: you accepted it already and are in the game: its link takes you back there. */
+  accepted?: boolean;
+}
+
+/** GET /projects/:id/people: everyone in the game. */
+export interface GamePeople {
+  owner: Person;
+  members: GameMember[];
+  /** The owner only: the invitations waiting for an answer, newest first. */
+  invites?: PendingInvite[];
+  /** How many people the game can have besides its owner, invitations waiting included. */
+  max: number;
+}
+
+export interface GameMember extends Person {
+  role: GameRole;
+  /** When they joined. */
+  since: string;
+  /** The owner only: their email, and what the changes they sent here cost this month (UTC), in credits. */
+  email?: string;
+  spentMonth?: number;
+}
+
+/** An invitation waiting for its answer, as the owner sees it. */
+export interface PendingInvite {
+  id: string;
+  /** The address it is for, as the owner typed it: only the account signed in with it can accept. */
+  email: string;
+  role: GameRole;
+  /** When its newest link was made, and when that link stops working. */
+  sentAt: string;
+  expiresAt: string;
+}
+
+/** POST /projects/:id/invites: invite one address (an invitation already waiting for it gets a new link). */
+export interface InviteBody {
+  email: string;
+}
+
+/** POST /projects/:id/invites and POST /projects/:id/invites/:inviteId/link: the invitation and its link's secret, given
+ * this once (only its hash is kept). The site makes the link: <site>/invite/<token>. A new link makes the old one stop
+ * working. */
+export interface InviteLink {
+  invite: PendingInvite;
+  token: string;
 }
 
 /** What a message will probably cost, shown next to the send button before it runs. */
@@ -400,6 +502,9 @@ export interface UsageEntry {
   /** The game it was spent on; null for grants, and for games deleted since (then `gameDeleted` is true). */
   game: { id: string; name: string } | null;
   gameDeleted?: boolean;
+  /** Added 2026-11-04 (pair developing): a charge for a message someone else in your game sent (its owner pays): their
+   * name, or "A former member". Missing for your own. */
+  by?: string;
 }
 
 export interface UsagePage {
@@ -447,6 +552,9 @@ export interface AccountExport {
   /** The devices that have notifications on (added 2026-10-29): when each was turned on and its browser's push service
    * (e.g. fcm.googleapis.com). The push address itself is left out: it works like a password for that device. */
   notifications?: { addedAt: string; service: string }[];
+  /** The games others own that you build with them (added 2026-11-04, pair developing): each with its owner's name, when
+   * you joined, and the messages you sent there. */
+  shared?: { gameId: string; name: string; owner: string; role: GameRole; since: string; messages: { at: string; text: string }[] }[];
   /** Plain words on what is not in this file and where it is. */
   notes: string[];
 }
@@ -955,6 +1063,35 @@ export interface FeedbackBody {
 //                                                      still (404 for sounds and fonts)
 // GET /projects/:id/assets/:buildId/:assetId/thumb   -> image/webp, at most 320 px (the same rule)
 // Deleting the game, or the account, deletes them.
+//
+// Added 2026-11-04 (pair developing; the block "Pair developing" above; docs/design/pair-developing.md):
+// Every game route now lets in the game's members as well as its owner: GET /projects/:id, its events, people, assets
+// and pictures (view); messages, restore, cancel (a member: the builds they asked for), rename, download, GET
+// /estimate?game=<id> (the owner's plan's numbers) (edit). Only the owner: PATCH { shared, listed }, DELETE, Android,
+// invitations and removing people (403 owner_only for a member). Anyone else: 404, as for a game that isn't there.
+// A member's message is charged to the owner (the owner's credits, plan, Free day and kill switch); its errors say so.
+// GET    /projects/:id/people              -> GamePeople      (view; the owner also gets the emails, the invitations and
+//                                                             each member's credits this month)
+// POST   /projects/:id/invites             -> 201 InviteLink  (InviteBody; owner; 400: not an email, yourself, already in,
+//                                                             the game full (10 besides the owner, invitations included);
+//                                                             429 too_many past 30 links a day; one waiting for that
+//                                                             address gets a new link)
+// POST   /projects/:id/invites/:inviteId/link -> InviteLink   (owner; a new link, 7 more days; the old link stops working)
+// DELETE /projects/:id/invites/:inviteId   -> { ok: true }    (owner; takes it back)
+// DELETE /projects/:id/members/:userId     -> { ok: true }    (owner; they lose access at once; a build they asked for that
+//                                                             is going or waiting stops, nothing charged)
+// POST   /projects/:id/leave               -> { ok: true }    (a member leaves, the same way; 400 for the owner)
+// GET    /shared                           -> SharedGame[]    (the games you build with their owners, newest change first)
+// GET    /invites                          -> Invitation[]    (the invitations for your email still waiting, newest first)
+// GET    /invites/link/:token              -> Invitation      (the link's; 403 wrong_account for another email; 404 when it
+//                                                             ended: taken back, answered, replaced or past 7 days)
+// POST   /invites/:id/accept               -> { projectId }   (your email's; you are an editor from now; 404 as above)
+// POST   /invites/:id/decline              -> { ok: true }
+// GET    /projects/:id/events              { type: "people" } when someone joins, leaves or is removed ({ type: "people",
+//                                          invites: true } when only an invitation changes); { type: "removed" } to the one
+//                                          taken out, then the stream ends
+// GET    /me/usage                         UsageEntry.by on a charge for a member's message
+// GET    /me/export                        gains `shared`
 
 export type ApiErrorCode =
   | "unauthorized" // no or bad token
@@ -975,6 +1112,8 @@ export type ApiErrorCode =
   | "name_taken" // another game on TypePlay already uses this package name (409)
   | "invite_only" // the closed beta: this signed-in email isn't on the invite list (403, every signed-in route)
   | "code_wrong" // a beta code that isn't right, is used up, or this account used already (403, POST /beta/code)
+  | "owner_only" // pair developing: a member asked for what only the game's owner does (share, invite, Android, delete) (403)
+  | "wrong_account" // pair developing: the invitation is for another email than the one signed in (403; the message names it, half hidden)
   | "bad_request"
   | "server_error";
 
@@ -999,13 +1138,20 @@ export type RunEvent =
   | { type: "started"; messageId: string; model: ModelChoice; effort: Effort; startedAt?: string }
   /** Progress, for the "building…" line: short plain words, e.g. "Writing the player", "Testing the game", "Step 2 of 2: polish". */
   | { type: "progress"; messageId: string; text: string; at: string }
-  /** The run finished: the agent message is final, and on success there is a new version to play. */
-  | { type: "done"; message: Message; version: Version | null; project: ProjectSummary; credits: CreditBalance }
+  /** The run finished: the agent message is final, and on success there is a new version to play. `credits`: the
+   * owner's balance after it, on the owner's streams only (pair developing, 2026-11-04: a member's stream never carries it). */
+  | { type: "done"; message: Message; version: Version | null; project: ProjectSummary; credits?: CreditBalance }
   /** The run failed or was cancelled, or a build left the line without starting (stopped, waited too long, or no longer
-   * allowed at its turn: the message says which): nothing charged, the game is unchanged. */
-  | { type: "failed"; message: Message; project: ProjectSummary; credits: CreditBalance }
+   * allowed at its turn: the message says which): nothing charged, the game is unchanged. `credits` as for done. */
+  | { type: "failed"; message: Message; project: ProjectSummary; credits?: CreditBalance }
   /** An Android build of this game changed status (2026-10-18). The game page ignores it; the Android page refetches its state. */
-  | { type: "android"; build: AndroidBuild };
+  | { type: "android"; build: AndroidBuild }
+  /** Someone joined or left the game or was removed (pair developing, 2026-11-04): the page fetches the game again (and
+   * the people list, if open). `invites`: only an invitation changed (made, renewed, taken back, declined): who is in is
+   * the same, so only an open people list reads again. */
+  | { type: "people"; invites?: true }
+  /** You are no longer in this game (the owner removed you, or you left in another tab): the stream ends after it. */
+  | { type: "removed" };
 
 // GET /me/events (2026-10-29) streams the account's own events the same way, for every page of the site at once: each
 // event comes with `id: <server ms>`, and so does a comment block at the start and every 20 s (the heartbeat). Sent back

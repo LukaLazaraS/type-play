@@ -7,7 +7,8 @@ import { cx } from "./cx";
  * Two or three choices in an ink pill bar on the sky (DESIGN.md: the game page's phone tabs, the gallery's order): the
  * current one paper with ink words, the others muted, white under a pointer, Ink Recess and a press scale when pressed;
  * each 44px tall. As tabs: only the current tab is in the Tab order, the arrow keys move between them. `tone="recess"`:
- * the bar in Ink Recess, for a bar that sits on ink (the game's bar: Play / Assets, 2026-11-04).
+ * the bar in Ink Recess, for a bar that sits on ink (the game's bar: Play / Assets, 2026-11-04). `before` and `after`
+ * sit in the bar beside the tab list, not in it (a tab list holds only tabs, and their keys stay their own).
  */
 export function Tabs<T extends string>({
   label,
@@ -15,6 +16,7 @@ export function Tabs<T extends string>({
   onChange,
   tabs,
   before,
+  after,
   tone,
   className,
 }: {
@@ -25,23 +27,27 @@ export function Tabs<T extends string>({
   tone?: "ink" | "recess";
   /** Before the tabs, in the bar (the way back). */
   before?: ReactNode;
+  /** After the tabs, in the bar (the game's people on a phone, 2026-11-04). */
+  after?: ReactNode;
   className?: string;
 }) {
-  return (
+  const bar = cx("pillbar", tone === "recess" && "pillbar--recess", className);
+  const beside = before !== undefined || after !== undefined;
+  const list = (
     <div
-      className={cx("pillbar", tone === "recess" && "pillbar--recess", className)}
+      className={beside ? "pillbar__tabs" : bar}
       role="tablist"
       aria-label={label}
       onKeyDown={(e) => {
-        // Tabs move with the arrow keys, as a tab list does.
+        // Tabs move with the arrow keys, as a tab list does (keys pressed on a tab only).
         if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        if (!(e.target instanceof HTMLElement) || e.target.getAttribute("role") !== "tab") return;
         const at = tabs.findIndex((t) => t.id === value);
         const next = tabs[(at + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
         onChange(next.id);
         e.currentTarget.querySelector<HTMLElement>(`#${next.tabId}`)?.focus();
       }}
     >
-      {before}
       {tabs.map((t) => (
         <button
           key={t.id}
@@ -57,6 +63,14 @@ export function Tabs<T extends string>({
           {t.label}
         </button>
       ))}
+    </div>
+  );
+  if (!beside) return list;
+  return (
+    <div className={bar}>
+      {before}
+      {list}
+      {after}
     </div>
   );
 }

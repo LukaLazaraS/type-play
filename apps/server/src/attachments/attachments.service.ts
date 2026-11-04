@@ -7,6 +7,7 @@ import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from "@nestjs/common";
 import type { Attachment as AttachmentView } from "@typeplay/shared";
+import { AccessService } from "../access/access.service.js";
 import { ApiException, badRequest, notFound } from "../common/api-error.js";
 import type { Tx } from "../credits/ledger.service.js";
 import { config } from "../env.js";
@@ -71,7 +72,10 @@ export class AttachmentsService implements OnModuleInit, OnApplicationShutdown {
   /** Each account's uploads in the last hour (in memory: a restart forgets them, as the gallery's limits). */
   private readonly recent = new Map<string, number[]>();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: AccessService,
+  ) {}
 
   onModuleInit() {
     void this.sweep();
@@ -123,26 +127,41 @@ export class AttachmentsService implements OnModuleInit, OnApplicationShutdown {
     return { ok: true };
   }
 
-  /** GET /attachments/:id[/thumb]: the owner's picture (404 for anyone else, as for one that isn't there). */
+  /**
+   * GET /attachments/:id[/thumb]: a picture its uploader may see, and, once sent, everyone in the game its message is in
+   * (pair developing: the owner and its members; access.service). 404 for anyone else, as for one that isn't there.
+   */
   async file(user: User, id: string, file: Extract<PictureFile, "full" | "thumb">): Promise<{ path: string; type: string; size: number }> {
-    const row = ID.test(id) ? await this.prisma.attachment.findFirst({ where: { id, userId: user.id } }) : null;
-    const path = row ? pathOf(row.id, row.format, file) : null;
-    if (!row || !path || !existsSync(path)) throw notFound("We couldn't find that picture.");
+    const row = ID.test(id) ? await this.prisma.attachment.findUnique({ where: { id }, include: { message: { select: { projectId: true } } } }) : null;
+    const gone = () => notFound("We couldn't find that picture.");
+    if (!row) throw gone();
+    // Someone else's picture: only once sent, and only to someone in its game (the one access check, 404 otherwise).
+    if (row.userId !== user.id) {
+      if (!row.message) throw gone();
+      await this.access.game(user.id, row.message.projectId, "view").catch(() => Promise.reject(gone()));
+    }
+    const path = pathOf(row.id, row.format, file);
+    if (!path || !existsSync(path)) throw gone();
     return { path, type: file === "full" ? TYPE[row.format] : "image/webp", size: statSync(path).size };
   }
 
   /**
-   * The pictures a create or message body names (`images`), checked before anything is written: each the player's own,
-   * and either staged or sent before with a message of this game (`projectId`; a new game has none). 400 otherwise.
+   * The pictures a create or message body names (`images`), checked before anything is written: each either staged by
+   * the player (their own, not sent yet) or sent before with a message of this game (`projectId`: by anyone in it, as
+   * pair developing lets them see it; a new game has none). 400 otherwise. The caller has checked the player may send
+   * to the game.
    */
   async pick(user: User, raw: unknown, projectId: string | null): Promise<Picked[]> {
     const ids = parseImageIds(raw);
     if (!ids.length) return [];
-    const rows = await this.prisma.attachment.findMany({ where: { id: { in: ids }, userId: user.id }, include: { message: { select: { projectId: true } } } });
+    const rows = await this.prisma.attachment.findMany({
+      where: { id: { in: ids }, OR: [{ userId: user.id, messageId: null }, ...(projectId ? [{ message: { projectId } }] : [])] },
+      include: { message: { select: { projectId: true } } },
+    });
     const byId = new Map(rows.map((r) => [r.id, r]));
     return ids.map((id) => {
       const row = byId.get(id);
-      if (row && row.messageId === null) return { row, again: false };
+      if (row && row.messageId === null && row.userId === user.id) return { row, again: false };
       if (row && projectId && row.message?.projectId === projectId) return { row, again: true };
       throw badRequest(GONE);
     });
@@ -202,6 +221,12 @@ export class AttachmentsService implements OnModuleInit, OnApplicationShutdown {
   /** An account's pictures not sent with any message (its games' go with each game), read before the account goes. */
   stagedOf(userId: string): Promise<RunImage[]> {
     return this.prisma.attachment.findMany({ where: { userId, messageId: null }, select: { id: true, format: true } });
+  }
+
+  /** An account's pictures sent in games other people own (pair developing), read before the account goes: their rows go
+   * with it (cascade), their files right after. */
+  sentInOthersGames(userId: string): Promise<RunImage[]> {
+    return this.prisma.attachment.findMany({ where: { userId, message: { project: { ownerId: { not: userId } } } }, select: { id: true, format: true } });
   }
 
   /** Deletes pictures' files once their rows are gone; never throws (the sweep takes what is left). */

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "@phosphor-icons/react";
 import type { Effort, GameAsset, Message, MessageImage, ModelChoice, Project, ProjectSummary, RunEvent, Version } from "@typeplay/shared";
 import { Assets } from "@/components/app/Assets";
@@ -10,6 +10,7 @@ import { ChatLog, type LiveLine } from "@/components/app/ChatLog";
 import { Composer } from "@/components/app/Composer";
 import { setFeedbackGame } from "@/components/app/Feedback";
 import { LiveStatus } from "@/components/app/LiveStatus";
+import { People } from "@/components/app/People";
 import { focusQuestions } from "@/components/app/QuestionsCard";
 import { useMedia } from "@/components/app/PlatformSwitch";
 import { SignIn } from "@/components/app/SignIn";
@@ -22,7 +23,7 @@ import { PageWidget } from "@/components/ui/PageWidget";
 import { Tabs } from "@/components/ui/PillBar";
 import { api, ApiFailure, watchProject, type StreamState } from "@/lib/api";
 import { assetPictureFile } from "@/lib/assets";
-import { assets as assetWords, inLine, questions } from "@/content/app";
+import { assets as assetWords, inLine, people as together, questions } from "@/content/app";
 import { aheadWord, creditsWord } from "@/lib/format";
 import { refreshMe, setCredits, signOut, useSession } from "@/lib/session";
 
@@ -52,10 +53,15 @@ const TABS = "(max-width: 959px)";
 /** The game page: chat on the left, the game (or its assets) on the right; three tabs on a phone. */
 export function GameClient() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const session = useSession();
   const signedIn = session.status === "in";
   const [project, setProject] = useState<Project | null>(null);
   const [fatal, setFatal] = useState<Fatal | null>(null);
+  // Pair developing (2026-11-04): the owner took this player out of the game (or they left it in another tab).
+  const [removed, setRemoved] = useState(false);
+  // The game's people changed (the stream's people events, counted): an open People panel reads its list again.
+  const [peopleChanged, setPeopleChanged] = useState(0);
   const [live, setLive] = useState<LiveLine>(null);
   const [stream, setStream] = useState<StreamState>("connecting");
   const streamRef = useRef<StreamState>("connecting");
@@ -134,8 +140,24 @@ export function GameClient() {
         if (e.type === "done" && e.message.questions) setSaid(questions.said(e.message.questions.items.length));
         setProject((p) => (p ? settle(p, e.message, e.type === "done" ? e.version : null, e.project) : p));
         setLive(null);
-        setCredits(e.credits);
+        // The owner's balance comes only on the owner's stream (a member's own credits didn't move).
+        if (e.credits) setCredits(e.credits);
         if (e.type === "done" && e.version && tabRef.current !== "play") setFresh(true);
+        break;
+      case "people": {
+        setPeopleChanged((n) => n + 1);
+        // Only an invitation changed: who is in is the same (the owner's open panel reads it again, nothing else).
+        if (e.invites) break;
+        // Someone joined or left: the game again (its people, and the messages' names).
+        const at = seq.current;
+        void api
+          .project(id)
+          .then((q) => seq.current === at && setProject(q))
+          .catch(() => {});
+        break;
+      }
+      case "removed":
+        setRemoved(true);
         break;
       case "android": {
         // An Android build reserves the game while it runs (the API answers 409 to chat meanwhile).
@@ -144,7 +166,7 @@ export function GameClient() {
         break;
       }
     }
-  }, [opened]);
+  }, [opened, id]);
 
   // The stream's state; on the first drop after being live, the project is fetched once, so a
   // build that finished while the connection was down shows up even if reconnecting keeps failing.
@@ -193,12 +215,30 @@ export function GameClient() {
   const kind = project?.currentVersion == null ? "new" : "edit";
   const me = session.status === "in" ? session.me : null;
   const [effort, setEffort] = useState<Effort>("medium");
-  const estimates = useEstimates(kind, me?.plan ?? null, effort);
+  // Pair developing (2026-11-04): in someone else's game every message goes by its owner's plan (their AIs, their
+  // estimates) and is paid from their credits, so the composer shows no balance of yours.
+  const access = project?.access;
+  const member = access?.role === "editor";
+  const allowed = member ? access.models : (me?.models ?? ["fast"]);
+  const plan = member ? access.plan : (me?.plan ?? null);
+  const game = member ? project?.id : undefined;
+  const estimates = useEstimates(kind, plan, effort, game);
+  // More than one person has written here, or is in it: every player message says who sent it.
+  const shared = !!access && (access.members.length > 0 || !!project?.messages.some((m) => m.role === "user" && m.by?.id !== access.owner.id));
+  // The build going or waiting, and who asked for it: a member stops only their own.
+  const building = project?.messages.findLast((m) => m.role === "agent" && (m.status === "running" || m.status === "queued"));
+  const othersBuild = building?.by && me && building.by.id !== me.id && member ? building.by.name : null;
+  // The owner may stop a member's build too, after a question (it ends someone else's change).
+  const stopsOthers = building?.by && me && building.by.id !== me.id && !member ? building.by.name : null;
   // Questions the AI asked before a build (2026-11-04), open while they are the newest message and nothing runs: Build it
-  // builds on the AI and effort they were asked on, at that price (the estimate shown beside it).
+  // builds on the AI and effort they were asked on, at that price (the estimate shown beside it). Only the one who asked
+  // answers them (pair developing); for anyone else they read as passed by, and a message is a request of its own.
   const lastMessage = project?.messages.at(-1);
-  const asked = lastMessage?.role === "agent" && lastMessage.status === "done" && lastMessage.questions && lastMessage.model ? lastMessage : null;
-  const askedEstimates = useEstimates(kind, me?.plan ?? null, asked?.effort ?? effort);
+  const asked =
+    lastMessage?.role === "agent" && lastMessage.status === "done" && lastMessage.questions && lastMessage.model && (!lastMessage.by || !me || lastMessage.by.id === me.id)
+      ? lastMessage
+      : null;
+  const askedEstimates = useEstimates(kind, plan, asked?.effort ?? effort, game);
   // The card's answers as they are picked, for words typed in the box meanwhile (by the questions' message).
   const draft = useRef<{ id: string; answers: (string | null)[] } | null>(null);
   const shown: Tab = tab ?? "chat";
@@ -232,7 +272,8 @@ export function GameClient() {
   // Build it under open questions: the answers, on the AI and effort they were asked on. A first build: a phone goes to
   // Play, where the build shows; with a mouse the keyboard goes to the chat's box (the card it was on is gone).
   const answer = async (answers: (string | null)[]) => {
-    if (!asked?.model) return;
+    // The card shows only for the one who asked; should it be pressed anyway, it says so instead of waiting forever.
+    if (!asked?.model) throw new Error(together.answerGone);
     const first = !project?.buildId;
     const p = await api.send(id, { answers, model: asked.model, effort: asked.effort ?? "medium" });
     setProject(p);
@@ -267,14 +308,23 @@ export function GameClient() {
   // Building again after a failed first build: the first message's words and pictures (the API copies them for it).
   const retry =
     project && !running && !queued && !project.buildId && firstPrompt && !asked
-      ? () => send(firstPrompt, me?.models.includes("smart") ? "smart" : "fast", effort, false, (first?.images ?? []).map((i) => i.id))
+      ? () => send(firstPrompt, allowed.includes("smart") ? "smart" : "fast", effort, false, (first?.images ?? []).map((i) => i.id))
       : null;
+  // Out of the game (pair developing): to the list, where it is gone.
+  const left = () => router.replace("/games");
 
   if (session.status === "loading") return <main className="ws" data-app aria-busy="true" />;
   if (session.status === "out") {
     return (
       <PageWidget title="Sign in to play." lead="This game is in your account. Sign in to play it and keep changing it.">
         <SignIn next={`/games/${id}`} />
+      </PageWidget>
+    );
+  }
+  if (removed) {
+    return (
+      <PageWidget title={together.removedTitle} lead={together.removedLead} leadRole="alert">
+        <ButtonLink href="/games">{together.yourGames}</ButtonLink>
       </PageWidget>
     );
   }
@@ -308,6 +358,7 @@ export function GameClient() {
             <ArrowLeft size={18} weight="bold" aria-hidden="true" />
           </Link>
         }
+        after={<People project={project} me={me} onLeft={left} changed={peopleChanged} on="ink" />}
         tabs={[
           { id: "chat", label: "Chat", tabId: "ws-tab-chat", panelId: "ws-chat" },
           {
@@ -336,9 +387,11 @@ export function GameClient() {
             <ArrowLeft size={16} weight="bold" aria-hidden="true" />
             Your games
           </Link>
+          {/* "used", so it never reads as a balance beside the status bar's (the header holds the people button too). */}
           <span className="figures ws__spent" title="Credits used on this game so far">
-            {creditsWord(spent)} on this game
+            {creditsWord(spent)} used
           </span>
+          <People project={project} me={me} onLeft={left} changed={peopleChanged} />
         </header>
         <LiveStatus
           fatal={fatal}
@@ -357,7 +410,9 @@ export function GameClient() {
           currentVersion={project.currentVersion}
           onPlay={() => show("play")}
           onSuggest={(text) => setPrefill((p) => ({ text, n: (p?.n ?? 0) + 1 }))}
-          models={me?.models ?? ["fast"]}
+          models={allowed}
+          me={me?.id ?? null}
+          shared={shared}
           onBigger={(text, model) => {
             // The message the stop answered, with its pictures: they go back in the box with its words.
             const asked = project.messages.at(-2);
@@ -370,11 +425,12 @@ export function GameClient() {
             onDraft: (answers) => {
               if (asked) draft.current = { id: asked.id, answers };
             },
+            ownCredits: !member,
           }}
         />
         <Composer
           kind={kind}
-          allowed={me?.models ?? ["fast"]}
+          allowed={allowed}
           estimates={estimates}
           effort={effort}
           onEffort={setEffort}
@@ -382,13 +438,16 @@ export function GameClient() {
           queued={queued}
           queue={project.queue}
           exporting={exporting}
-          balance={me?.credits ?? null}
+          balance={member ? null : (me?.credits ?? null)}
           me={me}
           backTo={`/games/${id}`}
           onSend={send}
           onStop={stop}
           prefill={prefill}
           answering={asked && !running && !queued && !exporting ? { model: asked.model!, effort: asked.effort ?? "medium" } : null}
+          paidBy={member ? access.owner.name : null}
+          othersBuild={othersBuild}
+          stopsOthers={stopsOthers}
         />
       </section>
 
@@ -414,6 +473,7 @@ export function GameClient() {
           onPane={show}
           fresh={fresh}
           assets={<Assets projectId={project.id} buildId={project.buildId} version={project.currentVersion} active={shown === "assets"} onChange={changeAsset} onAsk={toChat} />}
+          onLeft={left}
         />
       </div>
     </main>

@@ -100,6 +100,7 @@ export const privacy: LegalDoc = {
         "Feedback: what you write when you send us feedback from the app, the page you sent it from, your browser and device type, and the game and its last message if you attach them.",
         "Notifications: the push address of each device you turn notifications on for, so we can tell it when a build is done; it is deleted when you turn them off or sign out there.",
         "Pictures: the pictures you attach to a message, kept with the game without their location or other hidden details, and deleted with it (one you never send is deleted after a day).",
+        "Building together: when you invite someone to build your game, the address you typed and their answer; the people in a game see its chat, versions and pictures and each other's names and pictures, and the owner also sees each member's email and the credits their changes cost. Messages you sent in someone else's game stay in it when you leave, without your name once your account is closed.",
       ],
     },
     {

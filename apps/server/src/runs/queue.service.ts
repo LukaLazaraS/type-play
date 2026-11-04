@@ -17,7 +17,7 @@ import { picksOf } from "../games/picks.js";
 import type { Plan, QueuedRun, User } from "../generated/prisma/client.js";
 import type { EndWhy } from "../notify/notices.js";
 import { PrismaService } from "../prisma.js";
-import { ProjectViews, toMessage } from "../projects/views.js";
+import { ProjectViews, toMessage, WITH_AUTHOR } from "../projects/views.js";
 import { turnAtOf, type RunKind } from "./queue-math.js";
 import { RunRegistry, type QueuedEntry } from "./registry.js";
 import { FAILED_TEXT, RunsService } from "./runs.service.js";
@@ -37,10 +37,12 @@ const TAKEN_TEXT = "This build was interrupted by a restart on our side just as 
 /** What a new build in line needs written: QueuedRun's columns (nested under its agent message, in the same write). */
 export type QueuedRunData = Omit<QueuedRun, "messageId">;
 
-const entryOf = (row: Pick<QueuedRun, "projectId" | "messageId" | "userId" | "kind" | "lane" | "queuedAt" | "turnAt">, model: ModelChoice, effort: Effort): QueuedEntry => ({
+/** `senderId`: who asked for it (its message's author, pair developing); the row's userId is who pays (the owner). */
+const entryOf = (row: Pick<QueuedRun, "projectId" | "messageId" | "userId" | "kind" | "lane" | "queuedAt" | "turnAt">, model: ModelChoice, effort: Effort, senderId: string | null): QueuedEntry => ({
   projectId: row.projectId,
   messageId: row.messageId,
   userId: row.userId,
+  senderId: senderId ?? row.userId,
   kind: row.kind as RunKind,
   model,
   effort,
@@ -78,19 +80,19 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
   async onModuleInit() {
     // A build the queue had taken out of the line but not yet started when the server stopped: its message says queued.
     // Marked failed, and the player told as of any build a restart interrupted.
-    const taken = await this.prisma.message.findMany({ where: { status: "queued", queued: { is: null } }, include: { project: { select: { ownerId: true, currentVersion: true } } } });
+    const taken = await this.prisma.message.findMany({ where: { status: "queued", queued: { is: null } }, include: { project: { select: { currentVersion: true } } } });
     for (const { project, ...m } of taken) {
       const message = await this.prisma.message.update({ where: { id: m.id }, data: { status: "failed", text: TAKEN_TEXT, credits: 0, finishedAt: new Date() } });
-      await this.runs.ended({ userId: project.ownerId, projectId: m.projectId, message, why: "interrupted", first: project.currentVersion == null });
+      await this.runs.ended({ userId: m.authorId, projectId: m.projectId, message, why: "interrupted", first: project.currentVersion == null });
     }
     if (taken.length) this.log.warn(`marked ${taken.length} build(s) a stopped server had taken from the line as failed`);
-    const rows = await this.prisma.queuedRun.findMany({ include: { message: { select: { model: true, effort: true, status: true } } } });
+    const rows = await this.prisma.queuedRun.findMany({ include: { message: { select: { model: true, effort: true, status: true, authorId: true } } } });
     for (const { message, ...row } of rows) {
       if (message.status !== "queued" || !message.model) {
         await this.prisma.queuedRun.delete({ where: { messageId: row.messageId } }); // its build has ended: not in line any more
         continue;
       }
-      this.registry.queued.set(row.projectId, entryOf(row, message.model, message.effort ?? "medium"));
+      this.registry.queued.set(row.projectId, entryOf(row, message.model, message.effort ?? "medium", message.authorId));
       this.holds.set(row.messageId, this.credits.hold(row.userId, fromTenths(row.holdTenths)));
     }
     if (this.registry.queued.size) this.log.log(`${this.registry.queued.size} build(s) waiting in line`);
@@ -149,9 +151,10 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
     };
   }
 
-  /** A build just written into the line (its message and row): mirrored, its hold kept, announced; it starts when it can. */
-  added(row: QueuedRunData & { messageId: string }, model: ModelChoice, effort: Effort, hold: CreditHold) {
-    this.registry.queued.set(row.projectId, entryOf(row, model, effort));
+  /** A build just written into the line (its message and row): mirrored, its hold kept, announced; it starts when it can.
+   * `senderId`: who asked for it (pair developing; the row's userId pays). */
+  added(row: QueuedRunData & { messageId: string }, model: ModelChoice, effort: Effort, hold: CreditHold, senderId: string) {
+    this.registry.queued.set(row.projectId, entryOf(row, model, effort, senderId));
     this.holds.set(row.messageId, hold);
     this.log.log(`queue ${row.projectId}: waiting (${row.lane}, ${this.registry.queued.size} in line)`);
     this.tick();
@@ -266,6 +269,7 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
     this.runs.start({
       projectId: q.projectId,
       userId: q.userId,
+      senderId: q.senderId,
       messageId: q.messageId,
       kind: q.kind,
       prompt: row.prompt,
@@ -300,10 +304,10 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
     this.holds.get(q.messageId)?.release();
     this.holds.delete(q.messageId);
     this.told.delete(q.projectId);
-    const message = await this.prisma.message.update({ where: { id: q.messageId }, data: { status: "failed", text, credits: 0, finishedAt: new Date() } });
+    const message = await this.prisma.message.update({ where: { id: q.messageId }, data: { status: "failed", text, credits: 0, finishedAt: new Date() }, include: WITH_AUTHOR });
     this.log.log(`queue ${q.projectId}: left the line (${why}) after ${Math.round((Date.now() - q.queuedAt) / 1000)} s`);
     await this.runs.ended({
-      userId: q.userId,
+      userId: q.senderId,
       projectId: q.projectId,
       message,
       why: end,

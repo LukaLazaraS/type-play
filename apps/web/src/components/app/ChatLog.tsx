@@ -4,9 +4,11 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowClockwise, Play, Plus } from "@phosphor-icons/react";
 import type { Estimate, Message, ModelChoice, QueuePlace } from "@typeplay/shared";
 import { Chip } from "@/components/ui/Chip";
+import { cx } from "@/components/ui/cx";
+import { Face } from "@/components/ui/Faces";
 import { Pressable } from "@/components/ui/Pressable";
 import { Pulse } from "@/components/ui/Pulse";
-import { inLine } from "@/content/app";
+import { inLine, people as together } from "@/content/app";
 import { MessagePictures } from "./MessagePictures";
 import { QuestionsCard } from "./QuestionsCard";
 import { clock, creditsWord, figuresLine, placeWords, ranWord } from "@/lib/format";
@@ -29,7 +31,13 @@ export function ChatLog({
   onSuggest,
   onBigger,
   answering,
+  me = null,
+  shared = false,
 }: {
+  /** Who is reading (pair developing, 2026-11-04): their own messages say You; null: not known yet. */
+  me?: string | null;
+  /** More than one person has written in this game: each player message says who sent it. */
+  shared?: boolean;
   messages: Message[];
   live: LiveLine;
   /** The game's build waiting for its turn: its place and rough wait (the queued answer shows them). */
@@ -48,7 +56,7 @@ export function ChatLog({
   /** Questions before a build (2026-11-04): the newest answer's are open while nothing else runs on the game (`busy`);
    * `cost` is the build's estimate on the AI they were asked on, `onAnswer` sends the answers, `onDraft` hears them as
    * they are picked. */
-  answering?: { busy: boolean; cost: Estimate | null; onAnswer: (answers: (string | null)[]) => Promise<void>; onDraft?: (answers: (string | null)[]) => void };
+  answering?: { busy: boolean; cost: Estimate | null; onAnswer: (answers: (string | null)[]) => Promise<void>; onDraft?: (answers: (string | null)[]) => void; ownCredits?: boolean };
 }) {
   // The newest answer's ideas for the next change, while its version is the one playing (a restore hides them): up to
   // 9, best first. Three show; "More ideas" adds the other six under them (the first three stay where they were, so
@@ -63,8 +71,11 @@ export function ChatLog({
   // side like the ideas, puts the message they sent back in the box with the bigger AI picked.
   const asked = messages.at(-2);
   const bigger = last?.role === "agent" && last.status === "done" && last.biggerModel && models.includes(last.biggerModel) && asked?.role === "user" ? last.biggerModel : null;
-  // The newest answer's questions (asked before a build) take their answers while nothing else runs on the game.
-  const openQuestions = last?.role === "agent" && last.status === "done" && last.questions && answering && !answering.busy ? last.id : null;
+  // Someone else's questions, open (pair developing): read only here, with who answers them.
+  const othersQuestions = last?.role === "agent" && last.status === "done" && last.questions && last.by && me && last.by.id !== me ? last.by.name : null;
+  // The newest answer's questions (asked before a build) take their answers while nothing else runs on the game: only
+  // from the one who asked them.
+  const openQuestions = last?.role === "agent" && last.status === "done" && last.questions && answering && !answering.busy && !othersQuestions ? last.id : null;
   const list = useRef<HTMLOListElement>(null);
   const stick = useRef(true); // follow new messages while the reader is at the bottom
 
@@ -94,25 +105,38 @@ export function ChatLog({
         stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
       }}
     >
-      {messages.map((m) =>
-        m.role === "user" ? (
-          <li key={m.id} className="msg msg--you">
+      {messages.map((m) => {
+        if (m.role === "agent") {
+          return (
+            <AgentMessage
+              key={m.id}
+              m={m}
+              live={live?.messageId === m.id ? live.text : null}
+              queue={queue ?? null}
+              now={now}
+              current={m.versionN != null && m.versionN === currentVersion}
+              onPlay={onPlay}
+              answering={m.id === openQuestions ? answering : undefined}
+              forWhom={shared && m.by && m.by.id !== me ? m.by.name : null}
+              answeredBy={m.id === last?.id ? othersQuestions : null}
+            />
+          );
+        }
+        // A shared game: who sent it, above it (You for yours); someone else's in ink.
+        const mine = !shared || (!!m.by && m.by.id === me);
+        return (
+          <li key={m.id} className={cx("msg", "msg--you", !mine && "msg--other")}>
+            {shared && (
+              <span className="msg__by">
+                {!mine && <Face person={m.by ?? { name: "?", avatarUrl: null }} size="small" />}
+                <span>{mine ? together.you : (m.by?.name ?? together.formerMember)}</span>
+              </span>
+            )}
             {m.images?.length ? <MessagePictures images={m.images} /> : null}
             <p className="bubble">{m.text}</p>
           </li>
-        ) : (
-          <AgentMessage
-            key={m.id}
-            m={m}
-            live={live?.messageId === m.id ? live.text : null}
-            queue={queue ?? null}
-            now={now}
-            current={m.versionN != null && m.versionN === currentVersion}
-            onPlay={onPlay}
-            answering={m.id === openQuestions ? answering : undefined}
-          />
-        ),
-      )}
+        );
+      })}
       {bigger && (
         <li key={`bigger-${last!.id}`} className="ideas">
           <div className="ideas__list">
@@ -167,6 +191,8 @@ function AgentMessage({
   current,
   onPlay,
   answering,
+  forWhom = null,
+  answeredBy = null,
 }: {
   m: Message;
   live: string | null;
@@ -176,10 +202,15 @@ function AgentMessage({
   onPlay: () => void;
   /** Its questions are open (the newest answer, nothing else running): how to send their answers, and who hears them as
    * they are picked (the composer's Send carries them). */
-  answering?: { cost: Estimate | null; onAnswer: (answers: (string | null)[]) => Promise<void>; onDraft?: (answers: (string | null)[]) => void };
+  answering?: { cost: Estimate | null; onAnswer: (answers: (string | null)[]) => Promise<void>; onDraft?: (answers: (string | null)[]) => void; ownCredits?: boolean };
+  /** A shared game: the build answers someone else's message (its going and waiting lines say for whom). */
+  forWhom?: string | null;
+  /** A shared game: its questions are open and someone else answers them (said under them). */
+  answeredBy?: string | null;
 }) {
   // "Fast", or "Fast, high effort" when the effort wasn't the usual medium.
   const model = m.model ? `${modelName[m.model]}${m.effort && m.effort !== "medium" ? `, ${m.effort} effort` : ""}` : null;
+  const whom = forWhom ? ` · ${together.forWhom(forWhom)}` : "";
   if (m.status === "queued") {
     // Nothing runs yet: the still dot, the state, and the place and rough wait under it. Not a live region: the game page
     // has one announcer for the place (GameClient), so a screen reader hears a change once, not from every panel.
@@ -192,6 +223,7 @@ function AgentMessage({
         <span className="msg__meta figures">
           {model ? `${model}\u00a0· ` : ""}
           {queue ? placeWords(queue) : "in the queue"}
+          {whom}
         </span>
       </li>
     );
@@ -207,6 +239,7 @@ function AgentMessage({
         </p>
         <span className="msg__meta figures">
           {model ? `${model} · ` : ""}building {clock(m.startedAt ?? m.createdAt, now)}
+          {whom}
         </span>
       </li>
     );
@@ -241,6 +274,7 @@ function AgentMessage({
               labelledBy={lineId}
               onAnswer={answering.onAnswer}
               onDraft={answering.onDraft}
+              ownCredits={answering.ownCredits}
             />
           </>
         ) : (
@@ -254,6 +288,7 @@ function AgentMessage({
               </ul>
             </div>
             {meta}
+            {answeredBy && <span className="msg__note">{together.answering(answeredBy)}</span>}
           </>
         )}
       </li>

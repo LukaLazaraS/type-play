@@ -5,6 +5,8 @@ import type { RunEvent, RunNotice } from "@typeplay/shared";
 
 type Listener = (e: RunEvent) => void;
 type NoticeListener = (n: RunNotice, id: number) => void;
+/** A game stream's listener, with whose stream it is and how to end it (pair developing: a member taken out). */
+type Watcher = { fn: Listener; userId: string | null; end: (() => void) | null };
 
 /** How long an account's notices are kept for a page that reconnects (Last-Event-ID), and how many at most. */
 const KEEP_MS = 30 * 60_000;
@@ -12,27 +14,42 @@ const KEEP_MAX = 20;
 
 @Injectable()
 export class EventBus {
-  private readonly listeners = new Map<string, Set<Listener>>();
+  private readonly listeners = new Map<string, Set<Watcher>>();
   /** The account streams (GET /me/events, notifications 2026-10-29), by user. */
   private readonly accounts = new Map<string, Set<NoticeListener>>();
   /** Each account's recent notices with their event ids (server ms), oldest first. */
   private readonly recent = new Map<string, { id: number; notice: RunNotice }[]>();
   private lastId = 0;
 
-  subscribe(projectId: string, fn: Listener): () => void {
+  /** `who`: whose stream it is and how to end it, so taking someone out of a game (pair developing) ends theirs (`kick`). */
+  subscribe(projectId: string, fn: Listener, who?: { userId: string; end: () => void }): () => void {
     let set = this.listeners.get(projectId);
     if (!set) this.listeners.set(projectId, (set = new Set()));
-    set.add(fn);
+    const w: Watcher = { fn, userId: who?.userId ?? null, end: who?.end ?? null };
+    set.add(w);
     return () => {
-      set.delete(fn);
+      set.delete(w);
       if (!set.size) this.listeners.delete(projectId);
     };
   }
 
   emit(projectId: string, e: RunEvent) {
-    for (const fn of this.listeners.get(projectId) ?? []) {
+    for (const w of this.listeners.get(projectId) ?? []) {
       try {
-        fn(e);
+        w.fn(e);
+      } catch {
+        // a broken stream must not stop the others
+      }
+    }
+  }
+
+  /** Someone is out of the game (removed, or they left): each of their streams of it hears `removed`, then ends. */
+  kick(projectId: string, userId: string) {
+    for (const w of [...(this.listeners.get(projectId) ?? [])]) {
+      if (w.userId !== userId) continue;
+      try {
+        w.fn({ type: "removed" });
+        w.end?.();
       } catch {
         // a broken stream must not stop the others
       }

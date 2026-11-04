@@ -16,7 +16,10 @@ import { inLine, runEndsAt, typicalMs, waitMinutes, waits, type Going, type Lane
 export interface ActiveRun {
   projectId: string;
   messageId: string;
+  /** Who pays: the game's owner (pair developing: access.service `payerOf`). */
   userId: string;
+  /** Who asked for it (the owner, or a member of the game): they hear when it ends and may stop it. */
+  senderId: string;
   kind: "new" | "edit";
   prompt: string;
   model: ModelChoice;
@@ -51,7 +54,9 @@ export interface ActiveRun {
 export interface QueuedEntry {
   projectId: string;
   messageId: string;
+  /** Who pays (the game's owner) and who asked for it, as ActiveRun's. */
   userId: string;
+  senderId: string;
   kind: RunKind;
   model: ModelChoice;
   effort: Effort;
@@ -65,8 +70,8 @@ export interface QueuedEntry {
  * Android build (android/android.service.ts) holds the project for its whole run.
  */
 type Purpose = "run" | "queue" | "restore" | "delete" | "export";
-/** What a starting build will be, for the rough waits of the builds behind it. */
-type Reservation = { purpose: Purpose; userId: string | null; kind?: RunKind; model?: ModelChoice; effort?: Effort };
+/** What a starting build will be, for the rough waits of the builds behind it; `senderId`: who asked for it. */
+type Reservation = { purpose: Purpose; userId: string | null; senderId?: string; kind?: RunKind; model?: ModelChoice; effort?: Effort };
 
 /** An Android build holds two builders for about this long (an APK under a minute, an AAB 2 to 4). */
 const EXPORT_MS = 3 * 60_000;
@@ -131,7 +136,11 @@ export class RunRegistry {
    * nobody waits, so the build starts at once and the claim holds that builder until it has; otherwise the build goes
    * into the line (the claim only holds the project). Call `release` when it has started or is in the line, or failed.
    */
-  claimRun(projectId: string, owner: { id: string; plan: PlanId }, what: { kind: RunKind; model: ModelChoice; effort: Effort }): { now: boolean; release: () => void } {
+  claimRun(
+    projectId: string,
+    owner: { id: string; plan: PlanId },
+    what: { kind: RunKind; model: ModelChoice; effort: Effort; senderId?: string },
+  ): { now: boolean; release: () => void } {
     this.assertIdle(projectId);
     const cap = runsAtOnce(owner.plan);
     if (this.runsOf(owner.id) >= cap) {
@@ -160,7 +169,7 @@ export class RunRegistry {
   /** The queue's turn for a waiting build: out of the line and starting (it holds a builder from here). */
   take(entry: QueuedEntry): () => void {
     this.queued.delete(entry.projectId);
-    const mine: Reservation = { purpose: "run", userId: entry.userId, kind: entry.kind, model: entry.model, effort: entry.effort };
+    const mine: Reservation = { purpose: "run", userId: entry.userId, senderId: entry.senderId, kind: entry.kind, model: entry.model, effort: entry.effort };
     this.reserved.set(entry.projectId, mine);
     return () => this.release(entry.projectId, mine);
   }
@@ -178,6 +187,14 @@ export class RunRegistry {
   onFree(fn: () => void): () => void {
     this.freed.add(fn);
     return () => this.freed.delete(fn);
+  }
+
+  /** Who asked for the game's build going, starting or waiting in line (pair developing: who may stop it, whose it is);
+   * null: none. */
+  senderOf(projectId: string): string | null {
+    const r = this.reserved.get(projectId);
+    const starting = r && (r.purpose === "run" || r.purpose === "queue") ? (r.senderId ?? r.userId) : null;
+    return this.active.get(projectId)?.senderId ?? this.queued.get(projectId)?.senderId ?? starting ?? null;
   }
 
   /** Whether the project could start a build now (nothing else holds it). */

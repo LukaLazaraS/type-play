@@ -12,7 +12,7 @@ import { TextArea } from "@/components/ui/Field";
 import { Strip } from "@/components/ui/Strip";
 import { TextLink } from "@/components/ui/TextLink";
 import { android } from "@/content/android";
-import { inLine, MAX_TEXT, pictures, questions } from "@/content/app";
+import { inLine, MAX_TEXT, people as together, pictures, questions } from "@/content/app";
 import { checkoutHref, HOLD_LINE, pack, planAbove, planFacts } from "@/content/billing";
 import { credits as siteCredits } from "@/content/site";
 import { ApiFailure } from "@/lib/api";
@@ -55,6 +55,13 @@ type Props = {
    * pictures that message carried (`images`) in place of the box's own. `files`: pictures added to the box's own as if
    * dropped on it (an asset's Change it, 2026-11-04: its picture, uploaded and checked like any other). */
   prefill?: { text: string; n: number; model?: ModelChoice; images?: MessageImage[]; files?: File[] } | null;
+  /** Pair developing (2026-11-04): someone else owns this game and pays for what is sent here: their name. The cost says
+   * whose credits, the out-of-credits answers are theirs to solve (no checkout here), and no strip about your own plan. */
+  paidBy?: string | null;
+  /** The build going or waiting is someone else's (their name): only they or the owner stop it, so no Stop here. */
+  othersBuild?: string | null;
+  /** The owner, and the build going or waiting is a member's (their name): Stop asks first, as it ends their work. */
+  stopsOthers?: string | null;
 };
 
 /**
@@ -79,8 +86,31 @@ type PanelKind = "no_credits" | "daily_limit" | "free_paused" | "billing_hold";
 const PANELS: PanelKind[] = ["no_credits", "daily_limit", "free_paused", "billing_hold"];
 
 /** Say what to change: the box, Fast / Smart / Best and the effort with their cost, Send, or Stop while building. */
-export function Composer({ kind, allowed, estimates, effort, onEffort, running, queued = false, queue = null, exporting = false, balance, me, backTo, onSend, onStop, prefill, answering = null }: Props) {
-  const going = running || queued; // a build of this game going or waiting: Stop instead of Send
+export function Composer({
+  kind,
+  allowed,
+  estimates,
+  effort,
+  onEffort,
+  running,
+  queued = false,
+  queue = null,
+  exporting = false,
+  balance,
+  me,
+  backTo,
+  onSend,
+  onStop,
+  prefill,
+  answering = null,
+  paidBy = null,
+  othersBuild = null,
+  stopsOthers = null,
+}: Props) {
+  const going = running || queued; // a build of this game going or waiting: Stop instead of Send (yours, or as the owner)
+  const stoppable = going && !othersBuild;
+  // The owner's Stop on a member's build asks first (pair developing): it ends someone else's change.
+  const [stopAsk, setStopAsk] = useState(false);
   const [text, setText] = useState("");
   const [picked, setPicked] = useState<ModelChoice | null>(null);
   // The tip under the box explains whichever control was touched last.
@@ -98,6 +128,8 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
   const [busy, setBusy] = useState(false);
   const [ask, setAsk] = useState<string | null>(null);
   const [panel, setPanel] = useState<PanelKind | null>(null);
+  // The API's sentence for a panel (a member's: in the owner's terms, so it is shown as it is).
+  const [panelText, setPanelText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
   // The pictures in the box (Pictures.tsx): attached with the picture button, pasted, or dropped on the composer.
@@ -163,6 +195,7 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
       } else if (e instanceof ApiFailure && PANELS.includes(e.code as PanelKind) && !/going now/.test(e.message)) {
         // Out of credits (not "your build going now may need them": that one is just a wait).
         setPanel(e.code as PanelKind);
+        setPanelText(e.message);
       } else {
         setError(e instanceof Error ? e.message : String(e));
       }
@@ -171,7 +204,18 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
     }
   };
 
-  const stop = async () => {
+  // A build that ended or changed hands meanwhile takes its question with it.
+  const [askedFor, setAskedFor] = useState(stopsOthers);
+  if (askedFor !== stopsOthers) {
+    setAskedFor(stopsOthers);
+    setStopAsk(false);
+  }
+  const stop = async (sure = false) => {
+    if (stopsOthers && !sure) {
+      setStopAsk(true);
+      return;
+    }
+    setStopAsk(false);
     setBusy(true);
     setError(null);
     try {
@@ -194,7 +238,8 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
     }
   };
 
-  const pastDue = me?.billing?.status === "past_due" && me.plan !== "free";
+  // Your own plan's payment, not the owner's: said in your own games only.
+  const pastDue = !paidBy && me?.billing?.status === "past_due" && me.plan !== "free";
 
   return (
     <form className="composer" onSubmit={submit} noValidate {...drop.zone}>
@@ -228,7 +273,22 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
           }
         />
       )}
-      {panel && <CreditPanel kind={panel} me={me} backTo={backTo} onClose={() => setPanel(null)} />}
+      {panel && <CreditPanel kind={panel} me={me} backTo={backTo} owners={paidBy ? { name: paidBy, text: panelText ?? "" } : null} onClose={() => setPanel(null)} />}
+      {stopAsk && going && stopsOthers && (
+        <Ask
+          text={together.stopAsk(stopsOthers)}
+          actions={
+            <>
+              <Button look="ink" size="small" busy={busy} onClick={() => void stop(true)}>
+                {together.stopIt}
+              </Button>
+              <Button look="quiet" size="small" autoFocus onClick={() => setStopAsk(false)}>
+                {together.keepBuilding}
+              </Button>
+            </>
+          }
+        />
+      )}
       {/* A change building: tell me when it's ready? (a first build asks on the stage, beside its progress). */}
       {going && kind === "edit" && <NotifyAsk tone="paper" />}
       {error && <ErrorLine>{error}</ErrorLine>}
@@ -269,16 +329,25 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
             }}
             allowed={allowed}
             disabled={busy || exporting}
+            paidBy={paidBy}
           />
         )}
-        {going ? (
+        {stoppable ? (
           <Button look="quiet" size="small" onClick={() => void stop()} busy={busy}>
             <Stop size={16} weight="fill" aria-hidden="true" />
             <span className="composer__label">Stop</span>
           </Button>
         ) : (
-          // While questions are open, Build it is the one hot action; Send turns hot once an answer is typed here.
-          <Button type="submit" size="small" look={answering && !text.trim() ? "quiet" : undefined} busy={busy} disabled={exporting} aria-disabled={ask !== null || undefined}>
+          // While questions are open, Build it is the one hot action; Send turns hot once an answer is typed here. While
+          // someone else's build goes (pair developing) it waits, as while the game is exported.
+          <Button
+            type="submit"
+            size="small"
+            look={answering && !text.trim() ? "quiet" : undefined}
+            busy={busy}
+            disabled={exporting || going}
+            aria-disabled={ask !== null || undefined}
+          >
             <ArrowUp size={16} weight="bold" aria-hidden="true" />
             <span className="composer__label">Send</span>
           </Button>
@@ -297,7 +366,11 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
             }}
             disabled={busy || exporting}
           />
-          {!going && est && <span className="composer__cost figures">about {creditsWord(est.typical)}</span>}
+          {!going && est && (
+            <span className={paidBy ? "composer__cost composer__cost--payer figures" : "composer__cost figures"}>
+              {paidBy ? together.cost(creditsWord(est.typical), paidBy) : `about ${creditsWord(est.typical)}`}
+            </span>
+          )}
           {/* "Ask me first" (2026-11-04), on a line of its own under Effort and the cost. */}
           <Checkbox
             size="small"
@@ -322,6 +395,10 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
           pictures.uploading(tray.items.filter((p) => p.busy).length)
         ) : exporting ? (
           android.exporting.composer
+        ) : othersBuild && going ? (
+          queued ? together.othersWait(othersBuild) : together.othersBuild(othersBuild)
+        ) : stopsOthers && going ? (
+          together.ownersTip(stopsOthers)
         ) : queued ? (
           [queue && tooLong(queue) ? inLine.long(whenParts(queue.leavesAt).time) : inLine.composer, queue?.lane === "free" ? inLine.paidFirst : null].filter(Boolean).join(" ")
         ) : running ? (
@@ -340,7 +417,7 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
         ) : explain === "effort" ? (
           effortLine(effort)
         ) : (
-          modelLine(kind, model, allowed)
+          modelLine(kind, model, allowed, paidBy)
         )}
       </p>
     </form>
@@ -351,7 +428,20 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
  * Out of credits, in the ask panel's style (docs/payments-design.md §8): what happened, when more
  * come, and the one or two ways to go on now. Its buttons deep-link to the checkout and back here.
  */
-function CreditPanel({ kind, me, backTo, onClose }: { kind: PanelKind; me: Me | null; backTo: string; onClose: () => void }) {
+function CreditPanel({
+  kind,
+  me,
+  backTo,
+  owners = null,
+  onClose,
+}: {
+  kind: PanelKind;
+  me: Me | null;
+  backTo: string;
+  /** Someone else's game: its owner's name and the API's sentence, in the owner's terms. */
+  owners?: { name: string; text: string } | null;
+  onClose: () => void;
+}) {
   const plan = me?.plan ?? "free";
   const billing = me?.billing;
   const medium = planFacts("medium");
@@ -362,7 +452,11 @@ function CreditPanel({ kind, me, backTo, onClose }: { kind: PanelKind; me: Me | 
   );
   let text: string;
   let actions: ReactNode = null;
-  if (kind === "billing_hold") {
+  if (owners) {
+    // Someone else's game (pair developing): its owner's credits, said in the API's words, the paused builds' wait as the
+    // site says waits (never a UTC clock); nothing to buy here.
+    text = kind === "free_paused" ? together.paused(owners.name, untilUtcMidnight()) : owners.text;
+  } else if (kind === "billing_hold") {
     text = HOLD_LINE;
   } else if (kind === "free_paused") {
     text = `Free builds are paused; they start again ${untilUtcMidnight()}: today's free allowance is used up across TypePlay. Get a plan to keep going.`;

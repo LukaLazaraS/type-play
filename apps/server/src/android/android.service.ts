@@ -28,7 +28,7 @@ import { readGameFile } from "../games/files.js";
 import { zip } from "../games/zip.js";
 import type { AndroidApp, AndroidBuild, AndroidKey, Prisma, User } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
-import { ProjectViews } from "../projects/views.js";
+import { AccessService } from "../access/access.service.js";
 import { RunRegistry } from "../runs/registry.js";
 import { projectDir } from "../runs/runs.service.js";
 import { newPassword, newToken, open, openWith, parseMasterKey, sameToken, seal, type MasterKeys } from "./crypto.js";
@@ -128,11 +128,17 @@ export class AndroidService implements OnModuleInit, OnApplicationShutdown {
     private readonly prisma: PrismaService,
     private readonly registry: RunRegistry,
     private readonly events: EventBus,
-    private readonly views: ProjectViews,
+    private readonly access: AccessService,
   ) {
     const key = parseMasterKey(config.android.masterKey);
     const prev = parseMasterKey(config.android.masterKeyPrev);
     this.keys = key ? { current: { id: 1, key }, previous: prev ? [{ id: 0, key: prev }] : [] } : null;
+  }
+
+  /** The game, its owner's only (pair developing: Android export is the owner's, its upload key their store identity);
+   * 404 for anyone not in it, 403 owner_only for a member. */
+  private async ownGame(user: User, projectId: string) {
+    return (await this.access.game(user.id, projectId, "owner", "Only the game's owner can put it on Android.")).project;
   }
 
   /** Whether this server builds for Android (Me.features.android, /health). */
@@ -277,7 +283,7 @@ export class AndroidService implements OnModuleInit, OnApplicationShutdown {
   }
 
   async state(user: User, projectId: string): Promise<AndroidState> {
-    await this.views.owned(user.id, projectId);
+    await this.ownGame(user, projectId);
     const app = await this.appOf(projectId);
     const rows = app ? await this.prisma.androidBuild.findMany({ where: { projectId }, orderBy: { queuedAt: "desc" }, take: 20 }) : [];
     const builds: AndroidBuildView[] = [];
@@ -313,7 +319,7 @@ export class AndroidService implements OnModuleInit, OnApplicationShutdown {
 
   /** Setup: the identity and the upload key, made by the signer before the rows are written. */
   async setup(user: User, projectId: string, body: unknown): Promise<AndroidState> {
-    const project = await this.views.owned(user.id, projectId);
+    const project = await this.ownGame(user, projectId);
     this.requirePaid(user);
     this.requireEnabled();
     if (await this.prisma.androidApp.findUnique({ where: { projectId } })) throw new ApiException(409, "busy", "Android is already set up for this game.");
@@ -338,7 +344,7 @@ export class AndroidService implements OnModuleInit, OnApplicationShutdown {
   }
 
   async update(user: User, projectId: string, body: unknown): Promise<AndroidState> {
-    await this.views.owned(user.id, projectId);
+    await this.ownGame(user, projectId);
     this.requirePaid(user);
     const app = await this.appOf(projectId);
     if (!app) throw notFound("Set up Android for this game first.");
@@ -378,7 +384,7 @@ export class AndroidService implements OnModuleInit, OnApplicationShutdown {
   // --- the queue ----------------------------------------------------------------------------------
 
   async startBuild(user: User, projectId: string, body: unknown): Promise<AndroidBuildView> {
-    const project = await this.views.owned(user.id, projectId);
+    const project = await this.ownGame(user, projectId);
     this.requirePaid(user);
     this.requireEnabled();
     const app = await this.appOf(projectId);
@@ -622,7 +628,7 @@ export class AndroidService implements OnModuleInit, OnApplicationShutdown {
   }
 
   async cancelBuild(user: User, projectId: string, buildId: string): Promise<AndroidBuildView> {
-    await this.views.owned(user.id, projectId);
+    await this.ownGame(user, projectId);
     const row = await this.prisma.androidBuild.findFirst({ where: { id: buildId, projectId } });
     if (!row) throw notFound("We couldn't find that build.");
     if (row.status === "queued") {
@@ -660,7 +666,7 @@ export class AndroidService implements OnModuleInit, OnApplicationShutdown {
   // --- downloads and links ------------------------------------------------------------------------
 
   private async doneBuild(user: User, projectId: string, buildId: string) {
-    const project = await this.views.owned(user.id, projectId);
+    const project = await this.ownGame(user, projectId);
     const row = await this.prisma.androidBuild.findFirst({ where: { id: buildId, projectId } });
     if (!row) throw notFound("We couldn't find that build.");
     if (row.status === "expired") throw new ApiException(410, "not_found", "This build's file is gone (files are kept for 30 days). Build it again.");
@@ -715,7 +721,7 @@ export class AndroidService implements OnModuleInit, OnApplicationShutdown {
    * setup, or when the game has neither.
    */
   async icon(user: User, projectId: string): Promise<Buffer> {
-    const project = await this.views.owned(user.id, projectId);
+    const project = await this.ownGame(user, projectId);
     const app = await this.prisma.androidApp.findUnique({ where: { projectId } });
     if (!app) throw notFound("Set up Android for this game first.");
     const version = project.currentVersion ? await this.prisma.version.findUnique({ where: { projectId_n: { projectId, n: project.currentVersion } }, select: { buildId: true } }) : null;
@@ -727,7 +733,7 @@ export class AndroidService implements OnModuleInit, OnApplicationShutdown {
   // --- the key ------------------------------------------------------------------------------------
 
   async keyZip(user: User, projectId: string): Promise<{ file: string; data: Buffer }> {
-    const project = await this.views.owned(user.id, projectId);
+    const project = await this.ownGame(user, projectId);
     this.requirePaid(user);
     const app = await this.appOf(projectId);
     if (!app?.key || !this.keys) throw notFound("This game has no Android key yet: set up Android first.");

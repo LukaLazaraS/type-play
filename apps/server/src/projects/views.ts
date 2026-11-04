@@ -2,27 +2,38 @@
 import { Injectable } from "@nestjs/common";
 import type {
   Effort,
+  PlanId,
   PublicGame,
   Message as MessageView,
   ModelChoice,
   Orientation,
   Project as ProjectView,
   ProjectSummary,
+  SharedGame,
   Version as VersionView,
 } from "@typeplay/shared";
+import { PERSON, personOf } from "../access/access.service.js";
 import { notFound } from "../common/api-error.js";
+import { planModels } from "../credits/credits.js";
 import { GalleryService } from "../gallery/gallery.service.js";
 import { picksOf } from "../games/picks.js";
-import type { Attachment, Message, Project, Version } from "../generated/prisma/client.js";
+import type { Attachment, Message, Project, User, Version } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma.js";
 import { RunRegistry } from "../runs/registry.js";
 import { questionsOf } from "./questions.js";
 
-/** A message row as views read it: with its pictures (in their order) when they were read with it. */
-type MessageRow = Message & { attachments?: Pick<Attachment, "id" | "width" | "height" | "position">[] };
+/** A message row as views read it: with its pictures (in their order) and its author when they were read with it. */
+type MessageRow = Message & {
+  attachments?: Pick<Attachment, "id" | "width" | "height" | "position">[];
+  author?: Pick<User, "id" | "name" | "email" | "avatarUrl"> | null;
+};
+
+/** What to read with a message so `toMessage` can say who sent it (pair developing). */
+export const WITH_AUTHOR = { author: { select: PERSON } } as const;
 
 export function toMessage(m: MessageRow): MessageView {
   const view: MessageView = { id: m.id, role: m.role, text: m.text, createdAt: m.createdAt.toISOString() };
+  if (m.author) view.by = personOf(m.author);
   if (m.attachments?.length) view.images = [...m.attachments].sort((a, b) => a.position - b.position).map(({ id, width, height }) => ({ id, width, height }));
   if (m.role === "agent") {
     if (m.model) view.model = m.model as ModelChoice;
@@ -52,13 +63,6 @@ export class ProjectViews {
     private readonly runs: RunRegistry,
     private readonly gallery: GalleryService,
   ) {}
-
-  /** The project if this user owns it, else 404 (another user's project looks like no project). */
-  async owned(userId: string, id: string): Promise<Project> {
-    const p = typeof id === "string" && /^[a-z0-9]{4,40}$/.test(id) ? await this.prisma.project.findFirst({ where: { id, ownerId: userId } }) : null;
-    if (!p) throw notFound("We couldn't find that game.");
-    return p;
-  }
 
   /** `current`: the newest version (the one playing), or null before the first build; `plays`: all time. */
   summaryOf(p: Project, current: Pick<Version, "buildId" | "poster"> | null, plays: number): ProjectSummary {
@@ -128,20 +132,50 @@ export class ProjectViews {
     return rows.map((p) => this.summaryOf(p, p.versions[0] ?? null, plays.get(p.id) ?? 0));
   }
 
-  async full(projectId: string): Promise<ProjectView> {
+  /** GET /shared: the games this account builds with their owners (pair developing), the newest change first. */
+  async shared(userId: string): Promise<SharedGame[]> {
+    const rows = await this.prisma.projectMember.findMany({
+      where: { userId },
+      include: { project: { include: { versions: { orderBy: { n: "desc" }, take: 1 }, owner: { select: PERSON } } } },
+    });
+    rows.sort((a, b) => b.project.updatedAt.getTime() - a.project.updatedAt.getTime());
+    const plays = await this.gallery.totals(rows.map((r) => r.projectId));
+    return rows.map((r) => ({
+      ...this.summaryOf(r.project, r.project.versions[0] ?? null, plays.get(r.projectId) ?? 0),
+      owner: personOf(r.project.owner),
+      role: r.role,
+      since: r.createdAt.toISOString(),
+    }));
+  }
+
+  /**
+   * The whole game for someone in it (`viewerId`: the access check has passed): its messages with who sent each, its
+   * versions, and `access` (who they are in it, the owner, the members, the plan every message here goes by).
+   */
+  async full(projectId: string, viewerId: string): Promise<ProjectView> {
     const p = await this.prisma.project.findUniqueOrThrow({
       where: { id: projectId },
       include: {
-        messages: { orderBy: { createdAt: "asc" }, include: { attachments: { select: { id: true, width: true, height: true, position: true } } } },
+        messages: { orderBy: { createdAt: "asc" }, include: { attachments: { select: { id: true, width: true, height: true, position: true } }, ...WITH_AUTHOR } },
         versions: { orderBy: { n: "asc" } },
+        owner: { select: { ...PERSON, plan: true } },
+        members: { orderBy: { createdAt: "asc" }, include: { user: { select: PERSON } } },
       },
     });
     const current = p.versions.at(-1) ?? null;
+    const plan = p.owner.plan as PlanId;
     return {
       ...this.summaryOf(p, current, await this.playsOf(projectId)),
       messages: p.messages.map(toMessage),
       versions: p.versions.map(toVersion),
       currentVersion: p.currentVersion,
+      access: {
+        role: p.ownerId === viewerId ? "owner" : (p.members.find((m) => m.userId === viewerId)?.role ?? "editor"),
+        owner: personOf(p.owner),
+        members: p.members.map((m) => personOf(m.user)),
+        plan,
+        models: planModels(plan),
+      },
     };
   }
 }

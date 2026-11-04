@@ -53,8 +53,9 @@ export function ModelRows({ kind, value, onChange, allowed, estimates, disabled 
   );
 }
 
-/** The chat's composer: Fast / Smart / Best as one segmented control (arrow keys move, like radios). */
-export function ModelSwitch({ kind, value, onChange, allowed, disabled }: Omit<Props, "estimates">) {
+/** The chat's composer: Fast / Smart / Best as one segmented control (arrow keys move, like radios). `paidBy`: someone else's
+ * game (pair developing): a locked AI is "not on luka's plan", not one to buy. */
+export function ModelSwitch({ kind, value, onChange, allowed, disabled, paidBy = null }: Omit<Props, "estimates"> & { paidBy?: string | null }) {
   return (
     <Segmented
       name={`switch-${kind}`}
@@ -69,8 +70,8 @@ export function ModelSwitch({ kind, value, onChange, allowed, disabled }: Omit<P
           label: m.name,
           locked,
           icon: locked ? <LockSimple size={12} weight="bold" aria-hidden="true" /> : undefined,
-          title: locked ? `${m.name} is on paid plans` : undefined,
-          note: locked ? ", on paid plans" : undefined,
+          title: locked ? (paidBy ? `${m.name} isn't on ${paidBy}'s plan` : `${m.name} is on paid plans`) : undefined,
+          note: locked ? (paidBy ? `, not on ${paidBy}'s plan` : ", on paid plans") : undefined,
         };
       })}
     />
@@ -111,9 +112,10 @@ export function EffortSwitch({
 
 export const effortLine = (effort: Effort) => efforts.find((e) => e.id === effort)!.line;
 
-/** The honest line for the picked model, plus the plan note on Free. */
-export function modelLine(kind: "new" | "edit", model: ModelChoice, allowed: ModelChoice[]) {
+/** The honest line for the picked model, plus the plan note on Free (`paidBy`: someone else's game, on their Free plan). */
+export function modelLine(kind: "new" | "edit", model: ModelChoice, allowed: ModelChoice[], paidBy: string | null = null) {
   const m = models.find((x) => x.id === model)!;
   const line = `${m.name}: ${kind === "new" ? m.newGame : m.edit}`;
-  return allowed.length < models.length ? `${line} Smart and Best come with paid plans.` : line;
+  if (allowed.length >= models.length) return line;
+  return paidBy ? `${line} Smart and Best aren't on ${paidBy}'s plan.` : `${line} Smart and Best come with paid plans.`;
 }

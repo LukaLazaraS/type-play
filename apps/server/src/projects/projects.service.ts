@@ -1,10 +1,12 @@
 // Projects: create (and start the first build, or put it in line), send a change, restore a version, cancel a run;
-// rename, share, download and delete a game.
+// rename, share, download and delete a game. Pair developing (2026-11-04): a game's members send, restore, rename,
+// download and stop their own builds too (access.service decides who may), and every change is paid by the owner.
 import { randomInt, randomUUID } from "node:crypto";
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { Injectable, Logger } from "@nestjs/common";
 import type { Effort, Genre, ModelChoice, PlanId, Platform, Project as ProjectView } from "@typeplay/shared";
+import { AccessService, ownerOnly, payerOf, PERSON, personOf } from "../access/access.service.js";
 import { AndroidService } from "../android/android.service.js";
 import { removeGameAssets } from "../assets/store.js";
 import { AttachmentsService } from "../attachments/attachments.service.js";
@@ -109,7 +111,34 @@ export class ProjectsService {
     private readonly credits: CreditsService,
     private readonly android: AndroidService,
     private readonly attachments: AttachmentsService,
+    private readonly access: AccessService,
   ) {}
+
+  /** The account that pays for a game's builds (its owner: access.service `payerOf`), with anything due settled. */
+  private async payerRow(project: { ownerId: string }): Promise<User> {
+    return this.credits.settled(await this.prisma.user.findUniqueOrThrow({ where: { id: payerOf(project) } }));
+  }
+
+  /**
+   * Claims the game for a build paid by `payer`. A 409 while someone else in the game has a build going or waiting says
+   * whose (pair developing); a member's 409 for the owner's plan's builds at once says it is the owner's plan.
+   */
+  private async claim(projectId: string, payer: User, sender: User, what: { kind: "new" | "edit"; model: ModelChoice; effort: Effort }) {
+    try {
+      return this.registry.claimRun(projectId, ownerOf(payer), { ...what, senderId: sender.id });
+    } catch (e) {
+      if (!(e instanceof ApiException) || e.code !== "busy") throw e;
+      const other = this.registry.senderOf(projectId);
+      if (other && other !== sender.id) {
+        const who = await this.prisma.user.findUnique({ where: { id: other }, select: PERSON });
+        throw new ApiException(409, "busy", `${who ? personOf(who).name : "Someone"}'s change to this game is being built now. Send yours when it's done.`);
+      }
+      if (!other && payer.id !== sender.id && this.registry.status(projectId) === "idle") {
+        throw new ApiException(409, "busy", `${personOf(payer).name}'s plan is building as many games at once as it can right now. Send this when one is done.`);
+      }
+      throw e;
+    }
+  }
 
   async create(user: User, body: unknown): Promise<ProjectView> {
     const req = parseRunBody(body, "prompt");
@@ -144,8 +173,8 @@ export class ProjectsService {
             tags,
             messages: {
               create: [
-                { id: asked, role: "user", text: req.text, createdAt: new Date(now) },
-                { ...this.agentMessage(user, req, sent, queued), createdAt: sent },
+                { id: asked, role: "user", text: req.text, authorId: user.id, createdAt: new Date(now) },
+                { ...this.agentMessage(user, req, sent, queued), authorId: user.id, createdAt: sent },
               ],
             },
           },
@@ -155,7 +184,7 @@ export class ProjectsService {
       });
       undo = null;
       const messageId = project.messages[0].id;
-      if (queued) this.queue.added({ ...queued, messageId }, req.model, req.effort, hold);
+      if (queued) this.queue.added({ ...queued, messageId }, req.model, req.effort, hold, user.id);
       else this.runs.start({ projectId: id, userId: user.id, messageId, kind: "new", prompt: req.text, model: req.model, effort: req.effort, platform, genre, tags, images, ask, hold, startedAt: sent });
       hold = null;
     } finally {
@@ -163,7 +192,7 @@ export class ProjectsService {
       hold?.release();
       claim.release();
     }
-    return this.views.full(id);
+    return this.views.full(id, user.id);
   }
 
   /**
@@ -176,23 +205,31 @@ export class ProjectsService {
       where: { projectId },
       orderBy: { createdAt: "desc" },
       take: 2,
-      include: { attachments: { select: { id: true, position: true } } },
+      include: { attachments: { select: { id: true, position: true } }, author: { select: PERSON } },
     });
     if (last?.role !== "agent" || last.status !== "done" || before?.role !== "user") return null;
     const questions = questionsOf(last.questions);
     if (!questions) return null;
     const images = [...before.attachments].sort((a, b) => a.position - b.position).map((a) => a.id);
-    return { questions, request: before.text, images, model: last.model, effort: last.effort ?? "medium" };
+    // Who asked (pair developing): only they answer; null, someone who has closed their account since.
+    const askedBy = before.author ? { id: before.author.id, name: personOf(before.author).name } : null;
+    return { questions, request: before.text, images, model: last.model, effort: last.effort ?? "medium", askedBy };
   }
 
   async send(user: User, id: string, body: unknown): Promise<ProjectView> {
-    const project = await this.views.owned(user.id, id);
+    const { project, role } = await this.access.game(user.id, id, "edit");
+    // Who pays: the game's owner, under the owner's plan, whoever in the game sends it (pair developing).
+    const payer = role === "owner" ? user : await this.payerRow(project);
+    const paidBy = role === "owner" ? undefined : personOf(payer).name;
     const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
     // Questions open (the game's newest answer asked them, 2026-11-04): this message is their answer, tapped (`answers`)
     // or typed. The build gets the request they were about, the questions and the answer (questions.ts), and never asks
-    // again: the AI asks once per request.
-    const open = await this.openQuestions(project.id);
-    if (b.answers !== undefined && b.answers !== null && !open) throw badRequest("Those questions were answered already.");
+    // again: the AI asks once per request. Only the one who asked answers them: anyone else's message is a new request.
+    const found = await this.openQuestions(project.id);
+    const open = found && found.askedBy?.id === user.id ? found : null;
+    if (b.answers !== undefined && b.answers !== null && !open) {
+      throw badRequest(found ? `Only ${found.askedBy?.name ?? "the one who asked"} can answer these questions.` : "Those questions were answered already.");
+    }
     const answers = open && b.answers !== undefined && b.answers !== null ? parseAnswers(b.answers, open.questions.items.length) : null;
     const req = parseRunBody(body, "text", !!answers);
     const reply = open ? replyTo(open.request, open.questions, { answers, text: req.text }) : null;
@@ -208,11 +245,11 @@ export class ProjectsService {
     const kind = project.currentVersion == null ? "new" : "edit"; // the first build failed (or asked first): build now
     // Taps alone change nothing the size check judged; words typed with them may, so those are checked again.
     const sized = !!answers && !req.text && kind === "edit" && open?.model === req.model;
-    const claim = this.registry.claimRun(project.id, ownerOf(user), { kind, model: req.model, effort: req.effort });
+    const claim = await this.claim(project.id, payer, user, { kind, model: req.model, effort: req.effort });
     let hold: CreditHold | null = null;
     let undo: (() => void) | null = null;
     try {
-      hold = await this.credits.assertCanRun(user, kind, req.model, confirm, req.effort);
+      hold = await this.credits.assertCanRun(payer, kind, req.model, confirm, req.effort, paidBy);
       const now = Date.now();
       const sent = new Date(now + 1);
       // The first build failed and this builds again: for the screens, genre and tags the player picked.
@@ -223,27 +260,45 @@ export class ProjectsService {
       const ownIds = prepared.images.map((i) => i.id);
       const runIds = open ? [...open.images, ...ownIds].slice(0, 10) : ownIds;
       const flags = { ask, answered: !!reply, sized, label: reply?.label ?? null };
+      // In line, paid and laned by the owner's plan; the messages say who sent it.
       const queued = claim.now
         ? null
-        : this.queue.rowFor({ projectId: id, userId: user.id, kind, prompt, platform: project.platform, genre, tags, images: runIds, ...flags, plan: user.plan, hold, at: sent });
+        : this.queue.rowFor({ projectId: id, userId: payer.id, kind, prompt, platform: project.platform, genre, tags, images: runIds, ...flags, plan: payer.plan, hold, at: sent });
       // The player's message and its pictures together: a picture another tab sent a moment ago leaves no message behind.
       const own = await this.prisma.$transaction(async (tx) => {
-        const asked = await tx.message.create({ data: { projectId: id, role: "user", text, createdAt: new Date(now) } });
+        const asked = await tx.message.create({ data: { projectId: id, role: "user", text, authorId: user.id, createdAt: new Date(now) } });
         return this.attachments.attachIn(tx, user.id, asked.id, prepared);
       });
       undo = null;
       const images = open ? [...(await this.attachments.forRun(open.images)), ...own].slice(0, 10) : own;
-      const agent = await this.prisma.message.create({ data: { projectId: id, ...this.agentMessage(user, req, sent, queued), createdAt: sent } });
+      const agent = await this.prisma.message.create({ data: { projectId: id, ...this.agentMessage(payer, req, sent, queued), authorId: user.id, createdAt: sent } });
       await this.prisma.project.update({ where: { id }, data: { updatedAt: new Date() } });
-      if (queued) this.queue.added({ ...queued, messageId: agent.id }, req.model, req.effort, hold);
-      else this.runs.start({ projectId: id, userId: user.id, messageId: agent.id, kind, prompt, model: req.model, effort: req.effort, platform: project.platform, genre, tags, images, ...flags, hold, startedAt: sent });
+      if (queued) this.queue.added({ ...queued, messageId: agent.id }, req.model, req.effort, hold, user.id);
+      else
+        this.runs.start({
+          projectId: id,
+          userId: payer.id,
+          senderId: user.id,
+          messageId: agent.id,
+          kind,
+          prompt,
+          model: req.model,
+          effort: req.effort,
+          platform: project.platform,
+          genre,
+          tags,
+          images,
+          ...flags,
+          hold,
+          startedAt: sent,
+        });
       hold = null;
     } finally {
       undo?.();
       hold?.release();
       claim.release();
     }
-    return this.views.full(id);
+    return this.views.full(id, user.id);
   }
 
   /**
@@ -256,7 +311,7 @@ export class ProjectsService {
   }
 
   async restore(user: User, id: string, body: unknown): Promise<ProjectView> {
-    const project = await this.views.owned(user.id, id);
+    const { project } = await this.access.game(user.id, id, "edit");
     const n = (body as { n?: unknown } | null)?.n;
     if (typeof n !== "number" || !Number.isInteger(n) || n < 1) throw badRequest("Pick a version to restore.");
     const release = this.registry.reserve(project.id, "restore");
@@ -283,20 +338,26 @@ export class ProjectsService {
     } finally {
       release();
     }
-    return this.views.full(id);
+    return this.views.full(id, user.id);
   }
 
+  /** Stop: the game's owner stops any build of it, a member only the ones they asked for (403 for another's). */
   async cancel(user: User, id: string): Promise<ProjectView> {
-    await this.views.owned(user.id, id);
+    const { role } = await this.access.game(user.id, id, "edit");
+    // Whose build it is, looked at again before each step (the line's build may have started meanwhile, someone's ended).
+    const mine = () => role === "owner" || [null, user.id].includes(this.registry.senderOf(id));
+    if (!mine()) throw ownerOnly("This build is someone else's: only they or the game's owner can stop it.");
     await this.queue.cancel(id); // a build waiting in line leaves it
-    await this.runs.cancel(id); // one going, or one whose turn came just now, stops
-    return this.views.full(id);
+    if (mine()) await this.runs.cancel(id); // one going, or one whose turn came just now, stops
+    return this.views.full(id, user.id);
   }
 
-  /** Rename, share or unshare, and show it in the gallery or not. A rename sticks: later builds keep it. */
+  /** Rename (anyone in the game), share or unshare, and show it in the gallery or not (its owner only). A rename sticks:
+   * later builds keep it. */
   async update(user: User, id: string, body: unknown): Promise<ProjectView> {
-    const project = await this.views.owned(user.id, id);
     const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+    const sharing = b.shared !== undefined || b.listed !== undefined;
+    const { project } = await this.access.game(user.id, id, sharing ? "owner" : "edit", "Only the game's owner can share it or put it in the gallery.");
     const data: { name?: string; renamed?: true; shared?: boolean; sharedAt?: Date | null; listed?: boolean; listedAt?: Date; genre?: Genre | null } = {};
     if (b.name !== undefined) {
       data.name = cleanName(b.name);
@@ -322,12 +383,12 @@ export class ProjectsService {
     if (!Object.keys(data).length) throw badRequest("Say what to change: a name, sharing, or the gallery.");
     // updatedAt is the last build or message: a rename or a share doesn't move the game up the list.
     await this.prisma.project.update({ where: { id }, data: { ...data, updatedAt: project.updatedAt } });
-    return this.views.full(id);
+    return this.views.full(id, user.id);
   }
 
-  /** The Godot project at its current version, as a .zip. */
+  /** The Godot project at its current version, as a .zip (anyone who builds it: the owner and its members). */
   async download(user: User, id: string): Promise<{ file: string; data: Buffer }> {
-    const project = await this.views.owned(user.id, id);
+    const { project } = await this.access.game(user.id, id, "edit");
     if (this.registry.status(id) === "running") {
       throw new ApiException(409, "busy", "This game is being changed right now. Download it when the build is done.");
     }
@@ -350,7 +411,7 @@ export class ProjectsService {
   }
 
   async remove(user: User, id: string): Promise<{ ok: true }> {
-    const project = await this.views.owned(user.id, id);
+    const { project } = await this.access.game(user.id, id, "owner", "Only the game's owner can delete it. You can leave it instead.");
     await this.removeGame(project.id);
     return { ok: true };
   }

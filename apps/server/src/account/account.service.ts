@@ -2,6 +2,7 @@
 // "You can see, export or delete your data from your account").
 import { Injectable, Logger } from "@nestjs/common";
 import type { AccountExport, PlanId } from "@typeplay/shared";
+import { PERSON, personOf } from "../access/access.service.js";
 import { AndroidService } from "../android/android.service.js";
 import { AttachmentsService } from "../attachments/attachments.service.js";
 import { AuthService } from "../auth/auth.service.js";
@@ -9,6 +10,7 @@ import { BillingService } from "../billing/billing.service.js";
 import { badRequest } from "../common/api-error.js";
 import { CreditsService } from "../credits/credits.service.js";
 import type { User } from "../generated/prisma/client.js";
+import { MembersService } from "../members/members.service.js";
 import { PushService } from "../notify/push.service.js";
 import { PrismaService } from "../prisma.js";
 import { ProjectsService } from "../projects/projects.service.js";
@@ -31,6 +33,7 @@ export class AccountService {
     private readonly android: AndroidService,
     private readonly push: PushService,
     private readonly attachments: AttachmentsService,
+    private readonly members: MembersService,
   ) {}
 
   /** Everything we keep about the account, for the "Download my data" file. */
@@ -39,8 +42,31 @@ export class AccountService {
     const games: AccountExport["games"] = [];
     for (const { id } of ids) {
       const android = await this.android.exportFor(id);
-      games.push({ ...(await this.views.full(id)), ...(android ? { android } : {}) });
+      games.push({ ...(await this.views.full(id, user.id)), ...(android ? { android } : {}) });
     }
+    // The games others own that this account builds with them (pair developing): its own part of each.
+    const memberships = await this.prisma.projectMember.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "asc" },
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            owner: { select: PERSON },
+            messages: { where: { authorId: user.id, role: "user" }, orderBy: { createdAt: "asc" }, select: { createdAt: true, text: true } },
+          },
+        },
+      },
+    });
+    const shared: NonNullable<AccountExport["shared"]> = memberships.map((m) => ({
+      gameId: m.project.id,
+      name: m.project.name,
+      owner: personOf(m.project.owner).name,
+      role: m.role,
+      since: m.createdAt.toISOString(),
+      messages: m.project.messages.map((x) => ({ at: x.createdAt.toISOString(), text: x.text })),
+    }));
     const feedback = await this.prisma.feedback.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } });
     return {
       exportedAt: new Date().toISOString(),
@@ -70,6 +96,7 @@ export class AccountService {
         done: !!f.doneAt,
       })),
       notifications: await this.push.exportFor(user.id),
+      shared,
       notes: [
         "Your games' files (code, scenes and art) are not in this file: download each game as a .zip from its page on typeplay.app.",
         "Your name, email and picture come from your Google sign-in.",
@@ -78,6 +105,7 @@ export class AccountService {
         "Your Android signing keys are not in this file: download each one from its game's Android page. We keep an encrypted copy to build your app; Google holds the app signing key.",
         "notifications: the devices you turned notifications on for, and their browser's push service. Their push addresses are not in this file: each works like a password for its device.",
         "Pictures you attached to messages are listed with each message (their size), not included in this file: open them in the game's chat on typeplay.app.",
+        "shared: the games other people own that you build with them, and the messages you sent there. The rest of those games is their owners' (their chat, versions and files).",
       ],
     };
   }
@@ -98,14 +126,20 @@ export class AccountService {
     try {
       const ids = await this.prisma.project.findMany({ where: { ownerId: user.id }, select: { id: true } });
       for (const { id } of ids) await this.projects.removeGame(id);
+      // The games others own that it builds with them (pair developing): a build it asked for that is still going or
+      // waiting stops (their owners would pay for it), before the membership goes with the user row.
+      const memberships = await this.prisma.projectMember.findMany({ where: { userId: user.id }, select: { projectId: true } });
+      for (const { projectId } of memberships) await this.members.stopBuildsOf(projectId, user.id);
       // The user row last: its credit entries go with it (cascade), and any game started meanwhile.
       // Payments, adjustments and events stay (cards are refundable for months; records kept by law)
       // with no user on them: Payment and Adjustment by their SetNull relation, PaddleEvent here.
       await this.prisma.paddleEvent.updateMany({ where: { userId: user.id }, data: { userId: null } });
-      // Pictures uploaded and never sent: their rows go with the user row, their files right after it.
-      const pictures = await this.attachments.stagedOf(user.id);
+      // Pictures uploaded and never sent, and the ones it sent in others' games: their rows go with the user row (its
+      // messages there stay, from "a former member"), their files right after it.
+      const pictures = [...(await this.attachments.stagedOf(user.id)), ...(await this.attachments.sentInOthersGames(user.id))];
       await this.prisma.user.delete({ where: { id: user.id } });
       this.attachments.removeFiles(pictures);
+      for (const { projectId } of memberships) await this.members.out(projectId, user);
     } catch (e) {
       await this.auth.remember(user.id).catch(() => {}); // not closed: the account works again (games already deleted stay deleted)
       throw e;

@@ -75,7 +75,8 @@ export function UsageList() {
             <li key={e.id} className="usage__row">
               <When iso={e.at} />
               <div className="usage__what">
-                <b>{e.what}</b>
+                {/* A member of your game sent it (pair developing): you paid, and it says who. */}
+                <b>{e.by ? `${e.what}, sent by ${e.by}` : e.what}</b>
                 {e.game ? (
                   <Link href={`/games/${e.game.id}`} className="usage__game" prefetch={false}>
                     {e.game.name}

@@ -17,6 +17,10 @@ import type {
   Estimate,
   FeedbackBody,
   GameAssets,
+  GamePeople,
+  Invitation,
+  InviteBody,
+  InviteLink,
   Me,
   ModelChoice,
   PlanChangeBody,
@@ -28,6 +32,7 @@ import type {
   RunEvent,
   SendMessageBody,
   SetupAndroidBody,
+  SharedGame,
   StartAndroidBuildBody,
   UpdateAndroidBody,
   UpdateMeBody,
@@ -129,8 +134,9 @@ export const api = {
     call<Project>(`/projects/${id(projectId)}/messages`, { method: "POST", body }),
   restore: (projectId: string, n: number) => call<Project>(`/projects/${id(projectId)}/restore`, { method: "POST", body: { n } }),
   cancel: (projectId: string) => call<Project>(`/projects/${id(projectId)}/cancel`, { method: "POST" }),
-  estimate: (kind: "new" | "edit", model: ModelChoice, effort: Effort = "medium") =>
-    call<Estimate>(`/estimate?kind=${kind}&model=${model}${effort === "medium" ? "" : `&effort=${effort}`}`),
+  /** `game`: a message to someone else's game (pair developing): the numbers by its owner's plan, who pays. */
+  estimate: (kind: "new" | "edit", model: ModelChoice, effort: Effort = "medium", game?: string) =>
+    call<Estimate>(`/estimate?kind=${kind}&model=${model}${effort === "medium" ? "" : `&effort=${effort}`}${game ? `&game=${id(game)}` : ""}`),
   /** Rename, share or unshare. */
   update: (projectId: string, body: UpdateProjectBody) => call<Project>(`/projects/${id(projectId)}`, { method: "PATCH", body }),
   remove: (projectId: string) => call<{ ok: true }>(`/projects/${id(projectId)}`, { method: "DELETE" }),
@@ -162,6 +168,21 @@ export const api = {
       picture(`/projects/${id(projectId)}/assets/${encodeURIComponent(buildId)}/${encodeURIComponent(assetId)}/picture`),
     thumb: (projectId: string, buildId: string, assetId: string) =>
       picture(`/projects/${id(projectId)}/assets/${encodeURIComponent(buildId)}/${encodeURIComponent(assetId)}/thumb`),
+  },
+  /** Pair developing (2026-11-04): a game's people and invitations (the owner), leaving one (a member), the games shared
+   * with you, and your invitations. */
+  people: {
+    of: (projectId: string) => call<GamePeople>(`/projects/${id(projectId)}/people`),
+    invite: (projectId: string, email: string) => call<InviteLink>(`/projects/${id(projectId)}/invites`, { method: "POST", body: { email } satisfies InviteBody }),
+    newLink: (projectId: string, inviteId: string) => call<InviteLink>(`/projects/${id(projectId)}/invites/${encodeURIComponent(inviteId)}/link`, { method: "POST" }),
+    takeBack: (projectId: string, inviteId: string) => call<{ ok: true }>(`/projects/${id(projectId)}/invites/${encodeURIComponent(inviteId)}`, { method: "DELETE" }),
+    remove: (projectId: string, userId: string) => call<{ ok: true }>(`/projects/${id(projectId)}/members/${encodeURIComponent(userId)}`, { method: "DELETE" }),
+    leave: (projectId: string) => call<{ ok: true }>(`/projects/${id(projectId)}/leave`, { method: "POST" }),
+    shared: () => call<SharedGame[]>("/shared"),
+    invitations: () => call<Invitation[]>("/invites"),
+    byLink: (token: string) => call<Invitation>(`/invites/link/${encodeURIComponent(token)}`),
+    accept: (inviteId: string) => call<{ projectId: string }>(`/invites/${encodeURIComponent(inviteId)}/accept`, { method: "POST" }),
+    decline: (inviteId: string) => call<{ ok: true }>(`/invites/${encodeURIComponent(inviteId)}/decline`, { method: "POST" }),
   },
   /** Notifications (2026-10-29): this device on (its browser's subscription) or off (its address). */
   push: {

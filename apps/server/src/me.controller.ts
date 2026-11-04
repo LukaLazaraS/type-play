@@ -3,6 +3,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Patch, Query, Res } from "@nestjs/common";
 import type { Response } from "express";
 import type { Effort, Estimate, Me, ModelChoice, PlanId, UsagePage } from "@typeplay/shared";
+import { AccessService, payerOf } from "./access/access.service.js";
 import { AccountService } from "./account/account.service.js";
 import { AndroidService } from "./android/android.service.js";
 import { CurrentUser } from "./auth/auth.guard.js";
@@ -24,6 +25,7 @@ export class MeController {
     private readonly billing: BillingService,
     private readonly android: AndroidService,
     private readonly prisma: PrismaService,
+    private readonly access: AccessService,
   ) {}
 
   @Get("me")
@@ -63,12 +65,18 @@ export class MeController {
     return this.me(updated);
   }
 
+  /** `game`: for a message to that game (pair developing): the numbers by its owner's plan, who pays for it. */
   @Get("estimate")
-  estimate(@CurrentUser() user: User, @Query("kind") kind: string, @Query("model") model: string, @Query("effort") effort?: string): Estimate {
+  async estimate(@CurrentUser() user: User, @Query("kind") kind: string, @Query("model") model: string, @Query("effort") effort?: string, @Query("game") game?: string): Promise<Estimate> {
     if (kind !== "new" && kind !== "edit") throw badRequest("kind is new or edit.");
     if (!MODELS.includes(model as ModelChoice)) throw badRequest("model is fast, smart or best.");
     if (effort !== undefined && !EFFORTS.includes(effort as Effort)) throw badRequest("effort is low, medium or high.");
-    return estimate(kind, model as ModelChoice, user.plan as PlanId, (effort as Effort | undefined) ?? "medium");
+    let plan = user.plan as PlanId;
+    if (game !== undefined) {
+      const { project } = await this.access.game(user.id, game, "edit");
+      plan = (await this.prisma.user.findUniqueOrThrow({ where: { id: payerOf(project) }, select: { plan: true } })).plan as PlanId;
+    }
+    return estimate(kind, model as ModelChoice, plan, (effort as Effort | undefined) ?? "medium");
   }
 
   /** Every credit added or spent, newest first, a page at a time. */

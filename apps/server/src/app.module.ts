@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
+import { AccessService } from "./access/access.service.js";
 import { AccountService } from "./account/account.service.js";
 import { AndroidController } from "./android/android.controller.js";
 import { AndroidService } from "./android/android.service.js";
@@ -25,6 +26,8 @@ import { FeedbackController } from "./feedback/feedback.controller.js";
 import { FeedbackService } from "./feedback/feedback.service.js";
 import { GalleryService } from "./gallery/gallery.service.js";
 import { MeController } from "./me.controller.js";
+import { MembersController } from "./members/members.controller.js";
+import { MembersService } from "./members/members.service.js";
 import { NotifyController } from "./notify/notify.controller.js";
 import { PushService } from "./notify/push.service.js";
 import { PrismaService } from "./prisma.js";
@@ -38,9 +41,23 @@ import { RunRegistry } from "./runs/registry.js";
 import { RunsService } from "./runs/runs.service.js";
 
 @Module({
-  controllers: [MeController, ProjectsController, AssetsController, AttachmentsController, PublicController, WebhooksController, BillingController, AndroidController, FeedbackController, BetaCodeController, NotifyController],
+  controllers: [
+    MeController,
+    ProjectsController,
+    MembersController,
+    AssetsController,
+    AttachmentsController,
+    PublicController,
+    WebhooksController,
+    BillingController,
+    AndroidController,
+    FeedbackController,
+    BetaCodeController,
+    NotifyController,
+  ],
   providers: [
     PrismaService,
+    AccessService,
     LedgerService,
     PaddleService,
     BillingHandlers,
@@ -62,6 +79,7 @@ import { RunsService } from "./runs/runs.service.js";
     BuildQueue,
     AndroidService,
     ProjectsService,
+    MembersService,
     AccountService,
     FeedbackService,
     { provide: APP_GUARD, useClass: AuthGuard },

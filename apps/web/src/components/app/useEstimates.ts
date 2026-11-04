@@ -9,11 +9,11 @@ const MODELS: ModelChoice[] = ["fast", "smart", "best"];
 // ask once per page load.
 const cache = new Map<string, Promise<Estimate | null>>();
 
-function estimate(kind: "new" | "edit", model: ModelChoice, effort: Effort, plan: PlanId) {
+function estimate(kind: "new" | "edit", model: ModelChoice, effort: Effort, plan: PlanId, game?: string) {
   const key = `${plan}:${kind}:${model}:${effort}`;
   let p = cache.get(key);
   if (!p) {
-    p = api.estimate(kind, model, effort).catch(() => {
+    p = api.estimate(kind, model, effort, game).catch(() => {
       cache.delete(key); // try again next time
       return null;
     });
@@ -22,8 +22,9 @@ function estimate(kind: "new" | "edit", model: ModelChoice, effort: Effort, plan
   return p;
 }
 
-/** What a message will probably cost on each model at this effort, for the picker and the send button. */
-export function useEstimates(kind: "new" | "edit", plan: PlanId | null, effort: Effort = "medium") {
+/** What a message will probably cost on each model at this effort, for the picker and the send button. `game`: a game
+ * someone else owns (pair developing): `plan` is its owner's, and the API is asked for that game's numbers. */
+export function useEstimates(kind: "new" | "edit", plan: PlanId | null, effort: Effort = "medium", game?: string) {
   const [found, setFound] = useState<{ key: string; byModel: Partial<Record<ModelChoice, Estimate>> }>({ key: "", byModel: {} });
   const key = plan ? `${plan}:${kind}:${effort}` : "";
 
@@ -34,7 +35,7 @@ export function useEstimates(kind: "new" | "edit", plan: PlanId | null, effort: 
     // A failed estimate (a dropped request) is asked again after 5 s, then 15 s, so the cost
     // labels don't stay blank until the player changes something.
     const load = (attempt: number) =>
-      void Promise.all(MODELS.map((m) => estimate(kind, m, effort, plan))).then((list) => {
+      void Promise.all(MODELS.map((m) => estimate(kind, m, effort, plan, game))).then((list) => {
         if (!live) return;
         const byModel: Partial<Record<ModelChoice, Estimate>> = {};
         list.forEach((e, i) => {
@@ -48,7 +49,7 @@ export function useEstimates(kind: "new" | "edit", plan: PlanId | null, effort: 
       live = false;
       if (retry) clearTimeout(retry);
     };
-  }, [kind, plan, effort]);
+  }, [kind, plan, effort, game]);
 
   // While another effort's numbers load (a moment), keep showing the last ones rather than none.
   return found.key === key || (plan && found.key.startsWith(`${plan}:${kind}:`)) ? found.byModel : {};
