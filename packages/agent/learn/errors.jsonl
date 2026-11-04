@@ -1666,3 +1666,4 @@
 {"date":"2026-11-04T03:04:38.518Z","game":"night-runner","error":"[test core_test.tscn] FAIL: timed jumps clear the obstacles"}
 {"date":"2026-11-04T03:04:38.519Z","game":"night-runner","error":"[test core_test.tscn] FAIL: there were obstacles to jump (1)"}
 {"date":"2026-11-04T03:04:38.519Z","game":"night-runner","error":"[test stress_test.tscn] FAIL: top speed, obstacles and mushrooms everywhere"}
+{"date":"2026-11-04T03:22:12.245Z","game":"night-3d","error":"[test core_test.tscn] FAIL: time up ends the game"}

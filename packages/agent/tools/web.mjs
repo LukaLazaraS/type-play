@@ -139,11 +139,16 @@ const WATCHDOG = [
 // status at once, which blocks until the browser has compiled it) and every animation frame (Godot draws one frame
 // per animation frame, so a long gap is a frame the player saw frozen). freezeReport() reads it.
 const FREEZE_PROBE = `(() => {
-  const T = window.__tpFreeze = { links: [], waits: [], frames: [], reads: [] };
+  const T = window.__tpFreeze = { links: [], waits: [], frames: [], reads: [], calls: 0 };
   const now = () => performance.now();
   for (const C of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) {
     if (!C) continue;
     const P = C.prototype, link = P.linkProgram, ask = P.getProgramParameter, askShader = P.getShaderParameter, read = P.readPixels;
+    // Draw calls: each is a job for the GPU that costs CPU time in the browser (WebGL checks every call).
+    for (const name of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced', 'drawRangeElements']) {
+      const draw = P[name];
+      if (draw) P[name] = function (...a) { T.calls++; return draw.apply(this, a); };
+    }
     P.linkProgram = function (p) { const t = now(); const r = link.call(this, p); T.links.push([t, now() - t]); return r; };
     // A picture read back from the GPU (Texture2D.get_image(), a baked look read into an Image) makes the page wait
     // for everything the GPU has queued.
@@ -152,7 +157,8 @@ const FREEZE_PROBE = `(() => {
     P.getShaderParameter = function (s, n) { const t = now(); const r = askShader.call(this, s, n); const d = now() - t; if (d > 1) T.waits.push([t, d]); return r; };
   }
   let last = 0;
-  const tick = (t) => { if (last) T.frames.push([last, t - last]); last = t; requestAnimationFrame(tick); };
+  // Each animation frame: when it started, how long it took, and the draw calls made in it.
+  const tick = (t) => { if (last) T.frames.push([last, t - last, T.calls]); T.calls = 0; last = t; requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
 })();`;
 
@@ -322,14 +328,17 @@ export async function openPage(url, { width = 1152, height = 648, viewport, touc
     async pageNow() { const r = await this.evaluate('performance.now()'); return r.timedOut ? null : r.value; },
     // The start-freeze probe's numbers (openPage with freeze: true) from `since` on: shader programs linked and how
     // long the page waited for compiles, frames, those over 50 ms and the worst; null if the probe isn't there.
-    async freezeReport(since = 0) {
+    async freezeReport(since = 0, until = Infinity) {
       const r = await this.evaluate(`(() => {
-        const T = window.__tpFreeze; if (!T) return null; const s = ${Number(since) || 0};
-        const links = T.links.filter((l) => l[0] >= s), waits = T.waits.filter((w) => w[0] >= s), frames = T.frames.filter((f) => f[0] >= s);
+        const T = window.__tpFreeze; if (!T) return null; const s = ${Number(since) || 0}, u = ${Number.isFinite(until) ? Number(until) : 'Infinity'};
+        const links = T.links.filter((l) => l[0] >= s), waits = T.waits.filter((w) => w[0] >= s), frames = T.frames.filter((f) => f[0] >= s && f[0] < u);
         const reads = T.reads.filter((r) => r[0] >= s);
         const ms = frames.map((f) => f[1]).sort((a, b) => a - b);
+        // Draw calls a frame (frames that drew something; a still screen draws nothing), the median and the most.
+        const calls = frames.map((f) => f[2]).filter((c) => c > 0).sort((a, b) => a - b);
         return { linksBefore: T.links.length - links.length, links: links.length, waitMs: Math.round(waits.reduce((a, w) => a + w[1], 0)),
           reads: reads.length, readMs: Math.round(reads.reduce((a, r) => a + r[1], 0)), longest: frames.filter((f) => f[1] > 200).map((f) => [Math.round(f[0] - s), Math.round(f[1])]).slice(0, 8),
+          drawCalls: calls.length ? calls[calls.length >> 1] : 0, drawCallsMax: calls.length ? calls[calls.length - 1] : 0,
           frames: frames.length, over50: frames.filter((f) => f[1] > 50).length, worst: Math.round(ms.length ? ms[ms.length - 1] : 0),
           median: Math.round(ms.length ? ms[ms.length >> 1] : 0), linkTimes: links.map((l) => Math.round(l[0] - s)),
           firstFrameAt: T.frames.length ? Math.round(T.frames[0][0]) : null, lastLinkAt: T.links.length ? Math.round(T.links[T.links.length - 1][0]) : null };

@@ -131,8 +131,13 @@ func measure(label: String, seconds: float = 20.0, keep: Callable = Callable()) 
 		hook.call(n)
 	tree.node_added.connect(on_added)
 	var times := PackedFloat32Array()
+	var calls := PackedInt32Array()
 	var nodes_at := PackedInt32Array()
 	var total := maxi(60, int(seconds * 60.0))
+	# Headless (the check's tests) draws nothing: the time is the game's own work. In a browser (the check runs this
+	# test there too) the draw calls a frame are counted, and a few seconds are enough for that.
+	var headless := DisplayServer.get_name() == "headless"
+	var cap_usec := 30_000_000 if headless else 8_000_000
 	var t_start := Time.get_ticks_usec()
 	var t_prev := t_start
 	for i in total:
@@ -142,9 +147,11 @@ func measure(label: String, seconds: float = 20.0, keep: Callable = Callable()) 
 		var t := Time.get_ticks_usec()
 		times.append((t - t_prev) / 1000.0)
 		t_prev = t
+		if not headless:
+			calls.append(int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)))
 		if i % maxi(1, total / 4) == 0:
 			nodes_at.append(int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)))
-		if t - t_start > 30_000_000:
+		if t - t_start > cap_usec:
 			break
 	tree.node_added.disconnect(on_added)
 	nodes_at.append(int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)))
@@ -163,8 +170,13 @@ func measure(label: String, seconds: float = 20.0, keep: Callable = Callable()) 
 	var redrawn := {}
 	for k in top.slice(0, 6):
 		redrawn[k] = snappedf(float(by[k]) / n_frames, 0.1)
+	var sorted_calls := calls.duplicate()
+	sorted_calls.sort()
 	print("PERF: " + JSON.stringify({
 		"label": label,
+		"renderer": "headless" if headless else "browser",
+		"draw_calls": sorted_calls[sorted_calls.size() / 2] if not sorted_calls.is_empty() else 0,
+		"draw_calls_max": sorted_calls[sorted_calls.size() - 1] if not sorted_calls.is_empty() else 0,
 		"frames": n_frames,
 		"game_seconds": snappedf(n_frames / 60.0, 0.1),
 		"median_ms": snappedf(sorted[n_frames / 2], 0.01),

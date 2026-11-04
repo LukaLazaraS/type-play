@@ -10,7 +10,7 @@
 // Every error is also appended to agent/learn/errors.jsonl, so repeated mistakes can be
 // turned into rules (rules/GOTCHAS.md).
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, statSync, writeFileSync, appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, statSync, writeFileSync, appendFileSync, existsSync, readdirSync, readFileSync, rmSync, cpSync } from 'node:fs';
 import { join, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serve, openPage, sleep } from './web.mjs';
@@ -152,6 +152,61 @@ if (!built) errors.push('[export] no web build was produced');
 const shots = [];
 const frameRates = [];
 let freeze = null; // the start-freeze check's numbers (below)
+let browserPerf = null; // the stress test's measure() in the hidden browser (draw calls a frame)
+// A frame's draw calls, at most (docs/research/game-performance-2-2026-11-04.md: the two fixed testers' games drew
+// 170-280, the slow originals 420-3,610): the title and the first seconds of play 300; the busiest moment (every cell
+// built, the most enemies) 400 (the night's new tower defence: 308 there, mostly hp bars between sprites).
+const DRAW_CALLS = 300;
+const DRAW_CALLS_BUSIEST = 400;
+
+// Exports a copy of the project with the stress test as its main scene and the tests included, plays it in the
+// hidden browser (one at a time, like every page here) until its measure() prints, and returns that measurement.
+async function stressInBrowser(viewport) {
+  const copy = join(project, 'export', '.stress');
+  const src = join(copy, 'project');
+  const out = join(copy, 'web');
+  try {
+    rmSync(copy, { recursive: true, force: true });
+    mkdirSync(out, { recursive: true });
+    // The import cache comes along, so nothing is imported again; export/ (this copy's own home) and the history don't.
+    mkdirSync(src, { recursive: true });
+    for (const entry of readdirSync(project)) {
+      if (entry === 'export' || entry === '.git') continue;
+      cpSync(join(project, entry), join(src, entry), { recursive: true });
+    }
+    const pg = join(src, 'project.godot');
+    writeFileSync(pg, readFileSync(pg, 'utf8').replace(/^run\/main_scene\s*=.*$/m, 'run/main_scene="res://test/stress_test.tscn"'));
+    const presets = join(src, 'export_presets.cfg');
+    writeFileSync(presets, readFileSync(presets, 'utf8').replace(/^exclude_filter="([^"]*)"/m, (_, f) => `exclude_filter="${f.split(',').filter((x) => x && !/^test\//.test(x)).join(',')}"`));
+    const r = spawnSync(GODOT, ['--headless', '--path', src, '--export-release', 'Web', join(out, 'index.html')], { encoding: 'utf8', timeout: 180_000 });
+    if (!existsSync(join(out, 'index.pck'))) {
+      notes.push(`[speed] the stress test could not be exported for the browser (${((r.stdout || '') + (r.stderr || '')).split(/\r?\n/).find((l) => /ERROR/.test(l)) ?? 'no pack'}): its draw calls were not counted`);
+      return null;
+    }
+    const server = await serve(out);
+    const page = await openPage(`${server.base}/index.html`, { viewport });
+    try {
+      for (let waited = 0; waited < 90_000; waited += 1000) {
+        await sleep(1000);
+        if (page.console.some((l) => /^PERF: /.test(l.text))) break;
+      }
+    } finally {
+      await page.close();
+      server.close();
+    }
+    const line = page.console.find((l) => /^PERF: /.test(l.text));
+    if (!line) {
+      notes.push('[speed] the stress test did not finish in the browser within 90 s: its draw calls were not counted');
+      return null;
+    }
+    return JSON.parse(line.text.slice(6));
+  } catch (e) {
+    notes.push(`[speed] the stress test's browser run failed (${String(e?.message || e).split('\n')[0]}): its draw calls were not counted`);
+    return null;
+  } finally {
+    rmSync(copy, { recursive: true, force: true });
+  }
+}
 // The first page gets the three screenshots over time; `more` resizes that same page (fill games); a game with a
 // platform then opens once more on a computer, with no touch screen (keys and mouse: its touch controls hide).
 const first = !platform
@@ -235,15 +290,27 @@ if (built) {
       }
       const mark = await fz.pageNow();
       if (mark !== null) {
+        const title = await fz.freezeReport(mark - 3000, mark); // the title's last 3 s: its draw calls
         const [fx, fy] = first.viewport ? [first.viewport.width / 2, first.viewport.height / 2] : [576, 324];
         if (first.touch) await fz.tap(fx, fy);
         else await fz.click(fx, fy);
         await fz.key('Space');
         await sleep(8000);
         freeze = await fz.freezeReport(mark);
-        if (freeze) freeze.settleSec = +((Date.now() - t0 - 8000) / 1000).toFixed(1);
+        if (freeze) {
+          freeze.settleSec = +((Date.now() - t0 - 8000) / 1000).toFixed(1);
+          freeze.titleCalls = title?.drawCalls ?? 0;
+        }
       }
       await fz.close();
+    }
+    // The busiest moment drawn for real: headless Godot draws nothing, so the stress test also runs in the hidden
+    // browser, from a copy of the project whose main scene is the stress test (export/.stress, never the game's own
+    // files), and its measure() counts the draw calls a frame there. A screen drawn as thousands of shapes (a board,
+    // scenery, a crowd) costs the browser every frame even when nothing is redrawn.
+    if (stressTest && perf.length) {
+      const drawn = await stressInBrowser(first.viewport);
+      if (drawn) browserPerf = drawn;
     }
   } finally {
     for (const p of pages) await p.close();
@@ -270,11 +337,29 @@ if (freeze) {
     if (fast) errors.push(msg);
     else notes.push(msg.replace('[freeze]', '[freeze, not failed: an older game]'));
   }
+  // Draw calls: a count, so the software browser measures it exactly. Each costs the browser CPU every frame.
+  freezeLine += `; draw calls a frame: title ${freeze.titleCalls}, play ${freeze.drawCalls} (budget ${DRAW_CALLS})`;
+  for (const [where, calls] of [['the title screen', freeze.titleCalls], ['the first seconds of play', freeze.drawCalls]]) {
+    if (calls > DRAW_CALLS) {
+      const msg = `[speed] ${where} takes ${calls} draw calls a frame (budget ${DRAW_CALLS}): every circle, polygon, line and outline on screen is a separate job for the browser in every frame, even when drawn once. Show repeated looks as sprites of one shared picture (lib/looks.gd) and bake scenery or boards with many shapes into one picture (Looks.bake_one) ("Fast games")`;
+      if (fast) errors.push(msg);
+      else notes.push(msg.replace('[speed]', '[speed, not failed: an older game]'));
+    }
+  }
   // Reading a picture back from the GPU in play stalls the frame (45-80 ms on a real GPU, far more on a phone).
   if (freeze.reads > 0) {
     const msg = `[freeze] ${freeze.reads} picture${freeze.reads === 1 ? ' was' : 's were'} read back from the GPU after play started (get_image() on a viewport or texture): each stops the game while the GPU catches up. Bake looks before play with lib/looks.gd (it never reads back) and never call get_image() during play ("Fast games")`;
     if (fast) errors.push(msg);
     else notes.push(msg.replace('[freeze]', '[freeze, not failed: an older game]'));
+  }
+}
+
+if (browserPerf) {
+  perfLines.push(`busiest moment drawn in a browser ("${browserPerf.label}"): ${browserPerf.draw_calls} draw calls a frame (most ${browserPerf.draw_calls_max}; budget ${DRAW_CALLS_BUSIEST})`);
+  if (browserPerf.draw_calls > DRAW_CALLS_BUSIEST) {
+    const msg = `[speed] at the busiest moment ("${browserPerf.label}") the screen takes ${browserPerf.draw_calls} draw calls a frame (budget ${DRAW_CALLS_BUSIEST}): every circle, polygon, line and outline on screen is a separate job for the browser in every frame, even when drawn once, and so is every switch between a sprite and a drawn shape. Show repeated looks (enemies, towers, bullets, props) and bars as sprites of one shared picture (lib/looks.gd: sprite(), rect()) and bake scenery or a board with many shapes into one picture (Looks.bake_one) ("Fast games")`;
+    if (fast) errors.push(msg);
+    else notes.push(msg.replace('[speed]', '[speed, not failed: an older game]'));
   }
 }
 

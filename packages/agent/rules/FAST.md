@@ -13,6 +13,11 @@ grow with play time or progress.** Build it fast from the first line; the check 
   `await Looks.bake(self)` once; in play `var s := Looks.sprite("ant")`. Animate the sprite (position, rotation,
   scale, modulate, `Looks.set_frame(s, key, i)`), never by redrawing shapes. (0, 0) is the look's centre. The same
   draw function still draws the look on cards, buttons and the title (drawn once there too).
+- **Draw calls**: the browser pays for each one in every frame, even for things drawn once. Every circle, polygon,
+  polyline, outline and Line2D is a draw call of its own, and so is every switch between a sprite and a drawn shape;
+  sprites of the shared picture batch into one. Bars and boxes in play are `Looks.rect(color, size)` sprites (a
+  health bar's fill changes by `scale.x`, no redraw). The check counts them: at most 300 a frame on the title and in
+  the first seconds of play, 400 at the busiest moment. A title full of drawn icons counts too: bake them as looks.
 - **`_draw()` every frame only for a few live things** (the player, a selection ring, a drag line). Everything else
   redraws only when its look changes: call `queue_redraw()` where the value changes (a health bar when hp changes),
   never from `_process`. A board or map is drawn once; with more than ~200 shapes, bake it into one picture

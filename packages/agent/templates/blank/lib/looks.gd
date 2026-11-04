@@ -13,6 +13,8 @@
 #   var s := Looks.sprite("ant")      # centred; animate s.position, s.rotation, s.scale, s.modulate
 #   Looks.set_frame(s, "ant_walk", i) # show a pre-drawn frame (walk cycles, spins, flashes)
 #   Looks.texture("ant")              # the picture itself (TextureRect, TextureButton, draw_texture)
+#   var bar := Looks.rect(Color.RED, Vector2(30, 4))   # a box that batches with the looks: hp bars, flashes
+#   bar.scale.x = 30.0 * hp / max_hp / 2.0             # a bar's fill changes by scale, never by redrawing
 #
 # Pictures last for the whole game, across restarts. Add new looks and bake again any time (a new level's map);
 # baking shows nothing on screen. Keep looks under ~512 px; draw a big static map once with bake_one().
@@ -24,6 +26,7 @@ const PAD := 2
 static var _pending: Array = [] # [key, size, painter, frames]
 static var _tex: Dictionary = {} # key -> Texture2D, or Array[Texture2D] for frames
 static var _keep: Array = [] # the pictures' owners (one per bake)
+static var _white: Texture2D = null # a white patch in the first picture: rect() bars and boxes batch with the looks
 
 ## A look: `painter(canvas)` draws it with draw_* calls around (0, 0), inside `size` pixels.
 static func add(key: String, size: Vector2i, painter: Callable) -> void:
@@ -39,6 +42,8 @@ static func bake(host: Node) -> void:
 		return
 	var items: Array = _pending
 	_pending = []
+	if _white == null:
+		items.append(["__white", Vector2i(6, 6), func(c: CanvasItem) -> void: c.draw_rect(Rect2(-3, -3, 6, 6), Color.WHITE), 0])
 	# Shelf packing: rows of looks, left to right, in pages PAGE_W wide.
 	var cells: Array = [] # [key, frame or -1, rect, painter]
 	var x := 0
@@ -101,6 +106,10 @@ static func bake(host: Node) -> void:
 		var t := AtlasTexture.new()
 		t.atlas = atlas
 		t.region = Rect2(c[2])
+		if c[0] == "__white":
+			t.region = Rect2(Rect2(c[2]).position + Vector2(2, 2), Vector2(2, 2)) # the middle: pure white when scaled up
+			_white = t
+			continue
 		if c[1] < 0:
 			_tex[c[0]] = t
 		else:
@@ -157,6 +166,17 @@ static func has(key: String) -> bool:
 static func sprite(key: String, frame: int = 0) -> Sprite2D:
 	var s := Sprite2D.new()
 	s.texture = texture(key, frame)
+	return s
+
+## A plain coloured box as a sprite of the shared picture (top-left at its position): health and progress bars, flashes,
+## panels in play. A drawn rect between two sprites costs the browser an extra draw call each; these batch with the
+## looks, and a bar's fill changes with `scale.x` (no redraw): bar.scale.x = width * hp_fraction / 2.0
+static func rect(color: Color, size: Vector2) -> Sprite2D:
+	var s := Sprite2D.new()
+	s.texture = _white
+	s.centered = false
+	s.scale = size / 2.0
+	s.modulate = color
 	return s
 
 ## Shows frame `i` of an animated look on a sprite made by sprite() (wraps around).
