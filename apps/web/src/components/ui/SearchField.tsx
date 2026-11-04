@@ -9,13 +9,15 @@ import { IconButton } from "./IconButton";
 /**
  * A search box on the sky (the gallery's): the pill bar's ink, fully round, 52px, a magnifying glass, white 17px words (a
  * phone doesn't zoom in), the hot caret and the amber ring while the keyboard is in it. Once there are words, a clear
- * button (the ghost IconButton) at its end; Escape clears it too. The label is for screen readers.
+ * button (the ghost IconButton) at its end; Escape clears it too. The label is for screen readers. `tone="recess"`: in Ink
+ * Recess, for a box on ink (the game's assets, 2026-11-04).
  */
 export function SearchField({
   id,
   label,
   value,
   onClear,
+  tone,
   className,
   ...input
 }: Omit<ComponentPropsWithRef<"input">, "id" | "type" | "value" | "className"> & {
@@ -24,11 +26,12 @@ export function SearchField({
   value: string;
   /** Empties the box (the clear button, Escape); the keyboard stays in it. */
   onClear: () => void;
+  tone?: "ink" | "recess";
   className?: string;
 }) {
   const own = useRef<HTMLInputElement>(null);
   return (
-    <div className={cx("searchfield", className)}>
+    <div className={cx("searchfield", tone === "recess" && "searchfield--recess", className)}>
       <MagnifyingGlass size={18} weight="bold" aria-hidden="true" className="searchfield__icon" />
       <FieldLabel htmlFor={id} hidden>
         {label}

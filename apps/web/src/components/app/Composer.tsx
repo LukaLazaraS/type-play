@@ -46,8 +46,9 @@ type Props = {
   onStop: () => Promise<void>;
   /** A tapped next-step idea (`n` counts the taps, so each tap lands once): added to the box (withIdea), focused. With
    * `model` (a stop's one tap: a change too big for its AI) the box holds just that text again, on that AI, with the
-   * pictures that message carried (`images`) in place of the box's own. */
-  prefill?: { text: string; n: number; model?: ModelChoice; images?: MessageImage[] } | null;
+   * pictures that message carried (`images`) in place of the box's own. `files`: pictures added to the box's own as if
+   * dropped on it (an asset's Change it, 2026-11-04: its picture, uploaded and checked like any other). */
+  prefill?: { text: string; n: number; model?: ModelChoice; images?: MessageImage[]; files?: File[] } | null;
 };
 
 /**
@@ -114,6 +115,12 @@ export function Composer({ kind, allowed, estimates, effort, onEffort, running, 
   useEffect(() => {
     if (again) restore(again.images ?? []);
   }, [again, restore]);
+  // An asset's Change it: its picture joins the box's pictures through the tray, the same way in as a dropped file.
+  const add = tray.add;
+  const attach = prefill?.files?.length ? prefill : null;
+  useEffect(() => {
+    if (attach?.files) add(attach.files);
+  }, [attach, add]);
 
   const send = async (confirm = false) => {
     const t = text.trim();

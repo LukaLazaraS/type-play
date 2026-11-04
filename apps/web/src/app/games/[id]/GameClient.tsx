@@ -4,11 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft } from "@phosphor-icons/react";
-import type { Effort, Message, MessageImage, ModelChoice, Project, ProjectSummary, RunEvent, Version } from "@typeplay/shared";
+import type { Effort, GameAsset, Message, MessageImage, ModelChoice, Project, ProjectSummary, RunEvent, Version } from "@typeplay/shared";
+import { Assets } from "@/components/app/Assets";
 import { ChatLog, type LiveLine } from "@/components/app/ChatLog";
 import { Composer } from "@/components/app/Composer";
 import { setFeedbackGame } from "@/components/app/Feedback";
 import { LiveStatus } from "@/components/app/LiveStatus";
+import { useMedia } from "@/components/app/PlatformSwitch";
 import { SignIn } from "@/components/app/SignIn";
 import { Stage } from "@/components/app/Stage";
 import { useEstimates } from "@/components/app/useEstimates";
@@ -18,7 +20,8 @@ import { ButtonLink } from "@/components/ui/ButtonLink";
 import { PageWidget } from "@/components/ui/PageWidget";
 import { Tabs } from "@/components/ui/PillBar";
 import { api, ApiFailure, watchProject, type StreamState } from "@/lib/api";
-import { inLine } from "@/content/app";
+import { assetPictureFile } from "@/lib/assets";
+import { assets as assetWords, inLine } from "@/content/app";
 import { aheadWord, creditsWord } from "@/lib/format";
 import { refreshMe, setCredits, signOut, useSession } from "@/lib/session";
 
@@ -40,9 +43,12 @@ function settle(p: Project, message: Message, version: Version | null, summary: 
   return { ...p, ...summary, queue: summary.queue, messages, versions, currentVersion: version ? version.n : p.currentVersion };
 }
 
-type Tab = "chat" | "play";
+/** The phone's tabs; on a computer the chat always shows, and the stage shows the game (play) or its assets. */
+type Tab = "chat" | "play" | "assets";
+/** Where the layout has the phone's tabs (app.css: the game page under 960px). */
+const TABS = "(max-width: 959px)";
 
-/** The game page: chat on the left, the game on the right; two tabs on a phone. */
+/** The game page: chat on the left, the game (or its assets) on the right; three tabs on a phone. */
 export function GameClient() {
   const { id } = useParams<{ id: string }>();
   const session = useSession();
@@ -56,8 +62,10 @@ export function GameClient() {
   const [tab, setTab] = useState<Tab | null>(null);
   const [fresh, setFresh] = useState(false); // a new version the phone's Play tab hasn't shown yet
   const [played, setPlayed] = useState(false);
-  // A tapped next-step idea, or a stop's one tap (the message again, with the bigger AI and the pictures it carried).
-  const [prefill, setPrefill] = useState<{ text: string; n: number; model?: ModelChoice; images?: MessageImage[] } | null>(null);
+  // A tapped next-step idea, or a stop's one tap (the message again, with the bigger AI and the pictures it carried), or an
+  // asset's Change it (its sentence, and its picture as a file for the box's tray).
+  const [prefill, setPrefill] = useState<{ text: string; n: number; model?: ModelChoice; images?: MessageImage[]; files?: File[] } | null>(null);
+  const tabsShown = useMedia(TABS) === true;
   // What the stream's handler needs to know, without re-subscribing on every change.
   const current = useRef<Project | null>(null);
   // Events applied so far: a project fetched because of an event is used only when nothing newer came meanwhile.
@@ -124,7 +132,7 @@ export function GameClient() {
         setProject((p) => (p ? settle(p, e.message, e.type === "done" ? e.version : null, e.project) : p));
         setLive(null);
         setCredits(e.credits);
-        if (e.type === "done" && e.version && tabRef.current === "chat") setFresh(true);
+        if (e.type === "done" && e.version && tabRef.current !== "play") setFresh(true);
         break;
       case "android": {
         // An Android build reserves the game while it runs (the API answers 409 to chat meanwhile).
@@ -209,6 +217,14 @@ export function GameClient() {
     void refreshMe();
   };
   const stop = async () => setProject(await api.cancel(id));
+  // Change it (the Assets tab): the asset's sentence into the box, and its picture (a picture, a look, a model's still)
+  // handed to the box's tray as a file, exactly as if the player had dropped it there. On a phone the chat is its own
+  // tab: it opens there; on a computer the box is beside the list, which stays open for more.
+  const changeAsset = async (asset: GameAsset, buildId: string) => {
+    const files = asset.picture ? [await assetPictureFile(id, buildId, asset)] : undefined;
+    setPrefill((p) => ({ text: assetWords.starter(asset), n: (p?.n ?? 0) + 1, files }));
+    if (tabsShown) show("chat");
+  };
   const restore = async (n: number) => {
     setProject(await api.restore(id, n));
   };
@@ -276,6 +292,7 @@ export function GameClient() {
             tabId: "ws-tab-play",
             panelId: "ws-play",
           },
+          { id: "assets", label: assetWords.tab, tabId: "ws-tab-assets", panelId: "ws-play" },
         ]}
       />
 
@@ -332,7 +349,8 @@ export function GameClient() {
         />
       </section>
 
-      <div id="ws-play" role="tabpanel" aria-labelledby="ws-tab-play" className="widget widget--ink ws__play">
+      {/* The stage: the game, or its assets (the phone's Play and Assets tabs, the computer's switch in the game's bar). */}
+      <div id="ws-play" role="tabpanel" aria-labelledby={shown === "assets" ? "ws-tab-assets" : "ws-tab-play"} className="widget widget--ink ws__play">
         <Stage
           project={project}
           live={live}
@@ -347,6 +365,10 @@ export function GameClient() {
             show("chat"); // on a phone the box is on the Chat tab
           }}
           android={!!me?.features?.android}
+          pane={shown === "assets" ? "assets" : "play"}
+          onPane={show}
+          fresh={fresh}
+          assets={<Assets projectId={project.id} buildId={project.buildId} active={shown === "assets"} onChange={changeAsset} />}
         />
       </div>
     </main>

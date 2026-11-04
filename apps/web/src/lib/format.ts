@@ -114,3 +114,10 @@ export function whenParts(iso: string, now = Date.now()): { day: string; time: s
     time: d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
   };
 }
+
+/** A file's size in plain figures: "512 bytes", "84 KB", "2.1 MB" (the Assets tab, 2026-11-04). */
+export function sizeWord(bytes: number): string {
+  if (bytes < 1024) return `${bytes} ${bytes === 1 ? "byte" : "bytes"}`;
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+}

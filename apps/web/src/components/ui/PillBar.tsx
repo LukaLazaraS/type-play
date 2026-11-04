@@ -6,7 +6,8 @@ import { cx } from "./cx";
 /**
  * Two or three choices in an ink pill bar on the sky (DESIGN.md: the game page's phone tabs, the gallery's order): the
  * current one paper with ink words, the others muted, white under a pointer, Ink Recess and a press scale when pressed;
- * each 44px tall. As tabs: only the current tab is in the Tab order, the arrow keys move between them.
+ * each 44px tall. As tabs: only the current tab is in the Tab order, the arrow keys move between them. `tone="recess"`:
+ * the bar in Ink Recess, for a bar that sits on ink (the game's bar: Play / Assets, 2026-11-04).
  */
 export function Tabs<T extends string>({
   label,
@@ -14,19 +15,21 @@ export function Tabs<T extends string>({
   onChange,
   tabs,
   before,
+  tone,
   className,
 }: {
   label: string;
   value: T;
   onChange: (tab: T) => void;
   tabs: { id: T; label: ReactNode; tabId: string; panelId: string }[];
+  tone?: "ink" | "recess";
   /** Before the tabs, in the bar (the way back). */
   before?: ReactNode;
   className?: string;
 }) {
   return (
     <div
-      className={cx("pillbar", className)}
+      className={cx("pillbar", tone === "recess" && "pillbar--recess", className)}
       role="tablist"
       aria-label={label}
       onKeyDown={(e) => {
@@ -61,7 +64,7 @@ export function Tabs<T extends string>({
 /**
  * The same bar as a choice of one that changes what the page shows in place (the gallery's order and genre): radios, so
  * only the chosen pill is in the Tab order and the arrow keys move the choice. `apart`: each pill its own ink pill, and
- * they wrap, for a list too long for one bar (the genres).
+ * they wrap, for a list too long for one bar (the genres). `tone="recess"`: in Ink Recess, on ink (the assets' kinds).
  */
 export function PillChoice<T extends string>({
   label,
@@ -69,6 +72,7 @@ export function PillChoice<T extends string>({
   onChange,
   options,
   apart,
+  tone,
   className,
 }: {
   label: string;
@@ -76,11 +80,12 @@ export function PillChoice<T extends string>({
   onChange: (value: T) => void;
   options: { value: T; label: ReactNode }[];
   apart?: boolean;
+  tone?: "ink" | "recess";
   className?: string;
 }) {
   return (
     <div
-      className={cx("pillbar", apart && "pillbar--apart", className)}
+      className={cx("pillbar", apart && "pillbar--apart", tone === "recess" && "pillbar--recess", className)}
       role="radiogroup"
       aria-label={label}
       onKeyDown={(e) => {
