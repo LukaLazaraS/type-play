@@ -132,7 +132,9 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       // old run's agent, Godot and browser may still be on the folder: stop them before resetting it.
       if (process.platform === "win32" && !config.agentFake) sweep(projectDir(m.projectId));
       await this.settleOrMark(m.projectId, m.project.currentVersion);
-      const message = await this.prisma.message.update({ where: { id: m.id }, data: { status: "failed", text: FAILED_TEXT.interrupted, credits: 0, finishedAt: new Date() } });
+      // No finishedAt: when it really ended (the server going down) isn't known, and the chat's answer shows no build time
+      // rather than one that counts the time the server was down.
+      const message = await this.prisma.message.update({ where: { id: m.id }, data: { status: "failed", text: FAILED_TEXT.interrupted, credits: 0 } });
       await this.ended({ userId: m.project.ownerId, projectId: m.projectId, message, why: "interrupted", first: m.project.currentVersion == null });
     }
     if (stale.length) this.log.warn(`marked ${stale.length} interrupted run(s) as failed`);

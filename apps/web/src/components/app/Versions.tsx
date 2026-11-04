@@ -11,11 +11,15 @@ import { ago } from "@/lib/format";
 export function Versions({
   versions,
   current,
+  playing = null,
   running,
   onRestore,
 }: {
   versions: Version[];
   current: number | null;
+  /** The version in the game's frame when it isn't the current one: the current waits for the player's Restart (the update
+   * bar). That one's card says "Playing now", the current one's "Ready to play". */
+  playing?: number | null;
   running: boolean;
   onRestore: (n: number) => Promise<void>;
 }) {
@@ -55,6 +59,7 @@ export function Versions({
       <ol className="versions__strip">
         {sorted.map((v) => {
           const now = v.n === current;
+          const inFrame = playing !== null && v.n === playing;
           return (
             <li key={v.n} className="version" data-current={now || undefined}>
               {asking === v.n ? (
@@ -79,8 +84,8 @@ export function Versions({
                   <p className="version__label" title={v.label}>
                     {v.label}
                   </p>
-                  {now ? (
-                    <span className="version__now figures">Playing now</span>
+                  {now || inFrame ? (
+                    <span className="version__now figures">{now && playing !== null ? "Ready to play" : "Playing now"}</span>
                   ) : (
                     <InkPill
                       size="small"

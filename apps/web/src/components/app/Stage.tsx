@@ -12,7 +12,7 @@ import { TextField } from "@/components/ui/Field";
 import { InkPill, InkPillLink } from "@/components/ui/InkPill";
 import { Pulse } from "@/components/ui/Pulse";
 import { android } from "@/content/android";
-import { fitHint, inLine } from "@/content/app";
+import { fitHint, inLine, update } from "@/content/app";
 import { posterUrl } from "@/lib/urls";
 import { api } from "@/lib/api";
 import { aheadWord, clock, placeWords, playsWord, tooLong, waitWord, whenParts } from "@/lib/format";
@@ -23,6 +23,7 @@ import { NotifyAsk } from "./NotifyAsk";
 import { TOUCH, useMedia } from "./PlatformSwitch";
 import { ReadyLine } from "./ReadyLine";
 import { ShareMenu } from "./ShareMenu";
+import { UpdateBar } from "./UpdateBar";
 import { Versions } from "./Versions";
 import { useWaitGames, WhileYouWait, type WaitGame } from "./WhileYouWait";
 
@@ -129,6 +130,33 @@ export function Stage({
   android: boolean;
 }) {
   const frame = useRef<GameFrameHandle>(null);
+  // A new version doesn't restart a game in play (Luka, 11-04: a change he sent finished while he kept playing, and his
+  // progress was gone). The frame runs `shown`; a version the AI just made takes its place by itself only while the
+  // player hasn't touched the game since it loaded (play.html's "input"; a loader without it never says so, and every
+  // version loads at once, as before). Otherwise it waits behind the update bar's Restart. A restore loads at once.
+  const [shown, setShown] = useState(project.buildId);
+  const [handled, setHandled] = useState(project.buildId);
+  const [touched, setTouched] = useState(false);
+  const [later, setLater] = useState<string | null>(null); // the waiting build the player said Later to
+  if (project.buildId !== handled) {
+    setHandled(project.buildId);
+    const made = project.messages.some((m) => m.role === "agent" && m.versionN != null && m.versionN === project.currentVersion);
+    // Loads now (`touched` starts again with the load; a restore of the build already running loads nothing).
+    if (!(made && touched && shown) && project.buildId !== shown) {
+      setShown(project.buildId);
+      setTouched(false);
+    }
+  }
+  const waitingVersion = project.buildId && shown && project.buildId !== shown ? project.currentVersion : null;
+  // The version in the frame meanwhile (a restore shares its build with an older one: the newest of them).
+  const playingVersion = waitingVersion != null ? project.versions.reduce((n, v) => (v.buildId === shown && v.n > n ? v.n : n), 0) || null : null;
+  // While a version waits, the frame keeps the shape of the build it runs (the new version may be made for another screen,
+  // or the other way up): what the stage knows of it from when it last loaded.
+  const [kept, setKept] = useState({ orientation: project.orientation, platform: project.platform });
+  if (waitingVersion == null && (kept.orientation !== project.orientation || kept.platform !== project.platform)) {
+    setKept({ orientation: project.orientation, platform: project.platform });
+  }
+  const shape = waitingVersion != null ? kept : project;
   // The error of the last Try again, shown only while nothing has happened since (no new message).
   const [retryError, setRetryError] = useState<{ text: string; after: number } | null>(null);
   const [retrying, setRetrying] = useState(false);
@@ -172,18 +200,18 @@ export function Stage({
   // (a phone, a tablet, a narrow window) the game fills the stage as before.
   const menu = useMedia(NO_MENU) === false;
   const [picked, setDevice] = useState<Device | null>(null);
-  const device = !menu ? FILL : (picked ?? deviceFor(waiting ? null : project.platform));
+  const device = !menu ? FILL : (picked ?? deviceFor(waiting ? null : shape.platform));
   const [turned, setTurned] = useState<boolean | null>(null); // null: the game's own way up
   const turns = device.kind !== "computer"; // phones and tablets
-  const fits = waiting ? !!waiting.fits : project.platform === "fill"; // either way up: a phone holds it upright
-  const sideways = turns && (turned ?? (!fits && (waiting?.orientation ?? project.orientation) === "landscape"));
+  const fits = waiting ? !!waiting.fits : shape.platform === "fill"; // either way up: a phone holds it upright
+  const sideways = turns && (turned ?? (!fits && (waiting?.orientation ?? shape.orientation) === "landscape"));
   // "Made for phones" (Luka, 10-24): the game on a screen it isn't made for, with one tap to ask for it in the chat.
   // Where the menu shows, the previewed device: a phone game on a computer, a computer game on an upright phone (held
   // sideways it fits). Elsewhere the real screen: only an upright phone, for a computer game. Never a tablet (both
   // shapes fit) or a narrow computer window (the game fits it).
   const phone = useMedia(PHONE) === true;
   const upright = useMedia("(orientation: portrait)") === true;
-  const madeFor = project.platform === "phone" || project.platform === "computer" ? project.platform : null;
+  const madeFor = shape.platform === "phone" || shape.platform === "computer" ? shape.platform : null;
   const mismatch =
     !!madeFor && !!project.buildId && !waiting &&
     (menu
@@ -214,6 +242,29 @@ export function Stage({
     "data-view": screenAt ? device.kind : undefined,
     style: screenAt ? ({ "--w": `${screenAt.w}px`, "--h": `${screenAt.h}px`, "--s": screenAt.scale } as CSSProperties) : undefined,
   });
+
+  const restart = () => {
+    setShown(project.buildId);
+    setTouched(false);
+    setLater(null);
+    // The button goes with the bar: the keyboard stays in the game's frame, which then loads the new version.
+    requestAnimationFrame(() => frame.current?.focus());
+  };
+  // The game keeps every key (Godot takes Tab too): Escape in the game is the keyboard's way to the bar (in full screen
+  // the first Escape leaves it, as always).
+  const updateBox = useRef<HTMLDivElement>(null);
+  const toBar = () => updateBox.current?.querySelector("button")?.focus();
+  const updateBar = waitingVersion != null && (
+    <UpdateBar
+      n={waitingVersion}
+      later={later === project.buildId}
+      onRestart={restart}
+      onLater={() => {
+        setLater(project.buildId);
+        frame.current?.focus(); // back to the game, where the player was
+      }}
+    />
+  );
 
   const readyLine = <ReadyLine name={project.name} onPlay={playOwn} />;
   const bar = useFit();
@@ -336,6 +387,8 @@ export function Stage({
               </>
             )}
             {hint && <span className="fithint">{hint.made}</span>}
+            {/* The update bar's one announcer (the bar itself, here and in full screen, is not a live region). */}
+            {waitingVersion != null && later !== project.buildId && <span className="sr-only">{update.said(waitingVersion)}</span>}
           </p>
           {hint && (
             <InkPill size="small" className="fithint__ask" icon={<ChatCircleText size={16} weight="bold" aria-hidden="true" />} onClick={() => onAsk(hint.ask)}>
@@ -365,23 +418,36 @@ export function Stage({
             </div>
           </div>
         ) : project.buildId ? (
-          <div {...fitProps}>
-            <div {...frameProps(project.orientation)}>
-              <GameFrame
-                ref={frame}
-                key={project.buildId}
-                slug={project.buildId}
-                poster={project.poster ? posterUrl(project.buildId) : undefined}
-                name={project.name}
-                orientation={project.orientation}
-                fits={project.platform === "fill"}
-                mode="click"
-                autoStart={played || startOwn}
-                onReady={onPlayed}
-                returnFocus={full}
-              />
+          <>
+            <div {...fitProps}>
+              <div {...frameProps(shape.orientation)}>
+                {/* One frame for every version: a new one loads in it, so full screen stays full screen. */}
+                <GameFrame
+                  ref={frame}
+                  key="game"
+                  slug={shown ?? project.buildId}
+                  poster={project.poster && waitingVersion == null ? posterUrl(project.buildId) : undefined}
+                  name={project.name}
+                  orientation={shape.orientation}
+                  fits={shape.platform === "fill"}
+                  mode="click"
+                  autoStart={played || startOwn}
+                  onReady={onPlayed}
+                  onInput={(slug) => slug === shown && setTouched(true)}
+                  onEscape={updateBar ? toBar : undefined}
+                  returnFocus={full}
+                  bar={updateBar}
+                />
+              </div>
             </div>
-          </div>
+            {/* Over the top of the game on the page, at its own size and as wide as the stage allows: a device preview may
+                draw the game small (scaled, or an upright phone a few hundred pixels wide). */}
+            {updateBar && (
+              <div ref={updateBox} className="stage__update">
+                {updateBar}
+              </div>
+            )}
+          </>
         ) : running ? (
           <div className="stage__empty stage__empty--wait">
             <AppTile building landed={waited} className="stage__build">
@@ -455,7 +521,7 @@ export function Stage({
         )}
       </div>
 
-      <Versions versions={project.versions} current={project.currentVersion} running={running || queued} onRestore={onRestore} />
+      <Versions versions={project.versions} current={project.currentVersion} playing={playingVersion} running={running || queued} onRestore={onRestore} />
     </section>
   );
 }

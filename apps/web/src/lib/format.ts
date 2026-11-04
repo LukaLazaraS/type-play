@@ -74,6 +74,24 @@ export function clock(fromIso: string, now = Date.now()): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
+/** "Best, high effort · 20 min · 61.4 credits · version 1": parts as one figures line that a narrow screen breaks only
+ * between them, after a dot (an answer's line under its bubble). Empty parts are left out. */
+export const figuresLine = (parts: (string | null | undefined)[]) =>
+  parts
+    .filter((p): p is string => !!p)
+    .map(unbroken)
+    .join("\u00a0· ");
+
+/** "40 s", "1 min" to "59 min", "1 h", "1 h 5 min": how long a build ran, on one line (non-breaking spaces). */
+export function ranWord(ms: number): string {
+  if (!Number.isFinite(ms)) return "";
+  const s = Math.max(1, Math.round(ms / 1000));
+  if (s < 60) return unbroken(`${s} s`);
+  const m = Math.round(s / 60);
+  if (m < 60) return unbroken(`${m} min`);
+  return unbroken(m % 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m / 60} h`);
+}
+
 /** "$20", "$14.50", "$1,300": US dollars, with cents only when there are some. */
 export const usd = (n: number) => {
   const cents = Math.round(n * 100);

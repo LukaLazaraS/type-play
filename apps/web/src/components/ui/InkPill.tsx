@@ -7,6 +7,9 @@ type InkPillLook = {
   size?: "normal" | "small";
   /** Hot with ink text while something it stands for is live (an Android build running, a shared game). */
   on?: boolean;
+  /** Over a game (the update bar's New version chip): the toast's 2px edge in the sky's third band, so it keeps its shape
+   * on a dark game as on a light one. */
+  float?: boolean;
   /** A bold Phosphor icon, 18px (16px when small), before the words (after them with iconAfter). */
   icon?: ReactNode;
   iconAfter?: boolean;
@@ -35,9 +38,9 @@ function Content({ icon, iconAfter, label, children }: Pick<InkPillLook, "icon" 
  * The pill on ink (DESIGN.md: the launcher's and the stage's Ink Recess pills): 44px tall, Ink Recess with white 600
  * 15px words, #33245f under a pointer, a press scale, disabled muted. A <button type="button">.
  */
-export function InkPill({ size, on, icon, iconAfter, label, className, type = "button", children, ...rest }: InkPillLook & Omit<ComponentPropsWithRef<"button">, "className">) {
+export function InkPill({ size, on, float, icon, iconAfter, label, className, type = "button", children, ...rest }: InkPillLook & Omit<ComponentPropsWithRef<"button">, "className">) {
   return (
-    <button {...rest} type={type} className={inkPillClass(size, className)} data-on={on || undefined}>
+    <button {...rest} type={type} className={inkPillClass(size, className)} data-on={on || undefined} data-float={float || undefined}>
       <Content icon={icon} iconAfter={iconAfter} label={label}>
         {children}
       </Content>
@@ -46,9 +49,9 @@ export function InkPill({ size, on, icon, iconAfter, label, className, type = "b
 }
 
 /** The pill on ink as a link (Android, New tab, Back to it). */
-export function InkPillLink({ size, on, icon, iconAfter, label, className, children, ...rest }: InkPillLook & AnchorProps) {
+export function InkPillLink({ size, on, float, icon, iconAfter, label, className, children, ...rest }: InkPillLook & AnchorProps) {
   return (
-    <Anchor {...rest} className={inkPillClass(size, className)} data-on={on || undefined}>
+    <Anchor {...rest} className={inkPillClass(size, className)} data-on={on || undefined} data-float={float || undefined}>
       <Content icon={icon} iconAfter={iconAfter} label={label}>
         {children}
       </Content>

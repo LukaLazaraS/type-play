@@ -593,6 +593,10 @@ async function queueChecks(db) {
     ok(f1Row?.waited >= 4 && f1Row.ended && f1Row.plan === "free", `database: its message started ${f1Row?.waited.toFixed(1)} s after it was sent (its wait in line), then finished; the plan it started on`);
     const f1Seen = (Date.parse(f1Done.message.startedAt) - Date.parse(f1Done.message.createdAt)) / 1000;
     ok(Math.abs(f1Seen - (f1Row?.waited ?? 0)) < 0.01, "the message says when it started (startedAt)");
+    // How long it ran, as the chat's answer line says it (11-04): its start to its end, without its wait in line.
+    const f1Ran = (Date.parse(f1Done.message.finishedAt) - Date.parse(f1Done.message.startedAt)) / 1000;
+    ok(f1Ran > 0 && f1Ran < 60, `the message says when it ended (finishedAt): it ran ${f1Ran.toFixed(1)} s, after its ${f1Row?.waited.toFixed(1)} s in line`);
+    ok(f1Msg?.finishedAt === undefined, "…and a message still waiting has no end");
 
     // No starvation: a free build whose turn has come is ahead of the paid builds that come after it.
     const hold2 = await game(P, "Keep it busy again HOLD");
@@ -632,6 +636,7 @@ async function queueChecks(db) {
     ok(gone?.type === "failed" && /waited too long/.test(gone.message.text) && gone.message.credits === 0 && gone.project.status === "idle", `past the wait limit it leaves the line: "${gone?.message.text}", 0 credits`);
     ok(waited >= 18 && waited < 30, `…after ${waited.toFixed(1)} s: its turn (3 s) + the limit (15 s), not before`);
     ok(!sF3c.events.some((e) => e.type === "started") && (await credits(F3)).available === f3Before.available, "it never started; nothing charged");
+    ok(gone?.message.startedAt === undefined && gone?.message.finishedAt === undefined, "…and its answer has no build time (it never ran)");
 
     // The kill switch at a build's turn: tripped while two wait, the paid one still starts and the free one doesn't.
     const f4Before = await credits(F4);
@@ -1873,6 +1878,7 @@ async function main() {
   await api(A, "POST", `/projects/${p.id}/messages`, { text: "Please FAIL now", model: "fast" });
   const failed = await s1.until((e) => e.type === "failed");
   ok(failed.message.status === "failed" && failed.message.credits === 0, "failed run: 0 credits");
+  ok(Date.parse(failed.message.finishedAt) > Date.parse(failed.message.startedAt), "failed run: its start and end (the answer's build time)");
   ok(failed.credits.available === 16.6 && failed.project.buildId === `${p.id}-v1`, "balance and version unchanged");
   // The fake failure committed a half-done change and left junk.txt: both gone.
   ok(gitIn(p.id, "rev-parse", "HEAD") === commitBefore && gitIn(p.id, "status", "--porcelain") === "" && !existsSync(join(DATA, "projects", p.id, "junk.txt")), "folder back at version 3: the failed run's commit and its junk file gone");
@@ -1881,6 +1887,7 @@ async function main() {
   const cancelled = await api(A, "POST", `/projects/${p.id}/cancel`);
   ok(cancelled.status === 200 && cancelled.body.status === "idle" && cancelled.body.currentVersion === 3, "cancel: idle, still version 3");
   ok(cancelled.body.messages.at(-1).status === "failed" && cancelled.body.messages.at(-1).credits === 0, "cancelled message: failed, 0 credits");
+  ok(Date.parse(cancelled.body.messages.at(-1).finishedAt) >= Date.parse(cancelled.body.messages.at(-1).startedAt), "a stopped run: its start and end too");
   ok(gitIn(p.id, "rev-parse", "HEAD") === commitBefore && gitIn(p.id, "status", "--porcelain") === "", "folder clean after cancel");
 
   // A Stop that lands after the agent finished, while the build is being published ("SLOW" makes
