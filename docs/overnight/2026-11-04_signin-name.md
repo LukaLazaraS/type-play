@@ -1,5 +1,15 @@
 # Night 2026-11-04, session signin-name: Google sign-in shows the Supabase address
 
+## Morning report
+
+- **Done:** Google's own button on typeplay.app with Supabase `signInWithIdToken`, behind `NEXT_PUBLIC_GOOGLE_BUTTON`
+  (`"0"` in the branch = today's sign-in exactly). Pushed as branch `signin-name` (f50022b, 4e8ee70, this log's tick);
+  HQ merges into `night-features`. Nothing deployed, no account touched, nothing bought.
+- **Checked:** walk-through `apps/web/scripts/shot-signin.mjs` 35/35 (all three values), `npm run check` 5/5, an
+  independent security read (no high or medium; 3 of 4 low fixed, 2 left as suggestions).
+- **Luka's part:** `docs/launch/google-sign-in-name.md` (step 1 turns it on: 5 minutes, $0; step 2 brand verification
+  for "TypePlay" with the logo; step 3 only if Google refuses the Supabase domain). Parked row 28.
+
 Started by HQ for Luka (asleep), 2026-11-04 08:35 local. No questions, no hourly reminder, no shutdown. Branch
 `signin-name` from `night-features` (497ef08), worktree `.claude/worktrees/signin-name`. Commit and push the branch;
 HQ merges. No deploy, no merge, no account touched, nothing bought. Tonight's decisions stay in this log, not in
@@ -33,9 +43,9 @@ receiving this email because you used Sign in with Google to sign in to bensbaqr
       colour comment), emil-design-eng (reduced motion keeps the opacity fade), phones 390 and 280 in the walk-through
 - [x] Docs: `docs/launch/google-sign-in-name.md` (places, options, build, Luka's steps, sources), `docs/auth.md`,
       `apps/web/README.md`, `docs/parked.md` row 28 + a privacy row in the website review, the 120px logo
-- [ ] Independent security read of the new code (agent), fixes if any
-- [ ] Commit + push `signin-name`
-- [ ] Final reply
+- [x] Independent security read of the new code (agent), fixes applied, walk-through 35/35 again
+- [x] Commit + push `signin-name`
+- [x] Final reply
 
 ## Decisions made on the way
 
