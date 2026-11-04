@@ -55,6 +55,8 @@ export function usePictureTray(onError: (message: string) => void): Tray {
   const landing = useRef(new Map<string, Promise<string | null>>());
   /** Taken out of the box while on its way: deleted once it lands. */
   const dropped = useRef(new Set<string>());
+  /** Why an upload didn't land, by its picture's key: a Send waiting for it says the same. */
+  const why = useRef(new Map<string, string>());
   /** The object URLs this box made (its own files), let go when their picture leaves the box. */
   const own = useRef(new Set<string>());
   const letGo = (p: TrayPicture) => {
@@ -103,7 +105,9 @@ export function usePictureTray(onError: (message: string) => void): Tray {
             const gone = now.current.find((p) => p.key === key);
             if (gone) letGo(gone);
             update(now.current.filter((p) => p.key !== key));
-            if (!dropped.current.delete(key)) report.current(e instanceof ApiFailure && e.code !== "offline" ? about(file.name, e.message) : e instanceof Error ? e.message : t.failed);
+            const said = e instanceof ApiFailure && e.code !== "offline" ? about(file.name, e.message) : e instanceof Error ? e.message : t.failed;
+            why.current.set(key, said);
+            if (!dropped.current.delete(key)) report.current(said);
             return null;
           },
         ),
@@ -156,7 +160,7 @@ export function usePictureTray(onError: (message: string) => void): Tray {
     const out: string[] = [];
     for (const p of now.current) {
       const id = p.id ?? (await landing.current.get(p.key)) ?? null;
-      if (!id) throw new Error(t.failed);
+      if (!id) throw new Error(why.current.get(p.key) ?? t.failed);
       out.push(id);
     }
     return out;

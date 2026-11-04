@@ -248,14 +248,13 @@ try {
 
     // The viewer: a tap opens the picture whole; the arrow keys move; Escape closes, the keyboard back on the tile.
     await firstTiles.nth(1).click();
-    const viewer = page.getByRole("dialog");
-    await viewer.waitFor({ timeout: 10_000 });
-    await page.locator(".viewer__frame img").waitFor({ timeout: 30_000 });
+    await page.locator("dialog[open]").waitFor({ timeout: 10_000 });
+    await page.locator("dialog[open] .viewer__frame img").waitFor({ timeout: 30_000 });
     await page.waitForTimeout(400);
-    check(`${label}: the viewer opens on that picture ("2 of 3")`, ((await page.locator(".viewer__count").innerText()).trim()) === "2 of 3");
+    check(`${label}: the viewer opens on that picture ("2 of 3")`, ((await page.locator("dialog[open] .viewer__count").innerText()).trim()) === "2 of 3");
     await shot(page, `viewer-${label}`);
     await page.keyboard.press("ArrowRight");
-    check(`${label}: → shows the next ("3 of 3")`, ((await page.locator(".viewer__count").innerText()).trim()) === "3 of 3");
+    check(`${label}: → shows the next ("3 of 3")`, ((await page.locator("dialog[open] .viewer__count").innerText()).trim()) === "3 of 3");
     await page.keyboard.press("Escape");
     await page.waitForTimeout(300);
     const back = await page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
@@ -335,9 +334,9 @@ try {
     const tiles = page.locator(".msg--you").last().locator(".thumb");
     for (const [i, name] of [[0, "tall"], [1, "panorama"], [2, "tiny"], [3, "lines"]]) {
       await tiles.nth(i).click();
-      await page.locator(".viewer__frame img").waitFor({ timeout: 30_000 });
+      await page.locator("dialog[open] .viewer__frame img").waitFor({ timeout: 30_000 });
       await page.waitForTimeout(400);
-      const box = await page.locator(".viewer__frame").boundingBox();
+      const box = await page.locator("dialog[open] .viewer__frame").boundingBox();
       check(`worst: the ${name} picture whole within the screen`, !!box && box.x >= 0 && box.y >= 0 && box.x + box.width <= 390 + 1 && box.y + box.height <= 844 + 1, JSON.stringify(box && { w: Math.round(box.width), h: Math.round(box.height) }));
       await shot(page, `worst-viewer-${name}-390`);
       await page.keyboard.press("Escape");
