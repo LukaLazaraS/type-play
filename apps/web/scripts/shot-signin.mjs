@@ -93,6 +93,9 @@ const GIS_STUB = `(() => {
         font: "500 14px system-ui, sans-serif", cursor: "pointer", background: dark ? "#131314" : "#ffffff",
         color: dark ? "#e3e3e3" : "#1f1f1f", border: dark ? "0" : "1px solid #747775" });
       b.addEventListener("click", () => {
+        // Google calls the button's click_listener first, then the client's callback with the token.
+        opts.click_listener?.();
+        log.clicked = (log.clicked || 0) + 1;
         const cfg = log.cfg;
         const credential = token(cfg);
         log.credentials.push({ credential, cfg: log.configs.indexOf(cfg) });

@@ -5,9 +5,11 @@
 // Security (2026-11-04):
 // - The nonce is 32 random bytes, kept in this page's memory only, used once. Google gets its SHA-256 (hex) and writes
 //   that into the ID token; Supabase gets the raw value and checks the hash (its id_token grant), so a Google token
-//   that was not asked for by this page, just now, can't sign anyone in. A token for an older nonce is never sent.
+//   this page didn't ask for (one made for another page or another attempt) is refused. A token for an older nonce is
+//   never sent. Supabase keeps no list of used nonces: the token and the raw nonce travel together, over HTTPS only.
 // - Google gives tokens only to the OAuth client's authorized JavaScript origins (Google Cloud: https://typeplay.app,
-//   http://localhost:3000), and this file starts the button only on this site's own origin (localhost in development).
+//   http://localhost:3000); that list is the real boundary, as the client ID is public. This file also starts the
+//   button only on this site's own origin (localhost in development).
 // - Supabase checks the token itself (Google's signature, our client ID as its audience, the nonce) and makes the
 //   session, as for the redirect; the API checks Supabase's token as before. Nothing here is secret: the client ID is
 //   in every sign-in's address.
@@ -47,6 +49,8 @@ export type OnGoogleToken = (credential: string, nonce: string) => void;
 
 type Mount = { el: HTMLElement; look: GoogleButtonLook; onToken: OnGoogleToken };
 const mounts: Mount[] = [];
+/** The button pressed last (Google's click_listener): its token goes to it, not to whichever button mounted last. */
+let pressed: Mount | null = null;
 let loading: Promise<GoogleId> | null = null;
 let current: { raw: string; hashed: string } | null = null;
 
@@ -105,7 +109,8 @@ async function renew(id: GoogleId) {
       // One token per nonce, and only for the newest one; then a fresh nonce for the next try.
       if (current !== nonce || !credential) return;
       current = null;
-      mounts.at(-1)?.onToken(credential, nonce.raw);
+      const to = pressed && mounts.includes(pressed) ? pressed : mounts.at(-1);
+      to?.onToken(credential, nonce.raw);
       void renew(id);
     },
     ux_mode: "popup",
@@ -134,6 +139,9 @@ function draw(id: GoogleId, m: Mount) {
     ...look,
     ...(room > 0 && room < needs ? { text: "signin" } : {}),
     ...(room > 0 ? { width: Math.min(400, room) } : {}),
+    click_listener: () => {
+      pressed = m;
+    },
   });
 }
 
@@ -187,6 +195,7 @@ export function mountGoogleButton(el: HTMLElement, look: GoogleButtonLook, onTok
     gone = true;
     const at = mounts.indexOf(mount);
     if (at >= 0) mounts.splice(at, 1);
+    if (pressed === mount) pressed = null;
     el.replaceChildren();
   };
 }

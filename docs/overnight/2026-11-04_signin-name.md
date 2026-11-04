@@ -68,7 +68,13 @@ receiving this email because you used Sign in with Google to sign in to bensbaqr
   brand verification, if Google refuses the Supabase domain and Luka removes Supabase's callback from Google Cloud;
   without it those visitors would land on Google's redirect_uri_mismatch error page.
 - Google refused `http://localhost:3000` tonight ("The given origin is not allowed for the given client ID"): the
-  client lists only that, and Google's docs ask for `http://localhost` too. Dev-only; on Luka's list as optional.
+  client lists only that, and Google's docs ask for `http://localhost` too. Not to be added to the live client (security
+  read: every listed origin may ask for TypePlay tokens); a dev-only client with the test environment instead.
+- Independent security read (a second agent, given the code, not my conclusions): no high or medium flaw; 4 low. Fixed:
+  the token goes to the pressed button (Google's click_listener), the Supabase provider check is a required step, the
+  localhost step moved to a dev-only client, the nonce wording (Supabase keeps no list of used nonces). Left as
+  suggestions: the live client's existing localhost:3000 (decided 10-24), the config script's publishable-key check
+  (allow-list `sb_publishable_` only; it predates tonight).
 - Google's real button was drawn once in the test browser on a page served under `https://typeplay.app` by the test
   browser itself (the real site was never contacted; no account, no click), to measure it: dark 194x40, light 191x32.
   Port 3000 was busy (another process); nothing on it was touched.
@@ -80,3 +86,5 @@ receiving this email because you used Sign in with Google to sign in to bensbaqr
 - Say "turn the Google button on" (switch `"1"` + `deploy.mjs site`), then the phone test (docs/launch/google-sign-in-name.md step 1).
 - Branding → upload `docs/launch/typeplay-google-logo-120.png` → Verify branding → Publish (step 2).
 - Privacy sentence for Google's button (website review table in parked.md).
+- Phone test includes the iPhone home-screen app if installed: other projects report Google sign-in failing there (Apple
+  opens Google in a separate Safari sheet with its own cookies), likely with today's redirect too; its own task if so.

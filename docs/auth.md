@@ -58,7 +58,8 @@ The direct host `db.<ref>.supabase.co` is IPv6-only on the free plan; the pooler
   sign-in returns to, here Supabase's callback. The fix built 11-04, Google's own button on typeplay.app with
   `signInWithIdToken` (switch `NEXT_PUBLIC_GOOGLE_BUTTON`), brand verification, the paid custom-domain alternative, and
   Luka's steps field by field: `docs/launch/google-sign-in-name.md`. The client's JavaScript origins already include
-  `https://typeplay.app`; Google's button in `npm run dev` also needs `http://localhost` there (Google asks for both).
+  `https://typeplay.app`. Don't add `http://localhost` to this live client for Google's button in `npm run dev`: every
+  listed origin may ask for TypePlay tokens; a dev-only client comes with the test environment (`docs/parked.md` row 21).
 
 ## 3. Support address: typeplay-support@googlegroups.com
 

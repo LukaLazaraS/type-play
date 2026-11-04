@@ -27,7 +27,7 @@ the email and the connections list. Google's rule predicts both.
 |---|---|---|---|---|
 | **A. Google's own button on typeplay.app**, its token handed to Supabase (`signInWithIdToken`). **Built tonight, behind a switch** | Every row above: typeplay.app instead of the Supabase address; no Supabase page in the address bar. Our orange "Sign in with Google" becomes Google's black one (Google's look, as its branding rules ask) | $0 | none | nothing: the Google client already lists `https://typeplay.app` as a JavaScript origin, and Supabase's Google provider already lists the web client ID, which is what Supabase checks the token against. Turning it on is one line and a site deploy |
 | **B. Brand verification** (Google Auth Platform → Branding → Verify branding) | With A or with today's redirect: "TypePlay" and the logo instead of a domain, in the account chooser, consent, email and connections list | $0 | automated, usually minutes; a manual review takes 2-3 business days | Luka's Google Cloud: upload the logo, Verify, Publish. Google asks that every authorized domain be proven yours in Search Console: typeplay.app is (domain property, 10-16), the Supabase domain can't be. Reports differ on whether that blocks verification; if it does, step 3 below |
-| C. Supabase custom domain (`auth.typeplay.app`) | With today's redirect and our own orange button: Google sees typeplay.app; the address bar shows auth.typeplay.app | Pro plan $25/month + custom domain add-on $10/month = **$35/month** ($10/month on top if Pro is bought at launch anyway, as `docs/auth.md` plans) | none (DNS and a certificate, up to ~30 min) | Luka's Supabase billing, a CNAME and a TXT record in Cloudflare, the new callback added in Google Cloud. Code: the site's Supabase URL changes; the API keeps checking tokens against the project address (Supabase keeps the token's issuer on …supabase.co) |
+| C. Supabase custom domain (`auth.typeplay.app`) | With today's redirect and our own orange button: Google sees typeplay.app; the address bar shows auth.typeplay.app | Pro plan $25/month + custom domain add-on $10/month = **$35/month** ($10/month on top if Pro is bought at launch anyway, as `docs/auth.md` plans) | none (DNS and a certificate, up to ~30 min) | Luka's Supabase billing, a CNAME and a TXT record in Cloudflare, the new callback added in Google Cloud. Code: the site's Supabase URL changes; the API keeps checking tokens against the project address (reported: Supabase keeps the token's issuer on …supabase.co; check when doing it) |
 | D. Supabase vanity subdomain (`typeplay.supabase.co`) | Google would show typeplay.supabase.co: it still says Supabase | included in Pro ($25/month) | none | Luka's Supabase billing. **Not a fix** |
 | E. Our own Google redirect on typeplay.app (our server swaps Google's code for the token, then Supabase) | The same as A, keeping our orange button and full-page redirects | $0 | none | a new redirect URI in Google Cloud, and Google's client secret on the site's server. More security-critical code of our own than A for the same result. Not built |
 | F. Passing Supabase's sign-in through typeplay.app (a proxy) | Doesn't work: Supabase tells Google its own callback address, and Google's code exchange must use that same address; only C changes it | | | |
@@ -57,11 +57,12 @@ the closed-beta screen's "Use another account"):
   (desktop 125+, Android 128+) shows its own sign-in dialog. Other browsers show Google's popup. Nobody is signed in
   without a tap.
 - **Nonce:** every attempt makes 32 random bytes, kept in the page's memory only. Google gets their SHA-256 and writes it
-  into the ID token; Supabase gets the raw value and checks the hash (its own server code). A Google token not asked
-  for by this page, just now, can't sign anyone in, and a token for an older attempt is never sent.
+  into the ID token; Supabase gets the raw value and checks the hash (its own server code). A Google token this page
+  didn't ask for (made on another page, or for another attempt) is refused, and a token for an older attempt is never
+  sent. Supabase keeps no list of used nonces; the token and the raw nonce travel together, over HTTPS only.
 - **Origins:** Google gives tokens only to the client's authorized JavaScript origins (seen tonight: any other origin
-  gets "The given origin is not allowed for the given client ID"), and the code starts the button only on
-  https://typeplay.app (localhost in development).
+  gets "The given origin is not allowed for the given client ID"). That list is the real boundary, because the client
+  ID is public; the code also starts the button only on https://typeplay.app (localhost in development).
 - **Supabase checks the token as today:** Google's signature, our client ID as the audience, the nonce. It makes the
   session in the browser's cookies as the redirect does; then the page the player was going to opens signed in.
   The API's token check is unchanged.
@@ -85,16 +86,19 @@ size its placeholder: dark "Sign in with Google" 194x40, light "Continue with Go
 
 ### 1. Switch Google's button on (5 minutes, $0, no account change)
 
-1. Optional look, nothing to change: Supabase dashboard → project **typeplay** → **Authentication** → **Sign In /
-   Providers** → **Google**: **Client IDs** starts with `1093794003252-t3b2…apps.googleusercontent.com`, and **Skip nonce
-   check** is off. (Both are what today's redirect uses.)
+1. A look, required before the switch, nothing to change if it already says so: Supabase dashboard → project
+   **typeplay** → **Authentication** → **Sign In / Providers** → **Google**. **Client IDs** holds only
+   `1093794003252-t3b2…apps.googleusercontent.com` (the web client; a future Android or iOS client is added only after
+   its own review), and **Skip nonce check** is off. That toggle is what makes the nonce count, and Supabase accepts
+   tokens for these client IDs whatever the switch says.
 2. Say "turn the Google button on". After HQ merges `signin-name`, Claude sets `NEXT_PUBLIC_GOOGLE_BUTTON: "1"` in
    `deploy/server/compose.yaml` and runs `node deploy/deploy.mjs site` (~1 minute).
 3. Check on typeplay.app, on the computer and on the phone: tap **Sign in with Google** (now black). Google's window or
    Chrome's dialog should say **typeplay.app**, and you're back on the page signed in. Then Google's email in Gmail
    should name typeplay.app. On the iPhone also try it from the home-screen app, if you added TypePlay to the home
-   screen (the site can be installed). That is the one place where Google's popup may not hand the sign-in back, and
-   no test here can reach it. If it fails there, say so: the fix is Google's redirect mode for that case.
+   screen (the site can be installed). No test here can reach that case. Reports from other projects say Apple opens
+   Google's page there in a separate Safari sheet with its own cookies, so it may fail with today's redirect too. If
+   it fails, say so: fixing sign-in in the installed app is a task of its own.
 4. To go back: `"0"` and deploy again.
 
 ### 2. "TypePlay" and the logo instead of "typeplay.app" (15 minutes; Google: minutes, or 2-3 business days)
@@ -128,12 +132,15 @@ issues** about bensbaqrtdcamxvcugek.supabase.co (a domain you can't prove you ow
 After this the redirect through Supabase no longer works: the switch can't go back to `"0"` until the redirect URI is
 added again.
 
-### Optional: Google's button in `npm run dev` on this PC
+### Google's button in `npm run dev` on this PC: not on the live client
 
-Google Auth Platform → **Clients** → **TypePlay web (Supabase)** → **Authorized JavaScript origins**: add
-`http://localhost` (next to `http://localhost:3000`; Google's docs ask for both, and tonight Google refused
-http://localhost:3000 alone). $0, no review. Then `NEXT_PUBLIC_GOOGLE_BUTTON=1` in `apps/web/.env.local` and open
-http://localhost:3000.
+Google refused http://localhost:3000 tonight; its docs ask for `http://localhost` as well. Don't add that to the live
+client. Every origin on that list may ask Google for TypePlay tokens, so a page served on any player's own computer at
+localhost (a bad package in some other project, say) could then sign that player in. The live client already lists
+`http://localhost:3000`, and Supabase's allow-list `http://localhost:3000/**`, for today's redirect. That is the
+solo-developer setup decided 10-24 (`docs/environments.md`). The standard way is a separate dev-only Google client and
+the test environment's own Supabase project (parked row 21). Then the live client lists only `https://typeplay.app`.
+Until then the walk-through covers the button on this PC.
 
 ### The paid way instead (only to keep our own orange button)
 
@@ -176,3 +183,6 @@ auth.typeplay.app. The switch stays `"0"`.
 - Community: [supabase discussion #2925](https://github.com/orgs/supabase/discussions/2925) (verification with the Supabase
   domain listed: refused in 2021 until removed, passed automatically in 2026), [#44373](https://github.com/orgs/supabase/discussions/44373)
   (with a custom domain the token's issuer stays on …supabase.co).
+- Other projects on sign-in in an installed iPhone web app (reports, not official docs):
+  [SpotLi #231](https://github.com/SaharAga/SpotLi/pull/231), [FlashCardApp #19](https://github.com/Naijei1/FlashCardApp/pull/19),
+  [wynteam #663](https://github.com/warren-wyn-dev/wynteam/pull/663).

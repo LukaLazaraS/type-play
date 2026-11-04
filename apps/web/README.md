@@ -82,7 +82,8 @@ NEXT_PUBLIC_DEV_AUTH=1 npm run dev -w web                  # site on http://loca
   to Supabase's `signInWithIdToken` with a one-time nonce, so Google's screens and emails name typeplay.app, never the
   Supabase project. Where a blocker stops Google's script, the redirect as before; `"only"` shows a line instead. The
   Google client ID is public and sits in `src/content/app.ts` beside Supabase's values (the same script writes it).
-  Locally Google accepts it only on `http://localhost:3000` once the client also lists `http://localhost`.
+  Google draws it only on its client's JavaScript origins, and the live client doesn't list this PC's localhost for
+  it (a dev-only client comes with the test environment), so locally it falls back to the redirect.
   Walk-through of every value: `node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-signin.mjs`.
 - **Dev sign-in** (tests only): `NEXT_PUBLIC_DEV_AUTH=1` shows "Dev sign-in" on /create, which
   signs in as `dev:<email>` (the API must run with `DEV_AUTH=1`). A production build with it set
