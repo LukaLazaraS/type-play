@@ -155,8 +155,12 @@ export class AttachmentsService implements OnModuleInit, OnApplicationShutdown {
       const images = picked.map(({ row, again }) => {
         if (!again) return { id: row.id, format: row.format, width: row.width, height: row.height, bytes: row.bytes, staged: true };
         const id = newAttachmentId();
-        copyPicture(row, id);
         copies.push({ id, format: row.format });
+        try {
+          copyPicture(row, id);
+        } catch {
+          throw badRequest(GONE); // its files are gone (they never should be while its row is there)
+        }
         return { id, format: row.format, width: row.width, height: row.height, bytes: row.bytes, staged: false };
       });
       return { images, undo: () => removePictures(copies) };

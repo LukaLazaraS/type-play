@@ -5052,7 +5052,8 @@ body:has(main.explore) > .ground-band {
 }
 
 /* The box's pictures (components/app/Pictures.tsx), before its words: rows of tiles across the whole box (four on a 320px
-   phone, six in the game page's chat, more on /create). A tile arrives with a short fade and grows in from 0.94. */
+   phone, six in the game page's chat, more on /create). A tile arrives with a short fade and grows in from 0.94; under
+   reduced motion it only fades in. */
 .tray {
   grid-column: 1 / -1;
   display: flex;
@@ -5072,6 +5073,16 @@ body:has(main.explore) > .ground-band {
     .tray .thumb {
       opacity: 0;
       transform: scale(0.94);
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tray .thumb {
+    transition: opacity 160ms var(--ease-out);
+  }
+  @starting-style {
+    .tray .thumb {
+      opacity: 0;
     }
   }
 }
