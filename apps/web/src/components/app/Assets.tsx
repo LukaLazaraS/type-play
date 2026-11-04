@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Cube, MusicNotes, TextAa, Waveform } from "@phosphor-icons/react";
+import { ChatCircleText, Cube, MusicNotes, TextAa, Waveform } from "@phosphor-icons/react";
 import type { AssetKind, GameAsset } from "@typeplay/shared";
 import { AssetTile } from "@/components/ui/AssetTile";
 import type { DialogHandle } from "@/components/ui/Dialog";
 import { ErrorLine } from "@/components/ui/ErrorLine";
+import { InkPill } from "@/components/ui/InkPill";
 import { PillChoice } from "@/components/ui/PillBar";
 import { Pulse } from "@/components/ui/Pulse";
 import { SearchField } from "@/components/ui/SearchField";
@@ -35,6 +36,8 @@ type Props = {
   active: boolean;
   /** Change it: puts the asset into the chat box (GameClient). */
   onChange: (asset: GameAsset, buildId: string) => Promise<void>;
+  /** The way to the chat box from a list with nothing in it (a phone opens the Chat tab). */
+  onAsk?: () => void;
 };
 
 /**
@@ -42,7 +45,7 @@ type Props = {
  * uses, on the ink stage. Chips by kind with their counts, a search box for a long list, a grid of tiles (the arrow keys
  * move between them; one tab stop), and the viewer for one asset with Change it and Download.
  */
-export function Assets({ projectId, buildId, active, onChange }: Props) {
+export function Assets({ projectId, buildId, active, onChange, onAsk }: Props) {
   // Nothing is asked until the tab is first opened; from then on the list follows the game's current version.
   const [opened, setOpened] = useState(active);
   if (active && !opened) setOpened(true);
@@ -88,13 +91,13 @@ export function Assets({ projectId, buildId, active, onChange }: Props) {
 
   if (!buildId) {
     return (
-      <section id="ws-assets" className="assets" aria-label={t.list}>
+      <section id="ws-assets" className="assets" aria-label={t.list} hidden={!active}>
         <p className="assets__lead">{t.noGame}</p>
       </section>
     );
   }
   return (
-    <section id="ws-assets" className="assets" aria-label={t.list}>
+    <section id="ws-assets" className="assets" aria-label={t.list} hidden={!active}>
       {state?.status === "loading" && (
         <p className="assets__lead" role="status">
           <Pulse still />
@@ -149,7 +152,16 @@ export function Assets({ projectId, buildId, active, onChange }: Props) {
           )}
           {state.list.source === "files" && <p className="assets__note">{t.files}</p>}
           {state.list.source === "none" && <p className="assets__lead">{t.none}</p>}
-          {state.list.source === "build" && list.length === 0 && <p className="assets__lead">{t.empty}</p>}
+          {state.list.source === "build" && list.length === 0 && (
+            <div className="assets__lead">
+              <p>{t.empty}</p>
+              {onAsk && (
+                <InkPill icon={<ChatCircleText size={18} weight="bold" aria-hidden="true" />} onClick={onAsk}>
+                  {t.ask}
+                </InkPill>
+              )}
+            </div>
+          )}
           {list.length > 0 && shown.length === 0 && (
             <p className="assets__lead" role="status">
               {t.noMatch(query.trim())}
@@ -230,7 +242,7 @@ function Tile({
   const thumb = useAssetUrl(projectId, buildId, asset.picture ? asset.id : null, "thumb", active && seen);
   const family = useAssetFont(projectId, buildId, asset.kind === "font" ? asset : null, active && seen);
   const key = `tile:${buildId}/${asset.id}`;
-  const playing = useSoundPlaying() === key;
+  const playing = useSoundPlaying(key);
   const mark =
     asset.kind === "sound" ? (
       (asset.seconds ?? 0) >= 15 ? <MusicNotes size={34} weight="regular" /> : <Waveform size={34} weight="regular" />

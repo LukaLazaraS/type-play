@@ -160,6 +160,22 @@ function write(dir: string, rel: string, data: Buffer | string) {
 
 /** The game's files for a prompt's kind (before the build's commit). */
 export function fakeAssetFiles(dir: string, prompt: string) {
+  if (prompt.includes("ASSETSWORST")) {
+    // The worst real data (break-ui): a player's photo with a phone's long name deep in folders, a model in a long pack
+    // path, a font with a long name, a sound used everywhere; the looks and sounds made in code come with the capture.
+    write(dir, "art/from the player/IMG_20261104_093212_HDR_final_FINAL_v2 (1).png", png(1200, 900, (x, y) => hex(["#3d206b", "#572877", "#6a2c7a"][Math.floor((y / 900) * 3)])));
+    write(dir, "assets/quaternius-ultimate-space-kit/Spaceship_FernandoTheFlamingo_Variant_B.glb", cubeGlb());
+    write(dir, "assets/quaternius-ultimate-space-kit/Textures/colormap.png", png(16, 16, (x) => hex(x % 2 ? "#ff5a36" : "#ffb347")));
+    write(dir, "assets/CREDITS.md", "# 3D models\n\n- Spaceship_FernandoTheFlamingo_Variant_B.glb: Ultimate Space Kit by Quaternius (quaternius.com), CC0 1.0\n");
+    copyFileSync(join(ROOT, "apps/web/assets/fonts/Onest-SemiBold.ttf"), join(dir, "PressStart2P-Regular-with-extended-Latin.ttf"));
+    write(dir, "audio/ui_click_soft.wav", wav(0.01, 2000, 2000));
+    for (const part of ["player", "enemy", "boss", "hud", "menu", "shop", "level", "tutorial"]) {
+      write(dir, `${part}.gd`, `extends Node\nfunc _ready() -> void:\n\tSfx.play("boss_battle_theme_extended_loop_v2")\n\tvar c := load("res://audio/ui_click_soft.wav")\n`);
+    }
+    write(dir, "sfx.gd", 'extends Node\nvar sounds := {}\nfunc _ready() -> void:\n\tsounds["boss_battle_theme_extended_loop_v2"] = null\n\tsounds["c"] = null\n');
+    write(dir, "art.gd", 'extends RefCounted\nconst Looks = preload("res://lib/looks.gd")\nstatic func add_all() -> void:\n\tfor i in 100:\n\t\tLooks.add("tile_%d" % i, Vector2i(32, 32), func(c: CanvasItem) -> void: floor_tile(c, i))\n');
+    return;
+  }
   if (prompt.includes("ASSETS3D")) {
     write(dir, "assets/car-kit/sedan.glb", cubeGlb());
     write(dir, "assets/car-kit/Textures/colormap.png", png(16, 16, (x, y) => hex((x + y) % 2 ? "#ff5a36" : "#ffb347")));
@@ -193,7 +209,34 @@ export async function fakeCapture(dir: string, prompt: string) {
   const looks: unknown[] = [];
   const sounds: unknown[] = [];
   const stills: unknown[] = [];
-  if (prompt.includes("ASSETS3D")) {
+  if (prompt.includes("ASSETSWORST")) {
+    // Names the AI really writes (German, Japanese, emoji, one letter), a key with no name, pictures at the extremes (a
+    // 2048×64 ground strip, a 64×1024 beam, a single pixel), 24 frames, three minutes of music, a 10 ms click, 100 tiles.
+    const named: [string, string, number, number][] = [
+      ["tower_laser_3", "Raketen-Turm, Stufe 3 (der große mit dem Laser)", 72, 72],
+      ["boss", "ボス・ドラゴン（第3ステージの最後）", 128, 128],
+      ["frog_king", "🐸 Frog king 👑", 64, 64],
+      ["x", "X", 24, 24],
+      ["boss_dragon_phase_three_fire_breath_attack_glow", "", 96, 96],
+      ["ground_strip", "Ground", 2048, 64],
+      ["laser_beam", "Laser beam", 64, 1024],
+      ["dot", "Dot", 1, 1],
+    ];
+    named.forEach(([key, label, w, h], i) => {
+      out(`looks/${i + 1}.png`, png(w, h, (x, y) => (w < 4 || (x + y) % 9 < 7 ? hex(["#ff5a36", "#2f9e44", "#8fd3ff", "#ffb347"][i % 4]) : CLEAR)));
+      looks.push({ key, ...(label && { label }), w, h, frames: 1, file: `looks/${i + 1}.png` });
+    });
+    out("looks/9.png", blob(64, "#a63e68"));
+    out("looks/9.strip.png", png(64 * 24, 64, (x, y) => ((x % 64) - 32) ** 2 + (y - 32) ** 2 < (14 + (Math.floor(x / 64) % 12)) ** 2 ? hex("#a63e68") : CLEAR));
+    looks.push({ key: "explosion", label: "Big explosion", w: 64, h: 64, frames: 24, file: "looks/9.png", strip: "looks/9.strip.png" });
+    for (let i = 0; i < 100; i++) {
+      out(`looks/${10 + i}.png`, png(32, 32, (x, y) => hex((x < 2 || y < 2) ? "#3d206b" : ["#d9645a", "#f3a35c", "#a63e68"][i % 3])));
+      looks.push({ key: `tile_${i}`, w: 32, h: 32, frames: 1, file: `looks/${10 + i}.png` });
+    }
+    out("sounds/1.wav", wav(180, 110, 220, 8000));
+    out("sounds/2.wav", wav(0.01, 3000, 3000));
+    sounds.push({ name: "boss_battle_theme_extended_loop_v2", seconds: 180, file: "sounds/1.wav" }, { name: "c", seconds: 0.01, file: "sounds/2.wav" });
+  } else if (prompt.includes("ASSETS3D")) {
     out("stills/1.png", png(96, 96, (x, y) => (Math.abs(x - 48) < 30 && Math.abs(y - 48) < 30 ? hex(x > 48 ? "#e84a26" : "#ff5a36") : CLEAR)));
     stills.push({ path: "assets/car-kit/sedan.glb", file: "stills/1.png" });
   } else if (prompt.includes("ASSETS")) {

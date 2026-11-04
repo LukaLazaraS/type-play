@@ -358,7 +358,8 @@ export function Stage({
         </div>
       </header>
 
-      {listing && assetsPanel}
+      {/* Always there (hidden while the game shows), so it keeps its place, filter and search across switches. */}
+      {assetsPanel}
       {/* Another game while the first build runs: the build's line, then "ready" with the way to their game. */}
       {waiting && !listing && (
         <div className="stage__busy stage__wait" role="status" data-ready={ready || undefined}>

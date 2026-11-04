@@ -220,6 +220,11 @@ export function GameClient() {
   // Change it (the Assets tab): the asset's sentence into the box, and its picture (a picture, a look, a model's still)
   // handed to the box's tray as a file, exactly as if the player had dropped it there. On a phone the chat is its own
   // tab: it opens there; on a computer the box is beside the list, which stays open for more.
+  /** The way to the chat box (an empty asset list's button): the Chat tab on a phone, the box beside the list on a computer. */
+  const toChat = () => {
+    if (tabsShown) show("chat");
+    requestAnimationFrame(() => document.getElementById("say")?.focus());
+  };
   const changeAsset = async (asset: GameAsset, buildId: string) => {
     const files = asset.picture ? [await assetPictureFile(id, buildId, asset)] : undefined;
     setPrefill((p) => ({ text: assetWords.starter(asset), n: (p?.n ?? 0) + 1, files }));
@@ -368,7 +373,7 @@ export function GameClient() {
           pane={shown === "assets" ? "assets" : "play"}
           onPane={show}
           fresh={fresh}
-          assets={<Assets projectId={project.id} buildId={project.buildId} active={shown === "assets"} onChange={changeAsset} />}
+          assets={<Assets projectId={project.id} buildId={project.buildId} active={shown === "assets"} onChange={changeAsset} onAsk={toChat} />}
         />
       </div>
     </main>

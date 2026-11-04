@@ -41,7 +41,7 @@ const LIMIT = {
   total: 200 << 20,
 };
 const THUMB_EDGE = 320;
-const PICTURE_EDGE = 4096;
+const PICTURE_EDGE = 2048; // as the pictures with a message: the viewer never shows more, and Change it uploads it
 const MAX_PIXELS = 64_000_000;
 const FILE_TYPES: Record<string, string> = {
   png: "image/png", jpg: "image/jpeg", webp: "image/webp", svg: "image/svg+xml", bmp: "image/bmp", tga: "image/x-tga",
@@ -98,15 +98,18 @@ function readCaptured(dir: string, commit: string, notes: string[]): Captured | 
   return { looks, sounds, stills };
 }
 
-/** A picture decoded once and encoded again: itself (its own format, or PNG) at most 4096 px, and a WebP thumbnail. */
-async function picture(bytes: Buffer): Promise<{ data: Buffer; type: string; thumb: Buffer; width: number; height: number }> {
+/**
+ * A picture decoded once and encoded again: itself (its own format, or PNG) at most 2048 px, and a WebP thumbnail. `wide`:
+ * a sprite sheet, whose frames side by side may run to 16384 px (its height still at most 2048).
+ */
+async function picture(bytes: Buffer, wide = false): Promise<{ data: Buffer; type: string; thumb: Buffer; width: number; height: number }> {
   const sharp = await library();
   return inTurn(async () => {
     const meta = await sharp(bytes, { limitInputPixels: false, animated: false }).metadata();
     if (!meta.width || !meta.height || meta.width * meta.height > MAX_PIXELS) throw new Error("too many pixels");
     const { data, info } = await sharp(bytes, { failOn: "error", limitInputPixels: MAX_PIXELS, animated: false, autoOrient: true })
       .timeout({ seconds: 30 })
-      .resize({ width: PICTURE_EDGE, height: PICTURE_EDGE, fit: "inside", withoutEnlargement: true })
+      .resize({ width: wide ? 16_384 : PICTURE_EDGE, height: PICTURE_EDGE, fit: "inside", withoutEnlargement: true })
       .toColourspace("srgb")
       .raw({ depth: "uchar" })
       .toBuffer({ resolveWithObject: true });
@@ -231,7 +234,7 @@ export async function importAssets({ projectId, buildId, dir, commit }: ImportIn
       let file = first.data;
       let frames = 1;
       if (l.frames > 1 && l.strip) {
-        const strip = await picture(readGameFile(dir, `export/assets/${l.strip}`, LIMIT.look));
+        const strip = await picture(readGameFile(dir, `export/assets/${l.strip}`, LIMIT.look), true);
         if (strip.width >= first.width * l.frames - l.frames && strip.type === "image/png") {
           file = strip.data;
           frames = l.frames;

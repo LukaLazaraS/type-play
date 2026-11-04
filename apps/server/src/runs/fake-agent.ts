@@ -10,7 +10,8 @@
 // what that check (or, for a new game, the genre call) reports it cost; $0 otherwise, so the tests' figures stay exact.
 // The pictures a run gets (2026-11-04: the folder run.mjs --images reads) are written into FAKE.md, each one's name, size
 // and SHA-256, so a test sees that they reached the run byte for byte.
-// The Assets tab (2026-11-04): "ASSETS" and "ASSETS3D" leave asset files and the build's capture, "NOCAPTURE" none
+// The Assets tab (2026-11-04): "ASSETS", "ASSETS3D" and "ASSETSWORST" (the worst real data) leave asset files and the
+// build's capture, "NOCAPTURE" none
 // (fake-assets.ts); any other prompt, a capture with nothing in it.
 // It makes a real git commit, like the agent would.
 import { createHash } from "node:crypto";

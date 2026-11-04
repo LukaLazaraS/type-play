@@ -17,6 +17,13 @@ the same night is marked **Built**, the rest **Proposal**. Night log: `docs/over
   the check already uses. Nothing is drawn when the player opens the tab.
 - Private to the game's owner, fetched through the API with the sign-in header, like the game's download and pictures.
 
+**Built on 11-04** (branch `assets`): everything in §5 and §6 and the first two steps of §7. Agent:
+`packages/agent/tools/capture.mjs` + `capture.gd`, run.mjs's call, looks' plain names (`lib/looks.gd`, rules/FAST.md), the
+asset handle in rules/EDIT.md and PICTURES.md. API: `apps/server/src/assets/`, one call in `runs.service.ts`, the delete
+in `projects.service.ts`, fake builds with assets. Site: `components/app/Assets.tsx` and `AssetViewer.tsx`, the pieces
+`ui/AssetTile.tsx`, `ui/ModelView.tsx` and `ui/Viewer.tsx`, the tab in `GameClient.tsx` and `Stage.tsx`, Change it through
+the composer's tray. Not built: §9.
+
 ## 2. What our games really contain (measured 11-04)
 
 92 game folders on this PC (`packages/agent/output`) and the speed night's six (`night-perf`):
@@ -99,9 +106,9 @@ and digits in it). Under it: the name, how it was made, the facts in figures ("7
 "84 KB"), where it is used, and the file in the game in small figures when it is a file. **Change it** (the one hot
 button) and **Download** (quiet). Previous / Next and the arrow keys move through the list as filtered; Escape closes.
 
-**States:** loading (the tiles' squares in place, the line "Listing the assets…"); an error (the hot-dot line with
+**States:** loading (the line "Listing the assets…" with the breathing dot); an error (the hot-dot line with
 Retry); no build yet ("The assets show here once your game is built."); nothing to list ("This game draws everything as
-it runs, so there is nothing to list. Ask in the chat to change anything you see."); a version from before the tab
+it runs, so there is nothing to list. Ask in the chat to change anything you see.", with an Ask in the chat button that takes the keyboard to the box); a version from before the tab
 (§7: "Listed from the files: art the AI drew in code shows after your next change."); a search with no match.
 
 **Keyboard and screen reader:** the tabs and the switch move with the arrow keys (the existing Tabs piece); chips are a

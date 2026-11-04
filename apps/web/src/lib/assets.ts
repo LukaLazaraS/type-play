@@ -117,9 +117,21 @@ export async function downloadAsset(projectId: string, buildId: string, asset: G
 
 /** The asset's picture as a file for the chat box's tray (Change it): it uploads and is checked like a dropped picture. */
 export async function assetPictureFile(projectId: string, buildId: string, asset: GameAsset): Promise<File> {
-  const blob = await api.assets.picture(projectId, buildId, asset.id);
+  let blob = await api.assets.picture(projectId, buildId, asset.id);
+  // A picture past what a message takes (a big PNG photo): the same picture as WebP, which the tray then uploads.
+  if (blob.size > 9 * 1024 * 1024) blob = await asWebp(blob);
   const ext = blob.type === "image/jpeg" ? "jpg" : blob.type === "image/webp" ? "webp" : "png";
   return new File([blob], `${fileName(asset.name)}.${ext}`, { type: blob.type || "image/png" });
+}
+
+async function asWebp(blob: Blob): Promise<Blob> {
+  const bitmap = await createImageBitmap(blob);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  return new Promise((done, fail) => canvas.toBlob((b) => (b ? done(b) : fail(new Error("the picture couldn't be made smaller"))), "image/webp", 0.9));
 }
 
 /** "Saw tower, level 2" -> "saw-tower-level-2". */
@@ -193,15 +205,15 @@ export function playSound(key: string, url: string) {
   tell();
 }
 
-/** The key of the sound playing now, or null. */
-export function useSoundPlaying(): string | null {
+/** Whether the sound named `key` is playing now (a boolean: a play re-renders only the tiles it changes). */
+export function useSoundPlaying(key: string): boolean {
   return useSyncExternalStore(
     (l) => {
       listeners.add(l);
       return () => listeners.delete(l);
     },
-    () => playing,
-    () => null,
+    () => playing === key,
+    () => false,
   );
 }
 

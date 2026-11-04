@@ -278,6 +278,7 @@ export const assets = {
   retry: "Try again",
   noGame: "The assets show here once your game is built.",
   empty: "This game draws everything as it runs, so there is nothing to list. Ask in the chat to change anything you see.",
+  ask: "Ask in the chat",
   files: "Listed from the game's files: art the AI drew in code shows here after your next change.",
   none: "This version was made before the asset list. Versions made from now on list their assets.",
   /** How it was made, under its name in the viewer. */

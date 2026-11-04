@@ -5377,6 +5377,9 @@ body:has(main.explore) > .ground-band {
 }
 
 /* The list: chips by kind with their counts and a search box over the grid; the grid scrolls inside the stage. */
+.assets[hidden] {
+  display: none;
+}
 .assets {
   display: flex;
   flex: 1;
@@ -5430,6 +5433,10 @@ body:has(main.explore) > .ground-band {
   text-align: center;
   color: var(--on-sky-muted);
 }
+.assets__lead p {
+  flex-basis: 100%;
+  margin: 0;
+}
 .assets__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
@@ -5476,6 +5483,8 @@ body:has(main.explore) > .ground-band {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
+  -webkit-user-select: none; /* a long press on a tile is not a text selection: the tile is a control */
+  user-select: none;
   transition: transform 160ms var(--ease-out);
 }
 .assettile__open:active {
@@ -5514,14 +5523,13 @@ body:has(main.explore) > .ground-band {
   -webkit-user-select: none;
   user-select: none;
 }
-@media (prefers-reduced-motion: no-preference) {
+/* A picture arriving fades in (opacity only, so reduced motion keeps it too, as the box's tiles do). */
+.assettile__square img {
+  transition: opacity 160ms var(--ease-out);
+}
+@starting-style {
   .assettile__square img {
-    transition: opacity 160ms var(--ease-out);
-  }
-  @starting-style {
-    .assettile__square img {
-      opacity: 0;
-    }
+    opacity: 0;
   }
 }
 .assettile__font {
@@ -5564,9 +5572,14 @@ body:has(main.explore) > .ground-band {
 .dialog.dialog--asset {
   width: min(640px, 100vw);
 }
+/* A long name, where it is used and its file can outgrow a small phone: the column scrolls (Close stays in its corner). */
 .viewer--asset {
+  box-sizing: border-box;
+  max-height: 100dvh;
   gap: 16px;
   padding-bottom: max(16px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .assetview__stage {
   display: flex;
@@ -5577,7 +5590,6 @@ body:has(main.explore) > .ground-band {
 }
 .assetview__frame {
   width: min(560px, calc(100vw - 32px), calc((100dvh - 400px) * var(--ratio)), max(200px, calc(var(--w) * 4px)));
-  min-width: 120px;
   aspect-ratio: var(--ratio);
   border-radius: var(--r-field);
   background: var(--field);
@@ -5654,7 +5666,7 @@ body:has(main.explore) > .ground-band {
   flex: 1 1 200px;
   height: 6px;
   border-radius: 999px;
-  background: rgb(255 255 255 / 0.16);
+  background: var(--ink);
   overflow: hidden;
 }
 .assetview__progress::after {

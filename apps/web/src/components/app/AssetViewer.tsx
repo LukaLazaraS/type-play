@@ -188,7 +188,7 @@ function Preview({ projectId, buildId, asset }: { projectId: string; buildId: st
 /** A sound: one big play button, how far it has got, and how long it is. The keyboard starts here. */
 function SoundPreview({ projectId, buildId, asset }: { projectId: string; buildId: string; asset: GameAsset }) {
   const key = `viewer:${buildId}/${asset.id}`;
-  const playing = useSoundPlaying() === key;
+  const playing = useSoundPlaying(key);
   const bar = useRef<HTMLSpanElement>(null);
   const [failed, setFailed] = useState(false);
   // The progress bar follows the sound frame by frame while it plays (a style change, nothing re-rendered).
