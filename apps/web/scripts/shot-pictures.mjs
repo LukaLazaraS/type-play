@@ -103,6 +103,22 @@ await sharp(svg(400, 1000, `<rect width="400" height="1000" fill="#f1ecfa"/><rec
   .png()
   .toFile(files.tall);
 writeFileSync(files.exe, Buffer.concat([Buffer.from("4d5a90000300000004000000ffff0000b8000000000000004000000000000000", "hex"), Buffer.alloc(2048, 0x90)]));
+// The worst cases (break-ui): a very tall picture, a panorama, a tiny one, a drawing with see-through parts (dark lines
+// on nothing), a long phone file name, a big photo-like one.
+const worst = {
+  tall: join(pics, "tall.png"),
+  wide: join(pics, "panorama.jpg"),
+  tiny: join(pics, "tiny.png"),
+  lines: join(pics, "lines-on-nothing.png"),
+  named: join(pics, "IMG_20261104_093212_HDR_final_FINAL_v2_from my phone camera roll (1).png"),
+  big: join(pics, "big-photo.jpg"),
+};
+await sharp(svg(100, 2000, `<rect width="100" height="2000" fill="#2f9e44"/><rect y="0" width="100" height="80" fill="#ff5a36"/><rect y="1920" width="100" height="80" fill="#ffb347"/>`)).png().toFile(worst.tall);
+await sharp(svg(3000, 150, `<rect width="3000" height="150" fill="#3d206b"/><circle cx="2900" cy="75" r="50" fill="#ffb347"/><rect x="0" y="100" width="3000" height="50" fill="#d9645a"/>`)).jpeg().toFile(worst.wide);
+await sharp({ create: { width: 8, height: 8, channels: 3, background: "#ff5a36" } }).png().toFile(worst.tiny);
+await sharp(svg(500, 500, `<g fill="none" stroke="#170d33" stroke-width="12" stroke-linecap="round"><circle cx="250" cy="200" r="90"/><path d="M250 290 V420 M170 340 H330 M250 420 L190 480 M250 420 L310 480"/></g>`)).png().toFile(worst.lines);
+await sharp(svg(800, 800, `<rect width="800" height="800" fill="#8fd3ff"/><circle cx="400" cy="400" r="200" fill="#ffffff"/>`)).png().toFile(worst.named);
+await sharp({ create: { width: 2600, height: 1950, channels: 3, noise: { type: "gaussian", mean: 128, sigma: 60 } } }).jpeg({ quality: 92 }).toFile(worst.big);
 const tens = [];
 for (let i = 0; i < 11; i++) {
   const f = join(pics, `picture-${i + 1}.png`);
@@ -274,6 +290,43 @@ try {
     check(`${label}: the composer's box is empty again`, (await page.locator(".composer .tray .thumb").count()) === 0);
     await page.waitForTimeout(800);
     await shot(page, `chat-sent-${label}`);
+    await ctx.close();
+  }
+
+  // ---- The worst cases at 390 px: ten odd pictures through the composer, then in the chat and the viewer -----------
+  if (!only320) {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    const page = await ctx.newPage();
+    page.on("pageerror", (e) => console.log("page error:", e.message));
+    await signIn(page);
+    const games = (await api(who, "GET", "/projects")).body;
+    await page.goto(`${base}/games/${games[0].id}`, { waitUntil: "domcontentloaded" });
+    await page.getByRole("tab", { name: "Chat" }).click();
+    await page.locator("#say").waitFor({ timeout: 60_000 });
+    await page.locator("#say").fill("Use all of these: the tall one is the tower, the panorama is the sky, the lines are the hero");
+    await page.locator(".composer input[type=file]").setInputFiles([worst.tall, worst.wide, worst.tiny, worst.lines, worst.named, worst.big, files.robot, files.desert, files.level, files.screen]);
+    await settled(page, ".composer .tray");
+    check("worst: ten odd pictures in the composer", (await page.locator(".composer .tray .thumb").count()) === 10);
+    check("worst: the composer with ten, no sideways scrolling", await fits(page));
+    await shot(page, "worst-composer-390");
+    await page.getByRole("button", { name: "Send" }).click();
+    await page.waitForFunction(() => document.querySelectorAll(".msg--you").length >= 1 && [...document.querySelectorAll(".msg--you")].at(-1).querySelectorAll(".thumb").length === 10, null, { timeout: 30_000 });
+    await idle(games[0].id);
+    await page.waitForFunction(() => [...[...document.querySelectorAll(".msg--you")].at(-1).querySelectorAll(".thumb img")].length === 10, null, { timeout: 30_000 });
+    await page.locator(".msg--you").last().scrollIntoViewIfNeeded();
+    check("worst: ten in the chat, no sideways scrolling", await fits(page));
+    await shot(page, "worst-chat-390");
+    const tiles = page.locator(".msg--you").last().locator(".thumb");
+    for (const [i, name] of [[0, "tall"], [1, "panorama"], [2, "tiny"], [3, "lines"]]) {
+      await tiles.nth(i).click();
+      await page.locator(".viewer__frame img").waitFor({ timeout: 30_000 });
+      await page.waitForTimeout(400);
+      const box = await page.locator(".viewer__frame").boundingBox();
+      check(`worst: the ${name} picture whole within the screen`, !!box && box.x >= 0 && box.y >= 0 && box.x + box.width <= 390 + 1 && box.y + box.height <= 844 + 1, JSON.stringify(box && { w: Math.round(box.width), h: Math.round(box.height) }));
+      await shot(page, `worst-viewer-${name}-390`);
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(250);
+    }
     await ctx.close();
   }
 

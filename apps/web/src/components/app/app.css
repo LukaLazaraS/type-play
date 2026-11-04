@@ -5117,9 +5117,10 @@ body:has(main.explore) > .ground-band {
   }
 }
 
-/* The viewer (ui/PictureViewer.tsx): no paper of its own, the picture whole at the field radius on Ink Recess while it
-   comes, as large as the screen lets it be and never more than twice its own size; "2 of 5" between Previous and Next
-   under it; Close in the screen's top corner. Over ink at 92%: the picture is all there is to look at. */
+/* The viewer (ui/PictureViewer.tsx): no paper of its own, the picture whole at the field radius, as large as the screen
+   lets it be and never more than twice its own size; "2 of 5" between Previous and Next under it; Close in the screen's
+   top corner. Over ink at 92%: the picture is all there is to look at. Field behind it, as behind the chat's tiles: a
+   drawing with see-through parts (dark lines, a sprite) stays readable, which ink would swallow. */
 .dialog.dialog--picture {
   width: auto;
   max-width: none;
@@ -5143,7 +5144,7 @@ body:has(main.explore) > .ground-band {
   width: min(1100px, calc(100vw - 32px), calc((100dvh - 172px) * var(--ratio)), max(240px, calc(var(--w) * 2px)));
   aspect-ratio: var(--ratio);
   border-radius: var(--r-field);
-  background: var(--ink-2);
+  background: var(--field);
 }
 .viewer__frame img {
   display: block;

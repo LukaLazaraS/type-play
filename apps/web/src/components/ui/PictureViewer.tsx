@@ -1,6 +1,6 @@
 "use client";
 
-import { useImperativeHandle, useRef, type CSSProperties, type Ref } from "react";
+import { useId, useImperativeHandle, useRef, useState, type CSSProperties, type Ref } from "react";
 import { CaretLeft, CaretRight, X } from "@phosphor-icons/react";
 import { Dialog, type DialogHandle } from "./Dialog";
 import { IconButton } from "./IconButton";
@@ -30,12 +30,17 @@ type Props = {
  */
 export function PictureViewer({ ref, index, count, src, placeholder, width, height, label, onMove }: Props) {
   const dialog = useRef<DialogHandle>(null);
+  const title = useId(); // a viewer per message: each its own title
   useImperativeHandle(ref, () => ({ open: (from) => dialog.current?.open(from), close: () => dialog.current?.close() }), []);
   const many = count > 1;
-  const go = (step: number) => onMove((index + step + count) % count);
+  const [moved, setMoved] = useState(false);
+  const go = (step: number) => {
+    setMoved(true);
+    onMove((index + step + count) % count);
+  };
   const shown = src ?? placeholder;
   return (
-    <Dialog ref={dialog} look="picture" labelledBy="viewer-title">
+    <Dialog ref={dialog} look="picture" labelledBy={title}>
       <div
         className="viewer"
         onKeyDown={(e) => {
@@ -44,9 +49,13 @@ export function PictureViewer({ ref, index, count, src, placeholder, width, heig
           go(e.key === "ArrowLeft" ? -1 : 1);
         }}
       >
-        <h2 id="viewer-title" className="sr-only">
+        <h2 id={title} className="sr-only">
           {many ? `${label} ${index + 1} of ${count}` : label}
         </h2>
+        {/* Previous, Next and the arrow keys say where they went (the title above is read once, as the viewer opens). */}
+        <p className="sr-only" aria-live="polite">
+          {moved ? `${label} ${index + 1} of ${count}` : ""}
+        </p>
         <div className="viewer__frame" style={{ "--ratio": width / height, "--w": width } as CSSProperties} aria-busy={!src || undefined}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {shown && <img src={shown} alt="" draggable={false} />}
