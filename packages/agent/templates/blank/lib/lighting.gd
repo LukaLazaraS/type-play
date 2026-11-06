@@ -52,9 +52,9 @@ static func setup(root: Node, mood: String = "day") -> DirectionalLight3D:
 	env.ambient_light_color = Color(m[8])
 	env.ambient_light_sky_contribution = 0.0
 	env.ambient_light_energy = m[9]
-	# AgX keeps a bright surface from clipping to flat white (it rolls off and desaturates instead); Linear (Godot's
-	# default) and Filmic at its default white of 1.0 clip at 1.0.
-	env.tonemap_mode = Environment.TONE_MAPPER_AGX
+	# Linear shows every colour as picked (the sky too); the light amounts above keep white below clipping. AgX dulled
+	# skies and bright colours (a blue sky came out grey-blue), Filmic at its default white of 1.0 clipped light floors.
+	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.tonemap_exposure = 1.0
 	env.glow_enabled = false
 	var world := WorldEnvironment.new()

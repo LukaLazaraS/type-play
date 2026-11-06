@@ -64,12 +64,13 @@ lightness); pure white = every channel ≥ 250, near white ≥ 235, pale = every
 ## What changed in the builder
 
 - **`lib/lighting.gd`** (template, copied into every game on every run like the other helpers): `Lighting.setup(self,
-  "day" | "sunset" | "night" | "indoor" | "space")` makes the sky, a plain ambient colour, AgX tonemapping and a sun with
-  shadows, at amounts measured in the browser to show material colours as picked under the renderer's doubling: the
-  sun 0.32-0.55, ambient 0.12-0.2 (a sky-coloured ambient light tinted green grass mint, so the ambient is a near-neutral
-  colour). Test scenes (a kitchen like Buzz Bite's, a Kenney grass meadow, a snowy island): kitchen 46% pure white with
-  Buzz Bite's light → 0.1% with "day", 0% with "indoor"; the meadow's grass #c3f5dc (mint) → #54b178 (green); snow
-  12.7% pure white → 0.4%.
+  "day" | "sunset" | "night" | "indoor" | "space")` makes the sky, a plain ambient colour, Linear tonemapping and a sun
+  with shadows, at amounts measured in the browser to show material colours as picked under the renderer's doubling: the
+  sun 0.32-0.55, ambient 0.12-0.2. A sky-coloured ambient light tinted green grass mint, so the ambient is a near-neutral
+  colour; AgX dulled the sky (#6fa2e0 picked blue came out #7aa1c2 grey-blue) and Filmic at white 1.0 clipped light
+  floors, so the helper uses Linear and keeps white below clipping by the amounts. Test scenes (a kitchen like Buzz
+  Bite's, a Kenney grass meadow, a snowy island): the kitchen 46% pure white with Buzz Bite's light → 0.1% with "day", 0%
+  with "indoor"; the meadow's grass #c3f5dc (mint) → #58bb83 (green); the snow 12.7% pure white → 1.7%.
 - **Rules** (`rules/BASE.md` "Colours that read", the 3D lines, `tags/3d.md`, `25d.md`, `scifi.md`, `rules/FAST.md`):
   3D light only from `Lighting.setup()`, never more light to brighten (stronger material colours instead), big
   surfaces mid colours, near white only for small highlights; 2D backgrounds mid or deep with a themed layer, pieces
