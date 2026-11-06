@@ -860,6 +860,7 @@ async function maintenanceChecks(db) {
     ok((await api(MT, "GET", "/me")).body.credits.available === before, `the player's credits untouched (${before})`);
     const row = (await db.query(`SELECT m."costUsd", m.plan, m."authorId", (SELECT count(*)::int FROM "CreditEntry" e WHERE e."messageId" = m.id) AS entries, (SELECT count(*)::int FROM "QueuedRun" q WHERE q."messageId" = m.id) AS waiting FROM "Message" m WHERE m.id = $1`, [answer.id])).rows[0];
     ok(row?.authorId === OWNER && row.plan === null && row.entries === 0 && row.waiting === 0 && row.costUsd !== null, "in the database: by the TypePlay account, no plan, no ledger entry, out of the line, its cost kept for us");
+    ok((await db.query(`SELECT count(*)::int AS n FROM "CreditBucket" WHERE "userId" = $1`, [OWNER])).rows[0].n === 0, "…and the TypePlay account got no credits (no Free month settled for it)");
     const restored = await api(MT, "POST", `/projects/${id}/restore`, { n: 1 });
     ok(restored.status < 300 && (await api(MT, "GET", `/projects/${id}`)).body.currentVersion === 3, "the player can restore version 1 (as version 3)");
     const status = admin("run", "status", id);

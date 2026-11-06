@@ -267,7 +267,9 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
       images = await this.attachments.forRun(row.images); // the pictures its message carries, read before it leaves the line
       hold = this.holds.get(q.messageId) ?? this.credits.hold(q.userId, fromTenths(row.holdTenths));
       this.holds.set(q.messageId, hold);
-      user = await this.credits.settled(await this.prisma.user.findUniqueOrThrow({ where: { id: q.userId } }));
+      const payer = await this.prisma.user.findUniqueOrThrow({ where: { id: q.userId } });
+      // TypePlay's own change has no payer to settle (its account gets no Free month).
+      user = row.maintenance ? payer : await this.credits.settled(payer);
       // TypePlay's own change (`admin run`) is free and ours: no plan or credit checks.
       if (!row.maintenance) {
         try {
