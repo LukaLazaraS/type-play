@@ -582,7 +582,8 @@ npm run admin:live -w @typeplay/server -- run status [gameId]          # TypePla
 - **The build:** run.mjs `--maintenance` (with `--sized`: never stopped as too big): the game's `TEMPLATE` goes to the
   current generation first, so the check holds it to every budget and its colours like a new game (a failed attempt's
   rollback takes it back out), with `rules/MAINTENANCE.md` (keep the game theirs: same features, numbers, texts, look apart
-  from the colour fix) and a new game's room (twice its turns and budget). The prompt may be up to 30,000 letters (the
+  from the colour fix) and a new game's room (twice its turns and budget, and twice the time: 80 minutes, the runner's
+  job too). The prompt may be up to 30,000 letters (the
   runner takes up to 32,000 for a prompt, 8,000 for any other value), enough for a reference fix.
 - **In the chat:** a game with a message by someone else shows who sent each message (as in pair developing): "TypePlay"
   above the request, "for TypePlay" on the answer; the version's label is `--label`. Nobody is notified (the account has

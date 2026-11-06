@@ -483,7 +483,10 @@ async function runJob(job, req, res) {
     }
     res.writeHead(200, { 'content-type': 'application/x-ndjson' });
     let code = 0, signal = null;
-    const deadline = Date.now() + LIMIT_MS[job.kind];
+    // TypePlay's own change to a game (`admin run`, run.mjs --maintenance) reworks a whole game: twice an agent job's time,
+    // as the API's own timer gives it (runs.service).
+    const maintenance = job.kind === 'agent' && Array.isArray(job.args) && job.args.includes('--maintenance');
+    const deadline = Date.now() + LIMIT_MS[job.kind] * (maintenance ? 2 : 1);
     for (const step of steps) {
       if (gone) break;
       ({ code, signal } = await runStep(step, slot, home, job.env, send, deadline, (fn) => (stop = fn), job.kind));

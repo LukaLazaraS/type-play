@@ -286,7 +286,9 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     const images = run.images ?? [];
     const imagesDir = images.length && !config.runnerSocket ? prepareRunImages(run.messageId, images, (m) => this.log.warn(`run ${run.projectId}: ${m}`)) : null;
     // AGENT_AUTH=api: a token for this run only; the key proxy adds our key (key-proxy.ts).
-    const token = this.keyProxy.enabled ? this.keyProxy.issue(`run ${run.projectId}`, MODEL_FLAG[run.model], config.runTimeoutMin + 5) : null;
+    // TypePlay's own change (`admin run`) reworks a whole game: twice the time (the runner gives its job the same).
+    const timeoutMin = config.runTimeoutMin * (run.maintenance ? 2 : 1);
+    const token = this.keyProxy.enabled ? this.keyProxy.issue(`run ${run.projectId}`, MODEL_FLAG[run.model], timeoutMin + 5) : null;
     const job = {
       dir,
       prompt: run.prompt,
@@ -316,7 +318,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     const timer = setTimeout(() => {
       run.timedOut = true;
       run.handle?.kill();
-    }, config.runTimeoutMin * 60_000);
+    }, timeoutMin * 60_000);
     // What the key proxy metered for this run (live server); null on Luka's PC (the Max login, no proxy).
     let metered: number | null = null;
     const result = await run.handle.done.finally(() => {
