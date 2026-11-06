@@ -268,7 +268,7 @@ const recordBase = () => ({
 // questions on the same AI (--sized: it was checked before them). A change's questions (--ask) go at the same time; the
 // size check's stop wins over them (no questions about a request too big to build anyway).
 let sized = null;
-const checkSize = isEdit && SIZED.includes(modelKey) && !flag('sized');
+const checkSize = isEdit && SIZED.includes(modelKey) && !flag('sized') && !maintenance; // TypePlay's own change is never stopped as too big
 if (isEdit && (checkSize || ask)) {
   const notesFile = join(dir, 'NOTES.md');
   const [s, a] = await Promise.all([
