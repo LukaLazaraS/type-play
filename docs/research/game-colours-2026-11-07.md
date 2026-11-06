@@ -113,6 +113,7 @@ same first-visit measurement on both builds (a fresh browser, 4× slower CPU; dr
 | Shape Escape | pm0krhm73s-v7 → v8 | 667 / 586, 1 | 189 / 108, 0 | ok → ok |
 | Tank City | pyudgc4gzc-v1 → v2 | 322 / 274, 1 | 320 / 276, 0 | ok → ok |
 | Buzz Bite | kktodcn7nf-v1 → v2 | 473 / 573, 2 | 261 / 290, 0 | in the house 79% pure white → 0% (its busiest moment, inside) |
+| Mosquito Night | ukxn2q2blx-v1 → v2 | 1547 / 1437, 0 | 263 / 246, 0 | 11% pure white → 0% |
 | Island Rush | show-racer-polished → -v3 | 196 / 168, 0 | 137 / 102, 0 | ok → ok |
 | Sky Stack | show-arcade-polished → -v3 | 401 / 374, 0 | 59 / 32, 0 | ok → ok |
 | Gingerbread Guard | show-td-polished → -v3 | 417 / 211, 0 | 185 / 211, 0 | ok → ok |
