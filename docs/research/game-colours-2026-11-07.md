@@ -94,3 +94,46 @@ lightness); pure white = every channel ≥ 250, near white ≥ 235, pale = every
 - A snowfield or a white-paper theme that fills the screen fails by design: the rules say to make snow pale blue-grey
   with shading. Light-coloured games can still be made; they need one deeper layer.
 - Not checked: real phones (bright sunlight, OLED), and the other two renderers (we only use Compatibility).
+
+## What was fixed on the website (2026-11-07)
+
+Every game on the website (the gallery's 13 and the home page's 14; the six showcase games are in both) got TypePlay's
+maintenance change (`run.mjs --maintenance`, Sonnet high): its own project, the same features and look apart from the colour
+fix, held to every speed budget and the colour check. The testers' seven on the live server (`admin run`, our key; each the
+game's next version with the chat kept and the version before restorable); ours on this PC from their projects, published as
+new builds (the home page's slugs in `apps/web/src/content/games.ts`, the gallery's through `admin gallery showcase`). The
+same first-visit measurement on both builds (a fresh browser, 4× slower CPU; draw calls a frame on the title and in the first
+8 s of play, shaders compiled after the first tap), and the colour verdict 8 s into play:
+
+| Game | Build before → after | Draw calls title / play, freezes before | After | Colours |
+|---|---|---|---|---|
+| Dead Haul | l4fo6bytz6-v3 → v4 | 583 / 570, 1 | 241 / 115, 0 | ok → ok |
+| Scrap Siege | rwrcgqhnik-v5 → v6 | 1528 / 1301, 0 | 74 / 127, 0 | ok → ok |
+| Sparkle Cleaners | i9ffyvejxg-v2 → v3 | 1287 / 1080, 0 | 118 / 83, 0 | ok → ok |
+| Shape Escape | pm0krhm73s-v7 → v8 | 667 / 586, 1 | 189 / 108, 0 | ok → ok |
+| Tank City | pyudgc4gzc-v1 → v2 | 322 / 274, 1 | 320 / 276, 0 | ok → ok |
+| Buzz Bite | kktodcn7nf-v1 → v2 | 473 / 573, 2 | 261 / 290, 0 | in the house 79% pure white → 0% (its busiest moment, inside) |
+| Island Rush | show-racer-polished → -v3 | 196 / 168, 0 | 137 / 102, 0 | ok → ok |
+| Sky Stack | show-arcade-polished → -v3 | 401 / 374, 0 | 59 / 32, 0 | ok → ok |
+| Gingerbread Guard | show-td-polished → -v3 | 417 / 211, 0 | 185 / 211, 0 | ok → ok |
+| Petal Pop | show-match3-polished → -v3 | 1322 / 1741, 0 | 208 / 117, 0 | ok → ok |
+| Rooftop Ninja | show-runner-polished → -v3 | 559 / 492, 1 | 269 / 116, 0 | ok → ok |
+| Sky Hopper | show-3d-polished → -v3 | 795 / 744, 1 | 300 / 251, 0 | pale grass → green |
+| Robot Runner | robot-runner → -v2 | 14 / 12, 1 | 27 / 26, 0 | washed out → ok |
+| Fruit Match | fruit-match → -v2 | 941 / 876, 0 | 18 / 11, 0 | ok → ok |
+| Town Driver 3D | town-driver → -v2 | 438 / 426, 0 | 163 / 153, 0 | ok → ok |
+| Night Runner | night-runner → -v2 | 16 / 36, 1 | 110 / 112, 0 | ok → ok |
+| Fruit Match Night | fruit-match-night → -v2 | 1114 / 1111, 0 | 22 / 20, 0 | ok → ok |
+| Desert Dash | desert-dash → -v2 | 35 / 34, 0 | 21 / 19, 0 | washed out → ok |
+| Box Push | box-push → -v2 | 70 / 61, 0 | 19 / 10, 0 | ok → ok |
+| Little Car | little-car → -v2 | 407 / 251, 0 | 224 / 219, 0 | mint grass → green |
+
+The gallery's showcase "before" is its first build (show-*-polished); the home page already played the 11-04 night's `-v2`
+of four of them. Tank City's title measured 320 in this run (the server's check passed it under 300: its title has a moving
+demo). Not touched: the four private games on the server, and the home page's "say what to change" demo (four versions of the
+robot runner, parked #14).
+
+**Capacity found on the way:** three builds at once can pass the runner's 5.5 GB on the API server with today's check (the
+hidden browser took 4.7 GB on Mosquito Night's 1,300 draw calls); the kernel killed four of the first agent runs (they failed
+cleanly: nothing charged or published, one failed answer each in the testers' chats). The rest ran two at a time, the heavy 3D
+ones alone.
