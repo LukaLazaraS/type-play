@@ -596,6 +596,8 @@ const record = {
 };
 report(record, !record.ok && attempts.some((a) => a.refused));
 
+// The last check's own lines (its verdict, speed, freezes, colours) in the run's log: what the game was measured at.
+if (final.checkOutput) console.log(`\n--- last check ---\n${final.checkOutput.split('\n').filter((l) => !/^screenshot |^Open the screenshots/.test(l)).join('\n').trim()}\n`);
 console.log(`\n--- agent's own reply ---\n${final.reply || '(none)'}\n`);
 console.log(`--- shown to the player ($${message.costUsd.toFixed(4)}) ---\n${message.text || '(none)'}\n`);
 if (next.list.length) console.log(`--- next steps ($${next.costUsd.toFixed(4)}) ---\n${next.list.join(' | ')}\n`);
