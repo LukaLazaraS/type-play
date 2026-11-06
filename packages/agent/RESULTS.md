@@ -903,3 +903,23 @@ with its start), so the build ended a few seconds later than it would have. The 
 assets, each look under the AI's name and where it is used ("Queen bug: Boss, FX, Main"). Its music, a looping bass line
 kept in `_music`, first came out as "@audio stream player@119"; the capture now names a player's sound after the variable
 that holds it ("Music"). The core's cost is the night's fast-games rules on a shooter, not the capture (no AI).
+
+## 2026-11-07: colours that read (lib/lighting.gd, the colour check) and TypePlay's maintenance change
+
+Why the 3D games were washed out, the lab and the limits: `docs/research/game-colours-2026-11-07.md`. Two new games on
+Sonnet medium (the default), one sentence each, both passed the full check with the colour check on (TEMPLATE 3):
+
+| Game (output/) | Min | $ | Colours 3 s into play (light, near white, contrast) | Busiest moment: draw calls | Compiles after the tap |
+|---|---|---|---|---|---|
+| colour-3d-house (3D, a mosquito in a family's house: Buzz Bite's kind) | 34.4 | 1.193 | 99, 0%, 155 (its agent used `Lighting.setup(self, "indoor")`) | 228 | 0 |
+| colour-2d-snow (2D runner, "snow everywhere") | 12.4 | 1.057 | 119, 0.5%, 179 (snow drawn pale blue-grey, a deep blue sky) | (light) | 0 |
+
+**TypePlay's maintenance change** (`run.mjs --edit --maintenance`, Sonnet high, rules/MAINTENANCE.md) on our 14 public
+games on this PC (Luka's Max; our games), each from its own project with its history: all passed every budget and the
+colour check; Island Rush on the second try (the first left its busiest moment at 4.57 ms of game code; the note said
+what to look for), Gingerbread Guard and Fruit Match after a rerun (the size check stopped them before it learned to skip
+maintenance changes). Minutes / $: Box Push 6.6 / 0.44, Desert Dash 8.7 / 0.50, Fruit Match Night 13.4 / 0.65, Fruit Match
+16.2 / 0.54, Little Car 10.4 / 0.26, Night Runner 10.8 / 0.61, Robot Runner 9.6 / 0.43, Sky Hopper 23.2 / 0.51, Sky Stack
+19.6 / 1.14, Petal Pop 9.4 / 0.30, Island Rush 9.1 / 0.52, Rooftop Ninja 9.4 / 0.55, Gingerbread Guard 4.6 / 0.09, Town Driver
+15.2 / 0.33. On the live server (our key, `admin run`): Dead Haul 4.7 min, Scrap Siege 11.2, Tank City 4.9, Sparkle Cleaners
+8.4, Shape Escape 14.2 (each with its proven fix or the rules). Before and after per game: the 11-07 report.
