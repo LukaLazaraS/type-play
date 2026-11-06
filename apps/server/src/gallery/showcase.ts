@@ -21,12 +21,13 @@ export const SHOWCASE_OWNER = { id: "typeplay-showcase", email: "showcase@typepl
 /** Each game's id (its share page typeplay.app/play/<id>), its build on the games origin, its genre for the gallery's
  * filter (the genre skill it would be built with today), and what its newest build changed (the version's label). */
 export const SHOWCASE: { id: string; build: string; genre: Genre; label?: string }[] = [
-  { id: "showracer", build: "show-racer-polished", genre: "racer" },
-  { id: "showarcade", build: "show-arcade-polished", genre: "arcade" },
-  { id: "showtd", build: "show-td-polished", genre: "towerdefence" },
-  { id: "showmatch3", build: "show-match3-polished", genre: "puzzle" },
-  { id: "showrunner", build: "show-runner-polished", genre: "runner" },
-  { id: "show3d", build: "show-3d-polished", genre: "platformer" },
+  // 2026-11-07: the builds that pass the speed budgets and the colour check (the 11-04 night's fixes included).
+  { id: "showracer", build: "show-racer-polished-v3", genre: "racer", label: "TypePlay update: smoother, clearer colours" },
+  { id: "showarcade", build: "show-arcade-polished-v3", genre: "arcade", label: "TypePlay update: smoother, clearer colours" },
+  { id: "showtd", build: "show-td-polished-v3", genre: "towerdefence", label: "TypePlay update: smoother, clearer colours" },
+  { id: "showmatch3", build: "show-match3-polished-v3", genre: "puzzle", label: "TypePlay update: smoother, clearer colours" },
+  { id: "showrunner", build: "show-runner-polished-v3", genre: "runner", label: "TypePlay update: smoother, clearer colours" },
+  { id: "show3d", build: "show-3d-polished-v3", genre: "platformer", label: "TypePlay update: smoother, clearer colours" },
 ];
 
 const LIVE_GAMES = "https://typeplay.dev";

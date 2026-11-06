@@ -4,6 +4,9 @@
 // same day to fill the home screen: built from one sentence each, mostly on Smart, Night Runner then changed by chat
 // (agent/output, agent/runs.jsonl). Prompts, minutes and edits are the measured facts, as typed; names are display
 // names given here; the slug is the build on the games origin (apps/games/builds/<slug>, from `build-demo.mjs`).
+// 2026-11-07: every game here moved to a build that passes the speed budgets and the colour check (docs/research/
+// game-colours-2026-11-07.md): TypePlay's maintenance change (run.mjs --maintenance) on each game's own project; the
+// builds before stay on typeplay.dev. Games whose colours changed visibly got new pictures (`*-v2.jpg`, `*-v3.jpg`).
 
 import { demoEdits } from "./demo";
 
@@ -33,7 +36,7 @@ export const howToPlay = "Play with keys or touch. On a phone it opens full scre
 
 export const games: Game[] = [
   {
-    slug: "show-racer-polished",
+    slug: "show-racer-polished-v3",
     name: "Island Rush",
     prompt:
       "Make a top-down racing game on a tropical island where I race against 5 rivals around a winding beach track for 3 laps, with boost pads on the road, a nitro boost button, a 3-2-1 countdown and a podium with a trophy at the end.",
@@ -46,7 +49,7 @@ export const games: Game[] = [
     edits: ["I can not read the hint text at the bottom when I drive over the sand, it just blends in. Please make it easier to read."],
   },
   {
-    slug: "show-arcade-polished",
+    slug: "show-arcade-polished-v3",
     name: "Sky Stack",
     prompt:
       "Make a one-tap stacking game: blocks slide back and forth and I tap to drop each one on my tower, anything that overhangs gets sliced off, and perfect drops give combos. The sky should change from sunset to night to outer space as the tower grows, and I want a best score.",
@@ -62,7 +65,7 @@ export const games: Game[] = [
     // The 11-04 night's fix of show-td-polished (maps 2-3 showed map 1's road; 15x less game code a frame and 2,576 → 389
     // draw calls at its busiest moment, docs/overnight/2026-11-04.md). Live once the build is on typeplay.dev
     // (node deploy/deploy.mjs games) and the site is deployed; the old build stays there.
-    slug: "show-td-polished-v2",
+    slug: "show-td-polished-v3",
     name: "Gingerbread Guard",
     prompt:
       "Make a tower defence game where I protect a gingerbread castle from waves of hungry ants and beetles. I want 3 different maps, 5 candy towers that I can upgrade, money for every kill, and a giant boss wave at the end of each map.",
@@ -80,7 +83,7 @@ export const games: Game[] = [
   },
   {
     // 11-04 night: the garden and the flowers baked into pictures (1,731 → 117 draw calls a frame in play).
-    slug: "show-match3-polished-v2",
+    slug: "show-match3-polished-v3",
     name: "Petal Pop",
     prompt:
       "Make a match-3 game in a magical flower garden with a level map that winds through the garden. Each level has a different goal, like collecting flowers, breaking ice or reaching a score, with special pieces from big matches and up to 3 stars per level.",
@@ -98,7 +101,7 @@ export const games: Game[] = [
   },
   {
     // 11-04 night: the sky and skylines baked (492 → 314 draw calls a frame), no shader compiled after the first tap.
-    slug: "show-runner-polished-v2",
+    slug: "show-runner-polished-v3",
     name: "Rooftop Ninja",
     prompt:
       "Make an endless runner where a ninja cat runs across city rooftops at night, collecting fish and power-ups like a magnet and a shield. The obstacles should change as I go, from chimneys and gaps to crows and drones, it should speed up, and I want to beat my best score.",
@@ -112,7 +115,7 @@ export const games: Game[] = [
   },
   {
     // 11-04 night: a lit checkpoint no longer compiles a shader in play (a freeze of up to 3.5 s), effects warmed up.
-    slug: "show-3d-polished-v2",
+    slug: "show-3d-polished-v3",
     name: "Sky Hopper",
     prompt:
       "Make a 3D platform game where a cute little character runs and jumps across floating islands and moving platforms, collects coins and stars, and dodges spikes and spinning saws. There are 3 levels, a green meadow, a snowy mountain and a night level, each ending at a flag, and falling off puts me back at the last checkpoint.",
@@ -120,15 +123,15 @@ export const games: Game[] = [
     minutes: 20,
     genre: "3D platformer",
     orientation: "landscape",
-    image: "/games/show-3d-polished.jpg",
-    icon: "/games/show-3d-polished_sq.jpg",
+    image: "/games/show-3d-polished-v3.jpg",
+    icon: "/games/show-3d-polished-v3_sq.jpg",
     edits: [
       "From behind my character looks like a plain white ball. Please give it ears, a tail and a little backpack so it looks like a real character.",
       "The grass on the islands looks pale and washed out. Please make it a richer, greener green.",
     ],
   },
   {
-    slug: "robot-runner",
+    slug: "robot-runner-v2",
     name: "Robot Runner",
     prompt:
       "Make an endless runner where a little robot jumps over cactuses and it gets faster over time.",
@@ -136,11 +139,11 @@ export const games: Game[] = [
     minutes: 1.6,
     genre: "Endless runner",
     orientation: "landscape",
-    image: "/games/runner_sunset.jpg",
-    icon: "/games/runner_sunset_sq.jpg",
+    image: "/games/robot-runner-v2.jpg",
+    icon: "/games/robot-runner-v2_sq.jpg",
   },
   {
-    slug: "fruit-match",
+    slug: "fruit-match-v2",
     name: "Fruit Match",
     prompt: "Make a match-3 puzzle game with cute fruit.",
     tier: "Smart",
@@ -151,7 +154,7 @@ export const games: Game[] = [
     icon: "/games/match3_sq.jpg",
   },
   {
-    slug: "town-driver",
+    slug: "town-driver-v2",
     name: "Town Driver 3D",
     prompt:
       "Make a 3D game where I drive a little car around a small town and collect coins before the time runs out.",
@@ -163,7 +166,7 @@ export const games: Game[] = [
     icon: "/games/car_city_sq.jpg",
   },
   {
-    slug: "night-runner",
+    slug: "night-runner-v2",
     name: "Night Runner",
     prompt:
       "Make an endless runner where a little robot jumps over cactuses and it gets faster over time.",
@@ -176,7 +179,7 @@ export const games: Game[] = [
     edits: demoEdits,
   },
   {
-    slug: "fruit-match-night",
+    slug: "fruit-match-night-v2",
     name: "Fruit Match Night",
     prompt: "Make a match-3 puzzle game with cute fruit.",
     tier: "Fast",
@@ -187,7 +190,7 @@ export const games: Game[] = [
     icon: "/games/match3_dark_sq.jpg",
   },
   {
-    slug: "desert-dash",
+    slug: "desert-dash-v2",
     name: "Desert Dash",
     prompt:
       "Make an endless runner where a little robot jumps over cactuses and it gets faster over time.",
@@ -195,11 +198,11 @@ export const games: Game[] = [
     minutes: 4.1,
     genre: "Endless runner",
     orientation: "landscape",
-    image: "/games/runner_day.jpg",
-    icon: "/games/runner_day_sq.jpg",
+    image: "/games/desert-dash-v2.jpg",
+    icon: "/games/desert-dash-v2_sq.jpg",
   },
   {
-    slug: "box-push",
+    slug: "box-push-v2",
     name: "Box Push",
     prompt:
       "Make a puzzle game where you push boxes onto targets, with 5 levels that get harder.",
@@ -211,7 +214,7 @@ export const games: Game[] = [
     icon: "/games/boxpush_sq.jpg",
   },
   {
-    slug: "little-car",
+    slug: "little-car-v2",
     name: "Little Car",
     prompt:
       "Make a 3D game where I drive a little car around a small town and collect coins before the time runs out.",
@@ -219,8 +222,8 @@ export const games: Game[] = [
     minutes: 4.4,
     genre: "3D driving",
     orientation: "landscape",
-    image: "/games/car_sonnet.jpg",
-    icon: "/games/car_sonnet_sq.jpg",
+    image: "/games/little-car-v2.jpg",
+    icon: "/games/little-car-v2_sq.jpg",
   },
 ];
 

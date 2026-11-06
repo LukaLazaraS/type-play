@@ -703,12 +703,12 @@ async function showcaseChecks(db) {
   console.log("the showcase games: admin gallery showcase (an empty gallery, run twice, a tester's game beside them)");
   const OWNER = "typeplay-showcase";
   const SIX = [
-    { id: "showracer", build: "show-racer-polished", genre: "racer", name: "Island Rush", orientation: "portrait" },
-    { id: "showarcade", build: "show-arcade-polished", genre: "arcade", name: "Sky Stack", orientation: "portrait" },
-    { id: "showtd", build: "show-td-polished", genre: "towerdefence", name: "Gingerbread Guard", orientation: "portrait" },
-    { id: "showmatch3", build: "show-match3-polished", genre: "puzzle", name: "Petal Pop", orientation: "portrait" },
-    { id: "showrunner", build: "show-runner-polished", genre: "runner", name: "Rooftop Ninja", orientation: "landscape" },
-    { id: "show3d", build: "show-3d-polished", genre: "platformer", name: "Sky Hopper", orientation: "landscape" },
+    { id: "showracer", build: "show-racer-polished-v3", genre: "racer", name: "Island Rush", orientation: "portrait" },
+    { id: "showarcade", build: "show-arcade-polished-v3", genre: "arcade", name: "Sky Stack", orientation: "portrait" },
+    { id: "showtd", build: "show-td-polished-v3", genre: "towerdefence", name: "Gingerbread Guard", orientation: "portrait" },
+    { id: "showmatch3", build: "show-match3-polished-v3", genre: "puzzle", name: "Petal Pop", orientation: "portrait" },
+    { id: "showrunner", build: "show-runner-polished-v3", genre: "runner", name: "Rooftop Ninja", orientation: "landscape" },
+    { id: "show3d", build: "show-3d-polished-v3", genre: "platformer", name: "Sky Hopper", orientation: "landscape" },
   ];
   const builds = join(DATA, `e2e-showcase-builds-${stamp}`);
   for (const g of SIX) {
@@ -731,9 +731,9 @@ async function showcaseChecks(db) {
   try {
     ok((await gallery("sort=new")).total === 0, "the gallery starts empty");
     const early = showcase();
-    ok(early.status === 1 && /nothing changed/.test(early.stderr) && /show-td-polished/.test(early.stderr) && /poster\.png/.test(early.stderr), "a poster missing: exit 1, nothing changed, it names the file");
+    ok(early.status === 1 && /nothing changed/.test(early.stderr) && /show-td-polished-v3/.test(early.stderr) && /poster\.png/.test(early.stderr), "a poster missing: exit 1, nothing changed, it names the file");
     ok((await gallery("sort=new")).total === 0 && (await db.query(`SELECT 1 FROM "User" WHERE id = $1`, [OWNER])).rowCount === 0, "…the gallery still empty, no account made");
-    writeFileSync(join(builds, "show-td-polished", "poster.png"), "png");
+    writeFileSync(join(builds, "show-td-polished-v3", "poster.png"), "png");
 
     const first = showcase();
     ok(first.status === 0 && /6 added to the gallery/.test(first.stdout), `admin gallery showcase: 6 added (${(first.stderr || first.stdout).trim().split("\n").at(-1)})`);
@@ -761,8 +761,8 @@ async function showcaseChecks(db) {
     const tdVersions = (await db.query(`SELECT n, "buildId", label FROM "Version" WHERE "projectId" = 'showtd' ORDER BY n`)).rows;
     const tdNow = (await db.query(`SELECT "currentVersion", listed, shared FROM "Project" WHERE id = 'showtd'`)).rows[0];
     ok(moved.status === 0 && /1 moved to a newer build/.test(moved.stdout) && /showtd.*as version 2/.test(moved.stdout), `run again with showtd on an older build: it moves (${moved.stdout.trim().split("\n").at(-1)})`);
-    ok(tdVersions.map((v) => `${v.n}:${v.buildId}`).join() === "1:show-td-old,2:show-td-polished" && tdNow.currentVersion === 2 && tdNow.listed && tdNow.shared, "…version 2 on the named build, version 1 kept, still listed and shared");
-    ok((await gallery("sort=new")).games.find((g) => g.id === "showtd")?.buildId === "show-td-polished", "…and the gallery plays the new build");
+    ok(tdVersions.map((v) => `${v.n}:${v.buildId}`).join() === "1:show-td-old,2:show-td-polished-v3" && tdNow.currentVersion === 2 && tdNow.listed && tdNow.shared, "…version 2 on the named build, version 1 kept, still listed and shared");
+    ok((await gallery("sort=new")).games.find((g) => g.id === "showtd")?.buildId === "show-td-polished-v3", "…and the gallery plays the new build");
     const settled = await rows();
     ok(showcase().status === 0 && (await rows()) === settled, "run once more: nothing changes");
     ok(auditOk(), "admin audit: the ledger's invariants hold with the showcase account (no credits)");
@@ -788,7 +788,7 @@ async function showcaseChecks(db) {
 
     console.log("  their share pages, plays and reports");
     const pub = await api(null, "GET", "/public/games/showracer");
-    ok(pub.status === 200 && pub.body.name === "Island Rush" && pub.body.buildId === "show-racer-polished" && pub.body.poster === true && pub.body.plays === 0, "the share page: Island Rush, its build and poster, 0 plays");
+    ok(pub.status === 200 && pub.body.name === "Island Rush" && pub.body.buildId === "show-racer-polished-v3" && pub.body.poster === true && pub.body.plays === 0, "the share page: Island Rush, its build and poster, 0 plays");
     ok((await api(null, "POST", "/public/games/showracer/play")).status === 204, "a play: 204");
     const counted = (await db.query(`SELECT coalesce(sum(count), 0)::int AS n FROM "PlayCount" WHERE "projectId" = 'showracer'`)).rows[0].n;
     ok(counted === 1 && (await gallery("sort=new")).games.find((g) => g.id === "showracer")?.plays === 1, "…counted: 1 play, in the gallery too");
