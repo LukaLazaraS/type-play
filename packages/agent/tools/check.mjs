@@ -14,6 +14,7 @@ import { mkdirSync, statSync, writeFileSync, appendFileSync, existsSync, readdir
 import { join, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serve, openPage, sleep } from './web.mjs';
+import { analyse as colourOf } from './colours.mjs';
 import { limitThisProcess } from './cpu.mjs';
 
 limitThisProcess(); // Godot and the hidden browser: 4 cores stay free on a PC (on the server its container caps them), low priority (tools/cpu.mjs)
@@ -50,7 +51,11 @@ const aspect = setting('stretch/aspect');
 // Games made since 2026-11-04 (run.mjs writes TEMPLATE 2) are held to rules/FAST.md: their stress test and the
 // start-freeze check can fail them. Older games get the same measurements as notes once they have a stress test.
 const templateFile = join(project, 'TEMPLATE');
-const fast = existsSync(templateFile) && Number(readFileSync(templateFile, 'utf8').trim()) >= 2;
+const template = existsSync(templateFile) ? Number(readFileSync(templateFile, 'utf8').trim()) || 0 : 0;
+const fast = template >= 2;
+// Games made since 2026-11-07 (TEMPLATE 3) are also held to their colours (rules/BASE.md "Colours that read"): a washed-out
+// or too-dark screen fails them. Older games get it as a note.
+const colourStrict = template >= 3;
 const stressTest = existsSync(join(project, 'test', 'stress_test.tscn'));
 const notes = []; // measurements that don't fail this game (older games), shown after the errors
 
@@ -186,8 +191,16 @@ async function stressInBrowser(viewport) {
     const server = await serve(out);
     const page = await openPage(`${server.base}/index.html`, { viewport });
     try {
+      let shot = false;
       for (let waited = 0; waited < 90_000; waited += 1000) {
         await sleep(1000);
+        // A picture of the busiest moment once it is measuring (helpers.gd prints MEASURING): the colour check and the
+        // agent see the game deep into play, not only its first seconds.
+        if (!shot && page.console.some((l) => /^MEASURING/.test(l.text))) {
+          shot = true;
+          const file = join(project, 'export', 'screenshot-busiest.png');
+          if (await page.shot(file)) shots.push(`the busiest moment (your stress test, in the browser): ${file}`);
+        }
         if (page.console.some((l) => /^PERF: /.test(l.text))) break;
       }
     } finally {
@@ -365,6 +378,26 @@ if (browserPerf && typeof browserPerf.draw_calls !== 'number') {
   }
 }
 
+// Colours (rules/BASE.md "Colours that read"; docs/research/game-colours-2026-11-07.md): the play, computer and busiest
+// moment's pictures, measured in milliseconds without AI. Washed out (much of the screen pure white, near white or
+// pale, or bright and flat) or too dark fails a game made since 11-07; older games get a note.
+const colourLines = [];
+for (const name of ['play', 'computer', 'busiest']) {
+  const file = join(project, 'export', `screenshot-${name}.png`);
+  if (!existsSync(file) || !shots.some((s) => s.endsWith(file))) continue;
+  let c;
+  try { c = colourOf(file); } catch { continue; }
+  colourLines.push(`${name} ${c.light} light, ${Math.round(c.white * 100)}% near white, ${Math.round(c.dark * 100)}% near black, contrast ${c.contrast}`);
+  if (!c.verdict) continue;
+  const where = { play: '3 s into play', computer: 'on a computer', busiest: 'at the busiest moment' }[name];
+  const msg = `[colours] the screen ${where} is ${c.verdict} (screenshot-${name}.png). `
+    + (c.verdict.startsWith('washed')
+      ? 'In 3D take the sky and light from lib/lighting.gd (Lighting.setup) and add no light to brighten it (the web renderer draws a sun with shadows about twice as bright as its number); make floors, walls and ground mid colours, never near white. In 2D give big areas mid or deep colours and keep white for small highlights, with dark outlines ("Colours that read")'
+      : 'Light the play area: in 3D Lighting.setup with the "night" mood still shows the scene; in 2D lift the background and give pieces light colours with dark outlines ("Colours that read")');
+  if (colourStrict) errors.push(msg);
+  else notes.push(msg.replace('[colours]', '[colours, not failed: an older game]'));
+}
+
 // The same error shows up in several stages; report each once, at the first stage it appeared.
 const seen = new Set();
 const unique = errors.filter((e) => {
@@ -391,6 +424,7 @@ if (frameRates.length) console.log(`frames a second while playing (hidden browse
 if (testSummary.length) console.log(`tests: ${testSummary.join('; ')}`);
 for (const l of perfLines) console.log(`speed at the ${l}`);
 if (freezeLine) console.log(`start freezes: ${freezeLine}`);
+if (colourLines.length) console.log(`colours (0-255): ${colourLines.join('; ')}`);
 for (const n of notes) console.log(`note ${n}`);
 for (const s of shots) console.log(`screenshot ${s}`);
 if (shots.length) console.log('Open the screenshots with the Read tool to see the game.');

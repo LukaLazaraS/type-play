@@ -752,6 +752,19 @@ async function showcaseChecks(db) {
     ok(again.status === 0 && /nothing to change/.test(again.stdout) && (await rows()) === before, "run again: exit 0, nothing to change, the rows exactly as they were");
     const audits = (await db.query(`SELECT details FROM "BillingAudit" WHERE "userId" = $1 AND action = 'gallery_showcase' ORDER BY at`, [OWNER])).rows;
     ok(audits.length === 2 && audits[0].details.added.length === 6 && audits[1].details.added.length === 0, "the audit: a row per run (6 added, then none)");
+
+    console.log("  a newer build: the game's next version (2026-11-07)");
+    // A game whose version points at another build than src/gallery/showcase.ts names (as after the 11-04 night's faster
+    // builds) moves to the named one as its next version; the old version stays (restorable).
+    await db.query(`UPDATE "Version" SET "buildId" = 'show-td-old' WHERE "projectId" = 'showtd' AND n = 1`);
+    const moved = showcase();
+    const tdVersions = (await db.query(`SELECT n, "buildId", label FROM "Version" WHERE "projectId" = 'showtd' ORDER BY n`)).rows;
+    const tdNow = (await db.query(`SELECT "currentVersion", listed, shared FROM "Project" WHERE id = 'showtd'`)).rows[0];
+    ok(moved.status === 0 && /1 moved to a newer build/.test(moved.stdout) && /showtd.*as version 2/.test(moved.stdout), `run again with showtd on an older build: it moves (${moved.stdout.trim().split("\n").at(-1)})`);
+    ok(tdVersions.map((v) => `${v.n}:${v.buildId}`).join() === "1:show-td-old,2:show-td-polished" && tdNow.currentVersion === 2 && tdNow.listed && tdNow.shared, "…version 2 on the named build, version 1 kept, still listed and shared");
+    ok((await gallery("sort=new")).games.find((g) => g.id === "showtd")?.buildId === "show-td-polished", "…and the gallery plays the new build");
+    const settled = await rows();
+    ok(showcase().status === 0 && (await rows()) === settled, "run once more: nothing changes");
     ok(auditOk(), "admin audit: the ledger's invariants hold with the showcase account (no credits)");
 
     console.log("  beside a tester's game");
@@ -804,6 +817,62 @@ async function showcaseChecks(db) {
     rmSync(builds, { recursive: true, force: true });
   }
   ok((await gallery("sort=new")).total === 0, "afterwards: the gallery empty again for the checks below");
+}
+
+/**
+ * TypePlay's own change to a player's game (`admin run`, 2026-11-07): the admin CLI writes it into the line, the API takes
+ * it in (queue.service `adopt`, every 15 s), the fake agent builds it, and it lands as the game's next version: free, its
+ * messages by the TypePlay account, the player's credits untouched, the version before restorable.
+ */
+async function maintenanceChecks(db) {
+  console.log("TypePlay's own changes: admin run (written by the CLI, taken in by the API, free, the next version)");
+  const OWNER = "typeplay-showcase";
+  const MT = `dev:e2e-${stamp}-mt@test.local`;
+  const promptFile = join(DATA, `e2e-maintenance-${stamp}.txt`);
+  writeFileSync(promptFile, "Make the game faster and fix its colours (e2e).");
+  let id = null;
+  try {
+    await api(MT, "GET", "/me");
+    const made = await api(MT, "POST", "/projects", { prompt: "A tester's runner GENRE:runner", model: "fast" });
+    id = made.body?.id ?? null;
+    if (id) projects.push(id);
+    const s = id ? await openEvents(MT, id) : null;
+    const built = s ? await s.until(finished, 60_000).finally(() => s.close()) : null;
+    ok(built?.type === "done", "a tester's game, built (version 1)");
+    const before = (await api(MT, "GET", "/me")).body.credits.available;
+
+    ok(admin("run", id).status === 1 && admin("run", id, "--text", "x").status === 1, "no --text or no --prompt-file: exit 1");
+    ok(admin("run", "nosuchgame1", "--text", "x", "--prompt-file", promptFile).status === 1, "an unknown game: exit 1");
+    ok(admin("run", id, "--text", "x", "--prompt-file", promptFile, "--model", "huge").status === 1, "an unknown model: exit 1");
+
+    const live = await openEvents(MT, id);
+    const queued = admin("run", id, "--text", "TypePlay update: smoother and clearer colours", "--prompt-file", promptFile, "--model", "smart", "--effort", "high", "--label", "Faster, clearer colours");
+    ok(queued.status === 0 && /queued TypePlay's change/.test(queued.stdout), `admin run: queued (${(queued.stderr || queued.stdout).trim().split("\n").at(-1)})`);
+    ok(admin("run", id, "--text", "again", "--prompt-file", promptFile).status === 1, "a second one while it waits: exit 1, busy");
+    const ended = await live.until(finished, 60_000).finally(() => live.close());
+    ok(ended?.type === "done" && ended.version?.n === 2, `taken in by the API within 15 s and built: version 2 (${ended?.type ?? "nothing"})`);
+
+    const game = (await api(MT, "GET", `/projects/${id}`)).body;
+    const [ask, answer] = game.messages.slice(-2);
+    ok(ask?.role === "user" && ask.text === "TypePlay update: smoother and clearer colours" && ask.by?.name === "TypePlay", "the chat: the request, sent by TypePlay");
+    ok(answer?.role === "agent" && answer.status === "done" && answer.credits === 0 && answer.versionN === 2 && answer.model === "smart" && answer.effort === "high", "…the answer: done, 0 credits, version 2, Smart high");
+    ok(game.versions.map((v) => `${v.n}:${v.label}`).join("|").endsWith("2:Faster, clearer colours") && game.currentVersion === 2, "version 2 with its label; version 1 still listed (restorable)");
+    ok((await api(MT, "GET", "/me")).body.credits.available === before, `the player's credits untouched (${before})`);
+    const row = (await db.query(`SELECT m."costUsd", m.plan, m."authorId", (SELECT count(*)::int FROM "CreditEntry" e WHERE e."messageId" = m.id) AS entries, (SELECT count(*)::int FROM "QueuedRun" q WHERE q."messageId" = m.id) AS waiting FROM "Message" m WHERE m.id = $1`, [answer.id])).rows[0];
+    ok(row?.authorId === OWNER && row.plan === null && row.entries === 0 && row.waiting === 0 && row.costUsd !== null, "in the database: by the TypePlay account, no plan, no ledger entry, out of the line, its cost kept for us");
+    const restored = await api(MT, "POST", `/projects/${id}/restore`, { n: 1 });
+    ok(restored.status < 300 && (await api(MT, "GET", `/projects/${id}`)).body.currentVersion === 3, "the player can restore version 1 (as version 3)");
+    const status = admin("run", "status", id);
+    ok(status.status === 0 && status.stdout.includes(id) && /done/.test(status.stdout) && /→ v2/.test(status.stdout), "admin run status: done → v2");
+    ok((await db.query(`SELECT count(*)::int AS n FROM "BillingAudit" WHERE action = 'game_run' AND details->>'projectId' = $1`, [id])).rows[0].n === 1, "the audit: one game_run row");
+    ok(admin("run", "showracer", "--text", "x", "--prompt-file", promptFile).status === 1, "a showcase game (no folder here): exit 1");
+    ok(auditOk(), "admin audit: the ledger's invariants hold");
+  } finally {
+    if (id) await api(MT, "DELETE", `/projects/${id}`).catch(() => {});
+    rmSync(promptFile, { force: true });
+    await db.query(`DELETE FROM "User" WHERE id = $1`, [OWNER]);
+    await db.query(`DELETE FROM "BillingAudit" WHERE action = 'game_run'`);
+  }
 }
 
 async function galleryChecks(db) {
@@ -2772,6 +2841,7 @@ async function main() {
 
   await queueChecks(db);
   await showcaseChecks(db);
+  await maintenanceChecks(db);
   await galleryChecks(db);
   await feedbackChecks(db, p.id);
   await inviteChecks(db);

@@ -38,7 +38,7 @@ grow with play time or progress.** Build it fast from the first line; the check 
   ones behind; the world never builds itself ahead without removing what is behind.
 - **Text**: set a Label's text only when the value changes.
 - **3D**: one mesh and one material per look, shared by every copy (`MultiMeshInstance3D` for many copies: trees,
-  coins, crowds); a few lights, shadows only from the sun; nothing past the camera's far distance. Never switch a
+  coins, crowds); a few lights, shadows only from the sun (`Lighting.setup()`); nothing past the camera's far distance. Never switch a
   material's features during play (emission, transparency, a texture on/off): make a second material for the lit
   look and warm both up.
 - **Warm-up**: the first time the browser draws a new kind of thing (a material, a particle effect, a text size)

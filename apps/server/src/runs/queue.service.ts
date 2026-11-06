@@ -34,6 +34,9 @@ const NOT_STARTED: Partial<Record<ApiErrorCode, string>> = {
 const EXPIRED_TEXT = "This waited too long for its turn, so it left the queue. Your game is unchanged, and nothing was charged. Send it again in a few minutes.";
 const TAKEN_TEXT = "This build was interrupted by a restart on our side just as it started. Your game is unchanged, and nothing was charged.";
 
+/** How often the API looks for TypePlay's own changes the admin CLI put in the line. */
+const ADOPT_EVERY_MS = 15_000;
+
 /** What a new build in line needs written: QueuedRun's columns (nested under its agent message, in the same write). */
 export type QueuedRunData = Omit<QueuedRun, "messageId">;
 
@@ -65,6 +68,7 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
   private timer: NodeJS.Timeout | null = null;
   private stopping = false;
   private unsubscribe: (() => void) | null = null;
+  private adoptTimer: NodeJS.Timeout | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -102,12 +106,38 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
   /** After every module's start: what a stopped server left running is reset (runs.service), so the line can move. */
   onApplicationBootstrap() {
     this.tick();
+    // TypePlay's own changes (`admin run`) are written into the line by the admin CLI, another process: looked for now
+    // and then, and taken in like the line a restart finds.
+    this.adoptTimer = setInterval(() => void this.adopt().catch((e) => this.log.error(`adopt: ${e}`)), ADOPT_EVERY_MS);
+    this.adoptTimer.unref();
   }
 
   onApplicationShutdown() {
     this.stopping = true;
     if (this.timer) clearTimeout(this.timer);
+    if (this.adoptTimer) clearInterval(this.adoptTimer);
     this.unsubscribe?.();
+  }
+
+  /** Builds in the line that this server doesn't know yet (the admin CLI's `run` writes them): mirrored, then started
+   * when they can start, like any waiting build. Only TypePlay's own changes come this way. */
+  async adopt() {
+    if (this.stopping) return;
+    const known = [...this.registry.queued.values()].map((q) => q.messageId);
+    const rows = await this.prisma.queuedRun.findMany({
+      where: { maintenance: true, messageId: { notIn: known } },
+      include: { message: { select: { model: true, effort: true, status: true, authorId: true } } },
+    });
+    let added = 0;
+    for (const { message, ...row } of rows) {
+      if (message.status !== "queued" || !message.model) continue;
+      if (this.registry.queued.has(row.projectId)) continue; // one waiting build a game (the table says so too)
+      this.registry.queued.set(row.projectId, entryOf(row, message.model, message.effort ?? "medium", message.authorId));
+      this.holds.set(row.messageId, this.credits.hold(row.userId, 0));
+      this.log.log(`queue ${row.projectId}: TypePlay's change taken into the line`);
+      added++;
+    }
+    if (added) this.tick();
   }
 
   /** The row for a build going into the line now: its turn (paid now, free after the delay) and its hold. `ask`,
@@ -144,6 +174,7 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
       answered: !!r.answered,
       sized: !!r.sized,
       label: r.label ?? null,
+      maintenance: false,
       lane,
       queuedAt: r.at,
       turnAt,
@@ -237,11 +268,14 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
       hold = this.holds.get(q.messageId) ?? this.credits.hold(q.userId, fromTenths(row.holdTenths));
       this.holds.set(q.messageId, hold);
       user = await this.credits.settled(await this.prisma.user.findUniqueOrThrow({ where: { id: q.userId } }));
-      try {
-        await this.credits.assertCanStart(user, q.kind, q.model, row.message.effort ?? "medium", hold);
-      } catch (e) {
-        if (!(e instanceof ApiException)) throw e;
-        refusal = e;
+      // TypePlay's own change (`admin run`) is free and ours: no plan or credit checks.
+      if (!row.maintenance) {
+        try {
+          await this.credits.assertCanStart(user, q.kind, q.model, row.message.effort ?? "medium", hold);
+        } catch (e) {
+          if (!(e instanceof ApiException)) throw e;
+          refusal = e;
+        }
       }
       // Out of the line in one step: a Stop that came meanwhile took the row first, and then nothing starts.
       claimed = await this.prisma.queuedRun.deleteMany({ where: { messageId: q.messageId } });
@@ -260,7 +294,7 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
     const startedAt = new Date();
     // The plan it starts on: the kill switch counts a Free build's cost by it, as for a build that started at once.
     try {
-      await this.prisma.message.update({ where: { id: q.messageId }, data: { status: "running", startedAt, plan: user.plan } });
+      await this.prisma.message.update({ where: { id: q.messageId }, data: { status: "running", startedAt, plan: row.maintenance ? null : user.plan } });
     } catch (e) {
       hold.release(); // out of the line, not started: its message stays "queued" until the next start marks it failed
       throw e;
@@ -282,6 +316,7 @@ export class BuildQueue implements OnModuleInit, OnApplicationBootstrap, OnAppli
       answered: row.answered,
       sized: row.sized,
       label: row.label,
+      maintenance: row.maintenance,
       hold,
       startedAt,
     });

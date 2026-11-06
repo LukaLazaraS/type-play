@@ -209,7 +209,7 @@ npm run admin -w @typeplay/server -- gallery hide <gameId> [reason]      # out o
 npm run admin -w @typeplay/server -- gallery unhide <gameId>             # back in (while its maker lists it); open reports handled
 npm run admin -w @typeplay/server -- gallery dismiss <gameId>            # open reports handled, the game stays as it is
 npm run admin -w @typeplay/server -- gallery unshare <gameId> [reason]   # stops sharing it: the share page 404s and it leaves the gallery (its maker can share it again)
-npm run admin -w @typeplay/server -- gallery showcase                    # our six showcase games in it (src/gallery/showcase.ts): only the missing ones are added, so again changes nothing
+npm run admin -w @typeplay/server -- gallery showcase                    # our six showcase games in it (src/gallery/showcase.ts): the missing ones are added; one on an older build than showcase.ts names moves to it as its next version; else nothing changes
 ```
 
   `gallery showcase` (10-29) puts the six polished showcase games (the home page's) in the gallery under the account
@@ -558,6 +558,37 @@ A user exists after their first sign-in (the API creates them with the Free plan
 once they are invited).
 A positive grant opens an `admin` bucket (spent last, never ends); every command writes a `BillingAudit`
 row as `admin:<ADMIN_NAME or the OS user>`. The last three commands talk to Paddle (`PADDLE_ENV` + `PADDLE_API_KEY`).
+
+## TypePlay's own changes to a game (`admin run`, 2026-11-07)
+
+TypePlay brings a player's game up to the current standard (the speed budgets and the colour check,
+`packages/agent/rules/FAST.md`, `rules/BASE.md` "Colours that read") the standard way: a message in the game's chat, a
+build by the game agent on this server's key, and on success the game's next version. The chat keeps everything it had,
+the next change continues from the new code, and the version before stays restorable. First used for the public games
+(docs/research/game-colours-2026-11-07.md).
+
+```
+npm run admin:live -w @typeplay/server -- run list                    # the gallery's games: newest version, owner, BUSY / DIRTY
+npm run admin:live -w @typeplay/server -- run <gameId> --text "<the chat line>" --prompt-file <file> [--model smart] [--effort high] [--label "<version label>"]
+npm run admin:live -w @typeplay/server -- run status [gameId]          # TypePlay's changes: queued, running, done → vN or failed, minutes, $ (ours)
+```
+
+- **How it runs:** the CLI writes the two messages (by the account `typeplay-showcase`, named TypePlay: nobody can sign in
+  as it) and a `QueuedRun` with `maintenance: true` (migration `20261107000000_maintenance_runs`). The API looks for such
+  rows every 15 s (`queue.service` `adopt`) and starts it in the line's order once the game has nothing else going; a
+  player's message meanwhile gets 409 busy, as with any waiting build.
+- **Free and ours:** no plan or credit check, nothing held or charged, nothing counted by the Free kill switch; the cost
+  stays on the message (`costUsd`, `meteredUsd`) for our accounting; the answer says 0 credits.
+- **The build:** run.mjs `--maintenance` (with `--sized`: never stopped as too big): the game's `TEMPLATE` goes to the
+  current generation first, so the check holds it to every budget and its colours like a new game (a failed attempt's
+  rollback takes it back out), with `rules/MAINTENANCE.md` (keep the game theirs: same features, numbers, texts, look apart
+  from the colour fix) and a new game's room (twice its turns and budget). The prompt may be up to 30,000 letters (the
+  runner takes up to 32,000 for a prompt, 8,000 for any other value), enough for a reference fix.
+- **In the chat:** a game with a message by someone else shows who sent each message (as in pair developing): "TypePlay"
+  above the request, "for TypePlay" on the answer; the version's label is `--label`. Nobody is notified (the account has
+  no devices).
+- Refused: an unknown game, our showcase games (no folder here), a game with no version, or one with a build waiting or
+  running. Audited as `game_run`. Tests: `test/e2e.mjs` "TypePlay's own changes".
 
 ## Pictures with a message (2026-11-04)
 

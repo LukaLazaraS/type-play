@@ -30,7 +30,10 @@
 //   npm run admin -w @typeplay/server -- gallery unhide <gameId>             (back in, while its maker lists it)
 //   npm run admin -w @typeplay/server -- gallery dismiss <gameId>            (its open reports handled; the game stays as it is)
 //   npm run admin -w @typeplay/server -- gallery unshare <gameId> [reason]   (stops sharing it: the share page 404s too)
-//   npm run admin -w @typeplay/server -- gallery showcase                    (our six showcase games in it, src/gallery/showcase.ts; again: no change)
+//   npm run admin -w @typeplay/server -- gallery showcase                    (our six showcase games in it, src/gallery/showcase.ts; a newer build: their next version)
+// TypePlay's own changes to a player's game (src/runs/admin-run.ts, 2026-11-07): free, by the TypePlay account, the next version:
+//   npm run admin -w @typeplay/server -- run list | run status [gameId]
+//   npm run admin -w @typeplay/server -- run <gameId> --text <chat line> --prompt-file <file> [--model smart] [--effort medium] [--label <l>]
 // Every command writes a BillingAudit row (actor "admin:<ADMIN_NAME or the OS user>").
 import { userInfo } from "node:os";
 import type { PlanId } from "@typeplay/shared";
@@ -47,6 +50,7 @@ import { FEEDBACK_USAGE, feedbackAdmin } from "./feedback/admin-feedback.js";
 import { GALLERY_USAGE, galleryAdmin } from "./gallery/admin-gallery.js";
 import type { EventStatus } from "./generated/prisma/client.js";
 import { createPrisma } from "./prisma.js";
+import { RUN_USAGE, runAdmin } from "./runs/admin-run.js";
 
 // Which database this is, before anything is read or written (docs/environments.md).
 if (ENV_MODE === "development" || ENV_MODE === "autotest") console.error(`admin: this PC's ${ENV_MODE} database (npm run admin:live for the live one)`);
@@ -229,6 +233,8 @@ async function main() {
     } else throw new Error("usage: android builds <projectId> | android toolchain");
   } else if (cmd === "gallery") {
     await galleryAdmin(prisma, ledger, args, actor);
+  } else if (cmd === "run") {
+    await runAdmin(prisma, ledger, args, actor);
   } else if (cmd === "invite") {
     await inviteAdmin(prisma, ledger, args, actor);
   } else if (cmd === "code") {
@@ -241,6 +247,7 @@ async function main() {
         "       admin events [--status s] [--limit n] | event <id> | retry <id> | refund <email> <txn|last> [reason] | sync <email> | downgrade <email> cancel\n" +
         "       admin android builds <projectId> | android toolchain\n" +
         `       ${GALLERY_USAGE}\n` +
+        `       ${RUN_USAGE}\n` +
         `       ${INVITE_USAGE}\n` +
         `       ${CODE_USAGE}\n` +
         `       ${FEEDBACK_USAGE}`,

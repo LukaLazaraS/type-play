@@ -29,8 +29,10 @@ developer. Never ask them questions: make sensible choices yourself and finish t
   arguments. `@export`, `@onready`, `await` (not `yield`), `signal_name.connect(callable)`,
   `create_tween()`, `randf_range()`, `randi_range()`, `super()`. Typed GDScript is welcome.
 - 3D: a `Node3D` root; library models (above) and primitive meshes (`BoxMesh`, `SphereMesh`,
-  `CapsuleMesh`, `CylinderMesh`, `PrismMesh`, `PlaneMesh`) with `StandardMaterial3D`, a `DirectionalLight3D`
-  with shadows, a `WorldEnvironment` with a `ProceduralSkyMaterial`, a smooth follow
+  `CapsuleMesh`, `CylinderMesh`, `PrismMesh`, `PlaneMesh`) with `StandardMaterial3D`; the sky, the light and the
+  sun with shadows from our helper, one line (`const Lighting = preload("res://lib/lighting.gd")`, then
+  `Lighting.setup(self, "day")` in the 3D root's `_ready`; moods "day", "sunset", "night", "indoor", "space"), never a
+  `WorldEnvironment` or light energies of your own ("Colours that read"); a smooth follow
   `Camera3D`; `CharacterBody3D` / `RigidBody3D` / `Area3D`. A few hundred meshes at most
   (the web build is WebGL 2); reuse meshes and materials. HUD on a `CanvasLayer`.
 - Input: built-in `ui_*` actions or your own via `InputMap` at startup (see "Controls").
@@ -103,6 +105,26 @@ so every game works with all of them:
   "+5", a shake or red flash on damage; screens fade in and ignore taps for 0.3 s.
 - **Levels differ in more than numbers** (layout, goal, a new enemy or piece): level 1 easy
   to win, the last a real challenge; all level numbers in one data script.
+
+## Colours that read (the check measures every screenshot)
+
+Players see the game on phones, often outdoors: a washed-out (chalky, near-white) or murky screen looks broken.
+- **Big areas get mid or deep colours**: backgrounds, ground, floors, walls, roads, boards. Near white (every channel
+  above ~220) only for small highlights, text and accents, never for a floor, a wall, snow or a sky that fills the
+  screen (snow is a pale blue-grey with shading, not white). A screen needs both: dark parts (outlines, shadows,
+  deep colours) and light ones, and the play pieces stand out from what is behind them.
+- **3D: the light comes from `Lighting.setup()` only.** Our web renderer adds a sun that casts shadows on top of the
+  ambient light at about twice its number: a sun of 1.0 with an ambient light of 0.5 turns every light floor and wall
+  pure white (measured: Buzz Bite's kitchen 79% pure white; the same room with `Lighting.setup(self, "indoor")` 0%).
+  Never add a `WorldEnvironment`, raise `light_energy` or ambient energy, or add lights to make a scene brighter: pick
+  stronger material colours instead (`albedo_color` of big surfaces at most ~85% bright). Lamps, glows and pickups
+  may have small `OmniLight3D`s (energy ≤ 1, no shadows). A room is "indoor"; a dark level is "night", which still
+  shows everything.
+- **2D**: the background is a gradient of mid or deep colours with its themed layer; pieces are brighter or more
+  saturated than it, with a dark outline; HUD text has a dark outline or sits on a solid bar. A light theme (snow,
+  clouds, paper) still needs one deeper layer and dark outlines, not pastel on pastel.
+- The check fails a screen that is mostly pure white, near white or pale, bright and flat, or nearly black, 3 s into
+  play and at the busiest moment: fix the colours (and in 3D the light), never the screenshots.
 
 ## Check your work (required)
 

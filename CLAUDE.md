@@ -111,6 +111,10 @@ open the API account just before beta 1.
   must not be able to read the main site's login cookies.
 - Models sometimes write Godot 3 code (`KinematicBody2D`, `export var`, `yield`): the agent's
   rules say Godot 4.7 (`CharacterBody2D`, `@export`, `await`), and every build is test-run.
+- 3D light in the Compatibility renderer (web and Android): a light that casts shadows is drawn in extra passes added
+  in sRGB, so with ambient light on a scene comes out about twice as bright as its numbers (Godot issue #90259): a sun
+  of 1.0 plus ambient 0.5 turns light walls and floors pure white (Buzz Bite, 2026-11-07). Games take their light from
+  `packages/agent/templates/blank/lib/lighting.gd`; the check fails washed-out screens (docs/research/game-colours-2026-11-07.md).
 - Godot web preview is strong in desktop browsers, weaker on phones: the native build is the
   real phone experience; say so in the UI.
 - Opus 5.5 / Sonnet 5.5 can refuse a prompt (safety classifiers, `stop_reason: refusal`):

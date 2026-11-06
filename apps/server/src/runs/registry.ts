@@ -36,6 +36,8 @@ export interface ActiveRun {
   answered?: boolean;
   sized?: boolean;
   label?: string | null;
+  /** TypePlay's own change (`admin run`), as StartRun's: free. */
+  maintenance?: boolean;
   /** The credits held for this run while it goes (released when its charge or failure is written). */
   hold: CreditHold | null;
   handle: AgentHandle | null;

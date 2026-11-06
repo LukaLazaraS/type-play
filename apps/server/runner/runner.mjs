@@ -274,7 +274,10 @@ class JobError extends Error {}
 /** Checks the job and gets the folder ready; returns the commands to run, in order. */
 function plan(job, dir, uid, home) {
   let args = Array.isArray(job.args) ? job.args : [];
-  if (args.length > 24 || !args.every((a) => typeof a === 'string' && a.length <= 8000)) throw new JobError('bad args');
+  // A prompt may be longer than a flag (a player's is at most 4,000 letters; TypePlay's own changes, `admin run`, carry a
+  // reference fix of up to 30,000): every other value stays within 8,000.
+  const long = (i) => i > 0 && args[i - 1] === '--prompt';
+  if (args.length > 24 || !args.every((a, i) => typeof a === 'string' && a.length <= (long(i) ? 32000 : 8000))) throw new JobError('bad args');
   const git = existsSync(join(dir, '.git'));
   if (job.kind === 'remove') {
     rmSync(dir, { recursive: true, force: true });

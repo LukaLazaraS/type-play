@@ -44,6 +44,9 @@ export interface AgentJob {
   ask?: boolean;
   answered?: boolean;
   sized?: boolean;
+  /** TypePlay's own change (`admin run`, run.mjs --maintenance): the game is lifted to the current template and held to
+   * every budget and its colours. */
+  maintenance?: boolean;
   logFile: string;
   onProgress: (text: string) => void;
   auth?: AgentAuth;
@@ -224,6 +227,7 @@ export function runAgent(job: AgentJob): AgentHandle {
   if (job.answered) args.push("--answered");
   else if (job.ask) args.push("--ask");
   if (job.sized && job.kind === "edit") args.push("--sized");
+  if (job.maintenance && job.kind === "edit") args.push("--maintenance");
   // 0700: run logs carry the prompt and the agent's narration; on the live server the runner's
   // throwaway users can traverse /data and must not read them (runner.mjs sets the same).
   mkdirSync(dirname(job.logFile), { recursive: true, mode: 0o700 });

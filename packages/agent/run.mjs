@@ -74,6 +74,12 @@ const game = opt('game') || (dirOpt && basename(resolve(dirOpt)));
 // --prompt-file: the live server's runner passes the prompt in a private file, not in argv (/proc/<pid>/cmdline is world-readable).
 const prompt = opt('prompt') ?? (opt('prompt-file') ? readFileSync(opt('prompt-file'), 'utf8') : undefined);
 const isEdit = flag('edit');
+// --maintenance: TypePlay's own change to a player's game (the server's `admin run`): no player wrote it; the game is
+// brought up to the current template (its TEMPLATE file, so the check holds it to every budget) and gets more room.
+const maintenance = isEdit && flag('maintenance');
+// The template generation games are made with now: 3 (2026-11-07) = fast games (2, rules/FAST.md) whose colours read
+// (rules/BASE.md "Colours that read"): the check fails a washed-out or too-dark screen.
+const TEMPLATE = 3;
 // The player's pictures (--images): the AI's view of each goes into every session's first message, and its file's path,
 // for the agent to copy into the game when the player asks for that (rules/PICTURES.md). Never in the game folder.
 const imagesDir = opt('images') ? resolve(opt('images')) : null;
@@ -166,9 +172,10 @@ if (isEdit) {
     writeFileSync(join(dir, 'project.godot'), text);
   }
   writeFileSync(join(dir, 'PLATFORM'), opt('platform', 'auto') + '\n');
-  // The template generation the game was made with: 2 (2026-11-04) = fast games (rules/FAST.md): the check requires
-  // its stress test and fails shader compiles after play starts. Older games (no file) get those as warnings.
-  writeFileSync(join(dir, 'TEMPLATE'), '2\n');
+  // The template generation the game was made with (TEMPLATE above): 2 (2026-11-04) = fast games (rules/FAST.md): the
+  // check requires its stress test and fails shader compiles after play starts; 3 (2026-11-07) also fails washed-out or
+  // too-dark colours. Older games (no file, or a lower number) get those as warnings.
+  writeFileSync(join(dir, 'TEMPLATE'), `${TEMPLATE}\n`);
   // The tags the same way, in TAGS (one line, as picked); no tags, no file.
   if (pickedTags.length) writeFileSync(join(dir, 'TAGS'), pickedTags.join(' ') + '\n');
   if (opt('seed')) cpSync(resolve(opt('seed')), dir, { recursive: true }); // ports and tests: files the game starts with (Builder only)
@@ -317,6 +324,9 @@ cpSync(join(HERE, 'templates', 'blank', 'test', 'helpers.gd'), helpers);
 // an older game can use them in its next change.
 mkdirSync(join(dir, 'lib'), { recursive: true });
 for (const f of readdirSync(join(HERE, 'templates', 'blank', 'lib'))) cpSync(join(HERE, 'templates', 'blank', 'lib', f), join(dir, 'lib', f));
+// A maintenance change (TypePlay's, --maintenance) lifts the game to the current template generation first: the check then
+// holds it to every budget and the colours, as a new game. A failed attempt's rollback takes the file back out.
+if (maintenance) writeFileSync(join(dir, 'TEMPLATE'), `${TEMPLATE}\n`);
 // At most 3 catch-up physics steps a frame (Godot's default is 8): a late frame then turns into a moment of slow motion,
 // not a slide show (docs/research/game-performance-2026-11-01.md, 2b). Older games get the line on their next run.
 {
@@ -355,6 +365,7 @@ const rules = [
       + tags.map((t) => readFileSync(join(HERE, 'tags', `${t}.md`), 'utf8').trimEnd()).join('\n\n') + '\n'
     : '',
   isEdit ? read('EDIT.md') : '',
+  maintenance ? read('MAINTENANCE.md') : '',
   // The player's pictures: references by default, the game's art only when asked (new games and changes, every AI).
   pictures.length ? read('PICTURES.md') : '',
   // The player's answers to the questions asked before this build: how to read them, You decide included.
@@ -431,8 +442,9 @@ async function attempt(key, { request = prompt, extra = '', label = '' } = {}) {
       systemPrompt: slim ? sessionRules : { type: 'preset', preset: 'claude_code', append: sessionRules },
       ...ISOLATED,
       permissionMode: 'bypassPermissions',
-      maxTurns: Number(opt('max-turns')) || (key === 'haiku' ? 50 : 60), // --max-turns: the Builder's ports only
-      maxBudgetUsd: Number(opt('budget', BUDGET[isEdit ? 'edit' : 'new'][key])),
+      // --max-turns: the Builder's ports only. A maintenance change reworks a whole game: a new game's room, twice.
+      maxTurns: Number(opt('max-turns')) || (maintenance ? 150 : key === 'haiku' ? 50 : 60),
+      maxBudgetUsd: Number(opt('budget', maintenance ? BUDGET.new[key] * 2 : BUDGET[isEdit ? 'edit' : 'new'][key])),
     },
   })) {
     appendFileSync(log, JSON.stringify(msg) + '\n');

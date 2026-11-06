@@ -56,6 +56,9 @@ export interface StartRun {
   answered?: boolean;
   sized?: boolean;
   label?: string | null;
+  /** TypePlay's own change to the game (`admin run`, 2026-11-07): free (nothing held or charged, nothing counted by the
+   * Free kill switch), its messages by the TypePlay account; run.mjs --maintenance. */
+  maintenance?: boolean;
   /** The credits held for this run (credits.service `assertCanRun`); released when it ends. */
   hold: CreditHold | null;
   /** When it started, as its message's `startedAt` says (after its time in line, if it waited). */
@@ -299,6 +302,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       ask: !!run.ask,
       answered: !!run.answered,
       sized: !!run.sized,
+      maintenance: !!run.maintenance,
       logFile: join(config.dataDir, "logs", `${run.projectId}-${run.messageId}.log`),
       onProgress: (text: string) => {
         const e = { type: "progress" as const, messageId: run.messageId, text, at: new Date().toISOString() };
@@ -369,7 +373,8 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     const agentUsd = (result.chargeUsd ?? result.costUsd) + sideUsd(result);
     const chargeUsd = Math.max(agentUsd, metered ?? 0);
     const costUsd = result.costUsd + sideUsd(result); // every attempt: our accounting
-    const credits = creditsForUsd(chargeUsd);
+    // TypePlay's own change (`admin run`) is free: the cost is ours (costUsd, meteredUsd), nobody is charged.
+    const credits = run.maintenance ? 0 : creditsForUsd(chargeUsd);
     const text = result.playerMessage?.trim() || "Your game is ready. Press play!";
     // Fake runs only: a prompt with "SLOW" publishes slowly, so the e2e test can land a Stop here.
     if (config.agentFake && run.prompt.includes("SLOW")) await sleep(3000);
@@ -388,12 +393,12 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
           data: { status: "done", text, credits, costUsd, meteredUsd: metered, versionN: n, suggestions: result.suggestions ?? [], finishedAt: new Date() },
           include: WITH_AUTHOR,
         });
-        // The kill switch's number (kept apart from the message: a deleted game's runs still count).
-        if (message.plan === "free") await this.ledger.addFreeSpend(tx, aiSpentUsd(result, metered));
+        // The kill switch's number (kept apart from the message: a deleted game's runs still count). Not TypePlay's own.
+        if (message.plan === "free" && !run.maintenance) await this.ledger.addFreeSpend(tx, aiSpentUsd(result, metered));
         // A rename while this run was going wins over the game agent's name.
         const now = await tx.project.findUniqueOrThrow({ where: { id: run.projectId }, select: { renamed: true } });
         await tx.project.update({ where: { id: run.projectId }, data: { currentVersion: n, orientation, platform, genre, ...(now.renamed ? {} : { name }) } });
-        await this.ledger.chargeIn(tx, run.userId, toTenths(credits), { messageId: run.messageId, note: `${run.kind} on ${run.model}` });
+        if (!run.maintenance) await this.ledger.chargeIn(tx, run.userId, toTenths(credits), { messageId: run.messageId, note: `${run.kind} on ${run.model}` });
         return [message, version] as const;
       }, TX_OPTIONS);
     } catch (e) {
@@ -564,7 +569,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
       include: WITH_AUTHOR,
     });
     // Failed runs count towards the Free kill switch too (the AI was paid for): a Stop's or a timeout's metered calls included.
-    if (message.plan === "free") await this.ledger.addFreeSpend(this.prisma, aiSpentUsd(result, metered)).catch((e) => this.log.error(`free spend ${run.projectId}: ${e}`));
+    if (message.plan === "free" && !run.maintenance) await this.ledger.addFreeSpend(this.prisma, aiSpentUsd(result, metered)).catch((e) => this.log.error(`free spend ${run.projectId}: ${e}`));
     this.registry.active.delete(run.projectId);
     run.hold?.release();
     this.registry.free();

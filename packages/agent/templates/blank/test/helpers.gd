@@ -108,6 +108,7 @@ func measure(label: String, seconds: float = 20.0, keep: Callable = Callable()) 
 	if keep.is_valid():
 		keep.call()
 	await frames(30) # let the busy moment settle (spawns, first shots)
+	print("MEASURING") # the check takes its picture of the busiest moment now (colours)
 	var bench := _bench()
 	var stats := {"draws": 0, "custom": 0, "by": {}, "added": 0}
 	var hooked := {}

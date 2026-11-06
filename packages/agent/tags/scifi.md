@@ -8,4 +8,4 @@
   Effects are lasers, sparks and shield bubbles.
 - **The sound**: synth blips, laser zaps, a low hum; no medieval or cartoon sounds.
 - **In 3D**: `pack space-kit`, `pack space-station-kit`, `pack modular-space-kit`, `pack
-  ultimate-spaceships` or `pack modular-sci-fi-mega-kit`, with a dark sky and coloured lights.
+  ultimate-spaceships` or `pack modular-sci-fi-mega-kit`, with the "space" or "night" light (`Lighting.setup()`) and small coloured lamps.

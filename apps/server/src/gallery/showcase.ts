@@ -1,7 +1,8 @@
 // `admin gallery showcase` (src/admin.ts): our six showcase games in the public gallery, under a TypePlay account of
 // their own. The one way they get there: on the live database after a deploy (docs/beta/runbook.md), and on this PC's
-// development database by the local site's seed (scripts/local-site.mjs). Running it again changes nothing: a game
-// that is there already is left as it is (its plays, reports, a hide), and only a missing one is added.
+// development database by the local site's seed (scripts/local-site.mjs). Running it again adds what is missing and
+// moves a game that is there to a newer build named below as its next version (2026-11-07: the faster builds of the
+// 11-04 night): its plays, reports and a hide stay, and the version before stays restorable; otherwise nothing changes.
 // The builds are the polished Opus ones the home page plays (apps/web/src/content/games.ts), in the home page's order;
 // name and orientation come from each build's own game.json where the gallery loads it: the games folder here
 // (GAMES_BUILDS_DIR), https://typeplay.dev for the live database. A build, pack or poster that isn't there stops it
@@ -17,9 +18,9 @@ import type { PrismaClient } from "../generated/prisma/client.js";
  * (RFC 2606), so nobody can sign in as it: the games are no player's to open or change. */
 export const SHOWCASE_OWNER = { id: "typeplay-showcase", email: "showcase@typeplay.invalid", name: "TypePlay" };
 
-/** Each game's id (its share page typeplay.app/play/<id>), its build on the games origin, and its genre for the
- * gallery's filter (the genre skill it would be built with today). */
-export const SHOWCASE: { id: string; build: string; genre: Genre }[] = [
+/** Each game's id (its share page typeplay.app/play/<id>), its build on the games origin, its genre for the gallery's
+ * filter (the genre skill it would be built with today), and what its newest build changed (the version's label). */
+export const SHOWCASE: { id: string; build: string; genre: Genre; label?: string }[] = [
   { id: "showracer", build: "show-racer-polished", genre: "racer" },
   { id: "showarcade", build: "show-arcade-polished", genre: "arcade" },
   { id: "showtd", build: "show-td-polished", genre: "towerdefence" },
@@ -68,6 +69,18 @@ export async function showcaseAdmin(prisma: PrismaClient, ledger: LedgerService,
     if (typeof b === "string") problems.push(b);
     else builds.set(g.id, b);
   }
+  // A game that is there on an older build moves to the one named above, as its next version.
+  const moves = new Map<string, { name: string; orientation: Orientation; n: number }>();
+  for (const g of SHOWCASE) {
+    const p = there.get(g.id);
+    if (!p || p.owner.id !== SHOWCASE_OWNER.id) continue;
+    const newest = await prisma.version.findFirst({ where: { projectId: g.id }, orderBy: { n: "desc" } });
+    const current = p.currentVersion == null ? null : await prisma.version.findUnique({ where: { projectId_n: { projectId: g.id, n: p.currentVersion } } });
+    if (current?.buildId === g.build) continue;
+    const b = await readBuild(g.build);
+    if (typeof b === "string") problems.push(b);
+    else moves.set(g.id, { ...b, n: (newest?.n ?? 0) + 1 });
+  }
   if (problems.length) throw new Error(`nothing changed: ${problems.join("; ")} (publish the builds first: node deploy/deploy.mjs games)`);
 
   const now = Date.now();
@@ -98,19 +111,27 @@ export async function showcaseAdmin(prisma: PrismaClient, ledger: LedgerService,
       });
       ids.push(g.id);
     }
-    await ledger.audit(tx, { actor, userId: SHOWCASE_OWNER.id, action: "gallery_showcase", details: { added: ids } });
+    for (const g of SHOWCASE) {
+      const m = moves.get(g.id);
+      if (!m) continue;
+      await tx.version.create({ data: { projectId: g.id, n: m.n, label: g.label ?? "A newer build", buildId: g.build, commit: "showcase", poster: true } });
+      await tx.project.update({ where: { id: g.id }, data: { currentVersion: m.n, name: m.name, orientation: m.orientation } });
+    }
+    await ledger.audit(tx, { actor, userId: SHOWCASE_OWNER.id, action: "gallery_showcase", details: { added: ids, moved: [...moves.entries()].map(([id, m]) => `${id} v${m.n}`) } });
     return ids;
   });
 
   for (const g of SHOWCASE) {
     const p = there.get(g.id);
     const b = builds.get(g.id);
+    const m = moves.get(g.id);
     if (b) console.log(`${g.id.padEnd(11)} "${b.name}" (${b.orientation}, ${g.genre}, ${g.build}): added`);
+    else if (m) console.log(`${g.id.padEnd(11)} "${m.name}": now ${g.build}, as version ${m.n} (the one before stays restorable)`);
     else if (p && p.owner.id !== SHOWCASE_OWNER.id) console.log(`${g.id.padEnd(11)} belongs to ${p.owner.email}: left as it is`);
     else if (p) {
       const state = p.listed && p.shared ? (p.hiddenAt ? `hidden since ${p.hiddenAt.toISOString().slice(0, 10)} (admin gallery unhide ${g.id})` : "in the gallery") : "not listed";
       console.log(`${g.id.padEnd(11)} "${p.name}": there already, ${state}`);
     }
   }
-  console.log(added.length ? `${added.length} added to the gallery` : "nothing to change: every showcase game is there");
+  console.log(added.length || moves.size ? `${added.length} added to the gallery, ${moves.size} moved to a newer build` : "nothing to change: every showcase game is there, on its build");
 }
