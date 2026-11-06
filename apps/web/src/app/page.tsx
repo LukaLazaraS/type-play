@@ -21,7 +21,7 @@ const game = (slug: string) => {
   if (!g) throw new Error(`No game "${slug}" in content/games.ts`);
   return g;
 };
-const islandRush = game("show-racer-polished");
+const islandRush = game("show-racer-polished-v3");
 const free = plans.find((p) => p.id === "free")!;
 const medium = plans.find((p) => p.id === "medium")!;
 const bestBuilds = games.filter((g) => g.tier === "Best").length;
