@@ -159,6 +159,14 @@ open the API account just before beta 1.
 - Browser tasks (Claude in Chrome): only the Edge browser named **"Automation"** (signed in to
   Cloudflare etc.). If it isn't the connected one, run `switch_browser` and ask Luka to click
   Connect there; never fall back to another browser.
+- **"Done" or "merged" means Luka can see it on http://localhost:3000 now** (Luka, 2026-10-27: work merged into
+  `main` that the local site didn't show read as not done). The local site runs a built copy from the
+  `.claude/worktrees/ux-fixes` checkout, not this one (`data/local-site/` there; checked 2026-11-15). After each
+  merge into `main`: `git -C .claude/worktrees/ux-fixes merge --ff-only main`, then `node scripts/local-site.mjs
+  update` from that worktree, a headless-Edge screenshot to confirm, and only then tell him to reload.
+- **The beta testers' games may be fixed live** (Luka, 2026-11-04): the testers are his friends and family in a
+  closed test; fix their games live or as local copies, whichever is less work (the standard way, the previous
+  build kept for rollback). The games only, never a platform deploy; this ends when real users join at launch.
 - **At the start of every session, read `docs/parked.md`** and open the reply with a short
   list of parked items that are due or overdue. Luka parks non-technical steps on purpose
   while the core is proven, and relies on these reminders.
