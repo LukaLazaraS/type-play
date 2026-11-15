@@ -11,6 +11,7 @@
 //   node deploy/deploy.mjs api-ssh [command]   a shell (or one command) on the API server
 //   node deploy/deploy.mjs android-key [--rotate [--keep-prev]]   ANDROID_KEY_MASTER into the root .env (never printed); Luka copies it to his password manager
 //   node deploy/deploy.mjs vapid-key [--rotate]   the live notifications key pair (VAPID_LIVE_*) into the root .env (never printed)
+//   node deploy/deploy.mjs hq-heartbeat [--rotate]   the HQ PC's dead-man's switch on the API server (its own container; deploy/README.md "HQ heartbeat")
 // Keys come from the root .env (deploy/README.md).
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -483,6 +484,7 @@ async function api() {
   cpSync(join(import.meta.dirname, "api", "android"), join(API_BUILD, "src", "android"), { recursive: true }); // the seed's files, next to the Dockerfile
   cpSync(join(import.meta.dirname, "api", "compose.yaml"), join(API_BUILD, "compose.yaml"));
   cpSync(join(import.meta.dirname, "api", "caddy"), join(API_BUILD, "caddy"), { recursive: true });
+  cpSync(join(import.meta.dirname, "api", "hq-heartbeat"), join(API_BUILD, "hq-heartbeat"), { recursive: true }); // HQ's heartbeat (hq-heartbeat command)
   const tgz = join(import.meta.dirname, "release-api.tgz");
   run("tar", ["-czf", "../release-api.tgz", "."], { cwd: API_BUILD });
 
@@ -506,6 +508,49 @@ async function api() {
   const live = await apiHealth();
   if (live?.agent !== "api") throw new Error(`https://${API_HOST}/health says agent: ${JSON.stringify(live?.agent)} (must be "api"): check AGENT_AUTH and AGENT_FAKE in the api service`);
   log(`agent: ${live.agent}, runner: ${live.runner}`);
+}
+
+// The HQ PC's heartbeat (deploy/README.md "HQ heartbeat"): one tiny container next to the API, started on its own, so
+// the API, the runner and running builds are not restarted. Telegram keys and the ping URL live in HQ's own .env
+// (`_HQ/.env`: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, HEALTHCHECKS_PING_URL); only its own env file on the server gets them.
+const HQ_ENV = process.env.HQ_ENV_FILE ?? "C:/Users/lazar/Desktop/master-project/_HQ/.env";
+async function hqHeartbeat() {
+  let text = readFileSync(HQ_ENV, "utf8");
+  const get = (k) => new RegExp(`^${k}=(.*)$`, "m").exec(text)?.[1].trim().replace(/^(['"])(.*)\1$/, "$2");
+  const token = get("TELEGRAM_BOT_TOKEN"), chat = get("TELEGRAM_CHAT_ID");
+  if (!token || !chat) throw new Error(`${HQ_ENV} needs TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID`);
+  const prefix = `https://${API_HOST}/hq-heartbeat/`;
+  let secret = get("HEALTHCHECKS_PING_URL")?.startsWith(prefix) ? get("HEALTHCHECKS_PING_URL").slice(prefix.length) : null;
+  if (!secret || rest.includes("--rotate")) {
+    secret = randomBytes(32).toString("base64url"); // 43 URL-safe characters
+    const line = `HEALTHCHECKS_PING_URL=${prefix}${secret}`;
+    text = /^HEALTHCHECKS_PING_URL=.*$/m.test(text) ? text.replace(/^HEALTHCHECKS_PING_URL=.*$/m, () => line)
+      : text.replace(/\s*$/, "\n") + line + "\n";
+    writeFileSync(HQ_ENV, text);
+    log("a new ping secret is in HQ's .env as HEALTHCHECKS_PING_URL (not printed)");
+  }
+  for (const [k, v] of [["TELEGRAM_BOT_TOKEN", token], ["TELEGRAM_CHAT_ID", chat]]) {
+    if (/['\r\n]/.test(v)) throw new Error(`${k} has a quote or a line break: the env file can't hold it`);
+  }
+  const ip = await serverIp(API_SERVER);
+  const src = join(import.meta.dirname, "api");
+  log("uploading the heartbeat script, compose.yaml and the Caddyfile");
+  ssh(ip, `mkdir -p ${API_DIR}/hq-heartbeat ${API_DIR}/hq-heartbeat-state && chown 1000:1000 ${API_DIR}/hq-heartbeat-state`);
+  const scp = (from, to) => run("scp", [...sshArgs(ip).slice(0, -1), from, `root@${ip}:${API_DIR}/${to}`]);
+  scp(join(src, "hq-heartbeat", "heartbeat.mjs"), "hq-heartbeat/heartbeat.mjs");
+  scp(join(src, "compose.yaml"), "compose.yaml");
+  scp(join(src, "caddy", "Caddyfile"), "caddy/Caddyfile");
+  log("writing hq-heartbeat.env on the server");
+  sshInput(ip, `umask 077 && cat > ${API_DIR}/hq-heartbeat.env`,
+    `HQ_HEARTBEAT_SECRET='${secret}'\nTELEGRAM_BOT_TOKEN='${token}'\nTELEGRAM_CHAT_ID='${chat}'\n`);
+  ssh(ip, [
+    "set -e",
+    `cd ${API_DIR}`,
+    "docker compose up -d --no-deps --force-recreate hq-heartbeat", // only this container; nothing else is touched
+    "docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile",
+    "docker compose ps hq-heartbeat",
+  ].join(" && "));
+  log(`HQ's runtime pings ${prefix}<secret> from HEALTHCHECKS_PING_URL`);
 }
 
 // The 3D model library: only the files the catalogue points at (models, their textures, previews,
@@ -582,9 +627,10 @@ const commands = {
   "api-ssh": async () => spawnSync("ssh", [...sshArgs(await serverIp(API_SERVER)), ...rest], { stdio: "inherit" }),
   "android-key": androidKey,
   "vapid-key": vapidKey,
+  "hq-heartbeat": hqHeartbeat,
 };
 if (!commands[command]) {
-  console.log("usage: node deploy/deploy.mjs setup | site | games | status | ssh [command] | api-setup [--yes] | api-assets [--dry] | api [--force] | api-ssh [command] | android-key [--rotate [--keep-prev]] | vapid-key [--rotate]");
+  console.log("usage: node deploy/deploy.mjs setup | site | games | status | ssh [command] | api-setup [--yes] | api-assets [--dry] | api [--force] | api-ssh [command] | android-key [--rotate [--keep-prev]] | vapid-key [--rotate] | hq-heartbeat [--rotate]");
   process.exit(1);
 }
 try {

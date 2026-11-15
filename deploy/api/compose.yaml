@@ -8,6 +8,7 @@
 #           internet), where it reaches the api container alone: the key proxy (8787), and the REST
 #           API (3002), whose routes need a sign-in token (the share pages' GET /public/* aside).
 #           Later: pin the api's addresses per network (ipam) so only the proxy is reachable from here.
+#   hq-heartbeat  Luka's HQ PC dead-man's switch (below); nothing to do with the product.
 #   signer  Signs Android builds with the game's upload key (apps/server/signer/signer.mjs): the one
 #           process that ever holds a keystore in the clear, for seconds, in its tmpfs. No network at
 #           all, a read-only root, no secrets, no /data; it shares only the exports volume with the api.
@@ -163,6 +164,27 @@ services:
       timeout: 5s
       start_period: 20s
 
+  # HQ heartbeat (2026-11-15): Luka's HQ PC pings it hourly; silence alarms his phone over Telegram. A 100-line Node file in
+  # the API's own image (no build, no new download), its own env file (hq-heartbeat.env, written by `deploy.mjs hq-heartbeat`),
+  # no connection to the api, runner or queue. Capped to a tenth of a core and 64 MB, so builds never notice it.
+  hq-heartbeat:
+    image: typeplay-api
+    init: true
+    restart: unless-stopped
+    user: "1000:1000"
+    command: ["node", "--max-old-space-size=32", "/app/heartbeat.mjs"]
+    env_file: ./hq-heartbeat.env
+    volumes:
+      - ./hq-heartbeat/heartbeat.mjs:/app/heartbeat.mjs:ro
+      - ./hq-heartbeat-state:/state
+    networks: [web]
+    cpus: 0.1
+    mem_limit: 64m
+    pids_limit: 32
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
   caddy:
     image: caddy:2.11-alpine
     restart: unless-stopped
@@ -176,6 +198,7 @@ services:
     networks: [web]
     depends_on:
       - api
+      - hq-heartbeat
 
 networks:
   web: {}

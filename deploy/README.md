@@ -73,6 +73,23 @@ notices on the site and the tab's title still work). A pair seen where it should
 --rotate`, then `api` and `site`; every device then turns notifications on again (a browser's subscription belongs to the key
 it was made with), and the old subscriptions are deleted as their pushes fail.
 
+## HQ heartbeat (2026-11-15): Luka's HQ PC alarm, not part of the product
+
+HQ V2 on Luka's PC pings `https://api.typeplay.app/hq-heartbeat/<secret>` hourly (POST; `/fail` with a text body for a known
+problem → Telegram at once). No ping for 70 min → one Telegram "⚠️ HQ PC silent since HH:MM (Tbilisi)", repeated every 60 min;
+when pings return, "✅ HQ PC back online". A wrong secret or path is a plain 404. Replaces Healthchecks.io.
+
+- **Where:** its own container `hq-heartbeat` in the API server's `api/compose.yaml`: `api/hq-heartbeat/heartbeat.mjs` (Node,
+  no dependencies, runs in the API's own image, 0.1 CPU / 64 MB cap, measured ~15 MB and 0.01% CPU), state in
+  `/opt/typeplay-api/hq-heartbeat-state/state.json`. Caddy sends only `/hq-heartbeat/*` to it; the API, runner and build queue never
+  see it. `restart: unless-stopped`, so it comes back after a reboot.
+- **Secrets:** `hq-heartbeat.env` on the server (mode 600, only this container reads it): `HQ_HEARTBEAT_SECRET`, `TELEGRAM_BOT_TOKEN`,
+  `TELEGRAM_CHAT_ID`, written by `node deploy/deploy.mjs hq-heartbeat` from `master-project/_HQ/.env`, which also keeps the full ping
+  URL there as `HEALTHCHECKS_PING_URL` (`--rotate` makes a new secret). The command starts only this container and reloads Caddy:
+  running builds are not touched. A normal `api` deploy keeps it in step (it ships the script and compose file).
+- **Test with a short threshold:** run a second throwaway container from the same image with `THRESHOLD_MIN=1 CHECK_INTERVAL_S=10 PORT=8789
+  STATE_FILE=/tmp/s.json` (`docker run --env-file` keeps quotes, so strip them from `hq-heartbeat.env` first); the live one stays at 70.
+
 ## The API (api.typeplay.app): ready, not live yet
 
 Written and tested 2026-10-17 (package 5); nothing is bought or created yet. Going live:

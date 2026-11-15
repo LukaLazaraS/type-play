@@ -23,5 +23,11 @@ api.typeplay.app {
 		Referrer-Policy no-referrer
 		-Server
 	}
-	reverse_proxy api:3002
+	# Luka's HQ PC heartbeat (deploy/api/hq-heartbeat): its own container, the API never sees these requests.
+	handle /hq-heartbeat/* {
+		reverse_proxy hq-heartbeat:8788
+	}
+	handle {
+		reverse_proxy api:3002
+	}
 }
