@@ -32,6 +32,8 @@ export interface AndroidJobHandle {
 }
 
 const PREPARE = join(ROOT, "apps/server/runner/android-prepare.mjs");
+/** The close check every store build passes first: the game must quit without a crash (packages/agent/tools/exit-check.mjs). */
+const EXIT_CHECK = join(ROOT, "packages/agent/tools/exit-check.mjs");
 
 /** The flags the runner (or the local steps) take; each is checked again by the runner. */
 function argsOf(j: AndroidJob): string[] {
@@ -41,7 +43,7 @@ function argsOf(j: AndroidJob): string[] {
   ];
 }
 
-/** On this PC: git archive → prepare → import → export → deliver, as child processes in a scratch folder. */
+/** On this PC: git archive → prepare → import → close check → export → deliver, as child processes in a scratch folder. */
 function startLocal(j: AndroidJob, onLine: (l: string) => void, onStderr: (t: string) => void): { exit: Promise<JobExit>; kill(): void } {
   const scratch = join(config.android.exportsDir, `job-${j.buildId}`);
   rmSync(scratch, { recursive: true, force: true });
@@ -73,6 +75,7 @@ function startLocal(j: AndroidJob, onLine: (l: string) => void, onStderr: (t: st
       cwd: scratch,
     },
     { cmd: config.godotExe, args: godotArgs("--import"), cwd: game },
+    { cmd: process.execPath, args: [EXIT_CHECK, "--godot", config.godotExe, game], cwd: scratch },
     { cmd: config.godotExe, args: godotArgs(...(j.format === "aab" ? ["--install-android-build-template"] : []), "--export-release", "Android", join(out, `game.${j.format}`)), cwd: game },
   ];
   let current: ChildProcess | null = null;

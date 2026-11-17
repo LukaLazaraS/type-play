@@ -120,6 +120,8 @@ open the API account just before beta 1.
 - Opus 5.5 / Sonnet 5.5 can refuse a prompt (safety classifiers, `stop_reason: refusal`):
   show a clear message, use the API's fallback setting.
 - Two exports writing the same output path corrupt it: one build per project at a time.
+- A lambda kept where it outlives its script (a static var, a singleton, a plugin) crashes a Godot 4.7 game at every
+  close (Black Hole Galaxy 1.3, both stores): every store export and the agent's check run the close check (`apps/server/README.md` "Android export").
 - An edit that resumes the build session re-reads the whole build history: it cost more than
   the build. Edits start a fresh session with the project's notes instead.
 - The Agent SDK loads `CLAUDE.md` and user settings by default, and on a claude.ai login it

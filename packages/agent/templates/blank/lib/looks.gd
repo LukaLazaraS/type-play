@@ -34,14 +34,28 @@ static var _white: Texture2D = null # a white patch in the first picture: rect()
 ## A look: `painter(canvas)` draws it with draw_* calls around (0, 0), inside `size` pixels. `label`: its plain name.
 static func add(key: String, size: Vector2i, painter: Callable, label: String = "") -> void:
 	_pending.append([key, size, painter, 0])
+	_let_go_at_close()
 	if label != "":
 		_labels[key] = label
 
 ## An animated look: `painter(canvas, i)` draws frame i of `count` (0 .. count - 1). `label`: its plain name.
 static func add_frames(key: String, size: Vector2i, count: int, painter: Callable, label: String = "") -> void:
 	_pending.append([key, size, painter, maxi(1, count)])
+	_let_go_at_close()
 	if label != "":
 		_labels[key] = label
+
+# Looks added and not baked yet hold the game's draw functions (often lambdas) in a static var. Godot 4.7 frees each
+# script before the others' static vars when the game closes, and a lambda freed after its own script crashes the app
+# at Back (Android) or swipe-away (iPhone). So they are let go as the game starts to close, while every script is still
+# there.
+static func _let_go_at_close() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree != null and tree.root != null and not tree.root.tree_exiting.is_connected(_drop_pending):
+		tree.root.tree_exiting.connect(_drop_pending)
+
+static func _drop_pending() -> void:
+	_pending = []
 
 ## Draws every look added since the last bake into one shared picture. Await it before using the looks.
 static func bake(host: Node) -> void:

@@ -54,7 +54,8 @@ const FAIL_TEXT: Record<AndroidFailCode, string> = {
 const CANCELLED_TEXT = "Stopped.";
 /** Godot's own words for each kind of failure (FACT F12, F13, F27, F30 in docs/research/android-export-2026.md). */
 const TOOLCHAIN_RE = /Java SDK path|Android SDK path|Missing 'bin' directory|Unable to find 'java'|platform-tools|build-tools|Release export template not found|Could not find template APK|Android sources not in ZIP|could not start |No such file or directory.*(godot|java)|Android build template not installed|Android build version mismatch/i;
-const GAME_RE = /SCRIPT ERROR|Parse Error|ETC2\/ASTC|Could not export project files|Failed to load script|res:\/\/[^ ]+\.gd:\d+|Invalid package name|Missing libraries in the export template|Error exporting|no project\.godot/i;
+// `[close]`: the close check before the export (packages/agent/tools/exit-check.mjs) found a game that crashes when it closes.
+const GAME_RE = /SCRIPT ERROR|Parse Error|ETC2\/ASTC|Could not export project files|Failed to load script|res:\/\/[^ ]+\.gd:\d+|Invalid package name|Missing libraries in the export template|Error exporting|no project\.godot|\[close\]/i;
 const EXPIRE_DAYS = 30;
 const KEY_DOWNLOADS_A_DAY = 5;
 const BUILDS_PER_GAME_A_DAY = 10;

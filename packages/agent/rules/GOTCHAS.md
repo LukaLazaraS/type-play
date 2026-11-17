@@ -35,3 +35,12 @@
 - One script with a parse error breaks every script that loads it ("Failed to compile
   depended scripts", "Nonexistent function 'new' in base 'GDScript'"): fix the first error in
   the list, then check again.
+
+- A lambda that outlives its script (`func(…): …`) crashes the game every time it closes (Back
+  on Android, swipe-away on iPhone; a shipped game failed the store's crash limit on this). Never
+  keep one in a static var (`static var`, `Other.list.append(func …)`, `Other.cb = func …`, or
+  inside an object a static var holds), connect one to an engine singleton (`Input`, `Engine`,
+  `Engine.get_singleton(…)`) or give one to a plugin's listener or callback (ads, billing,
+  analytics). Use a method of the script instead: `l.on_done = _on_done`,
+  `Input.joy_connection_changed.connect(_on_joy)`. Lambdas in local and member vars and on nodes'
+  and the tree's signals are fine. The check fails a game that crashes when it closes ("[close]").

@@ -238,6 +238,9 @@ ok(classifyFailure("SCRIPT ERROR: Parse Error: Identifier not found\n   at: GDSc
 ok(classifyFailure("ETC2/ASTC texture compression is required for Android export.") === "game", "the ETC2 message counts as the game's (the patch should prevent it)");
 ok(classifyFailure("Building of Android project failed, check output for the error:\nBUILD FAILED") === "gradle", "a Gradle failure is the packaging step");
 ok(classifyFailure("") === "gradle", "nothing recognisable: the packaging step");
+ok(classifyFailure("EXIT-CHECK: FAIL (1 problem)\nERROR: [close] the game crashes when it closes (signal SIGABRT: \"double free or corruption (!prev)\")") === "game", "a game that crashes when it closes (the close check) is the game's");
+ok(classifyFailure("EXIT-CHECK: FAIL (1 problem)\nERROR: [close] res://main.gd:8: a lambda (func …) is kept in Holder.cb, a static var") === "game", "a lambda the close check found in the code is the game's");
+ok(classifyFailure("EXIT-CHECK: FAIL (1 problem)\nERROR: [close] could not start Godot: spawnSync /opt/godot/godot ENOENT") === "toolchain", "no Godot for the close check is ours");
 
 console.log("phone link: short in every store");
 const linkToken = newToken();

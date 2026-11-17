@@ -51,6 +51,8 @@ const ANDROID = {
   icons: env.ANDROID_ICONS || '/opt/typeplay/android/icons',
 };
 const PREPARE = join(dirname(fileURLToPath(import.meta.url)), 'android-prepare.mjs');
+/** The close check every store build passes first (packages/agent/tools/exit-check.mjs). */
+const EXIT_CHECK = join(dirname(AGENT), 'tools', 'exit-check.mjs');
 /** A job body may carry at most one small file (the Android icon), written into the job's home. */
 const MAX_BODY = 2 << 20;
 const MAX_FILE = 1 << 20;
@@ -349,9 +351,12 @@ function plan(job, dir, uid, home) {
       '--version-name', a.versionName, '--app-name', a.appName, '--orientation', a.orientation, '--out', join(build, 'out'), '--icons', ANDROID.icons,
       '--godot', GODOT, '--gradle-seed', ANDROID.gradleSeed, '--gradle-home', join(home, '.gradle'), ...(icon ? ['--icon', icon, '--icon-kind', a.iconKind] : [])], cwd: build };
     const exportFlags = a.format === 'aab' ? ['--install-android-build-template'] : [];
+    // No store build of a game that crashes when it closes (Black Hole Galaxy 1.3 did at every Back / swipe-away): its code
+    // is checked for lambdas that outlive their script, then it runs headless and quits, and must exit 0.
+    const closeCheck = { cmd: process.execPath, args: [EXIT_CHECK, '--godot', GODOT, game], cwd: build };
     // The unsigned file goes into the game's gdignored export/ folder, where the API reads it (readGameFile) and removes it.
     const deliver = { cmd: '/bin/sh', args: ['-c', `mkdir -p "${dir}/export/android" && cp "${out}" "${dir}/export/android/unsigned-${a.buildId}.${a.format}"`], cwd: dir };
-    return [archive, prepare, godot('--import'), godot(...exportFlags, '--export-release', 'Android', out), deliver];
+    return [archive, prepare, godot('--import'), closeCheck, godot(...exportFlags, '--export-release', 'Android', out), deliver];
   }
   if (job.kind === 'git') {
     if (!GIT_COMMANDS.has(args[0])) throw new JobError(`git ${args[0]} is not allowed`);

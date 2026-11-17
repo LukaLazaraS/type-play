@@ -1095,7 +1095,8 @@ The spec is `docs/android-export-design.md` (the facts `docs/research/android-ex
    missing, writes `export/.gdignore`, makes the launcher icons with `runner/android-icons.gd` from the picture the API
    passed (the user's PNG, else the game folder's `export/screenshot-start.png`, else the published poster; the
    placeholder set from `deploy/api/android/icons` when none or when Godot can't read it), for AAB copies the Gradle seed
-   into the job's home), `godot --import`, `godot [--install-android-build-template] --export-release Android`
+   into the job's home), `godot --import`, **the close check** (`packages/agent/tools/exit-check.mjs`, below),
+   `godot [--install-android-build-template] --export-release Android`
    (**unsigned**: `package/signed=false`; AAB through Gradle offline from the copied seed), then the file is copied to the
    game's gdignored `export/android/unsigned-<id>.<ext>`, which the API reads (`files.ts`, ≤ 300 MB) and removes. The job's
    env adds `JAVA_HOME`, `ANDROID_HOME`, `GRADLE_USER_HOME=$HOME/.gradle`, `GRADLE_SEED`, `ANDROID_ICONS`; the runner runs
@@ -1138,6 +1139,28 @@ The spec is `docs/android-export-design.md` (the facts `docs/research/android-ex
    design's plain-English text incl. the Play upload-key reset path), 5 downloads a day, counted on the row.
    `GET /me/export` lists the package, the fingerprint and the builds, never the key; deleting a game cancels its builds
    and removes `data/android/<projectId>/` (or the R2 objects) with the rows (cascade).
+
+**No store build of a game that crashes when it closes** (Luka, 2026-11-17, after Black Hole Galaxy 1.3 crashed at every
+Back on Android and swipe-away on iPhone: Play's crash rate 3.90% against Google's 1.09% line; its fix and test are
+`games/BlackHoleGalaxy-godot` commit `ac5b737`). Godot 4.7.2 frees each script before the static vars of the others when
+a game shuts down, and a lambda (`func(…)`) freed after its own script crashes that shutdown. Every store export runs the
+close check (`node packages/agent/tools/exit-check.mjs --godot <exe> <copy>`) after the import and fails as `game` (its
+lines start `[close]`) when (1) the code puts a lambda where it can outlive its script: a static var (directly, or an
+Array, Dictionary or object one holds), an engine singleton's signal or meta, a plugin's object or class (a `class_name`
+under `addons/`) or a native plugin (`Engine.get_singleton`); or (2) the game, run headless for 300 frames with
+`--verbose` and quit, exits other than 0 or prints Godot's "orphaned lambdas" line. Android today; iOS and Steam exports
+run it before their export when they come. Measured 2026-11-17 on Godot 4.7.2, Windows and the server's Linux build: a
+lambda from another script kept in a static var (directly, in an Array or Dictionary, through a static function, inside an
+object, or wrapped in a second lambda as in BHG), connected to `Input`'s signal or put in `Engine`'s meta crashed at every
+close (Windows: an access violation; Linux: SIGABRT); a method in the same place, a member var, the scene tree's signals,
+a coroutine waiting on a singleton's signal and a script's own lambda in its own static var did not. The "orphaned
+lambdas" line never printed before the crash, so the exit code is what shows it. The game agent's check runs the same
+(`packages/agent/tools/check.mjs`: the code half on every game, the exit code of its first run and of every feature test)
+and its rule is in `packages/agent/rules/GOTCHAS.md`. `lib/looks.gd` keeps the draw functions of looks not baked yet in a
+static var; since 2026-11-17 it lets them go as the game starts to close (before, a look added and never baked crashed the
+close). TypePlay's Android export adds no native plugin (no ads, billing or analytics). Godot 4.8 carries upstream fixes
+for this kind of crash (PRs #122533, #120976), not checked yet. Tests: `packages/agent/tests/exit-check.mjs` (bad samples
+fail, good ones pass; the run half with Godot) and the classifier's `[close]` cases in `test/android.mjs`.
 
 **Failure codes** → one sentence each (`FAIL_TEXT` in `android.service.ts`): `toolchain` (ours; logged at error level),
 `game` (Godot's script/export errors; the first error line is in the message and appended to

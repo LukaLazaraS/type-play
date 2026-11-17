@@ -1,6 +1,7 @@
 // Self-check for a Godot project, run from the project folder:
 //   node check.mjs [--wait 6]
-// 1. imports the project, 2. runs it headless for ~5 s of game time, 3. exports it to web,
+// 1. imports the project, 2. runs it headless for ~5 s of game time and lets it quit: it must close without a crash, and
+//    no lambda may go where it outlives its script (tools/exit-check.mjs; a store build crashed at every close), 3. exports it to web,
 // 4. opens the web build in a hidden browser: screenshot after loading, then a click + Space
 //    and a screenshot 3 s later, then one more 10 s later with no input (usually game over).
 //    Games made since 10-25 (a PLATFORM file, run.mjs) get a phone with a touch screen held the game's way up,
@@ -16,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { serve, openPage, sleep } from './web.mjs';
 import { analyse as colourOf } from './colours.mjs';
 import { limitThisProcess } from './cpu.mjs';
+import { cleanExit, crashAtClose, lambdaProblems } from './exit-check.mjs';
 
 limitThisProcess(); // Godot and the hidden browser: 4 cores stay free on a PC (on the server its container caps them), low priority (tools/cpu.mjs)
 
@@ -72,6 +74,8 @@ if (fast) {
   if (!physics || Number(physics[1]) > 3) errors.push('[setup] project.godot must keep physics/common/max_physics_steps_per_frame=3 under [physics] ("Fast games")');
   if (!stressTest) errors.push('[setup] no test/stress_test.tscn: every game has a stress test that puts it straight into its busiest moment and calls measure() ("Fast games")');
 }
+// A lambda kept where it outlives its script crashes every close on a phone (Godot 4.7; rules/GOTCHAS.md): every game.
+errors.push(...lambdaProblems(project));
 
 // Keeps Godot error lines plus the "at:" line that follows each one.
 function collectErrors(stage, output) {
@@ -91,7 +95,12 @@ function godot(stage, args, timeoutMs) {
 }
 
 godot('import', ['--import'], 120_000);
-godot('run', ['--fixed-fps', '60', '--quit-after', '300'], 60_000);
+// The game's first 300 frames, then it quits: its errors, and a crash on the way out (exit code, --verbose).
+{
+  const run = cleanExit(GODOT, project, { frames: 300, timeoutMs: 60_000 });
+  collectErrors('run', run.output);
+  errors.push(...run.problems);
+}
 
 // Feature tests the agent wrote (test/*_test.tscn). All of them run after every change, so
 // what earlier changes added keeps working. A test prints "PASS: …" / "FAIL: …" and quits.
@@ -105,6 +114,10 @@ for (const t of tests) {
   const r = spawnSync(GODOT, ['--headless', '--path', project, '--fixed-fps', '60', '--quit-after', long ? '9000' : '3600', `res://test/${t}`], { encoding: 'utf8', timeout: long ? 180_000 : 120_000 });
   const out = ((r.stdout || '') + '\n' + (r.stderr || '')).replace(ANSI, '');
   collectErrors(`test ${t}`, out);
+  // The test played the game further than the run above: it must close cleanly too (finish() quits with 0 or 1). One
+  // crash is reported, the first: the same cause usually crashes every run.
+  const crash = crashAtClose(r, out, { codes: [0, 1], after: `test/${t}` });
+  if (crash && !errors.some((e) => e.startsWith('[close] the game crashes when it closes'))) errors.push(crash);
   const passed = (out.match(/^\s*PASS:.*$/gm) || []).length;
   const failed = out.match(/^\s*FAIL:.*$/gm) || [];
   for (const f of failed) errors.push(`[test ${t}] ${f.trim()}`);
