@@ -76,7 +76,7 @@ it was made with), and the old subscriptions are deleted as their pushes fail.
 ## HQ heartbeat (2026-11-15): Luka's HQ PC alarm, not part of the product
 
 HQ V2 on Luka's PC pings `https://api.typeplay.app/hq-heartbeat/<secret>` hourly (POST; `/fail` with a text body for a known
-problem → Telegram at once). No ping for 70 min → one Telegram "⚠️ HQ PC silent since HH:MM (Tbilisi)", repeated every 60 min;
+problem → Telegram at once; a `/fail` also counts as a ping: the PC is alive). No ping for 70 min → one Telegram "🔴 HQ PC silent since HH:MM (Tbilisi)", repeated every 60 min;
 when pings return, "✅ HQ PC back online". A wrong secret or path is a plain 404. Replaces Healthchecks.io.
 
 - **Where:** its own container `hq-heartbeat` in the API server's `api/compose.yaml`: `api/hq-heartbeat/heartbeat.mjs` (Node,

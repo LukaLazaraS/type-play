@@ -2,7 +2,8 @@
 // Not part of the product: no database, no game, no user; touches nothing of the API, runner or queue.
 //
 //   POST /hq-heartbeat/<secret>        a good ping: stores the time (if the PC was marked silent: "back online")
-//   POST /hq-heartbeat/<secret>/fail   HQ reports a problem: the text body (at most 10 KB) goes to Telegram at once
+//   POST /hq-heartbeat/<secret>/fail   HQ reports a problem: also stores the time (the PC is alive), then the text body
+//                                      (at most 10 KB) goes to Telegram at once
 //   any other path or a wrong secret   a plain 404
 //
 // Every 5 minutes: no good ping for 70 minutes -> one Telegram message, repeated every 60 minutes while it stays silent.
@@ -78,14 +79,12 @@ const server = createServer(async (req, res) => {
   const m = /^\/hq-heartbeat\/([^/]+)(\/fail)?\/?$/.exec((req.url ?? "").split("?")[0]);
   if (!m || req.method !== "POST" || !same(m[1], SECRET)) return notFound(res); // the secret is URL-safe, so no decoding
   const body = await readBody(req);
-  if (m[2]) {
-    await telegram(`🔴 HQ reports a problem:\n${body.trim() || "(no details)"}`);
-  } else {
-    const wasSilent = state.alerting;
-    state = { lastPing: Date.now(), alerting: false, lastAlert: null };
-    save();
-    if (wasSilent) await telegram("✅ HQ PC back online");
-  }
+  // Any authenticated ping, a /fail too, proves the PC is alive.
+  const wasSilent = state.alerting;
+  state = { lastPing: Date.now(), alerting: false, lastAlert: null };
+  save();
+  if (wasSilent) await telegram("✅ HQ PC back online");
+  if (m[2]) await telegram(`🔴 HQ reports a problem:\n${body.trim() || "(no details)"}`);
   res.writeHead(200, { "content-type": "text/plain" });
   res.end("OK\n");
 });
@@ -96,7 +95,7 @@ async function check() {
   const now = Date.now();
   if (state.lastPing === null || now - state.lastPing <= THRESHOLD_MS) return;
   if (state.alerting && now - state.lastAlert < REPEAT_MS) return;
-  const sent = await telegram(`⚠️ HQ PC silent since ${tbilisi(state.lastPing)} (Tbilisi): power, internet or the PC is down.`);
+  const sent = await telegram(`🔴 HQ PC silent since ${tbilisi(state.lastPing)} (Tbilisi): power, internet or the PC is down.`);
   if (sent) { state.alerting = true; state.lastAlert = now; save(); } // not sent: try again in 5 minutes
 }
 
