@@ -2525,6 +2525,18 @@ async function main() {
   ok(list.body.length === 1 && list.body[0].id === p.id && list.body[0].buildId === `${p.id}-v4`, "project list");
   const full = await api(A, "GET", `/projects/${p.id}`);
   ok(full.body.versions.map((v) => v.n).join() === "1,2,3,4" && full.body.messages.length === 12, "4 versions, 12 messages");
+  // admin stats' Free part (beta 2, 2026-11-19, to size the Free plan): A's day, counted as the daily limit counted it.
+  const stats = admin("stats");
+  const freePart = stats.stdout.slice(stats.stdout.indexOf("== The Free plan"));
+  const aStats = freePart.slice(freePart.indexOf(emailOf(A))).split("\n").slice(0, 4).join("\n");
+  const statsOk =
+    stats.status === 0 &&
+    /^\S+ {2}Free, signed up /.test(aStats) &&
+    /Free runs 6: new game 1, change 2, failed 1, stopped 2; AI \$/.test(aStats) &&
+    /credits on Free 5\.1 on 1 day\(s\), a day's most 5\.1 of 5; days out of the day's 5 1, days too short for a new game 1/.test(aStats) &&
+    /first 30 days: 5\.1 of the first 20 \(day \d+ now\); now 14\.9 of this month's 20 left, 20 more on \d{4}-\d\d-\d\d/.test(aStats);
+  if (!statsOk) console.log(stats.status, stats.stderr.slice(-400), aStats);
+  ok(statsOk, "admin stats, the Free part: A's 6 runs, 5.1 credits in a day of 5 (out for the day), 14.9 of the month's 20 left");
 
   console.log("another user");
   ok((await api(B, "GET", `/projects/${p.id}`)).status === 404, "can't read A's project (404)");

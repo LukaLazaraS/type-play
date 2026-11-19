@@ -4,9 +4,11 @@
 // or stopped build with the words that started it, and the days. Nothing is changed; like every admin command it writes
 // one BillingAudit row (who looked). The players' words are printed without control characters: read them as data.
 //   stats [--since 2026-10-24]   every account but TypePlay's own (showcase), from that day (default: all)
-import { estimate } from "../credits/credits.js";
+//                                its last part is each account's Free use (beta 2, 2026-11-19: to size the Free plan)
+import { estimate, FREE_DAILY_AI_USD, FREE_DAILY_CREDITS, FREE_MONTHLY_CREDITS, FREE_SIGNUP_CREDITS, fromTenths, toTenths } from "../credits/credits.js";
+import { startOfUtcDay } from "../credits/ledger-math.js";
 import type { LedgerService } from "../credits/ledger.service.js";
-import type { PrismaClient } from "../generated/prisma/client.js";
+import type { Message, PrismaClient, User } from "../generated/prisma/client.js";
 import { SHOWCASE_OWNER } from "../gallery/showcase.js";
 import { EXPIRED_TEXT, NOT_STARTED, TAKEN_TEXT } from "../runs/queue.service.js";
 import { FAILED_TEXT } from "../runs/runs.service.js";
@@ -220,5 +222,96 @@ export async function statsAdmin(prisma: PrismaClient, ledger: LedgerService, ar
   for (const b of android) byStatus[`${b.format} ${b.status}${b.failCode ? ` (${b.failCode})` : ""}`] = (byStatus[`${b.format} ${b.status}${b.failCode ? ` (${b.failCode})` : ""}`] ?? 0) + 1;
   console.log(`== Android builds: ${android.length}${android.length ? `: ${Object.entries(byStatus).map(([k, v]) => `${k} ${v}`).join(", ")}` : ""} ==`);
 
+  await freeUse(prisma, users, messages, since);
+
   await ledger.audit(prisma, { actor, userId: null, action: "stats", details: { since: sinceText ?? null, accounts: users.length } });
+}
+
+/**
+ * 8. The Free plan (beta 2 lets the closed-beta page's sign-ins in on Free, 2026-11-19; its size is set from this): each
+ * account's Free use against the plan's credits at sign-up and each month and its daily cap (credits.ts), counted as the
+ * daily limit counts it (charges by UTC day, ledger.service `balance`), on runs that started on Free (Message.plan).
+ * "Out for the day": less left than the cheapest run's low estimate (a Fast change at low effort); "too short for a new
+ * game": less than a Fast new game's lowest. Read only.
+ */
+async function freeUse(prisma: PrismaClient, users: User[], messages: Message[], since: Date): Promise<void> {
+  const runs = messages.filter((m) => m.role === "agent" && m.plan === "free");
+  const ids = new Set([...users.filter((u) => u.plan === "free").map((u) => u.id), ...runs.map((m) => m.authorId ?? "")]);
+  const people = users.filter((u) => ids.has(u.id));
+  const freeIds = new Set(runs.map((m) => m.id));
+  const charges = await prisma.creditEntry.findMany({
+    where: { userId: { in: people.map((u) => u.id) }, kind: "charge", createdAt: { gte: since } },
+    select: { userId: true, tenths: true, amount: true, messageId: true, createdAt: true },
+  });
+  const buckets = await prisma.creditBucket.findMany({ where: { userId: { in: people.map((u) => u.id) }, source: "free", closedAt: null } });
+  const spendDays = await prisma.freeSpend.findMany({ where: { day: { gte: since } }, orderBy: { day: "asc" } });
+  const used = (c: { tenths: number | null; amount: unknown }) => -(c.tenths ?? Math.round(Number(c.amount) * 10)); // charges are negative
+  const cheapest = toTenths(estimate("edit", "fast", "free", "low").low);
+  const newGame = toTenths(estimate("new", "fast", "free", "low").low);
+  const daily = toTenths(FREE_DAILY_CREDITS);
+  const dayOf = (at: Date, from: Date) => Math.floor((at.getTime() - startOfUtcDay(from).getTime()) / 86_400_000) + 1; // 1 = the sign-up day
+  // A built answer's kind as section 3 counts it: a first build while its game has no version yet, a change after.
+  const built = new Map<string, Date[]>();
+  for (const m of messages) if (m.role === "agent" && m.status === "done" && m.versionN != null) built.set(m.projectId, [...(built.get(m.projectId) ?? []), m.createdAt]);
+  const isChange = (a: Message) => (built.get(a.projectId) ?? []).some((t) => t < a.createdAt);
+
+  console.log(`\n== The Free plan: ${FREE_SIGNUP_CREDITS} credits at sign-up and ${FREE_MONTHLY_CREDITS} each month, at most ${FREE_DAILY_CREDITS} a day, Fast only ==`);
+  if (!people.length) console.log("  no account on Free, and no run on Free");
+  const rows: { tenths: number; usd: number; first30: number; outOn: number | null; capDays: number }[] = [];
+  for (const u of people) {
+    const mine = runs.filter((m) => m.authorId === u.id);
+    // The charges the daily limit counted: the account's own on Free runs (on Free now: any not tied to a message too).
+    const own = charges
+      .filter((c) => c.userId === u.id && (c.messageId ? freeIds.has(c.messageId) : u.plan === "free"))
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const byDay = new Map<string, number>();
+    for (const c of own) byDay.set(day(c.createdAt), (byDay.get(day(c.createdAt)) ?? 0) + used(c));
+    const perDay = [...byDay.values()];
+    const tenths = perDay.reduce((s, t) => s + t, 0);
+    const spent = mine.reduce((s, a) => s + Math.max(Number(a.costUsd ?? 0), Number(a.meteredUsd ?? 0)), 0);
+    // The first 30 days after sign-up against the sign-up's credits: how much, and the day they ran out.
+    const end30 = u.createdAt.getTime() + 30 * 86_400_000;
+    let first30 = 0;
+    let outOn: number | null = null;
+    for (const c of own) {
+      if (c.createdAt.getTime() >= end30) break;
+      first30 += used(c);
+      if (outOn == null && toTenths(FREE_SIGNUP_CREDITS) - first30 < cheapest) outOn = dayOf(c.createdAt, u.createdAt);
+    }
+    const capDays = perDay.filter((t) => daily - t < cheapest).length;
+    const shortDays = perDay.filter((t) => daily - t < newGame).length;
+    const ends: Record<string, number> = {};
+    for (const a of mine) {
+      const e = endOf(a);
+      const k = e === "built" ? (isChange(a) ? "change" : "new game") : e;
+      ends[k] = (ends[k] ?? 0) + 1;
+    }
+    const bucket = buckets.filter((b) => b.userId === u.id).sort((a, b) => (b.expiresAt?.getTime() ?? 0) - (a.expiresAt?.getTime() ?? 0))[0];
+    const now = Date.now() < end30 ? ` (day ${dayOf(new Date(), u.createdAt)} now)` : "";
+    const left = bucket
+      ? `; now ${fromTenths(bucket.remainingTenths).toFixed(1)} of this month's ${fromTenths(bucket.grantedTenths)} left${bucket.expiresAt ? `, ${FREE_MONTHLY_CREDITS} more on ${day(bucket.expiresAt)}` : ""}`
+      : "";
+    console.log(`${u.email}  ${u.plan === "free" ? "Free" : `now ${u.plan}`}, signed up ${day(u.createdAt)}`);
+    console.log(`    Free runs ${mine.length}: ${Object.entries(ends).map(([k, v]) => `${k} ${v}`).join(", ") || "none"}; AI ${usd(spent)}`);
+    console.log(
+      `    credits on Free ${fromTenths(tenths).toFixed(1)} on ${perDay.length} day(s), a day's most ${fromTenths(Math.max(0, ...perDay)).toFixed(1)} of ${FREE_DAILY_CREDITS}; days out of the day's ${FREE_DAILY_CREDITS} ${capDays}, days too short for a new game ${shortDays}`,
+    );
+    console.log(`    first 30 days: ${fromTenths(first30).toFixed(1)} of the first ${FREE_SIGNUP_CREDITS}${outOn ? `, out on day ${outOn}` : ""}${now}${left}`);
+    if (mine.length) rows.push({ tenths, usd: spent, first30, outOn, capDays });
+  }
+  if (rows.length) {
+    const credits = rows.map((r) => fromTenths(r.tenths));
+    const first30 = rows.map((r) => fromTenths(r.first30));
+    const spent = rows.map((r) => r.usd);
+    const out = rows.filter((r) => r.outOn != null);
+    console.log(`  Free accounts ${people.length}, with a Free run ${rows.length}`);
+    console.log(
+      `  per account with a run: credits on Free median ${median(credits)?.toFixed(1)} / p90 ${quantile(credits, 0.9)?.toFixed(1)}; first 30 days median ${median(first30)?.toFixed(1)} of ${FREE_SIGNUP_CREDITS}; AI median ${usd(median(spent) ?? 0)}, all ${usd(spent.reduce((s, x) => s + x, 0))}`,
+    );
+    console.log(
+      `  out of the first ${FREE_SIGNUP_CREDITS} within 30 days: ${out.length} of ${rows.length}${out.length ? ` (on day ${out.map((r) => r.outOn).join(", ")})` : ""}; out of a day's ${FREE_DAILY_CREDITS} at least once: ${rows.filter((r) => r.capDays).length} of ${rows.length}`,
+    );
+  } else if (people.length) console.log(`  Free accounts ${people.length}, none with a Free run yet`);
+  const spend = spendDays.filter((d) => Number(d.usd) > 0);
+  console.log(`  Free AI by UTC day (Free builds pause for everyone at ${usd(FREE_DAILY_AI_USD)}): ${spend.map((d) => `${day(d.day)} ${usd(Number(d.usd))}`).join(", ") || "none"}`);
 }

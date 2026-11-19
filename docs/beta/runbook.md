@@ -182,7 +182,9 @@ Send the invitations in the morning, keep the API log open for the first builds,
 - **Feedback:** `npm run admin:live -w @typeplay/server -- feedback list --open`, then `feedback show <id>` and `feedback done <id>`.
 - **What the testers did** (read only): `npm run admin:live -w @typeplay/server -- stats` (the funnel, each account's
   builds by how they ended, AI $ against credits charged, every failed or stopped build with its words, the real charges
-  against the app's estimates, and the Google sign-ins that never got past the closed-beta page).
+  against the app's estimates, the Google sign-ins that never got past the closed-beta page, and last each Free
+  account's use against the plan's 20 a month and 5 a day: beta 2 sizes the Free plan from it). Who those sign-ins are:
+  `admin:live waitlist stopped`.
 - **Who:** `admin list` (plans, credits, games), `admin invite list` (who hasn't signed in yet), `admin gallery reports`
   (only if testers put games in the gallery).
 - **The Free kill switch:** once Free builds have cost $20 of AI in a UTC day, every Free build answers "Free builds are

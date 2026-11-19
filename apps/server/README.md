@@ -293,10 +293,11 @@ npm run admin -w @typeplay/server -- code list                     # each code: 
 npm run admin -w @typeplay/server -- code remove <code>            # it stops working; the accounts it let in stay (invite remove takes one out)
 npm run admin -w @typeplay/server -- waitlist list                 # who asked to be told when TypePlay opens: the address as signed in, the day, oldest first
 npm run admin -w @typeplay/server -- waitlist remove <email>       # off the waitlist (told, or asked by mail to be taken off)
+npm run admin -w @typeplay/server -- waitlist stopped              # live only: Google sign-ins that never got an account (the closed-beta page stopped them), with Google's name, the first and last sign-in, invited or on the list since (beta 2 came from it: docs/beta/beta2-2026-11-19.md)
 npm run admin -w @typeplay/server -- feedback list [--open]        # newest first, one line of each (--open: not marked done)
 npm run admin -w @typeplay/server -- feedback show <id>            # who, the page, the browser, the game and the build to play, its message, the words
 npm run admin -w @typeplay/server -- feedback done <id>            # dealt with: it leaves list --open
-npm run admin -w @typeplay/server -- stats [--since YYYY-MM-DD]     # read only: the funnel, every account's builds by how they ended, AI $ against credits, each failed or stopped build with its words, the charges against the estimates (src/beta/admin-stats.ts)
+npm run admin -w @typeplay/server -- stats [--since YYYY-MM-DD]     # read only: the funnel, every account's builds by how they ended, AI $ against credits, each failed or stopped build with its words, the charges against the estimates, and last each Free account's use: credits per UTC day against the 5, the days they ran out, the first 30 days against the first 20, the AI cost, Free AI per day against the kill switch (src/beta/admin-stats.ts)
 ```
 
   `grant` and `plan` work for an invited tester once they have signed in (the account appears then). The words are
