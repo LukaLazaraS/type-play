@@ -35,8 +35,12 @@ Run it alongside the site in dev: `cd ../games && npm run build-demo && npm run 
 - `scripts/`: dev tooling only (screenshots, posters); not shipped. `shot-compare.mjs` shoots every page and popup at
   phone and desktop width on a base commit and on the working tree, with the same fixtures, and lists the pairs that
   differ (`node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-compare.mjs --base <ref>`, from the repo root;
-  shots and the list in `.impeccable/review/compare/`). The walk-throughs that start a stack of their own (`shot-beta`,
-  `shot-compare`, `shot-header`, `shot-platform`, `shot-queue`) take ports picked free and a database of the run's own, so
+  shots and the list in `.impeccable/review/compare/`). `shot-launch.mjs` walks the home page and /pricing at every phone
+  shape in both billing-off states (the closed beta; open sign-up before billing), 44 px buttons on the touch shapes,
+  worst-case data (4-digit credits, long words) at 320 and 360, the credits table against the API's estimate and a
+  fresh visitor's paths from the prompt box and from a paid plan's button. The walk-throughs that start a
+  stack of their own (`shot-beta`, `shot-compare`, `shot-header`, `shot-launch`, `shot-platform`, `shot-queue`) take ports
+  picked free and a database of the run's own, so
   any number run at once beside the local site and the tests; two in one checkout take turns, as their `next dev` share
   `tsconfig.json` (`scripts/dev-env.mjs`, `docs/environments.md` "The automated tests"). `shot-header.mjs` checks the
   status bar on phones (280-430px, signed in with 20, 1,299.1 and 12,345.6 credits, and signed out, on the pages it is on;
