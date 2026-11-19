@@ -344,6 +344,9 @@ a {
   .textbutton {
     padding: 8px 0;
     margin: -8px 0;
+    /* 44px whatever the line's height (8px alone made 33px at 13px text); browsers without lh keep the 8px. */
+    padding-block: max(8px, calc((44px - 1lh) / 2));
+    margin-block: min(-8px, calc((1lh - 44px) / 2));
   }
 }
 
