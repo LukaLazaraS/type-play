@@ -114,7 +114,7 @@ function Waitlist({ email }: { email: string | null }) {
           </TextButton>
         </div>
       ) : (
-        <Button ref={ask} look="quiet" busy={busy} onClick={() => void change(true)}>
+        <Button ref={ask} look="quiet" busy={busy} busyLabel="Adding you…" onClick={() => void change(true)}>
           Tell me when it opens
         </Button>
       )}
