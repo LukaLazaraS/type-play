@@ -171,7 +171,7 @@ export async function statsAdmin(prisma: PrismaClient, ledger: LedgerService, ar
     const built = list.filter((a) => endOf(a) === "built");
     const builtMin = built.map((a) => min(a.startedAt, a.finishedAt)).filter((x): x is number => x != null);
     console.log(`  ${k.padEnd(22)} ${String(list.length).padStart(3)}  ${Object.entries(ends).map(([e, v]) => `${e} ${v}`).join(", ")}`);
-    console.log(`  ${"".padEnd(22)}      AI ${usd(spent)} (per built ${built.length ? usd(spent / built.length) : "-"}), credits ${credits.toFixed(1)}; minutes median ${median(ran)?.toFixed(1) ?? "-"} (built ${median(builtMin)?.toFixed(1) ?? "-"}, max ${ran.length ? Math.max(...ran).toFixed(1) : "-"}); waited in line median ${median(waited)?.toFixed(1) ?? "-"} min`);
+    console.log(`  ${"".padEnd(22)}      AI ${usd(spent)} (per built ${built.length ? usd(spent / built.length) : "-"}), credits ${credits.toFixed(1)}; minutes median ${median(ran)?.toFixed(1) ?? "-"} (built p10 ${quantile(builtMin, 0.1)?.toFixed(1) ?? "-"} / median ${median(builtMin)?.toFixed(1) ?? "-"} / p90 ${quantile(builtMin, 0.9)?.toFixed(1) ?? "-"}, max ${ran.length ? Math.max(...ran).toFixed(1) : "-"}); waited in line median ${median(waited)?.toFixed(1) ?? "-"} min`);
     // What a built answer was charged, against the estimate the app showed before Send (credits.ts `estimate`).
     const paid = built.map((a) => Number(a.credits ?? 0));
     const kind = kindOf.get(list[0].id) ?? "edit";
