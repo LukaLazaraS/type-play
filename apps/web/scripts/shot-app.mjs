@@ -195,9 +195,17 @@ try {
   await page.waitForFunction(() => /5\.6 credits/.test(document.querySelector(".make__send .figures")?.textContent ?? ""), null, { timeout: 10_000 }).catch(() => {});
   check("effort High: the estimate follows (4.5 x 1.25 = 5.6)", /about 5\.6 credits/.test(await page.locator(".make__send .figures").innerText()));
   check("effort High: its honest line", (await page.locator(".make__effort .field-hint").innerText()).startsWith("High effort"));
-  await page.getByRole("button", { name: /Puzzle/ }).click();
-  check("starter fills the box", (await page.locator("#idea").inputValue()).includes("match-3"));
-  await page.getByRole("button", { name: /Runner/ }).click();
+  // Genre and Tags (10-27, in place of the example ideas that filled the box; shot-kinds.mjs walks them in full): a
+  // genre is one pick at most and a tag a toggle, and neither writes into the box.
+  await page.locator(".iconchoice__opt", { hasText: "Puzzle" }).click();
+  await page.locator(".iconchoice__opt", { hasText: "Runner" }).click();
+  await page.locator(".tags .chip", { hasText: "Retro" }).click();
+  const picks = {
+    genre: (await page.locator(".iconchoice__opt[data-on] .iconchoice__name").allInnerTexts()).map((t) => t.trim()).join("|"),
+    tags: (await page.locator('.tags .chip[aria-pressed="true"]').allInnerTexts()).map((t) => t.trim()).join("|"),
+    idea: await page.locator("#idea").inputValue(),
+  };
+  check("genre and tags: Runner picked (Puzzle let go), Retro on, the idea as it was", picks.genre === "Runner" && picks.tags === "Retro" && picks.idea.includes("cat jumps"), JSON.stringify(picks));
   await page.waitForTimeout(300);
   await shot(page, "create-desktop");
 
@@ -217,7 +225,8 @@ try {
   check("live building line", line.length > 3 && line !== "Getting started", line);
   await shot(page, "game-building-desktop");
   await page.locator(".msg__meta", { hasText: "version 1" }).waitFor({ timeout: 60_000 });
-  const meta1 = await page.locator(".msg__meta", { hasText: "version 1" }).innerText();
+  // The line keeps its parts whole with no-break spaces (lib/format.ts figuresLine): read them as plain spaces.
+  const meta1 = (await page.locator(".msg__meta", { hasText: "version 1" }).innerText()).replace(/\u00a0/g, " ");
   check("cost under the reply, and the effort it ran at", meta1.includes("1.7 credits") && meta1.includes("high effort"), meta1);
   check("header credits after the build", (await headerCredits(page)) === "18.3", await headerCredits(page));
 
