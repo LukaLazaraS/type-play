@@ -860,7 +860,7 @@ export interface BetaCodeResult {
 
 /**
  * GET, POST and DELETE /beta/waitlist (2026-11-19): someone signed in but not invited asks to be told when TypePlay opens
- * to everyone (the closed-beta page's "No code? Tell me when it opens"), or takes it back. Each answers the state after.
+ * to everyone (the closed-beta page's "Tell me when it opens"), or takes it back. Each answers the state after.
  */
 export interface WaitlistState {
   /** On the list. */

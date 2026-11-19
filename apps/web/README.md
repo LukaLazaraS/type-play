@@ -406,11 +406,12 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   sentence stays while typing), and the box keeps its focus and the code, selected, so the keyboard stays up. A right
   one: a fresh `GET /me` (`refreshMe({ fresh: true })`: the one sent on load was answered "not invited"), the page gives
   way to the app, and one focused line above it says "You're in the beta. We added 50 credits." (if `GET /me` still says
-  not invited: "Your code worked. Reload the page to start."). Under the code box (2026-11-19, the waitlist: 14 of beta 1's
-  22 sign-ins stopped here) a quiet **No code? Tell me when it opens** (`/beta/waitlist`, which an uninvited account may
-  call): then "You're on the list. We'll email <the address> when TypePlay opens to everyone." (a status, focused) with a
-  quiet **Take me off the list** (the keyboard back on the line, "You're off the list." said politely); nothing shows
-  there until the API says which. Then "No code yet?" over a quiet **Play the games** (the home page's games), then a Field panel
+  not invited: "Your code worked. Reload the page to start."). Then "No code yet?" over two quiet buttons, **Play the
+  games** (the home page's games) and **Tell me when it opens** (2026-11-19, the waitlist: 14 of beta 1's 22 sign-ins
+  stopped here; `/beta/waitlist`, which an uninvited account may call): then, under Play the games, "You're on the list.
+  We'll email <the address> when TypePlay opens to everyone." (a Callout marked done with a check, a status, focused)
+  with a quiet **Take me off the list** (the keyboard back on the button, "You're off the list." said politely); nothing
+  shows there until the API says which. Then a Field panel
   with the address this browser is signed in with and two quiet buttons, **Use another account** (Google's account
   chooser, `prompt=select_account`; the new sign-in replaces this one) and Sign out, and the idea saved in this browser
   quoted (cut at three lines) when there is one. It fades in where the page was. It works through a `layout.app.tsx` in `create/`,

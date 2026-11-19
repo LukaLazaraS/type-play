@@ -1,4 +1,4 @@
-// /beta/waitlist (2026-11-19): "No code? Tell me when it opens" on the closed-beta page. Signed in with Google, before
+// /beta/waitlist (2026-11-19): "Tell me when it opens" on the closed-beta page. Signed in with Google, before
 // the invite check (@IdentityOnly), like POST /beta/code: the people who call it aren't invited, and get no user row.
 import { Controller, Delete, Get, HttpCode, Post } from "@nestjs/common";
 import type { WaitlistState } from "@typeplay/shared";

@@ -444,6 +444,24 @@ body:has(.ws) .ground-band {
   background: var(--hot);
   vertical-align: 1px;
 }
+/* mark="check" (something done): a check in the text's own colour where the hot dot goes. */
+.callout--check::before {
+  content: none;
+}
+/* inline-block: Tailwind's preflight makes every svg a block, which put the check on a line of its own. */
+.callout__check {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: -2px;
+}
+/* A sentence that takes the keyboard ("You're on the list"): the ring stands off the words, paper between them and its
+   ink inner ring, instead of sitting on the first letter. */
+.callout:not(.callout--sky):focus-visible {
+  outline-offset: 9px;
+  box-shadow:
+    0 0 0 6px var(--paper),
+    0 0 0 9px var(--ink);
+}
 
 /* A card on the sky (ui/Card.tsx): the account, billing and Android pages. */
 .card {
@@ -5157,8 +5175,11 @@ body:has(main.explore) > .ground-band {
   gap: 12px;
   row-gap: 10px;
 }
-/* "No code yet?" on a line of its own above Play the games: the way for everyone who wasn't invited. */
-.closed__play .field-label {
+/* "No code yet?" on a line of its own above Play the games and Tell me when it opens: the way for everyone who wasn't
+   invited. The waitlist's sentence and an error take lines of their own under the buttons. */
+.closed__play .field-label,
+.closed__play > .closed__wait,
+.closed__play > .error-line {
   flex: 1 1 100%;
 }
 /* The beta code (Luka, 10-24): its label, then the six-digit box and Join the beta on one line, the API's sentence under
@@ -5195,13 +5216,14 @@ body:has(main.explore) > .ground-band {
   flex: 1 1 100%;
   order: 1;
 }
-/* The waitlist (2026-11-19): a quiet line under the code box; joined, the marked sentence with the address (any length,
-   breaking anywhere) and the quiet way off the list under it. */
+/* The waitlist (2026-11-19): joined, the sentence marked done with the address (any length, breaking anywhere) and the
+   quiet way off the list under it; room for the sentence's focus ring (Callout, 12 px out) above and below. */
 .closed__wait {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
+  gap: 18px;
+  padding-top: 8px;
 }
 .closed__wait .callout b {
   font-weight: 700;

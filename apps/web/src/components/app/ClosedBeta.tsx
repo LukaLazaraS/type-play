@@ -48,12 +48,12 @@ function Joined({ credits }: { credits: number }) {
 }
 
 /**
- * "No code? Tell me when it opens" (2026-11-19, beta 1's findings: most people who signed in stopped here with no way to
- * ask in): one quiet line under the code box puts this address on the waitlist (`/beta/waitlist`); then a marked sentence
- * says where the email goes, with a quiet way off the list. Nothing shows until the API says which of the two it is. The
- * sentence takes the focus when it comes, as "You're in the beta." does, so a screen reader reads it; taken off, the
- * keyboard goes back to the line and a polite status says so. A refusal (too many changes, or let in meanwhile) is the
- * API's sentence under it.
+ * "Tell me when it opens" (2026-11-19, beta 1's findings: most people who signed in stopped here with no way to ask in):
+ * under "No code yet?", a quiet button beside Play the games puts this address on the waitlist (`/beta/waitlist`); then a
+ * sentence marked done says where the email goes, with a quiet way off the list, on its own line under Play the games.
+ * Nothing shows until the API says which of the two it is. The sentence takes the focus when it comes, as "You're in the
+ * beta." does, so a screen reader reads it; taken off, the keyboard goes back to the button and a polite status says so.
+ * A refusal (too many changes, or let in meanwhile) is the API's sentence under it.
  */
 function Waitlist({ email }: { email: string | null }) {
   const [state, setState] = useState<WaitlistState | null>(null);
@@ -100,27 +100,29 @@ function Waitlist({ email }: { email: string | null }) {
   };
 
   if (!state) return null;
+  // Inside .closed__play: the button wraps beside Play the games (one above the other on a phone); the sentence, the
+  // error and the status take lines of their own.
   return (
-    <div className="closed__wait">
+    <>
       {state.on ? (
-        <>
-          <Callout ref={sentence} role="status" tabIndex={-1}>
+        <div className="closed__wait">
+          <Callout ref={sentence} mark="check" role="status" tabIndex={-1}>
             You&apos;re on the list. We&apos;ll email <b>{state.email}</b> when TypePlay opens to everyone.
           </Callout>
           <TextButton look="standalone" aria-disabled={busy || undefined} onClick={() => void change(false)}>
             Take me off the list
           </TextButton>
-        </>
+        </div>
       ) : (
-        <TextButton ref={ask} look="standalone" aria-disabled={busy || undefined} onClick={() => void change(true)}>
-          No code? Tell me when it opens
-        </TextButton>
+        <Button ref={ask} look="quiet" busy={busy} onClick={() => void change(true)}>
+          Tell me when it opens
+        </Button>
       )}
       {error && <ErrorLine>{error}</ErrorLine>}
       <p className="sr-only" role="status">
         {said}
       </p>
-    </div>
+    </>
   );
 }
 
@@ -138,9 +140,9 @@ function readDraft() {
 
 /**
  * "TypePlay is in a closed beta.": who it is for and that it opens to everyone soon, then the beta code from the
- * invitation (Luka, 10-24: six digits; a right one lets this account in and the page gives way to the app), a quiet way to
- * be told when it opens (the waitlist, 2026-11-19), then the one thing anyone can do without a code, play the games, then
- * the address this browser is signed in with, for a tester
+ * invitation (Luka, 10-24: six digits; a right one lets this account in and the page gives way to the app), then what
+ * anyone can do without a code: play the games, or be told when it opens (the waitlist, 2026-11-19); then the address
+ * this browser is signed in with, for a tester
  * invited by address on another Google account (Google's account chooser, or Sign out). The idea saved in this browser,
  * if any, stays there for later.
  */
@@ -262,12 +264,12 @@ function ClosedBeta({ email, onJoined }: { email: string | null; onJoined: (cred
           </Button>
         </div>
       </form>
-      <Waitlist email={email} />
       <div className="closed__play">
         <span className="field-label">No code yet?</span>
         <ButtonLink href="/#games" look="quiet">
           Play the games
         </ButtonLink>
+        <Waitlist email={email} />
       </div>
       <Panel className="closed__who">
         {email ? (
