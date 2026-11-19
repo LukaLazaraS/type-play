@@ -4,6 +4,7 @@
 //   invite add <email> [note]   on the list (a note for yourself: who it is); again with a note changes the note
 //   invite list                 every invite: when it was sent, the first sign-in, the account's plan and credits
 //   invite remove <email>       off the list: the account stays (games, credits) but gets 403 invite_only until invited again
+// An invite takes the email off the waitlist (waitlist.ts): it is in now.
 import { emailHash } from "../auth/tombstone.js";
 import type { LedgerService } from "../credits/ledger.service.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
@@ -14,9 +15,10 @@ const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "-");
 /** Words safe to print in a terminal: one line, no control characters, cut short. */
 const safe = (s: string, max = 120) => s.replace(/[\p{Cc}\p{Cf}]+/gu, " ").slice(0, max);
 
-function addressOf(raw: string | undefined): string {
+/** An email from the command line, lower-cased; else the usage (`usage`: the command's own, admin-waitlist.ts too). */
+export function addressOf(raw: string | undefined, usage = INVITE_USAGE): string {
   const email = (raw ?? "").trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) throw new Error(`usage: ${INVITE_USAGE} (an email like name@gmail.com)`);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) throw new Error(`usage: ${usage} (an email like name@gmail.com)`);
   return email;
 }
 
@@ -57,6 +59,8 @@ export async function inviteAdmin(prisma: PrismaClient, ledger: LedgerService, a
       await prisma.invite.create({ data: { email, match, note } });
       console.log(`${email}: invited${note ? ` ("${note}")` : ""}. They sign in with Google at https://typeplay.app/create${user ? ` (they have an account already: ${user.email}, ${user.plan})` : "; their account appears at the first sign-in, with the Free plan's 20 credits"}`);
     }
+    const waited = await prisma.waitlistEntry.deleteMany({ where: { match } });
+    if (waited.count) console.log(`${email}: taken off the waitlist (they asked to be told when TypePlay opens; they are in now)`);
     await ledger.audit(prisma, { actor, userId: user?.id ?? null, action: "invite_add", details: { emailHash: emailHash(match), already: !!had } });
     return;
   }

@@ -6,8 +6,11 @@
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-beta.mjs [outDir]
 // Shots in .impeccable/review/beta/. Checks: an uninvited sign-in gets the closed-beta screen on /create, /games, /account
 // and /billing (the saved idea, the address, Use another account, Sign out), the account place without credits,
-// no user row; the public pages as before; Sign out; the beta code (10-25: the box at 390 and 320 px, digits only, too
-// short, a wrong code with the API's sentence, the right one opens the app with its credits, in a browser of its own);
+// no user row; the public pages as before; Sign out; the waitlist (2026-11-19: "No code? Tell me when it opens", the
+// sentence with the address, focused, the row, kept across a reload, off the list again; at 390 and 320 px with an
+// unbreakable address; the coder's row goes when the code lets them in); the beta code (10-25: the box at 390 and 320 px,
+// digits only, too short, a wrong code with the API's sentence, the right one opens the app with its credits, in a browser
+// of its own);
 // then an invited tester builds a game and sends feedback from the game
 // page's More menu (the tick box on, the game attached, the thanks) and from the account menu (on the game page with the
 // game, on /games without), a draft kept across Escape, Send off while empty; phones at 390 and 320 px; worst cases: a
@@ -225,6 +228,56 @@ try {
   await shot(np, "closed-worst-address-320", true);
   await narrow.close();
 
+  // ---- The waitlist (2026-11-19): "No code? Tell me when it opens", on and off --------------------------------------
+  const waitRow = async (email) => (await db.query(`SELECT email FROM "WaitlistEntry" WHERE match = $1`, [email.toLowerCase()])).rows[0] ?? null;
+  const tellLine = (p) => p.getByRole("button", { name: "No code? Tell me when it opens" });
+  const offLine = (p) => p.getByRole("button", { name: "Take me off the list" });
+  const waitContext = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+  const wp = await waitContext.newPage();
+  wp.on("pageerror", (e) => console.log("page error:", e.message));
+  await signIn(wp, outsider);
+  await closedTitle(wp).waitFor({ timeout: 30_000 });
+  await tellLine(wp).waitFor({ timeout: 15_000 });
+  check("waitlist: a quiet line between the code box and Play the games, still one hot action", (await wp.locator("main .button:not(.button--quiet)").count()) === 1 && (await wp.evaluate(() => {
+    const form = document.querySelector(".closed__code")?.getBoundingClientRect();
+    const line = document.querySelector(".closed__wait")?.getBoundingClientRect();
+    const play = document.querySelector(".closed__play")?.getBoundingClientRect();
+    return !!form && !!line && !!play && line.top >= form.bottom && line.bottom <= play.top;
+  })));
+  await tellLine(wp).focus();
+  await wp.keyboard.press("Enter");
+  const sentence = wp.locator(".closed__wait .callout");
+  await sentence.waitFor({ timeout: 15_000 });
+  check("joined: the sentence names the address", (await sentence.innerText()) === `You're on the list. We'll email ${outsider} when TypePlay opens to everyone.`, await sentence.innerText());
+  check("... a status, and the keyboard on it", (await sentence.getAttribute("role")) === "status" && (await wp.evaluate(() => document.activeElement?.classList.contains("callout") === true)));
+  check("... the row: the address as signed in", (await waitRow(outsider))?.email === outsider);
+  check("... and still the closed-beta page (no user row)", (await closedTitle(wp).count()) === 1 && (await db.query(`SELECT count(*) FROM "User" WHERE id = $1`, [devId(outsider)])).rows[0].count === "0");
+  await wp.waitForTimeout(200);
+  await shot(wp, "closed-waitlist-on-desktop");
+  await wp.reload({ waitUntil: "domcontentloaded" });
+  await closedTitle(wp).waitFor({ timeout: 60_000 });
+  check("a reload: still on the list", await offLine(wp).waitFor({ timeout: 15_000 }).then(() => true, () => false));
+  await offLine(wp).click();
+  await tellLine(wp).waitFor({ timeout: 15_000 });
+  check("off the list: the line again, with the keyboard on it, said politely", (await wp.evaluate(() => document.activeElement?.textContent === "No code? Tell me when it opens")) && (await wp.locator(".closed__wait .sr-only[role=status]").innerText()) === "You're off the list.");
+  check("... the row gone", (await waitRow(outsider)) === null);
+  await waitContext.close();
+  // Phones: 390 px, and 320 px with an address that has no place to break.
+  for (const [w, h, who] of [[390, 844, outsider], [320, 640, longOne]]) {
+    const phone = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    const p = await phone.newPage();
+    await signIn(p, who);
+    await closedTitle(p).waitFor({ timeout: 30_000 });
+    await tellLine(p).tap();
+    await p.locator(".closed__wait .callout").waitFor({ timeout: 15_000 });
+    check(`waitlist at ${w} px${who === longOne ? " (an unbreakable address)" : ""}: on the list, nothing wider than the screen`, (await fits(p)) && (await waitRow(who))?.email === who);
+    await p.waitForTimeout(300);
+    await shot(p, `closed-waitlist-${w}`, true);
+    await offLine(p).tap();
+    await tellLine(p).waitFor({ timeout: 15_000 });
+    await phone.close();
+  }
+
   // ---- A beta code (Luka, 10-24): wrong, then right; the app opens with the code's credits ----------------------------
   const made = admin("code", "add", BETA_CODE, "--uses", "1", "--credits", "30", "shots");
   check("admin code add", made.status === 0, made.stdout.trim() || made.stderr.trim());
@@ -261,6 +314,8 @@ try {
   cp.on("pageerror", (e) => console.log("page error:", e.message));
   await signIn(cp, coder);
   await closedTitle(cp).waitFor({ timeout: 30_000 });
+  // On the waitlist first: the right code takes them off it (below).
+  check("the coder asks to be told (the API)", (await api(coder, "POST", "/beta/waitlist")).body?.on === true && (await waitRow(coder)) !== null);
   await cp.locator("#beta-code").fill("12a34");
   check("the box keeps digits only", (await cp.locator("#beta-code").inputValue()) === "1234");
   await cp.getByRole("button", { name: "Join the beta" }).click();
@@ -286,6 +341,7 @@ try {
     const line = document.querySelector(".joined");
     return line?.textContent === "You're in the beta. We added 30 credits." && document.activeElement === line;
   }));
+  check("... and off the waitlist: in now", (await waitRow(coder)) === null);
   await cp.waitForTimeout(300);
   await shot(cp, "closed-code-in-desktop");
   await codeContext.close();
@@ -417,6 +473,7 @@ try {
     // The code, its use and the wrong tries of this run; the code's own audit rows.
     await db.query(`DELETE FROM "BetaCode" WHERE code = $1`, [BETA_CODE]);
     await db.query(`DELETE FROM "BetaCodeTry" WHERE match = ANY($1)`, [[coder, outsider]]);
+    await db.query(`DELETE FROM "WaitlistEntry" WHERE match = ANY($1)`, [[coder, outsider, longOne].map((e) => e.toLowerCase())]);
     await db.query(`DELETE FROM "BillingAudit" WHERE action IN ('code_add', 'beta_code') AND details->>'code' = $1`, [BETA_CODE]);
     const left = await db.query(`SELECT (SELECT count(*) FROM "User" WHERE id = ANY($1)) AS users, (SELECT count(*) FROM "Feedback" WHERE "userId" = ANY($1)) AS notes`, [[devId(tester), devId(outsider), devId(longOne), devId(coder)]]);
     check("cleaned up: no test users or notes left", left.rows[0].users === "0" && left.rows[0].notes === "0");

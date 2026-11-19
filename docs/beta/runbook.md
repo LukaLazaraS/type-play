@@ -214,7 +214,10 @@ Send the invitations in the morning, keep the API log open for the first builds,
    API up": stop the API as in 2.
 
 Opening the app to everyone later is the opposite pair of switches: `BETA_INVITE_ONLY: "0"` in `deploy/api/compose.yaml`
-(then `api`) and `NEXT_PUBLIC_CLOSED_BETA: "0"` in `deploy/server/compose.yaml` (then `site`).
+(then `api`) and `NEXT_PUBLIC_CLOSED_BETA: "0"` in `deploy/server/compose.yaml` (then `site`). Then tell everyone on the
+waitlist ("No code? Tell me when it opens" on the closed-beta page): `npm run admin:live -w @typeplay/server -- waitlist
+list` gives each address and the day they asked, oldest first; email each one that TypePlay is open, then `waitlist remove
+<email>` (each removal leaves an audit row with the address scrambled).
 
 ## 12. Rollback
 

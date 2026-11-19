@@ -406,8 +406,11 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   sentence stays while typing), and the box keeps its focus and the code, selected, so the keyboard stays up. A right
   one: a fresh `GET /me` (`refreshMe({ fresh: true })`: the one sent on load was answered "not invited"), the page gives
   way to the app, and one focused line above it says "You're in the beta. We added 50 credits." (if `GET /me` still says
-  not invited: "Your code worked. Reload the page to start."). Then "No code yet?" over a quiet **Play the games** (the
-  home page's games), then a Field panel
+  not invited: "Your code worked. Reload the page to start."). Under the code box (2026-11-19, the waitlist: 14 of beta 1's
+  22 sign-ins stopped here) a quiet **No code? Tell me when it opens** (`/beta/waitlist`, which an uninvited account may
+  call): then "You're on the list. We'll email <the address> when TypePlay opens to everyone." (a status, focused) with a
+  quiet **Take me off the list** (the keyboard back on the line, "You're off the list." said politely); nothing shows
+  there until the API says which. Then "No code yet?" over a quiet **Play the games** (the home page's games), then a Field panel
   with the address this browser is signed in with and two quiet buttons, **Use another account** (Google's account
   chooser, `prompt=select_account`; the new sign-in replaces this one) and Sign out, and the idea saved in this browser
   quoted (cut at three lines) when there is one. It fades in where the page was. It works through a `layout.app.tsx` in `create/`,
@@ -437,7 +440,8 @@ PLAN.md package 6; the API's side: `apps/server/README.md` "The closed beta and 
   database of its own, so it never touches the dev stack:
   `node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-beta.mjs [outDir]` (build the API first; shots in
   `.impeccable/review/beta/`). It signs in uninvited (the page on /create, /games, /account and /billing, one hot action,
-  the account menu, no user row, the public pages as before, Sign out and the closed beta said before sign-in), then
+  the account menu, no user row, the public pages as before, Sign out and the closed beta said before sign-in; the
+  waitlist on and off, at 390 and 320 px too, and a code that takes its row away), then
   invites a tester, builds a game and sends feedback from More and from the account menu (the game attached, a three-line
   box from the first open, the keyboard back on the menu's button, the thanks, the row in the database, a draft kept
   across Escape), then worst cases: an unbreakable address and a 4,000-letter saved idea at 320 px (the buttons inside

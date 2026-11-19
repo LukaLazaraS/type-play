@@ -886,6 +886,17 @@ model BetaCodeTry {
   @@index([at])
 }
 
+/// The closed beta's waitlist (2026-11-19; src/beta/waitlist.ts): someone signed in whose email isn't invited asked to be
+/// told when TypePlay opens to everyone. No user row goes with it (they have no account); a beta code or an invite that
+/// lets the email in removes it. `admin waitlist list | remove`.
+model WaitlistEntry {
+  /// The email as invites match it (src/beta/invites.ts `inviteMatch`): one row per address.
+  match   String   @id
+  /// The address as signed in: where the email goes.
+  email   String
+  askedAt DateTime @default(now())
+}
+
 /// "Send feedback" from the app (POST /feedback): a tester's note, the page it came from and the browser's User-Agent,
 /// and, when they ticked it, the game, its last message and the version playing then. Goes with the account (cascade);
 /// a deleted game leaves the note without it. `admin feedback list | show | done`.

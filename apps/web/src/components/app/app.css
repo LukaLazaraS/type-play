@@ -5195,6 +5195,18 @@ body:has(main.explore) > .ground-band {
   flex: 1 1 100%;
   order: 1;
 }
+/* The waitlist (2026-11-19): a quiet line under the code box; joined, the marked sentence with the address (any length,
+   breaking anywhere) and the quiet way off the list under it. */
+.closed__wait {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.closed__wait .callout b {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
 /* After a right code (InviteGate): one line on the sky above the page, the Android page's notice, its words in line
    with the .make widget's under it (the same width and inset). */
 .joined {

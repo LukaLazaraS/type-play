@@ -5,6 +5,7 @@
 // from many. `admin code add | set | list | remove` (admin-codes.ts); `admin invite add` works as before.
 // A code can carry a plan (Luka, 2026-10-27): the account gets it once, when its plan is below; a code never lowers one.
 // Nothing in billing lowers it either: it ends only with a Paddle subscription (cancel, lapse) the account bought itself.
+// A right code also takes the email off the waitlist (waitlist.ts, 2026-11-19): it is in now.
 import { Injectable } from "@nestjs/common";
 import type { BetaCodeResult } from "@typeplay/shared";
 import { AuthService, type Identity } from "../auth/auth.service.js";
@@ -85,6 +86,7 @@ export class BetaCodeService {
           create: { email: who.email, match, note: `code ${code}`, code, usedAt: new Date() },
           update: { code, usedAt: new Date() },
         });
+        await tx.waitlistEntry.deleteMany({ where: { match } });
         return true;
       });
     } catch (e) {

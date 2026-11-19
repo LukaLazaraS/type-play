@@ -38,6 +38,7 @@ import type {
   UpdateMeBody,
   UpdateProjectBody,
   UsagePage,
+  WaitlistState,
 } from "@typeplay/shared";
 import { app } from "@/content/app";
 import { accessToken, markUninvited } from "./session";
@@ -151,6 +152,13 @@ export const api = {
   feedback: (body: FeedbackBody) => call<{ id: string }>("/feedback", { method: "POST", body }),
   /** A beta code from the closed-beta page (the one call an uninvited account may make): 403 code_wrong, 429 too_many. */
   betaCode: (code: string) => call<BetaCodeResult>("/beta/code", { method: "POST", body: { code } }),
+  /** The closed beta's waitlist (2026-11-19): "Tell me when it opens", an uninvited account's too. 400 when it gets in
+   * already, 429 too_many past 10 changes an hour. */
+  waitlist: {
+    state: () => call<WaitlistState>("/beta/waitlist"),
+    join: () => call<WaitlistState>("/beta/waitlist", { method: "POST" }),
+    leave: () => call<WaitlistState>("/beta/waitlist", { method: "DELETE" }),
+  },
   /** Pictures for a message (2026-11-04): each uploaded as it is attached (400 with the sentence that says why one isn't
    * taken), taken back before sending, and fetched for the chat (their owner only). */
   pictures: {

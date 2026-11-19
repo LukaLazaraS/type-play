@@ -13,6 +13,8 @@ import { AuthService } from "./auth/auth.service.js";
 import { BetaCodeController } from "./beta/codes.controller.js";
 import { BetaCodeService } from "./beta/codes.js";
 import { InviteService } from "./beta/invites.js";
+import { WaitlistController } from "./beta/waitlist.controller.js";
+import { WaitlistService } from "./beta/waitlist.js";
 import { BillingController } from "./billing/billing.controller.js";
 import { BillingService } from "./billing/billing.service.js";
 import { BillingHandlers } from "./billing/handlers.js";
@@ -53,6 +55,7 @@ import { RunsService } from "./runs/runs.service.js";
     AndroidController,
     FeedbackController,
     BetaCodeController,
+    WaitlistController,
     NotifyController,
   ],
   providers: [
@@ -66,6 +69,7 @@ import { RunsService } from "./runs/runs.service.js";
     InviteService,
     AuthService,
     BetaCodeService,
+    WaitlistService,
     CreditsService,
     EventBus,
     PushService,

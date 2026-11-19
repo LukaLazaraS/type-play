@@ -250,7 +250,7 @@ PLAN.md package 6: 5-10 testers, free, invite only, credits by hand. Go-live and
 - **Beta codes** (Luka, 2026-10-24; `src/beta/codes.ts`, `codes.controller.ts`): six digits a tester types on the
   closed-beta page instead of being invited by address. `POST /beta/code { code }` is the one route an email that isn't
   invited may call: the guard verifies the token and passes only the identity (`@IdentityOnly()` in `auth.guard.ts`, no
-  user row; the e2e pins that it is on this route alone). Spaces and dashes are ignored; not six digits is 400. A right
+  user row; the e2e pins that it is on this route and the waitlist's alone). Spaces and dashes are ignored; not six digits is 400. A right
   code, in one transaction that raises `used` only while `used < uses`, records the use (`BetaCodeUse`, one per code and
   email) and writes an `Invite` with the code; then the account is made as at any first sign-in (the Free plan's 20) and
   the code's credits are added as an `admin` bucket (spent last, never expires; "Beta code" in the credit history; a
@@ -261,8 +261,19 @@ PLAN.md package 6: 5-10 testers, free, invite only, credits by hand. Go-live and
   email** (`BETA_CODE_TRIES_PER_HOUR`) and **50 an hour in all** (`BETA_CODE_TRIES_PER_HOUR_ALL`, so six digits can't be
   guessed from many accounts either; then the code box waits for the hour, for everyone; `invite add` still works).
   Wrong tries are kept a day (`BetaCodeTry`).
+- **The waitlist** (2026-11-19; `src/beta/waitlist.ts`, `waitlist.controller.ts`; beta 1's findings: 14 of 22 Google
+  sign-ins stopped at the closed-beta page, which had no way to ask in): `GET`, `POST` and `DELETE /beta/waitlist`
+  (`@IdentityOnly()` like the code's route: no user row) read, join and leave the list of people to tell when TypePlay
+  opens to everyone, each answering `WaitlistState`. One `WaitlistEntry` per email, keyed by `inviteMatch` (every
+  spelling of one Gmail address is one row), with the address as signed in and when they asked; joining again keeps the
+  first ask, leaving again is the same. **400 `bad_request`** for an email that gets in already (invited, an admin, the
+  closed beta off); **429 `too_many`** past **10 joins and leaves an hour per email** (`WAITLIST_CHANGES_PER_HOUR`, in
+  this process's memory like the gallery's limits). A right beta code (in its transaction) and `invite add` take the
+  row away. When the app opens to everyone the list is told and emptied (`docs/beta/runbook.md`). Migration
+  `20261119000000_waitlist` (applied to the dev database 11-19).
 - **What stays outside our tables:** an uninvited Google sign-in still leaves Supabase's own sign-in record
-  (`auth.users`: email, name, picture), as any sign-in does; our database keeps nothing else about it.
+  (`auth.users`: email, name, picture), as any sign-in does; our database keeps nothing else about it, unless they ask to
+  be told when TypePlay opens (the waitlist: the address and the day).
 - **`POST /feedback`** (`src/feedback/`, the contract's `FeedbackBody`): what happened (required) and what they expected
   (optional), up to 4,000 letters each with line breaks kept and other control characters dropped; the site's path it
   came from (no query string); the browser from the request's User-Agent (400 characters); and, when the tester ticks it,
@@ -280,6 +291,8 @@ npm run admin -w @typeplay/server -- invite remove <email>         # off the lis
 npm run admin -w @typeplay/server -- code add [123456] [--uses 20] [--credits 50] [note]   # a beta code (random six digits when none is given)
 npm run admin -w @typeplay/server -- code list                     # each code: used of uses, credits, made, works / used up / removed, the accounts it let in
 npm run admin -w @typeplay/server -- code remove <code>            # it stops working; the accounts it let in stay (invite remove takes one out)
+npm run admin -w @typeplay/server -- waitlist list                 # who asked to be told when TypePlay opens: the address as signed in, the day, oldest first
+npm run admin -w @typeplay/server -- waitlist remove <email>       # off the waitlist (told, or asked by mail to be taken off)
 npm run admin -w @typeplay/server -- feedback list [--open]        # newest first, one line of each (--open: not marked done)
 npm run admin -w @typeplay/server -- feedback show <id>            # who, the page, the browser, the game and the build to play, its message, the words
 npm run admin -w @typeplay/server -- feedback done <id>            # dealt with: it leaves list --open
@@ -295,7 +308,10 @@ npm run admin -w @typeplay/server -- stats [--since YYYY-MM-DD]     # read only:
   Georgian letters, the 11th of a day, the export, `admin feedback …` and its audit rows, a deleted game, a closed
   account) and "the closed beta" (its own API with `BETA_INVITE_ONLY=1`: 403 `invite_only` on 19 signed-in
   routes with no user made, the public routes and 401 unchanged, `ADMIN_EMAILS`, an invite written with dots, a +tag and
-  capitals, `grant` for the invited tester, `invite list`, a removal locking the account out again, the audit rows); the
+  capitals, `grant` for the invited tester, `invite list`, a removal locking the account out again, the audit rows), and
+  "the waitlist" (its own API with the closed beta on: join, join again, leave twice, no user row, an invited email and an
+  admin refused, a Gmail spelled two ways as one row, the row gone after a code and after `invite add`, the hour's limit,
+  `waitlist list | remove` and their audit rows, the main API refusing it with the beta off); the
   main API runs with the closed beta off, so the rest of the file is "as today".
 
 ## Credits: the ledger (payments part 1, 2026-10-20)

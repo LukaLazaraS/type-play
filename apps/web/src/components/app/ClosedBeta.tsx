@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { GoogleLogo } from "@phosphor-icons/react";
+import type { WaitlistState } from "@typeplay/shared";
 import { Button } from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 import { Callout } from "@/components/ui/Callout";
@@ -10,6 +11,7 @@ import { FieldLabel, TextField } from "@/components/ui/Field";
 import { GoogleButton } from "@/components/ui/GoogleButton";
 import { PageWidget } from "@/components/ui/PageWidget";
 import { Panel } from "@/components/ui/Panel";
+import { TextButton } from "@/components/ui/TextButton";
 import { app, DRAFT_KEY, GOOGLE_BLOCKED } from "@/content/app";
 import { BETA_CODE_LENGTH } from "@/content/beta";
 import { api, ApiFailure } from "@/lib/api";
@@ -45,6 +47,83 @@ function Joined({ credits }: { credits: number }) {
   );
 }
 
+/**
+ * "No code? Tell me when it opens" (2026-11-19, beta 1's findings: most people who signed in stopped here with no way to
+ * ask in): one quiet line under the code box puts this address on the waitlist (`/beta/waitlist`); then a marked sentence
+ * says where the email goes, with a quiet way off the list. Nothing shows until the API says which of the two it is. The
+ * sentence takes the focus when it comes, as "You're in the beta." does, so a screen reader reads it; taken off, the
+ * keyboard goes back to the line and a polite status says so. A refusal (too many changes, or let in meanwhile) is the
+ * API's sentence under it.
+ */
+function Waitlist({ email }: { email: string | null }) {
+  const [state, setState] = useState<WaitlistState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [said, setSaid] = useState("");
+  /** Where the keyboard goes once the change shows: the sentence after joining, the line after leaving. */
+  const next = useRef<"on" | "off" | null>(null);
+  const sentence = useRef<HTMLParagraphElement>(null);
+  const ask = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    let live = true;
+    // Not known (offline, a hiccup): the line to join shows, and joining says what went wrong if it still does.
+    api.waitlist.state().then(
+      (s) => live && setState(s),
+      () => live && setState({ on: false, email: email ?? "", askedAt: null }),
+    );
+    return () => {
+      live = false;
+    };
+  }, [email]);
+
+  useEffect(() => {
+    if (next.current === "on") sentence.current?.focus();
+    if (next.current === "off") ask.current?.focus();
+    next.current = null;
+  }, [state]);
+
+  const change = async (on: boolean) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const now = on ? await api.waitlist.join() : await api.waitlist.leave();
+      next.current = now.on ? "on" : "off";
+      setSaid(now.on ? "" : "You're off the list.");
+      setState(now);
+    } catch (failure) {
+      setError(failure instanceof ApiFailure ? failure.message : "Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!state) return null;
+  return (
+    <div className="closed__wait">
+      {state.on ? (
+        <>
+          <Callout ref={sentence} role="status" tabIndex={-1}>
+            You&apos;re on the list. We&apos;ll email <b>{state.email}</b> when TypePlay opens to everyone.
+          </Callout>
+          <TextButton look="standalone" aria-disabled={busy || undefined} onClick={() => void change(false)}>
+            Take me off the list
+          </TextButton>
+        </>
+      ) : (
+        <TextButton ref={ask} look="standalone" aria-disabled={busy || undefined} onClick={() => void change(true)}>
+          No code? Tell me when it opens
+        </TextButton>
+      )}
+      {error && <ErrorLine>{error}</ErrorLine>}
+      <p className="sr-only" role="status">
+        {said}
+      </p>
+    </div>
+  );
+}
+
 function subscribe(onChange: () => void) {
   window.addEventListener("storage", onChange);
   return () => window.removeEventListener("storage", onChange);
@@ -59,8 +138,9 @@ function readDraft() {
 
 /**
  * "TypePlay is in a closed beta.": who it is for and that it opens to everyone soon, then the beta code from the
- * invitation (Luka, 10-24: six digits; a right one lets this account in and the page gives way to the app), then the one
- * thing anyone can do without a code, play the games, then the address this browser is signed in with, for a tester
+ * invitation (Luka, 10-24: six digits; a right one lets this account in and the page gives way to the app), a quiet way to
+ * be told when it opens (the waitlist, 2026-11-19), then the one thing anyone can do without a code, play the games, then
+ * the address this browser is signed in with, for a tester
  * invited by address on another Google account (Google's account chooser, or Sign out). The idea saved in this browser,
  * if any, stays there for later.
  */
@@ -182,6 +262,7 @@ function ClosedBeta({ email, onJoined }: { email: string | null; onJoined: (cred
           </Button>
         </div>
       </form>
+      <Waitlist email={email} />
       <div className="closed__play">
         <span className="field-label">No code yet?</span>
         <ButtonLink href="/#games" look="quiet">

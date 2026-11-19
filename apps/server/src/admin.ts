@@ -21,6 +21,8 @@
 //   npm run admin -w @typeplay/server -- invite remove <email>              (off the list: the account stays, the app answers 403 invite_only)
 //   npm run admin -w @typeplay/server -- code add [123456] [--uses 20] [--credits 50] [note]   (a beta code: src/beta/admin-codes.ts)
 //   npm run admin -w @typeplay/server -- code list | code remove <code>     (uses so far and the accounts; a removed code stops working)
+//   npm run admin -w @typeplay/server -- waitlist list                      (who asked to be told when TypePlay opens, oldest first: src/beta/admin-waitlist.ts)
+//   npm run admin -w @typeplay/server -- waitlist remove <email>            (off the waitlist)
 //   npm run admin -w @typeplay/server -- feedback list [--open]             (the testers' notes, newest first)
 //   npm run admin -w @typeplay/server -- feedback show <id>                 (the whole note, the game's build, the message)
 //   npm run admin -w @typeplay/server -- feedback done <id>                 (dealt with: it leaves list --open)
@@ -53,6 +55,7 @@ import type { EventStatus } from "./generated/prisma/client.js";
 import { createPrisma } from "./prisma.js";
 import { RUN_USAGE, runAdmin } from "./runs/admin-run.js";
 import { STATS_USAGE, statsAdmin } from "./beta/admin-stats.js";
+import { WAITLIST_USAGE, waitlistAdmin } from "./beta/admin-waitlist.js";
 
 // Which database this is, before anything is read or written (docs/environments.md).
 if (ENV_MODE === "development" || ENV_MODE === "autotest") console.error(`admin: this PC's ${ENV_MODE} database (npm run admin:live for the live one)`);
@@ -241,6 +244,8 @@ async function main() {
     await inviteAdmin(prisma, ledger, args, actor);
   } else if (cmd === "code") {
     await codeAdmin(prisma, ledger, args, actor);
+  } else if (cmd === "waitlist") {
+    await waitlistAdmin(prisma, ledger, args, actor);
   } else if (cmd === "feedback") {
     await feedbackAdmin(prisma, ledger, args, actor);
   } else if (cmd === "stats") {
@@ -254,6 +259,7 @@ async function main() {
         `       ${RUN_USAGE}\n` +
         `       ${INVITE_USAGE}\n` +
         `       ${CODE_USAGE}\n` +
+        `       ${WAITLIST_USAGE}\n` +
         `       ${FEEDBACK_USAGE}
 ` +
         `       ${STATS_USAGE}`,

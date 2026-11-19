@@ -859,6 +859,19 @@ export interface BetaCodeResult {
 }
 
 /**
+ * GET, POST and DELETE /beta/waitlist (2026-11-19): someone signed in but not invited asks to be told when TypePlay opens
+ * to everyone (the closed-beta page's "No code? Tell me when it opens"), or takes it back. Each answers the state after.
+ */
+export interface WaitlistState {
+  /** On the list. */
+  on: boolean;
+  /** The address the email goes to: the one signed in. */
+  email: string;
+  /** When they asked (ISO); null when not on the list. */
+  askedAt: string | null;
+}
+
+/**
  * POST /me/push (notifications, 2026-10-29): this device turns notifications on. The browser's own subscription, as
  * PushSubscription.toJSON() gives it: the push service's address for this browser and the keys to encrypt for it. One
  * row per address: an address another account had moves to this one. At most 20 devices per account (the oldest goes).
@@ -1092,6 +1105,16 @@ export interface FeedbackBody {
 //                                          taken out, then the stream ends
 // GET    /me/usage                         UsageEntry.by on a charge for a member's message
 // GET    /me/export                        gains `shared`
+//
+// Added 2026-11-19 (the closed beta's waitlist; apps/server/src/beta/waitlist.ts):
+// GET    /beta/waitlist                    -> WaitlistState   (signed in, before the invite check like the beta code: an
+//                                                             email that isn't invited may call it, and no user is made)
+// POST   /beta/waitlist                    -> WaitlistState   (on the list; again: the same, its first ask kept; 400
+//                                                             bad_request when the email gets in already: invited, an
+//                                                             admin, or the closed beta off; 429 too_many past 10 joins
+//                                                             and leaves an hour)
+// DELETE /beta/waitlist                    -> WaitlistState   (off the list; again: the same; 429 as above)
+// A beta code or an invite that lets the email in takes it off the list.
 
 export type ApiErrorCode =
   | "unauthorized" // no or bad token

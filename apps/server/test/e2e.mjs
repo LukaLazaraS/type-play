@@ -1273,9 +1273,10 @@ async function inviteChecks(db) {
       if (line.startsWith("//")) for (const m of line.matchAll(/\b(GET|POST|PATCH|DELETE)\s+(\/[^\s,?]*)/g)) contractRoutes.add(`${m[1]} ${m[2]}`);
     }
     const isPublicRoute = (r) => /^(GET|POST) \/(public|webhooks|android\/dl)\//.test(r);
-    // POST /beta/code is the way in for an email that isn't invited (codeChecks below): it answers them, by design.
-    const wayIn = "POST /beta/code";
-    const signedIn = [...contractRoutes].filter((r) => !isPublicRoute(r) && r !== wayIn);
+    // POST /beta/code is the way in for an email that isn't invited (codeChecks below), and /beta/waitlist the way to be
+    // told when it opens (waitlistChecks): they answer them, by design.
+    const wayIn = new Set(["POST /beta/code", "GET /beta/waitlist", "POST /beta/waitlist", "DELETE /beta/waitlist"]);
+    const signedIn = [...contractRoutes].filter((r) => !isPublicRoute(r) && !wayIn.has(r));
     const asked = new Set(routes.map(([method, path]) => `${method} ${path.split("?")[0]}`));
     for (const r of signedIn) {
       const [method, template] = r.split(" ");
@@ -1317,8 +1318,9 @@ async function inviteChecks(db) {
       publicIn.sort().join() === "android/android.controller.ts:1,billing/webhooks.controller.ts:1,public.controller.ts:1" && ownRoutes.join() === ').get("/health"',
       `the public surface: @Public() on ${publicIn.join(", ")}; main.ts's own route ${ownRoutes.join(", ")}`,
     );
-    // Signed in but before the invite check (no user row): only the beta code's route. A new one fails here until looked at.
-    ok(identityOnlyIn.sort().join() === "beta/codes.controller.ts:1", `@IdentityOnly() on ${identityOnlyIn.join(", ") || "nothing"}`);
+    // Signed in but before the invite check (no user row): only the beta code's route and the waitlist's three. A new one
+    // fails here until looked at.
+    ok(identityOnlyIn.sort().join() === "beta/codes.controller.ts:1,beta/waitlist.controller.ts:3", `@IdentityOnly() on ${identityOnlyIn.join(", ") || "nothing"}`);
     ok((await call(BOSS, "GET", "/me")).status === 200, "ADMIN_EMAILS get in without an invite");
     ok((await call(I, "GET", "/me")).status === 403, "the tester before the invite: 403");
 
@@ -1496,6 +1498,105 @@ async function codeChecks(db) {
       "audit rows: code_add, code_list, code_remove, and beta_code for each account's credits (no email in them)",
     );
     ok(auditOk(), "admin audit: the ledger's invariants hold");
+  } finally {
+    beta.kill();
+  }
+}
+
+/**
+ * The closed beta's waitlist (2026-11-19; apps/server/README.md "The waitlist"), against an API of our own with the closed
+ * beta on: an email that isn't invited joins (GET, POST, DELETE /beta/waitlist, before the invite check: no user row),
+ * again (one row, its first ask kept), leaves twice; an invited email and an admin are refused; a Gmail address spelled two
+ * ways is one row; a right beta code and `admin invite add` take the row away; 10 changes an hour, then 429; `admin
+ * waitlist list | remove` and their audit rows. The main API (the closed beta off) refuses it: everyone is in.
+ */
+async function waitlistChecks(db) {
+  console.log("the waitlist: an API of our own (BETA_INVITE_ONLY=1); GET, POST, DELETE /beta/waitlist; admin waitlist list | remove");
+  const { inviteMatch } = await import("../dist/beta/invites.js");
+  const { emailHash } = await import("../dist/auth/tombstone.js");
+  const BOSS = `dev:e2e-${stamp}-wboss@test.local`;
+  const beta = await spawnApi({ BETA_INVITE_ONLY: "1", ADMIN_EMAILS: emailOf(BOSS) });
+  const tok = (name) => `dev:e2e-${stamp}-w${name}@test.local`;
+  const [U, V, C, L, I] = ["u", "v", "c", "l", "i"].map(tok);
+  // One Gmail address two ways: Google signs in with the plain one, the other has dots, a +tag and capitals.
+  const G = `dev:e2e-${stamp}-wg@gmail.com`;
+  const G2 = `dev:E2E-${stamp}-W.G+later@Gmail.com`;
+  const ask = async (token, method, body) => {
+    const send = () =>
+      fetch(`${beta.url}/beta/waitlist`, {
+        method,
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    const res = await send().catch((e) => (e?.cause?.code === "ECONNRESET" ? send() : Promise.reject(e)));
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+  const row = async (token) => (await db.query(`SELECT email, "askedAt" FROM "WaitlistEntry" WHERE match = $1`, [inviteMatch(emailOf(token))])).rows[0] ?? null;
+  const me = async (token) => {
+    const res = await fetch(`${beta.url}/me`, { headers: { Authorization: `Bearer ${token}` } });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+  try {
+    ok((await ask(null, "GET")).status === 401 && (await ask(null, "POST")).status === 401, "no sign-in: 401");
+    const before = await ask(U, "GET");
+    ok(before.status === 200 && before.body?.on === false && before.body.email === emailOf(U) && before.body.askedAt === null, "not on the list yet: on false, the address signed in");
+    const joined = await ask(U, "POST");
+    ok(joined.status === 200 && joined.body?.on === true && joined.body.email === emailOf(U) && !Number.isNaN(Date.parse(joined.body.askedAt)), "join: 200, on the list, the address and when");
+    const first = await row(U);
+    ok(first?.email === emailOf(U), "the row: the address as signed in");
+    const again = await ask(U, "POST");
+    ok(again.status === 200 && again.body?.on === true && again.body.askedAt === joined.body.askedAt, "join again: the same, its first ask kept");
+    ok((await db.query(`SELECT count(*)::int AS n FROM "WaitlistEntry" WHERE match = $1`, [inviteMatch(emailOf(U))])).rows[0].n === 1, "… one row");
+    ok((await ask(U, "GET")).body?.on === true, "GET: on the list");
+    const stillOut = await me(U);
+    ok(stillOut.status === 403 && stillOut.body?.error === "invite_only", "on the list is not in: GET /me still 403 invite_only");
+    ok((await db.query(`SELECT count(*) FROM "User" WHERE id = $1`, [devId(U)])).rows[0].count === "0", "… and no user row");
+    const left = await ask(U, "DELETE");
+    ok(left.status === 200 && left.body?.on === false && left.body.askedAt === null && (await row(U)) === null, "leave: off the list, the row gone");
+    ok((await ask(U, "DELETE")).body?.on === false, "leave again: the same");
+
+    ok((await ask(G, "POST")).body?.on === true && (await ask(G2, "GET")).body?.on === true, "a Gmail address spelled two ways: one place on the list");
+    ok((await ask(G2, "POST")).body?.email === emailOf(G) && (await db.query(`SELECT count(*)::int AS n FROM "WaitlistEntry" WHERE match = $1`, [inviteMatch(emailOf(G))])).rows[0].n === 1, "… one row, the address it first asked with");
+
+    ok(admin("invite", "add", emailOf(I)).status === 0 && (await me(I)).status === 200, "an invited tester");
+    const invitedJoin = await ask(I, "POST");
+    ok(invitedJoin.status === 400 && invitedJoin.body?.error === "bad_request" && /make games already/.test(invitedJoin.body.message) && (await row(I)) === null, `an invited email can't join: 400 ("${invitedJoin.body?.message}"), no row`);
+    ok((await ask(BOSS, "POST")).status === 400, "nor an admin (ADMIN_EMAILS)");
+
+    ok((await ask(V, "POST")).body?.on === true, "V joins");
+    const inviteV = admin("invite", "add", emailOf(V));
+    ok(inviteV.status === 0 && /taken off the waitlist/.test(inviteV.stdout) && (await row(V)) === null, "admin invite add takes the row away, and says so");
+    ok((await me(V)).status === 200, "… and V is in");
+    ok(admin("code", "add", "616161", "--uses", "1", "--credits", "0", "e2e", "waitlist").status === 0, "a code for C");
+    ok((await ask(C, "POST")).body?.on === true, "C joins");
+    const inC = await fetch(`${beta.url}/beta/code`, { method: "POST", headers: { Authorization: `Bearer ${C}`, "Content-Type": "application/json" }, body: JSON.stringify({ code: "616161" }) });
+    ok(inC.status === 200 && (await row(C)) === null && (await me(C)).status === 200, "a right beta code lets C in and takes the row away");
+
+    // The hour's limit: 10 joins and leaves per email (U has made 4 so far), then 429; GET is not counted.
+    const changes = [];
+    for (let i = 0; i < 6; i++) changes.push(await ask(U, i % 2 ? "DELETE" : "POST"));
+    ok(changes.every((r) => r.status === 200), "up to 10 changes in an hour: 200");
+    const capped = await ask(U, "POST");
+    ok(capped.status === 429 && capped.body?.error === "too_many" && /a lot of changes/.test(capped.body.message) && (await row(U)) === null, `the 11th: 429 too_many, nothing changed ("${capped.body?.message}")`);
+    ok((await ask(U, "GET")).status === 200, "… GET still answers");
+
+    ok((await ask(L, "POST")).body?.on === true, "L joins (after G)");
+    const list = admin("waitlist", "list");
+    const lines = list.stdout.split("\n").filter((l) => l.includes(`e2e-${stamp}-w`));
+    ok(
+      list.status === 0 && lines.length === 2 && lines[0].startsWith(emailOf(G)) && lines[1].startsWith(emailOf(L)) && /asked \d{4}-\d\d-\d\d/.test(lines[0]),
+      `admin waitlist list: the address and the day, oldest first (${lines.map((l) => l.split(" ")[0]).join(", ")})`,
+    );
+    const removed = admin("waitlist", "remove", emailOf(G2));
+    ok(removed.status === 0 && /off the waitlist/.test(removed.stdout) && (await row(G)) === null, "admin waitlist remove (another spelling of the address)");
+    ok(admin("waitlist", "remove", emailOf(G)).status === 1 && admin("waitlist", "remove", "not-an-email").status === 1 && admin("waitlist").status === 1, "removing twice, a bad address, no command: exit 1");
+    const audits = (await db.query(`SELECT action, details FROM "BillingAudit" WHERE actor LIKE 'admin:%' AND action IN ('waitlist_list', 'waitlist_remove') ORDER BY at`)).rows;
+    ok(
+      audits.some((a) => a.action === "waitlist_list") && audits.filter((a) => a.action === "waitlist_remove" && a.details.emailHash === emailHash(inviteMatch(emailOf(G)))).length === 1 && !JSON.stringify(audits).includes("@"),
+      "audit rows: waitlist_list, waitlist_remove with the address scrambled",
+    );
+    const open = await api(A, "POST", "/beta/waitlist");
+    ok(open.status === 400 && open.body?.error === "bad_request", "the main API (the closed beta off): 400, everyone is in");
   } finally {
     beta.kill();
   }
@@ -2856,6 +2957,7 @@ async function main() {
   await feedbackChecks(db, p.id);
   await inviteChecks(db);
   await codeChecks(db);
+  await waitlistChecks(db);
   await badgeChecks();
   await platformChecks();
   await pickChecks(db);
@@ -2916,13 +3018,14 @@ async function cleanup() {
   await db.query(`DELETE FROM "ClosedAccount" WHERE id LIKE $1`, [`dev-e2e-${stamp}-%`]);
   // The closed beta's invites (no user relation) and their audit rows (the address scrambled: emailHash of the matched form).
   await db.query(`DELETE FROM "Invite" WHERE match LIKE $1`, [`e2e-${stamp}-%`]);
+  await db.query(`DELETE FROM "WaitlistEntry" WHERE match LIKE $1`, [`e2e-${stamp}-%`]);
   const { emailHash } = await import("../dist/auth/tombstone.js");
   await db.query(`DELETE FROM "BillingAudit" WHERE details->>'emailHash' = $1`, [emailHash(`e2e-${stamp}-inv@gmail.com`)]);
   // The admin CLI's audit rows (no cascade: they outlive accounts), including this run's `list`, `audit`, `gallery reports`, `invite list` and
   // `feedback list` over everyone. The start as UTC text: `at` is a timestamp without a zone holding UTC, and pg would send a Date in
   // local time, which Postgres reads without its offset (on a PC east of UTC the rows of the run would look older than its start).
   await db.query(
-    `DELETE FROM "BillingAudit" WHERE "userId" LIKE $1 OR ("userId" IS NULL AND at >= $2 AND action IN ('list', 'audit', 'gallery_reports', 'invite_list', 'feedback_list'))`,
+    `DELETE FROM "BillingAudit" WHERE "userId" LIKE $1 OR ("userId" IS NULL AND at >= $2 AND action IN ('list', 'audit', 'gallery_reports', 'invite_list', 'feedback_list', 'waitlist_list', 'waitlist_remove'))`,
     [`dev-e2e-${stamp}-%`, new Date(parseInt(stamp, 36)).toISOString()],
   );
   await db.end();
