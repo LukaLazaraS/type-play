@@ -103,7 +103,8 @@ try {
     CORS_ORIGINS: base,
     BILLING_JOBS: "0",
   });
-  await until("the API", async () => (await (await fetch(`${apiBase}/health`)).json()).inviteOnly === true, 60, apiProc.log);
+  // 180 s like the site: at below-normal priority on a busy PC the API took over 60 s to answer (2026-11-19, twice).
+  await until("the API", async () => (await (await fetch(`${apiBase}/health`)).json()).inviteOnly === true, 180, apiProc.log);
   const gamesProc = start("games", [join(root, "apps/games/scripts/serve.mjs"), String(GAMES_PORT)], root, {});
   await until("the games origin", async () => (await fetch(`http://127.0.0.1:${GAMES_PORT}/play.html`)).ok, 30, gamesProc.log);
   const siteProc = start("site", [join(root, "node_modules/next/dist/bin/next"), "dev", "-p", String(SITE_PORT)], webDir, {
