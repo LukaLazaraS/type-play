@@ -31,7 +31,7 @@ const ais: { id: ModelChoice; name: string; text: string; figures: [string, stri
   {
     id: "fast",
     name: "Fast",
-    text: "The cheapest. Good for small edits; describe exactly what you want. New games come out in two short steps.",
+    text: "The cheapest. Good for small edits; describe exactly what you want. New games come out in two steps.",
     figures: ["new game 10 to 25 min", "edit 2 to 7 min"],
   },
   { id: "smart", name: "Smart", text: "The default for new games. The robot runner above is a Smart build.", figures: ["new game 8 to 30 min", "more credits than Fast"] },
@@ -116,7 +116,7 @@ export default function Home() {
         </h2>
         <p className="lead">
           Results are partly luck, so the choice is yours every time, with the cost shown before
-          a build runs. Numbers are from our test builds.
+          a build runs. Numbers are measured: our beta testers&apos; builds and our own.
         </p>
         <div className="widget settings">
           {ais.map((ai) => (

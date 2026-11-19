@@ -67,7 +67,7 @@ export const MAX_TEXT = 4000;
 
 /** The model picker: one honest line each, for a new game and for a change (docs/pricing.md). */
 export const models: { id: ModelChoice; name: string; newGame: string; edit: string }[] = [
-  { id: "fast", name: "Fast", newGame: "Quick and cheap. Fine for simple games.", edit: "Quick and cheap. Good for simple changes." },
+  { id: "fast", name: "Fast", newGame: "Cheap. Fine for simple games.", edit: "Quick and cheap. Good for simple changes." },
   { id: "smart", name: "Smart", newGame: "Best for a new game.", edit: "For bigger changes, or when Fast didn't get it." },
   { id: "best", name: "Best", newGame: "Slower and costs more. For hard things.", edit: "Slower and costs more. For hard things." },
 ];
