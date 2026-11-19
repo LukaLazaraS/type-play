@@ -79,7 +79,7 @@ export const plans: Plan[] = [
     row: 1,
     summary: "Try it. Make games on Fast and play them in the browser.",
     features: [
-      "20 credits a month, up to 5 a day: about 4 Fast new games",
+      "20 credits a month: about 4 Fast new games (up to 5 credits a day)",
       "Fast builds and edits",
       "Unlimited play, and a link to share",
       "A small TypePlay badge in your game",
