@@ -23,6 +23,7 @@
 //   npm run admin -w @typeplay/server -- code list | code remove <code>     (uses so far and the accounts; a removed code stops working)
 //   npm run admin -w @typeplay/server -- waitlist list                      (who asked to be told when TypePlay opens, oldest first: src/beta/admin-waitlist.ts)
 //   npm run admin -w @typeplay/server -- waitlist remove <email>            (off the waitlist)
+//   npm run admin -w @typeplay/server -- waitlist stopped                   (Google sign-ins with no account: the closed-beta page stopped them; live only)
 //   npm run admin -w @typeplay/server -- feedback list [--open]             (the testers' notes, newest first)
 //   npm run admin -w @typeplay/server -- feedback show <id>                 (the whole note, the game's build, the message)
 //   npm run admin -w @typeplay/server -- feedback done <id>                 (dealt with: it leaves list --open)
