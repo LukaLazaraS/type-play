@@ -98,13 +98,30 @@ Smart change 2.2-8.4, Best new game 14.8-24.4 (page: "8 to 23"), Smart new game 
 | Commit | Problem | What changed |
 |---|---|---|
 | `6cb6ab1` | 1, 8 | The estimate table from the charges above and our runs: a change on Fast 0.4 (0.2-0.7), Smart 4.5 (2.5-9), Best 10 (3-14); a new game on Fast 4.5 (3-8), Smart 15 (10-22), Best 45 (25-60); effort per kind (a new game 0.9× low, 1.25× high; a change 0.8×, 2×). Free asks first above 8 (was 3), so a typical Fast new game doesn't ask; every Best new game on a paid plan now asks ("up to 60"). Plan cards: Medium "about 6 Smart new games or 250 Fast edits", High 18, Ultra 40, Ultra+ 85; `docs/pricing.md` recomputed |
-| `a80fc59`, `9588151` | 1, 8 | Plan cards say what Free buys ("about 4 Fast new games") and what Best buys on every paid plan (Medium "about 6 Smart new games, 2 Best, or 250 Fast edits"; High 6 Best, Ultra 13, Ultra+ 28). Estimates from 10 credits up in whole credits, the "up to" rounded up so it never says less than the hold ("up to 57" for 56.3) |
-| `f1f14a3`, `bcbcb37` | 2 | The closed-beta page: "Tell me when it opens", beside "Play the games" under one "No code yet?", puts the signed-in address on a waitlist (`/beta/waitlist`, `admin waitlist list \| remove`); joined, a checked line says where the email goes, with a way off the list; a code or an invite takes it off; one privacy sentence |
+| `a80fc59`, `9588151`, `0255f11` | 1, 8 | Plan cards say what Free buys ("20 credits a month: about 4 Fast new games (up to 5 credits a day)") and what Best buys on every paid plan (Medium "about 6 Smart new games, 2 Best, or 250 Fast edits"; High 6 Best, Ultra 13, Ultra+ 28). Estimates from 10 credits up in whole credits, the "up to" rounded up so it never says less than the hold ("up to 57" for 56.3) |
+| `f1f14a3`, `bcbcb37`, `992d71a` | 2 | The closed-beta page: "Tell me when it opens", beside "Play the games" under one "No code yet?", puts the signed-in address on a waitlist (`/beta/waitlist`, `admin waitlist list \| remove`); joined, a checked line says where the email goes, with a way off the list; a code or an invite takes it off; one privacy sentence |
 | `d801954` | 5 | The size check: which keys or buttons do what is a tweak, not a rework; the tester's message and two more in `tests/size-eval.mjs`, 48 of 48 as expected |
-| `a965217`, `752a6a4` | (found here) | The home page's build times from the same data: Fast new game 10-25 min, change 2-7; Smart new game 8-30; Best 12-25. Its lead says where the numbers come from (the beta's builds and ours); Fast is "Cheap. Fine for simple games.", no longer "Quick" |
-| `e70d180`, `b8c471a` | (tests) | `shot-app.mjs` follows the Genre and Tags flow (the starters it clicked were removed on 10-27, `36ac424`) and reads the reply's cost line with plain spaces; `shot-beta.mjs` waits for the API as long as for the site |
+| `a965217`, `752a6a4`, `d1835ac` | (found here) | The home page's build times from the same data: Fast new game 10-25 min, change 2-7; Smart new game 8-30; Best 12-25. Its lead says where the numbers come from (the beta's builds and ours); Fast is "Cheap. Fine for simple games.", no longer "Quick", and its two steps are named (a playable core, then the rest); Smart is "The default for new games." |
+| `e70d180`, `b8c471a`, `702aa88` | (tests) | `shot-app.mjs` follows the Genre and Tags flow (the starters it clicked were removed on 10-27, `36ac424`) and reads the reply's cost line with plain spaces; `shot-beta.mjs` waits for the API as long as for the site; the checkout step finds its tick box inside the checkout (the /create it came from stays in the page, hidden, with cacheComponents) |
 | `2c12f23` | (found here) | Next.js 16.4.3 → 16.4.6, the patch for two moderate cache advisories (we use no `use cache`, so nothing was exposed) |
 | `8c977f8`, `8302f44`, `104d468` | measuring | `admin stats` (this report's source; rerun it after the launch to check the estimates again), and the Fast build measured on this PC |
+
+## How the fixes were checked (2026-11-19, this PC at 100% CPU all day from other sessions' renders)
+
+- Root `npm run check`: green (5 of 5). Ledger math 54 of 54; the agent's check green, the size eval 48 of 48.
+- **A fresh Free user's real build** (QA, its own stack and database): Fast, medium, the frog prompt. The app said
+  "about 4.5 credits", asked nothing (Free asks above 8), and **charged 4.5**; 35 min under the load. Then one change
+  ("Make the frog green.") for 0.2 credits, 13 min; played; the share page answered.
+- The design review (two rounds, Rosebud / Astrocade / Lovable-style builders as the bar, desktop, 390 and 320 px):
+  the closed-beta page, pricing, home, /create and the composer's estimates ship.
+- `shot-beta.mjs` (the closed-beta page and the waitlist, with screenshots): every waitlist check passes; the one miss is
+  the Send feedback dialog giving the keyboard back to the avatar (not in this branch's diff; open).
+- Server e2e: the checks of what this branch changed (the waitlist, the estimates and holds, the ask-first message)
+  pass (253 of 256 in QA's run). It was never green as a whole today: the PC is too slow for its 30 s waits (an API
+  starts in ~2 min), and since 19:00 another session's game check held this PC's one-at-a-time hidden-browser lock,
+  which a fake build's poster waits for. The 3 that failed are in the run-timeout and restart-queue section, whose
+  code this branch doesn't change (`git diff ccb80fc..` in `apps/server/src/runs`: two `export` keywords). Rerun on a
+  quiet PC: `npm run test:e2e -w @typeplay/server`.
 
 ## Waiting on someone else
 
