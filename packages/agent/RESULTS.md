@@ -929,3 +929,13 @@ maintenance changes). Minutes / $: Box Push 6.6 / 0.44, Desert Dash 8.7 / 0.50, 
 19.6 / 1.14, Petal Pop 9.4 / 0.30, Island Rush 9.1 / 0.52, Rooftop Ninja 9.4 / 0.55, Gingerbread Guard 4.6 / 0.09, Town Driver
 15.2 / 0.33. On the live server (our key, `admin run`): Dead Haul 4.7 min, Scrap Siege 11.2, Tank City 4.9, Sparkle Cleaners
 8.4, Shape Escape 14.2 (each with its proven fix or the rules). Before and after per game: the 11-07 report.
+
+## 2026-11-19: one Fast new game for the estimate (beta 1 had none under the current rules)
+
+Beta 1's two Fast new games were from October, before the 11-04 speed rules, so one was measured here (Luka's Max, the
+PC shared with the beta1-fixes job's tests): "A game where a frog jumps between lily pads to cross a pond, avoiding
+fish." on Haiku medium, 2 steps (`output/beta1-fast-frog`): **passed, $0.273 (4.6 credits)**; core $0.244 (31 turns; the
+first check found a missing preload, fixed), polish $0.029. Its 51.8 min is not a build time: the check's browser runs
+one at a time on this PC and waited for the tests. With the 11-04 builds (3.1 and 7.6 credits) it set the Fast new-game
+estimate to 4.5 (3-8) (`apps/server/src/credits/credits.ts`, `docs/pricing.md` "Measured 2026-11-19 in beta 1").
+
