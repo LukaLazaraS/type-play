@@ -31,7 +31,7 @@ const ais: { id: ModelChoice; name: string; text: string; figures: [string, stri
   {
     id: "fast",
     name: "Fast",
-    text: "The cheapest. Good for small edits; describe exactly what you want. New games come out in two steps.",
+    text: "The cheapest. Good for small edits; describe exactly what you want. New games come out in two steps: a playable core first, then the rest.",
     figures: ["new game 10 to 25 min", "edit 2 to 7 min"],
   },
   { id: "smart", name: "Smart", text: "The default for new games. The robot runner above is a Smart build.", figures: ["new game 8 to 30 min", "more credits than Fast"] },
