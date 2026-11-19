@@ -39,6 +39,28 @@ export const notOnSale = {
   free: `Free is how to start: ${credits.freePerMonth} credits a month on Fast, up to ${credits.freePerDay} a day.`,
 } as const;
 
+/**
+ * The pricing page by `sale`: the sentence under its lead, and a paid plan card's line and button. "on" keeps the card's
+ * own button (Get Medium → /create?plan= → the checkout). "beta" goes the closed beta's way: the same /create?plan=, then
+ * sign-in and the closed-beta page, whose "Tell me when it opens" is the waitlist. "off" says what the page after it says
+ * (/create?plan=: "<plan> isn't on sale yet. Free is how to start …") and starts on Free. The pack line has no button: a
+ * pack is bought on /billing.
+ */
+export const pricingSale: Record<Exclude<Sale, "on">, { lead: string; card: string; cta: string; pack: string }> = {
+  beta: {
+    lead: "TypePlay is in a closed beta: building is by invitation, and paid plans aren't on sale yet.",
+    card: "Not on sale during the closed beta.",
+    cta: "Join the waitlist",
+    pack: "Not on sale yet.",
+  },
+  off: {
+    lead: `${notOnSale.line} Free is how to start.`,
+    card: "Not on sale yet. Free is how to start.",
+    cta: "Start free",
+    pack: "Not on sale yet.",
+  },
+};
+
 export type PaidPlan = Exclude<PlanId, "free">;
 export const PAID_PLANS: PaidPlan[] = ["medium", "high", "ultra", "ultraplus"];
 

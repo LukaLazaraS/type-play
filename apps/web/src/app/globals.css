@@ -1906,6 +1906,8 @@ q {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  /* A word longer than the card (a translation's compound) breaks inside it instead of widening the page. */
+  overflow-wrap: anywhere;
 }
 .plan--lead {
   background: var(--hot);
@@ -1961,7 +1963,7 @@ q {
 @media (max-width: 900px) {
   .plans,
   .plans--big {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .plan--lead {
     order: -1;
@@ -1984,6 +1986,228 @@ q {
   font-size: 15px;
   line-height: 1.5;
   color: var(--on-paper-muted);
+}
+/* The legal answer (who you buy from) closes the grid across its whole width, so an odd count never leaves one alone. */
+.faq .faq__wide {
+  grid-column: 1 / -1;
+}
+
+/* A plan's button and, with billing off, the line above it (content/billing.ts pricingSale). */
+.plan__action {
+  display: grid;
+  gap: 12px;
+}
+.plan .plan__off {
+  font-weight: 600;
+  color: var(--on-paper);
+}
+.plan--lead .plan__off {
+  color: var(--ink);
+}
+/* Billing off, said once under the pricing lead: white and heavier than the muted lead. */
+.pricing__state {
+  font-size: clamp(17px, 1.4vw, 20px);
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--on-sky);
+  max-width: 60ch;
+  margin: -18px 0 36px;
+}
+/* The credit pack: a slim paper strip under the plans, name, words and price on one line. */
+.pack {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 32px;
+  margin-top: 18px;
+  padding: 24px 32px;
+}
+.pack__name {
+  font-size: 24px;
+}
+.pack p {
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--on-paper-muted);
+  max-width: 62ch;
+}
+.pack .pack__price {
+  font-size: 40px;
+}
+/* The billing promises, on the sky under the plans (SEELE's block, in our words). */
+.promises {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 28px;
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.promises li {
+  display: flex;
+  gap: 10px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--on-sky-muted);
+}
+.promises svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--on-sky);
+}
+@media (max-width: 1100px) {
+  .promises {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .pack {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 22px 24px;
+  }
+  .pack p {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .pack .pack__price {
+    font-size: 32px;
+  }
+  .promises {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Credits table (components/CreditsTable.tsx): one message a row, the three AIs across, rows parted like the settings
+   list's. From 900px down each row's words take the full width over its three numbers. */
+.credits {
+  padding: 6px 0;
+  overflow: hidden;
+}
+.credits__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.credits__table th,
+.credits__table td {
+  padding: 22px 28px;
+  text-align: left;
+  vertical-align: top;
+  font-weight: 400;
+}
+.credits__table tr + tr {
+  border-top: 1px solid var(--field);
+}
+.credits__corner {
+  width: 34%;
+}
+.credits__table .credits__ai {
+  vertical-align: bottom;
+  padding-block: 18px;
+}
+.credits__ainame {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.credits__ainame b,
+.credits__size b {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--on-paper);
+}
+.credits__ainame small {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--on-paper-muted);
+}
+.credits__size span {
+  display: block;
+  margin-top: 4px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--on-paper-muted);
+  max-width: 40ch;
+}
+.credits__num {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 32px;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--on-paper);
+}
+.credits__num small {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0;
+  color: var(--on-paper-muted);
+}
+.credits__usd {
+  display: block;
+  margin-top: 8px;
+  color: var(--on-paper-muted);
+}
+@media (max-width: 1000px) {
+  /* "credits" under the number once the columns narrow, so "up to 60 credits" never breaks mid-way. */
+  .credits__num small:last-child {
+    display: block;
+    margin-top: 2px;
+  }
+}
+@media (max-width: 900px) {
+  .credits__table,
+  .credits__table thead,
+  .credits__table tbody {
+    display: block;
+  }
+  .credits__table tr {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 12px;
+    padding: 20px 24px;
+  }
+  .credits__table th,
+  .credits__table td,
+  .credits__table .credits__ai {
+    display: block;
+    padding: 0;
+  }
+  .credits__table .credits__corner {
+    display: none;
+  }
+  .credits__table .credits__size {
+    grid-column: 1 / -1;
+    margin-bottom: 14px;
+  }
+  .credits__size span {
+    max-width: 60ch;
+  }
+}
+@media (max-width: 640px) {
+  .credits__table tr {
+    column-gap: 8px;
+    padding: 18px 20px;
+  }
+  .credits__ainame {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .credits__num {
+    font-size: 26px;
+  }
+  .credits__num small {
+    font-size: 13px;
+  }
+  .credits__num small:first-child {
+    display: block;
+  }
 }
 
 /* Create placeholder */

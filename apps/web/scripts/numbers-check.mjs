@@ -18,7 +18,7 @@ import {
   PLAN_PRICE_CENTS,
   PLANS,
 } from "../../server/src/credits/credits.ts";
-import { about, credits, estimates, plans } from "../src/content/site.ts";
+import { about, credits, creditRows, estimates, plans } from "../src/content/site.ts";
 
 let failures = 0;
 const ok = (cond, what, got) => {
@@ -35,6 +35,21 @@ for (const kind of ["edit", "new"]) {
     ok(same(page, [api.typical, api.low, api.high]), `${kind} on ${model}: page ${JSON.stringify(page)} = the app's estimate`, `the app says [${api.typical}, ${api.low}, ${api.high}]`);
   }
 }
+
+// The table's rows (site.ts `creditRows`, components/CreditsTable.tsx): a change and a simple new game at the estimate's
+// "usually" (what the plan cards count games by), a big new game at the top of its range ("up to").
+const cell = {
+  change: (m) => estimate("edit", m, "medium", "medium").typical,
+  simple: (m) => estimate("new", m, "medium", "medium").typical,
+  big: (m) => estimate("new", m, "medium", "medium").high,
+};
+ok(same(creditRows.map((r) => r.id), Object.keys(cell)), "the table's rows: a change, a simple new game, a big new game", creditRows.map((r) => r.id).join(", "));
+for (const row of creditRows) {
+  const page = MODELS.map((m) => row.cost(m));
+  const api = MODELS.map((m) => cell[row.id]?.(m));
+  ok(same(page, api), `the table's "${row.name}": ${page.join(" / ")} credits on Fast / Smart / Best`, `the app's estimate says ${api.join(" / ")}`);
+}
+ok(creditRows.every((r) => r.upTo === (r.id === "big")), 'only the big new game says "up to"', creditRows.map((r) => `${r.id}:${r.upTo}`).join(", "));
 
 // The plans: the same ids, credits and prices (site.ts writes Ultra+ as "ultra-plus", the API "ultraplus").
 const apiId = (id) => (id === "ultra-plus" ? "ultraplus" : id);

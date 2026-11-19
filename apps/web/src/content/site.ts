@@ -55,6 +55,42 @@ export const estimates: Record<"edit" | "new", Record<"fast" | "smart" | "best",
   new: { fast: [4.5, 3, 8], smart: [15, 10, 22], best: [45, 25, 60] },
 };
 
+export type AI = keyof (typeof estimates)["new"];
+export const AIS: { id: AI; name: string }[] = [
+  { id: "fast", name: "Fast" },
+  { id: "smart", name: "Smart" },
+  { id: "best", name: "Best" },
+];
+
+/**
+ * The pricing page's "What credits buy" (components/CreditsTable.tsx): one message a row, the AIs across, every number
+ * from `estimates` above, so it moves with the app's own estimate. A change and a simple new game at the estimate's
+ * "usually" (the same figure the plan cards count games by: 100 credits / 15 = "about 6 Smart new games"); a big new game
+ * at the range's top ("up to"). Each example is a real message we measured: "Make it night time." cost 0.3-0.4 on Fast on
+ * three of the showcase games (agent/runs.jsonl, edit-show-*), the frog game 4.6 on Fast (beta1-fast-frog, 2026-11-19),
+ * and a tower defence with a start menu, 3 levels and 4 towers to upgrade 8.2 on Fast and 18 on Smart (RESULTS.md 10-18;
+ * its prompt is too long to quote, so the row describes it).
+ */
+export const creditRows: { id: string; name: string; example: string; quoted: boolean; upTo: boolean; cost: (ai: AI) => number }[] = [
+  { id: "change", name: "A change", example: "Make it night time.", quoted: true, upTo: false, cost: (ai) => estimates.edit[ai][0] },
+  {
+    id: "simple",
+    name: "A simple new game",
+    example: "A game where a frog jumps between lily pads to cross a pond, avoiding fish.",
+    quoted: true,
+    upTo: false,
+    cost: (ai) => estimates.new[ai][0],
+  },
+  {
+    id: "big",
+    name: "A big new game",
+    example: "Levels, menus and upgrades, like a tower defence with a start menu, 3 levels and 4 towers you can upgrade.",
+    quoted: false,
+    upTo: true,
+    cost: (ai) => estimates.new[ai][2],
+  },
+];
+
 // Credits, decided 2026-10-16 (docs/pricing.md). One credit stands for $0.06 of AI work and sells
 // for $0.20 on Medium, so every paid plan keeps 47-56% of its price even when every credit is used
 // (after Paddle's fee, the 1% tax and 18% VAT on the AI bill). A message is charged for the work it
@@ -113,11 +149,14 @@ export const plans: Plan[] = [
     period: "month",
     credits: 20,
     row: 1,
-    summary: "Try it. Make games on Fast and play them in the browser.",
+    summary: "No card needed. Make games on Fast and play them in the browser.",
     features: [
       `${credits.freePerMonth} credits a month, up to ${credits.freePerDay} a day: about ${about(credits.freePerMonth, t.fastGame)} Fast new games`,
       "Fast for new games and changes",
-      "Play in the browser, and a link to share",
+      // page-copy-proposals.md B1: the share page needs no account, and the project download is on every plan (the API
+      // checks no plan; parked.md "For Luka's website review": allowed). Not "any time": the terms don't promise it (D1).
+      "A share link anyone can open, no account needed",
+      "Download your project as a .zip",
       // On every plan: the app gives Restore to every plan, at no credits (page-copy-proposals.md A3, option A).
       "Every change is a version you can go back to",
       "A small TypePlay badge in your game",
@@ -138,6 +177,7 @@ export const plans: Plan[] = [
       "Export to Android, iOS and Steam as each one arrives",
       "No badge in your game",
       "Unused credits carry over one month",
+      "Credit packs when you run out",
     ],
     cta: "Get Medium",
   },
