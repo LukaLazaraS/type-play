@@ -416,7 +416,8 @@ try {
   await shot(page, "feedback-plain-desktop");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
-  check("closed: the keyboard is back on the avatar", await page.evaluate(() => document.activeElement?.classList.contains("account__me") === true));
+  // The avatar is the shared AvatarButton (components/ui/Avatar.tsx, since 4866b9e; its old class account__me is gone).
+  check("closed: the keyboard is back on the avatar", await page.evaluate(() => document.activeElement?.classList.contains("avatarbutton") === true && (document.activeElement.getAttribute("aria-label") ?? "").startsWith("Account:")));
 
   // Worst cases on the game page: a 60-letter Georgian name, a 4,000-letter note in emoji and Georgian, the day's 10 used.
   const georgian = "ძალიან გრძელი სახელი თამაშისთვის რომელიც არასდროს მთავრდება ბოლომდე";
