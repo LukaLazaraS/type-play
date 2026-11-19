@@ -6,7 +6,22 @@ Written 2026-10-19. Nothing here is on the site: every block is a proposal for y
 "now" only for what works ([PRODUCT.md](../../PRODUCT.md)). Numbers come from [RESULTS.md](../../packages/agent/RESULTS.md) and
 [pricing.md](../pricing.md). The launch video ([demo-video.md](demo-video.md)) assumes the pages say what is proposed here.
 
-## Start here
+## What went in (2026-11-20, the launch pages: home and /pricing for the open launch)
+
+| # | State | Where |
+|---|---|---|
+| A1 | Done another way: the FAQ's numbers are beta 1's measured ones (11-19), and "What credits buy" on /pricing shows a change, a simple new game and a big one per AI, from the app's own estimate | `site.ts` `estimates`, `creditRows`; `components/CreditsTable.tsx` |
+| A2 | Done another way (11-19): the home page's build times are beta 1's p10 to p90 with our own runs | `app/page.tsx` `ais` |
+| A3 | In, option A (the copy follows the app): Free's card says "Every change is a version you can go back to"; Medium's line is "No badge in your game" | `site.ts` `plans` |
+| A4 | In, the first version (Android, iOS and Steam "are coming"); the second waits for Android | `seo.ts` `description` |
+| B1 | In: "A share link anyone can open, no account needed" and "Download your project as a .zip" on Free (never "any time": D1) | `site.ts` `plans` |
+| B2 | In, where the app is (the status bar's Games goes to the gallery too): "More games, made by people: explore the gallery." under the games strip | `app/page.tsx` |
+| B3 | Waits for D2 | |
+| B4 | Open: the share page and the gallery's "Make your own game." still say "in a few minutes" (not on these two pages) | `components/app/MakeYourOwn.tsx` |
+| B5 | In: "Can I download my game?" in the pricing FAQ, as proposed | `app/pricing/page.tsx` |
+| C1-C5, D1, D2 | Wait for Android and the terms | |
+| E1 | In, for the eight genres /create has had since 10-27 (each with its own skill): "TypePlay is tuned for eight kinds of game ..." | `app/page.tsx` |
+| E2 | Superseded: /create picks a genre (eight pictures) instead of starter sentences | |
 
 **Where the pages and the product disagree today (fix these first)**
 

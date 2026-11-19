@@ -5,7 +5,9 @@ Decided by Luka on 2026-10-16 (parked #9 closed). The analysis behind it: the pr
 market research in `docs/research/competitor-pricing.md` (10-14) and
 `docs/research/pricing-2026-10-16.md` (10-16: website and app builders re-checked, refunds, Paddle
 fees), and the full game-builder analysis in `docs/research/competitors.md`. The site reads every
-number from `apps/web/src/content/site.ts` (`plans`, `credits`); legal text in `legal.ts`.
+number from `apps/web/src/content/site.ts` (`plans`, `credits`, and `estimates`, the app's own estimate); legal text in
+`legal.ts`. `npm run check` fails when those differ from `apps/server/src/credits/credits.ts`
+(`apps/web/scripts/numbers-check.mjs`).
 
 ## The plans
 
@@ -111,9 +113,11 @@ are Luka's call (parked, "For Luka's website review"). (2026-11-19: the table an
 What a plan buys (Smart new game 15, Best new game 45, Fast new game 4.5, Fast edit 0.4; 2026-11-19): Medium ≈ 6 Smart
 new games, 2 Best, or 250 Fast edits (≈ 4 Smart games with 20 Fast edits each); High ≈ 18 Smart or 6 Best; Ultra ≈ 40
 or 13 Best; Ultra+ ≈ 85 or 28 Best. Free ≈ 4 Fast new games or 50 Fast edits. The plan cards (`site.ts`) say these: Free
-"about 4 Fast new games", Medium "about 6 Smart new games, 2 Best, or 250 Fast edits", High to Ultra+ "about N Smart
-new games or N Best". (Before, from the old table: Medium ≈ 15 Smart, 6 Best or 350
-Fast edits; High ≈ 41; Ultra ≈ 90; Ultra+ ≈ 195; Free ≈ 12 Fast new games.)
+"about 4 Fast new games", Medium "about 6 Smart new games, 2 Best, or 250 Fast changes", High to Ultra+ "about N Smart
+new games or N Best", computed from the estimate's "usually" and rounded down. Under the plans, "What credits buy"
+(2026-11-20) shows one message per row and AI, with its dollars at Medium's $0.20: a change and a simple new game at the
+estimate's "usually", a big new game (levels, menus, upgrades) at the top of its range, "up to". (Before, from the old
+table: Medium ≈ 15 Smart, 6 Best or 350 Fast edits; High ≈ 41; Ultra ≈ 90; Ultra+ ≈ 195; Free ≈ 12 Fast new games.)
 
 **Against the market:** per credit we sit on the market line ($0.20). Per game we are still
 below the paid game builders (vendor figures: Jabali $0.67-1, SEELE $1.30-15, Rork $4-8, Tesana
