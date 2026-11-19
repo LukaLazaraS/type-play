@@ -7,6 +7,8 @@
 // The model only sorts the request into jobs and writes the message; the rule below counts the jobs (10-29 tuning:
 // Haiku judging the whole request itself stopped "make the robot red and a bit faster" on Fast and let "add a shop and a
 // boss" through, and answered a Russian request in English until it named the language first).
+// 2026-11-19 (beta 1, live): "'w' and 's' forward and brake, 'a' and 'd' rotate" was sorted as a rework ("all its
+// controls") and stopped on Fast and on Smart: which keys do what is a tweak now; a new way to control it is a feature.
 // When unsure it lets the build go: a wrong stop annoys a player more than an occasional failed build costs.
 // Pictures the player attached are not sent to it: only how many came (2026-11-04).
 // Like every AI call a player causes, its cost is part of that message's charge (run.mjs `sizeCheckCostUsd`); a stop is
@@ -24,8 +26,8 @@ const KINDS = {
   feature: 'a new feature or mechanic with its own parts (a double jump, a shop with its items, a boss with its attacks, a second player, music, achievements); a new kind of enemy, trap or obstacle is one too, also when it comes inside new levels',
   levels: 'a set of new levels or a level map',
   fix: 'something broken made to work',
-  tweak: 'a small change to how it looks or feels (a colour, a size, a speed, a sound, a text)',
-  rework: 'turning it into another kind of game, or redoing all its graphics, all its controls or all of it',
+  tweak: 'a small change to how it looks or feels (a colour, a size, a speed, a sound, a text, which keys or buttons do what)',
+  rework: 'turning it into another kind of game, or redoing all its graphics or all of it',
   vague: 'a short or vague wish with no clear job ("make it better", "more fun")',
 };
 

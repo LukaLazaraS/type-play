@@ -798,6 +798,12 @@ run's record and in the charge (`runs.service` `sideUsd`, beside the reply rewri
 Not done: a real Fast or Smart edit that fits, through the check and on to the build (the fits path is the old one with
 the check's cost added; tested with fake builds in the e2e); messages from the beta, once there are some to tune on.
 
+**2026-11-19, from the beta (live):** one tester's "'w' and 's' should be move forward and break/backward and 'a' and 'd'
+should be rotation" was stopped as too big on Fast and then on Smart (the model sorted it as a rework, "all its
+controls"), so a key remap went to Best. Which keys or buttons do what is now a tweak, and rework is only another kind of
+game or all of its graphics or all of it. `tests/size-eval.mjs` with that message and two more about controls: 48 checks,
+0 against the expected verdict, $0.03 in all; the live case fits on both.
+
 ## 2026-11-04 night: fast games (rules/FAST.md, lib/looks.gd + lib/warmup.gd, the check's budgets)
 
 Five new games on Sonnet medium (the default for new games), one sentence each, prompts in the spirit of the two slow

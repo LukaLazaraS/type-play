@@ -37,6 +37,9 @@ const SAMPLES = [
   ['a list of changes', 'Make the background blue, add music, add a high score, make the enemies faster and add a second player', 'too big', 'fits?'],
   ['rework', 'Turn it into a 3D racing game', 'too big', 'too big'],
   ['rework', 'Redo all the graphics in pixel art and change the controls to swipe', 'too big', 'too big?'],
+  ['controls remap (live case 11-10)', "i don't like controls, 'w' and 's' should be move forward and break/backward and 'a' and 'd' should be rotation, left and right", 'fits', 'fits'],
+  ['controls, one change', 'Use the arrow keys instead of WASD', 'fits', 'fits'],
+  ['a new way to control it', 'Add a touch joystick for phones', 'fits', 'fits'],
   ['vague', 'Make it better', 'fits', 'fits'],
   ['vague', 'More fun please', 'fits', 'fits'],
 ];
