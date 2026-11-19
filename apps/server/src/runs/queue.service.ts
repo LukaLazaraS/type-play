@@ -23,7 +23,7 @@ import { RunRegistry, type QueuedEntry } from "./registry.js";
 import { FAILED_TEXT, RunsService } from "./runs.service.js";
 
 /** Why a waiting build didn't start at its turn, by the check that stopped it (credits.service `assertCanStart`). */
-const NOT_STARTED: Partial<Record<ApiErrorCode, string>> = {
+export const NOT_STARTED: Partial<Record<ApiErrorCode, string>> = {
   free_paused:
     "Free builds were paused while this waited: today's free allowance is used up across TypePlay. Nothing was charged. Free builds start again at 00:00 UTC, or get a plan to keep going.",
   no_credits: "By its turn there weren't enough credits left for this, so it didn't start. Nothing was charged.",
@@ -31,8 +31,8 @@ const NOT_STARTED: Partial<Record<ApiErrorCode, string>> = {
   model_not_in_plan: "Your plan changed while this waited, and the Free plan builds with Fast. Nothing was charged. Send it again on Fast.",
   billing_hold: "A payment was disputed with your bank, so building is paused and this didn't start. Nothing was charged. Write to hello@typeplay.app.",
 };
-const EXPIRED_TEXT = "This waited too long for its turn, so it left the queue. Your game is unchanged, and nothing was charged. Send it again in a few minutes.";
-const TAKEN_TEXT = "This build was interrupted by a restart on our side just as it started. Your game is unchanged, and nothing was charged.";
+export const EXPIRED_TEXT = "This waited too long for its turn, so it left the queue. Your game is unchanged, and nothing was charged. Send it again in a few minutes.";
+export const TAKEN_TEXT = "This build was interrupted by a restart on our side just as it started. Your game is unchanged, and nothing was charged.";
 
 /** How often the API looks for TypePlay's own changes the admin CLI put in the line. */
 const ADOPT_EVERY_MS = 15_000;

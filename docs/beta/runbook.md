@@ -180,6 +180,9 @@ Send the invitations in the morning, keep the API log open for the first builds,
 - **The API log:** `node deploy/deploy.mjs api-ssh "cd /opt/typeplay-api && docker compose logs --since 24h api | grep -E 'ERROR|WARN|feedback|report'"`.
 - **/health:** `node deploy/deploy.mjs status` (`runner: true`, builds going, `inviteOnly: true`).
 - **Feedback:** `npm run admin:live -w @typeplay/server -- feedback list --open`, then `feedback show <id>` and `feedback done <id>`.
+- **What the testers did** (read only): `npm run admin:live -w @typeplay/server -- stats` (the funnel, each account's
+  builds by how they ended, AI $ against credits charged, every failed or stopped build with its words, the real charges
+  against the app's estimates, and the Google sign-ins that never got past the closed-beta page).
 - **Who:** `admin list` (plans, credits, games), `admin invite list` (who hasn't signed in yet), `admin gallery reports`
   (only if testers put games in the gallery).
 - **The Free kill switch:** once Free builds have cost $20 of AI in a UTC day, every Free build answers "Free builds are

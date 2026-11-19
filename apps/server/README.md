@@ -283,6 +283,7 @@ npm run admin -w @typeplay/server -- code remove <code>            # it stops wo
 npm run admin -w @typeplay/server -- feedback list [--open]        # newest first, one line of each (--open: not marked done)
 npm run admin -w @typeplay/server -- feedback show <id>            # who, the page, the browser, the game and the build to play, its message, the words
 npm run admin -w @typeplay/server -- feedback done <id>            # dealt with: it leaves list --open
+npm run admin -w @typeplay/server -- stats [--since YYYY-MM-DD]     # read only: the funnel, every account's builds by how they ended, AI $ against credits, each failed or stopped build with its words, the charges against the estimates (src/beta/admin-stats.ts)
 ```
 
   `grant` and `plan` work for an invited tester once they have signed in (the account appears then). The words are
