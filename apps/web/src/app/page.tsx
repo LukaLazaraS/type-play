@@ -25,16 +25,17 @@ const islandRush = game("show-racer-polished-v3");
 const free = plans.find((p) => p.id === "free")!;
 const medium = plans.find((p) => p.id === "medium")!;
 const bestBuilds = games.filter((g) => g.tier === "Best").length;
-// The AIs as a settings list: what each is for, and what our test builds measured.
+// The AIs as a settings list: what each is for, and the build times measured (2026-11-19: beta 1's built answers,
+// p10 to p90, from `admin stats`, with our own runs since the 11-04 rules for new games on Fast and Smart).
 const ais: { id: ModelChoice; name: string; text: string; figures: [string, string] }[] = [
   {
     id: "fast",
     name: "Fast",
     text: "The cheapest. Good for small edits; describe exactly what you want. New games come out in two short steps.",
-    figures: ["new game 8 to 12 min", "edit 1 to 3 min"],
+    figures: ["new game 10 to 25 min", "edit 2 to 7 min"],
   },
-  { id: "smart", name: "Smart", text: "The default for new games. The robot runner above is a Smart build.", figures: ["new game 1.6 to 9 min", "more credits than Fast"] },
-  { id: "best", name: "Best", text: `The strongest model, with better character art. ${bestBuilds} of the ${games.length} games on this page are Best builds. Costs the most credits.`, figures: ["new game 8 to 23 min", "most credits"] },
+  { id: "smart", name: "Smart", text: "The default for new games. The robot runner above is a Smart build.", figures: ["new game 8 to 30 min", "more credits than Fast"] },
+  { id: "best", name: "Best", text: `The strongest model, with better character art. ${bestBuilds} of the ${games.length} games on this page are Best builds. Costs the most credits.`, figures: ["new game 12 to 25 min", "most credits"] },
 ];
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
