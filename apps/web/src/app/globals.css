@@ -1482,6 +1482,7 @@ q {
   .setting .figures {
     grid-column: 2;
     text-align: left;
+    white-space: normal;
   }
 }
 
@@ -1571,6 +1572,34 @@ q {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+/* The home page's end: the line and its quiet link beside the prompt box itself (one column from 900px down). */
+.cta.cta--start {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  align-items: center;
+  gap: 24px 48px;
+}
+.cta--start .cta__actions {
+  margin-top: 20px;
+}
+@media (max-width: 900px) {
+  .cta.cta--start {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 28px 24px;
+  }
+}
+
+/* The launch video (components/DemoVideo.tsx), shown only once its address is set: an ink widget holding the player. */
+.video {
+  padding: 12px;
+}
+.video__frame {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 28px;
+  background: var(--sky-2);
 }
 
 /* Footer */

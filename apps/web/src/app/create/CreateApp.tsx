@@ -97,7 +97,7 @@ const NEEDS: Partial<Record<GameTag, GameTag>> = { firstperson: "3d", thirdperso
 
 const SHORT = "Say a little more: what kind of game, and what you do in it.";
 /** Signed out at the open launch: what Free gives, before Google. */
-const FREE_NOTE = `Free: ${siteCredits.freePerMonth} credits a month. Your idea stays here while you sign in.`;
+const FREE_NOTE = `Free to start: ${siteCredits.freePerMonth} credits a month on Fast. Your idea stays here while you sign in, ready to build.`;
 const SHORT_PICKED = "Say a little more: what you do in your game.";
 
 /** The app's front door: the sentence, its genre and tags, the screens, the AI and its cost, then Build. */

@@ -67,3 +67,13 @@ export const demoWork = {
 
 export const demoClosing =
   "Four real versions of one game, from its history. The other five edits are listed below.";
+
+/**
+ * The launch demo video on the home page (parked.md #16; script and shot list in docs/launch/demo-video.md). null until
+ * Luka has recorded it: the home page shows nothing for it until then. Set it to the video file on our own origins (an MP4
+ * in `public/` or on typeplay.dev, H.264 + AAC so every browser plays it), a poster picture from the video (1280x720 JPEG
+ * in `public/`) and, if there is one, the English captions as WebVTT (the .srt the video's YouTube upload uses, converted).
+ * Our own file, not a YouTube player: an embedded player loads Google's scripts and cookies on the home page, which the
+ * privacy policy ("Who else sees it") would have to name first.
+ */
+export const demoVideo: { src: string; poster: string; captions: string | null } | null = null;

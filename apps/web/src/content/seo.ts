@@ -4,8 +4,10 @@ import { plans, site } from "./site";
 
 export const siteUrl = `https://${site.domain}`;
 
+// page-copy-proposals.md A4, its first version (with the app): the useful words inside the ~155 characters search results
+// show, and no platform said as if it were live before it is. Its second version goes in with Android (C1).
 export const description =
-  "Describe a game in one sentence. TypePlay builds it in a real game engine in minutes; you play it in the browser, change it by chatting, and ship it to the web, Android, iOS and Steam.";
+  "Describe a game in one sentence. TypePlay builds it in minutes. Play it in your browser, change it by chatting, share a link. Android, iOS and Steam are coming.";
 
 /** Schema.org graph for the home page: who runs the site, the site, and the app with its plans. */
 export const structuredData = {

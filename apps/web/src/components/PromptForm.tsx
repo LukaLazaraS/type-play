@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type AnimationEvent, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type AnimationEvent, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/Field";
 import { cx } from "@/components/ui/cx";
+import { PROMPT_HINT } from "@/content/beta";
 
 const example =
   "Make an endless runner where a little robot jumps over cactuses and it gets faster over time.";
@@ -16,8 +17,12 @@ export const DRAFT_EVENT = "typeplay:draft";
 export const CALL_EVENT = "typeplay:call";
 export const callPrompt = () => window.dispatchEvent(new Event(CALL_EVENT));
 
-/** The live prompt box. Submitting hands the sentence to the builder (/create). */
-export function PromptForm() {
+/**
+ * The live prompt box. Submitting hands the sentence to the builder (/create). The hero's box (`id` "prompt", the
+ * default) is the one "Your game" and "Make my own" fill and call; a second box (the end of the home page) takes its own
+ * id and `listens={false}`, so those events never land in two places.
+ */
+export function PromptForm({ id = "prompt", hint = PROMPT_HINT, listens = true }: { id?: string; hint?: ReactNode; listens?: boolean } = {}) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +30,7 @@ export function PromptForm() {
   const box = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
+    if (!listens) return;
     const onDraft = (e: Event) => {
       const sentence = (e as CustomEvent<string>).detail;
       setText(sentence);
@@ -32,11 +38,12 @@ export function PromptForm() {
     };
     window.addEventListener(DRAFT_EVENT, onDraft);
     return () => window.removeEventListener(DRAFT_EVENT, onDraft);
-  }, []);
+  }, [listens]);
 
   // Called: the cursor goes in the box, the page scrolls to it if it is not all on the screen (smoothly, unless reduced
   // motion), and once it is there the focus ring lands on the box (globals.css .prompt__field--called).
   useEffect(() => {
+    if (!listens) return;
     let stop = () => {};
     const onCall = () => {
       const area = box.current;
@@ -72,7 +79,7 @@ export function PromptForm() {
       stop();
       window.removeEventListener(CALL_EVENT, onCall);
     };
-  }, []);
+  }, [listens]);
   const onLanded = (e: AnimationEvent) => {
     if (e.animationName.startsWith("prompt-called")) setCalled(false);
   };
@@ -98,7 +105,7 @@ export function PromptForm() {
   return (
     <form className="prompt" onSubmit={submit} onAnimationEnd={onLanded} noValidate>
       <TextArea
-        id="prompt"
+        id={id}
         ref={box}
         label="What do you want to play?"
         boxClassName={cx("prompt__field", called && "prompt__field--called")}
@@ -112,7 +119,7 @@ export function PromptForm() {
           if (error) setError(null);
         }}
         onKeyDown={onKey}
-        hint="Free to start. No code. It plays right here in the browser."
+        hint={hint}
         error={error}
         action={<Button type="submit">Make my game</Button>}
       />
