@@ -79,7 +79,7 @@ export const plans: Plan[] = [
     row: 1,
     summary: "Try it. Make games on Fast and play them in the browser.",
     features: [
-      "20 credits a month, up to 5 a day",
+      "20 credits a month, up to 5 a day: about 4 Fast new games",
       "Fast builds and edits",
       "Unlimited play, and a link to share",
       "A small TypePlay badge in your game",
@@ -95,7 +95,7 @@ export const plans: Plan[] = [
     row: 1,
     summary: "For making and finishing games. Smart by default, Best when you want it.",
     features: [
-      "100 credits a month: about 6 Smart new games or 250 Fast edits",
+      "100 credits a month: about 6 Smart new games, 2 Best, or 250 Fast edits",
       "Fast, Smart and Best on every message",
       "Export to Android, iOS and Steam as each one arrives",
       "No badge, and version history to undo any edit",
@@ -112,7 +112,7 @@ export const plans: Plan[] = [
     row: 1,
     summary: "For people who make a lot of games. 10% more credits per dollar.",
     features: [
-      "275 credits a month: about 18 Smart new games",
+      "275 credits a month: about 18 Smart new games or 6 Best",
       "Everything in Medium",
       "Two builds at once",
     ],
@@ -127,7 +127,7 @@ export const plans: Plan[] = [
     row: 2,
     summary: "20% more credits per dollar than Medium.",
     features: [
-      "600 credits a month: about 40 Smart new games",
+      "600 credits a month: about 40 Smart new games or 13 Best",
       "Everything in High",
       "New genres first",
     ],
@@ -142,7 +142,7 @@ export const plans: Plan[] = [
     row: 2,
     summary: "30% more credits per dollar than Medium.",
     features: [
-      "1,300 credits a month: about 85 Smart new games",
+      "1,300 credits a month: about 85 Smart new games or 28 Best",
       "Everything in Ultra",
       "Priority help by email",
     ],

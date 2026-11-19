@@ -107,8 +107,10 @@ send button understates a new mechanic by up to 3×. Nothing above is changed in
 are Luka's call (parked, "For Luka's website review"). (2026-11-19: the table and the site changed to beta 1's numbers, above.)
 
 What a plan buys (Smart new game 15, Best new game 45, Fast new game 4.5, Fast edit 0.4; 2026-11-19): Medium ≈ 6 Smart
-new games, 2 Best, or 250 Fast edits (≈ 4 Smart games with 20 Fast edits each); High ≈ 18 Smart; Ultra ≈ 40;
-Ultra+ ≈ 85. Free ≈ 4 Fast new games or 50 Fast edits. (Before, from the old table: Medium ≈ 15 Smart, 6 Best or 350
+new games, 2 Best, or 250 Fast edits (≈ 4 Smart games with 20 Fast edits each); High ≈ 18 Smart or 6 Best; Ultra ≈ 40
+or 13 Best; Ultra+ ≈ 85 or 28 Best. Free ≈ 4 Fast new games or 50 Fast edits. The plan cards (`site.ts`) say these: Free
+"about 4 Fast new games", Medium "about 6 Smart new games, 2 Best, or 250 Fast edits", High to Ultra+ "about N Smart
+new games or N Best". (Before, from the old table: Medium ≈ 15 Smart, 6 Best or 350
 Fast edits; High ≈ 41; Ultra ≈ 90; Ultra+ ≈ 195; Free ≈ 12 Fast new games.)
 
 **Against the market:** per credit we sit on the market line ($0.20). Per game we are still
