@@ -289,7 +289,7 @@ async function freeUse(prisma: PrismaClient, users: User[], messages: Message[],
     const bucket = buckets.filter((b) => b.userId === u.id).sort((a, b) => (b.expiresAt?.getTime() ?? 0) - (a.expiresAt?.getTime() ?? 0))[0];
     const now = Date.now() < end30 ? ` (day ${dayOf(new Date(), u.createdAt)} now)` : "";
     const left = bucket
-      ? `; now ${fromTenths(bucket.remainingTenths).toFixed(1)} of this month's ${fromTenths(bucket.grantedTenths)} left${bucket.expiresAt ? `, ${FREE_MONTHLY_CREDITS} more on ${day(bucket.expiresAt)}` : ""}`
+      ? `; now ${fromTenths(bucket.remainingTenths).toFixed(1)} of this month's ${fromTenths(bucket.grantedTenths)} left${bucket.expiresAt ? (u.plan === "free" ? `, ${FREE_MONTHLY_CREDITS} more on ${day(bucket.expiresAt)}` : `, they end on ${day(bucket.expiresAt)} (no more Free months on ${u.plan})`) : ""}`
       : "";
     console.log(`${u.email}  ${u.plan === "free" ? "Free" : `now ${u.plan}`}, signed up ${day(u.createdAt)}`);
     console.log(`    Free runs ${mine.length}: ${Object.entries(ends).map(([k, v]) => `${k} ${v}`).join(", ") || "none"}; AI ${usd(spent)}`);
