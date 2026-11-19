@@ -447,14 +447,14 @@ try {
     await b.getByRole("link", { name: "Get Medium" }).click();
     await b.waitForURL(/\/billing\/checkout\?item=plan:medium/, { timeout: 60_000 });
     check("pricing's Get Medium: /create?plan=medium sends a signed-in user on to the checkout", true);
-    await b.locator(".checkbox input").waitFor({ timeout: 60_000 });
+    await b.locator(".checkout .checkbox input").waitFor({ timeout: 60_000 });
     const sum = await b.locator(".checkout__sum").innerText();
     check("checkout: the title and the sum", (await b.getByRole("heading", { level: 1 }).innerText()) === "Get Medium." && sum === "$20 a month, plus tax where it applies. Renews every month until you cancel. 100 credits a month; unused ones carry over once, up to 100.", sum);
-    check("checkout: the tick box carries wording v1", (await b.locator(".checkbox > span").innerText()) === "Start now: I ask TypePlay to begin right away. If I withdraw within 14 days, I pay for the credits I've used. Once all credits from this purchase are used, I can no longer withdraw.");
+    check("checkout: the tick box carries wording v1", (await b.locator(".checkout .checkbox > span").innerText()) === "Start now: I ask TypePlay to begin right away. If I withdraw within 14 days, I pay for the credits I've used. Once all credits from this purchase are used, I can no longer withdraw.");
     check("checkout: the acceptance line links the terms and the refund policy", (await b.locator(".checkout__accept a").evaluateAll((as) => as.map((a) => a.getAttribute("href")).join("|"))) === "/terms|/refunds");
     const cont = b.getByRole("button", { name: "Continue to payment" });
     check("checkout: Continue waits for the tick", await cont.isDisabled());
-    await b.locator(".checkbox input").check();
+    await b.locator(".checkout .checkbox input").check();
     check("checkout: ticked, Continue is live", await cont.isEnabled());
     await shot(b, "checkout-plan-desktop");
     await cont.click();
@@ -481,9 +481,9 @@ try {
 
     // A closed overlay charges nothing; then the pack, confirmed by a webhook this time.
     await b.goto(`${base}/billing/checkout?item=pack&back=%2Fbilling`, { waitUntil: "domcontentloaded" });
-    await b.locator(".checkbox input").waitFor({ timeout: 60_000 });
+    await b.locator(".checkout .checkbox input").waitFor({ timeout: 60_000 });
     check("the pack's checkout: its sum", (await b.getByRole("heading", { level: 1 }).innerText()) === "Credit pack." && (await b.locator(".checkout__sum").innerText()) === "Add 40 credits. $10 plus tax. Good for 12 months; used after your plan credits.");
-    await b.locator(".checkbox input").check();
+    await b.locator(".checkout .checkbox input").check();
     paddleMode = "close";
     await b.getByRole("button", { name: "Continue to payment" }).click();
     await b.locator(".checkout__note").waitFor({ timeout: 15_000 });
@@ -643,7 +643,7 @@ try {
     await bp.waitForTimeout(400);
     await shot(bp, "billing-phone", true);
     await bp.goto(`${base}/billing/checkout?item=pack&back=%2Fbilling`, { waitUntil: "domcontentloaded" });
-    await bp.locator(".checkbox input").waitFor({ timeout: 60_000 });
+    await bp.locator(".checkout .checkbox input").waitFor({ timeout: 60_000 });
     await bp.waitForTimeout(300);
     await shot(bp, "checkout-phone", true);
     await bp.setViewportSize({ width: 320, height: 640 });
