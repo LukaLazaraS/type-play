@@ -83,11 +83,12 @@ const billEnded = {
 const previewDown = { direction: "down", chargeNowUsd: 0, creditsNow: 0, nextRenewalUsd: 20, effectiveAt: inDays(12) };
 const previewUp = { direction: "up", chargeNowUsd: 12345.67, creditsNow: 1287.4, nextRenewalUsd: 200, effectiveAt: iso(0) };
 
+// The API's estimate (apps/server/src/credits/credits.ts TABLE and EFFORT_FACTOR, beta 1's measured charges).
 const estimates = {
-  new: { fast: [1.7, 1.2, 2.1], smart: [6.7, 5, 8.2], best: [17, 13, 24] },
-  edit: { fast: [0.3, 0.1, 0.5], smart: [1.3, 0.8, 2.1], best: [3.3, 2.5, 4.2] },
+  new: { fast: [4.5, 3, 8], smart: [15, 10, 22], best: [45, 25, 60] },
+  edit: { fast: [0.4, 0.2, 0.7], smart: [4.5, 2.5, 9], best: [10, 3, 14] },
 };
-const factor = { low: 0.8, medium: 1, high: 1.8 };
+const factor = { new: { low: 0.9, medium: 1, high: 1.25 }, edit: { low: 0.8, medium: 1, high: 2 } };
 
 // The longest prompt people really paste: a whole design doc with a link in it (the API takes 4,000).
 const longPrompt =
@@ -293,9 +294,9 @@ async function mock(page, { who = me(), list = games, proj = project, usagePages
       return json({ entries, next: start + limit < usagePages.length ? entries.at(-1).id : null });
     }
     if (url.pathname === "/estimate") {
-      const f = factor[url.searchParams.get("effort") ?? "medium"];
+      const f = factor[url.searchParams.get("kind")][url.searchParams.get("effort") ?? "medium"];
       const [typical, low, high] = estimates[url.searchParams.get("kind")][url.searchParams.get("model")].map((c) => Math.max(0.1, Math.round(c * f * 10) / 10));
-      return json({ kind: url.searchParams.get("kind"), model: url.searchParams.get("model"), typical, low, high, needsConfirm: high > (who.plan === "free" ? 3 : 25) });
+      return json({ kind: url.searchParams.get("kind"), model: url.searchParams.get("model"), typical, low, high, needsConfirm: high > (who.plan === "free" ? 8 : 25) });
     }
     if (url.pathname === "/projects") return json(list);
     if (url.pathname.endsWith("/events")) {

@@ -72,12 +72,13 @@ export const models: { id: ModelChoice; name: string; newGame: string; edit: str
   { id: "best", name: "Best", newGame: "Slower and costs more. For hard things.", edit: "Slower and costs more. For hard things." },
 ];
 
-/** How hard the AI thinks, per message: one honest line each. Medium is the default; low and high
- * move the cost by about 0.8× and 1.8× (measured, packages/agent/RESULTS.md; the API's estimate). */
+/** How hard the AI thinks, per message: one honest line each. Medium is the default; low moves the cost by about 0.9×
+ * for a new game and 0.8× for a change, high by about 1.25× and 2× (measured in beta 1 and packages/agent/RESULTS.md;
+ * the API's estimate, apps/server/src/credits/credits.ts). */
 export const efforts: { id: Effort; name: string; line: string }[] = [
   { id: "low", name: "Low", line: "Low effort: a bit quicker and cheaper, but it may skip small details." },
   { id: "medium", name: "Medium", line: "Medium effort: the usual. Right for most messages." },
-  { id: "high", name: "High", line: "High effort: thinks longer about hard changes. Slower, and almost twice the credits." },
+  { id: "high", name: "High", line: "High effort: thinks longer about hard changes. Slower, and up to twice the credits." },
 ];
 
 /** /create's pick of screens: Best fit (`auto`: nothing is sent, the agent picks one shape under its base rules, and

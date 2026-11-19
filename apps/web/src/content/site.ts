@@ -43,13 +43,13 @@ export const platforms: Platform[] = [
 // Credits, decided 2026-10-16 (docs/pricing.md). One credit stands for $0.06 of AI work and sells
 // for $0.20 on Medium, so every paid plan keeps 47-56% of its price even when every credit is used
 // (after Paddle's fee, the 1% tax and 18% VAT on the AI bill). A message is charged for the work it
-// actually did; `typical` is what our measured runs cost (packages/agent/RESULTS.md).
+// actually did; `typical` is what a message usually costs: beta 1's measured charges (docs/pricing.md, 2026-11-19).
 export const credits = {
   aiCostPerCredit: 0.06,
   freePerMonth: 20,
   freePerDay: 5,
   pack: { price: 10, credits: 40, months: 12 },
-  typical: { fastEdit: 0.3, fastGame: 2, smartGame: 7, bestGame: 17 },
+  typical: { fastEdit: 0.4, fastGame: 4.5, smartGame: 15, bestGame: 45 },
 } as const;
 
 export type Plan = {
@@ -67,7 +67,8 @@ export type Plan = {
 
 // Names are game graphics settings (Luka, 2026-10-16). Every paid plan has the same AI (Fast, Smart
 // and Best on every message); a bigger plan only buys more credits per dollar: High +10%, Ultra
-// +20%, Ultra+ +30% against Medium. Game counts: a Smart new game ~6.7 credits, a Fast edit ~0.3.
+// +20%, Ultra+ +30% against Medium. Game counts: a Smart new game ~15 credits, a Fast edit ~0.4 (beta 1's measured
+// charges, docs/pricing.md 2026-11-19; until then 6.7 and 0.3, which promised ~2.5x the Smart games credits buy).
 export const plans: Plan[] = [
   {
     id: "free",
@@ -94,7 +95,7 @@ export const plans: Plan[] = [
     row: 1,
     summary: "For making and finishing games. Smart by default, Best when you want it.",
     features: [
-      "100 credits a month: about 15 Smart new games or 350 Fast edits",
+      "100 credits a month: about 6 Smart new games or 250 Fast edits",
       "Fast, Smart and Best on every message",
       "Export to Android, iOS and Steam as each one arrives",
       "No badge, and version history to undo any edit",
@@ -111,7 +112,7 @@ export const plans: Plan[] = [
     row: 1,
     summary: "For people who make a lot of games. 10% more credits per dollar.",
     features: [
-      "275 credits a month: about 40 Smart new games",
+      "275 credits a month: about 18 Smart new games",
       "Everything in Medium",
       "Two builds at once",
     ],
@@ -126,7 +127,7 @@ export const plans: Plan[] = [
     row: 2,
     summary: "20% more credits per dollar than Medium.",
     features: [
-      "600 credits a month: about 90 Smart new games",
+      "600 credits a month: about 40 Smart new games",
       "Everything in High",
       "New genres first",
     ],
@@ -141,7 +142,7 @@ export const plans: Plan[] = [
     row: 2,
     summary: "30% more credits per dollar than Medium.",
     features: [
-      "1,300 credits a month: about 195 Smart new games",
+      "1,300 credits a month: about 85 Smart new games",
       "Everything in Ultra",
       "Priority help by email",
     ],

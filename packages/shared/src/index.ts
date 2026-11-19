@@ -480,7 +480,7 @@ export interface Estimate {
   typical: number;
   low: number;
   high: number;
-  /** True when `high` passes the ask-first limit (25 credits on paid plans, 3 on Free): send with confirm: true. */
+  /** True when `high` passes the ask-first limit (25 credits on paid plans, 8 on Free): send with confirm: true. */
   needsConfirm: boolean;
   /** The effort the numbers are for (GET /estimate takes it; medium when not given). */
   effort?: Effort;

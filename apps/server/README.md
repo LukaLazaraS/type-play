@@ -139,8 +139,8 @@ Routes (all in the contract's endpoint list, `packages/shared/src/index.ts`):
   keeps invoices).
 - `GET /public/games/:id` (no sign-in, `@Public()`): a shared, built game's name, build and poster;
   404 for private, unshared or missing (no difference). The share page `/play/<id>` reads it.
-- `GET /estimate` takes `&effort=low|medium|high`: about 0.8× and 1.8× the medium numbers
-  (measured, `credits.ts`); the credit checks before a run use the same effort.
+- `GET /estimate` takes `&effort=low|medium|high`: a new game about 0.9× and 1.25× the medium numbers, a change
+  0.8× and 2× (measured in beta 1, `credits.ts`); the credit checks before a run use the same effort.
 - **Posters:** `publishBuild()` also publishes the check's `export/screenshot-start.png` as
   `builds/<id>/poster.png` (only a real PNG, ≤ 8 MB, never after a rolled-back step);
   `Version.poster` says whether it did. Fake runs draw one (`fake-agent.ts`).

@@ -1808,6 +1808,10 @@ async function sizeChecks(db) {
     ok(fit.end.type === "done" && fit.end.version?.n === 2, "a change that fits Fast builds as before: version 2");
     ok(fit.end.message.credits === creditsForUsd(0.1 + 0.06) && fit.end.message.credits === 2.7, "its charge has the check's cost in it: $0.10 + $0.06 -> 2.7 credits (1.7 without)");
     ok(Math.abs((await row(fit.messageId)).cost - 0.2) < 1e-9, "database: $0.20 (the work and the check)");
+    // The daily rule is the balance rule: 0.5 left today is under a Fast new game's low (3), the same line the site shows.
+    ok(fit.end.credits.todayLeft === 0.5, `0.5 of today's 5 left (${fit.end.credits.todayLeft})`);
+    const nearly = await api(FREE, "POST", "/projects", { prompt: "A big game", model: "fast" });
+    ok(nearly.status === 402 && nearly.body.error === "daily_limit" && /^Not enough of today's 5 free credits left for this \(0\.5 left; it needs at least 3\)/.test(nearly.body.message), "0.5 left today, a Fast new game needs 3: 402 daily_limit, says what's left");
   } finally {
     s.close();
   }
@@ -2282,7 +2286,10 @@ async function main() {
   ok(creditsForUsd(0.1) === 1.7, "$0.10 -> 1.7 credits");
   ok(creditsForUsd(0) === 0.1, "minimum 0.1");
   ok(creditsForUsd(0.06) === 1 && creditsForUsd(0.0601) === 1.1, "rounds up to 0.1");
-  ok(estimate("new", "smart", "free").needsConfirm && !estimate("new", "best", "medium").needsConfirm, "ask-first limits 3 / 25");
+  ok(
+    !estimate("new", "fast", "free").needsConfirm && estimate("new", "fast", "free", "high").needsConfirm && estimate("new", "smart", "free").needsConfirm && !estimate("new", "smart", "medium").needsConfirm && estimate("new", "best", "medium").needsConfirm,
+    "ask-first limits 8 / 25: a Fast new game (up to 8) goes straight through on Free, at high effort (up to 10) it asks; a Smart one (up to 22) asks on Free, not on a paid plan; a Best one (up to 60) asks there too",
+  );
 
   console.log("auth and /me");
   ok((await api(null, "GET", "/me")).status === 401, "no token: 401");
@@ -2307,14 +2314,15 @@ async function main() {
   ok(me.body.credits.available === 20 && me.body.credits.todayLeft === 5, "20 credits, 5 today");
   ok(me.body.credits.expiring?.amount === 20 && daysUntil(me.body.credits.expiring.at) >= 27 && daysUntil(me.body.credits.expiring.at) <= 32, "the 20 free credits end in a month (credits.expiring)");
   const est = await api(A, "GET", "/estimate?kind=new&model=fast");
-  ok(est.body.typical === 1.7 && est.body.low === 1.2 && est.body.high === 2.1 && est.body.needsConfirm === false, "estimate fast new");
+  ok(est.body.typical === 4.5 && est.body.low === 3 && est.body.high === 8 && est.body.needsConfirm === false, "estimate fast new: 4.5 (3-8), no ask on Free");
   ok((await api(A, "GET", "/estimate?kind=x&model=fast")).body?.error === "bad_request", "bad estimate: bad_request");
   const high = (await api(A, "GET", "/estimate?kind=new&model=fast&effort=high")).body;
-  ok(high.typical === 3.1 && high.low === 2.2 && high.high === 3.8 && high.needsConfirm && high.effort === "high", "estimate fast new, high effort: x1.8, asks first on Free");
+  ok(high.typical === 5.6 && high.low === 3.8 && high.high === 10 && high.needsConfirm && high.effort === "high", "estimate fast new, high effort: x1.25 (a new game's factor), past Free's ask-first 8: asks");
   const lowE = (await api(A, "GET", "/estimate?kind=edit&model=fast&effort=low")).body;
-  ok(lowE.typical === 0.2 && lowE.low === 0.1 && lowE.high === 0.4 && lowE.effort === "low", "estimate fast edit, low effort: x0.8, at least 0.1");
+  ok(lowE.typical === 0.3 && lowE.low === 0.2 && lowE.high === 0.6 && lowE.effort === "low", "estimate fast edit, low effort: x0.8");
+  const highE = (await api(A, "GET", "/estimate?kind=edit&model=fast&effort=high")).body;
+  ok(highE.typical === 0.8 && highE.low === 0.4 && highE.high === 1.4 && highE.effort === "high", "estimate fast edit, high effort: x2 (a change's factor)");
   ok((await api(A, "GET", "/estimate?kind=new&model=fast&effort=max")).body?.error === "bad_request", "bad effort: bad_request");
-  ok((await api(A, "POST", "/projects", { prompt: "A frog that hops", model: "fast", effort: "high" })).body?.error === "needs_confirm", "high effort on Free past 3 credits: needs_confirm");
 
   console.log("create a game");
   const smart = await api(A, "POST", "/projects", { prompt: "A cat that jumps", model: "smart" });
@@ -2367,9 +2375,7 @@ async function main() {
   await mid.until((e) => e.type === "done");
   mid.close();
   ok(gitIn(p.id, "status", "--porcelain") === "", "folder clean after the edit");
-  // The daily rule is the balance rule: 1.6 left today is under a high-effort new game's low (2.2), the same line the site shows.
-  const nearly = await api(A, "POST", "/projects", { prompt: "A big game", model: "fast", effort: "high", confirm: true });
-  ok(nearly.status === 402 && nearly.body.error === "daily_limit" && /^Not enough of today's 5 free credits left for this \(1\.6 left; it needs at least 2\.2\)/.test(nearly.body.message), "1.6 left today, high-effort new game needs 2.2: 402 daily_limit, says what's left");
+  // (The daily rule's "not enough left today" line, some left but under the low: the size check's section, 0.5 left.)
 
   const restore = await api(A, "POST", `/projects/${p.id}/restore`, { n: 1 });
   const v3 = restore.body.versions?.at(-1);
@@ -2430,24 +2436,25 @@ async function main() {
   ok(admin("grant", emailOf(B), "-20", "e2e").status === 0, "admin grant -20");
   const broke = await api(B, "POST", "/projects", { prompt: "A frog game", model: "fast" });
   ok(broke.status === 402 && broke.body.error === "no_credits", "402 no_credits");
-  ok(admin("plan", emailOf(B), "high").status === 0 && admin("grant", emailOf(B), "9").status === 0, "admin plan high + 9 credits");
+  ok(admin("plan", emailOf(B), "high").status === 0 && admin("grant", emailOf(B), "23").status === 0, "admin plan high + 23 credits");
   const meB = await api(B, "GET", "/me");
-  ok(meB.body.plan === "high" && meB.body.models.length === 3 && meB.body.credits.todayLeft === null && meB.body.credits.available === 9, "paid: 3 models, no daily limit");
+  ok(meB.body.plan === "high" && meB.body.models.length === 3 && meB.body.credits.todayLeft === null && meB.body.credits.available === 23, "paid: 3 models, no daily limit");
   ok(admin("list").stdout.includes(emailOf(B)), "admin list shows the user");
-  // Holds: a run going holds its estimate's high (a Smart new game: 8.2 of the 9), so a second
-  // message can't spend the same credits; the charge (1.7) replaces the hold when it finishes.
+  // Holds: a run going holds its estimate's high (a Smart new game: 22 of the 23), so a second
+  // message can't spend the same credits (1.0 left, under a Fast new game's low of 3); the charge (1.7)
+  // replaces the hold when it finishes.
   const first = await api(B, "POST", "/projects", { prompt: "Game number 0", model: "smart" });
-  ok(first.status === 201, "Smart new game with 9 credits: starts (holds 8.2)");
+  ok(first.status === 201, "Smart new game with 23 credits: starts (its low is 10; holds 22)");
   projects.push(first.body.id);
   const held = await api(B, "POST", "/projects", { prompt: "Another while it builds", model: "fast" });
   ok(held.status === 402 && held.body.error === "no_credits" && /build that's going/.test(held.body.message), "a second game while the first holds the credits: 402 no_credits, says why");
   const sFirst = await openEvents(B, first.body.id);
   await sFirst.until(finished);
   sFirst.close();
-  ok((await api(B, "GET", "/me")).body.credits.available === 7.3, "charged 1.7, not the 8.2 held: 7.3 left");
-  // The race: two messages at the same moment on credits that cover one (2.0 for a Fast new game,
-  // low 1.2, hold 2.1): exactly one starts, the other is refused in the same tick.
-  ok(admin("grant", emailOf(B), "-5.3").status === 0, "admin grant -5.3 (2.0 left)");
+  ok((await api(B, "GET", "/me")).body.credits.available === 21.3, "charged 1.7, not the 22 held: 21.3 left");
+  // The race: two messages at the same moment on credits that cover one (5.0 for a Fast new game,
+  // low 3, hold 8): exactly one starts, the other is refused in the same tick.
+  ok(admin("grant", emailOf(B), "-16.3").status === 0, "admin grant -16.3 (5.0 left)");
   const race = await Promise.all([0, 1].map((i) => api(B, "POST", "/projects", { prompt: `Race ${i}`, model: "fast" })));
   const raceWon = race.filter((r) => r.status === 201);
   ok(raceWon.length === 1 && race.some((r) => r.status === 402 && r.body.error === "no_credits"), "two parallel messages on credits for one: one starts, one 402");
@@ -2457,8 +2464,8 @@ async function main() {
     await s.until(finished);
     s.close();
   }
-  ok((await api(B, "GET", "/me")).body.credits.available === 0.3, "the one that started was charged: 0.3 left");
-  ok(admin("grant", emailOf(B), "30").status === 0, "admin grant 30 (30.3)");
+  ok((await api(B, "GET", "/me")).body.credits.available === 3.3, "the one that started was charged: 3.3 left");
+  ok(admin("grant", emailOf(B), "27").status === 0, "admin grant 27 (30.3)");
   // Runs at once: High builds two at a time, Free and Medium one; MAX_RUNS (3 on this PC) over everyone.
   const runs = [first.body.id];
   for (let i = 1; i < 3; i++) {
@@ -2498,8 +2505,9 @@ async function main() {
     sE.close();
     ok(eDone.type === "done" && eDone.message.credits === 1.7 && eDone.credits.available === eBefore - 1.7, "E's build started by itself once a builder was free, and was charged once it had run (1.7)");
   }
-  // Ask first, then confirm: a Best new game at high effort (up to 43.2 credits) needs confirm: true
-  // exactly; the string "true" doesn't count.
+  // Ask first, then confirm: a Best new game at high effort (up to 75 credits) needs confirm: true
+  // exactly; the string "true" doesn't count. It needs at least its low (31.3) to ask at all.
+  ok(admin("grant", emailOf(B), "10").status === 0, "admin grant 10 (36.9)");
   const bestHigh = { prompt: "An epic game", model: "best", effort: "high" };
   ok((await api(B, "POST", "/projects", bestHigh)).body?.error === "needs_confirm", "Best new game at high effort: 409 needs_confirm");
   ok((await api(B, "POST", "/projects", { ...bestHigh, confirm: "true" })).body?.error === "needs_confirm", 'confirm: "true" (a string) still asks');
@@ -2511,7 +2519,7 @@ async function main() {
     await s.until(finished);
     s.close();
   }
-  ok((await api(B, "GET", "/me")).body.credits.available === 25.2, "the confirmed build charged 1.7 (the hold of 43.2 released): 25.2");
+  ok((await api(B, "GET", "/me")).body.credits.available === 35.2, "the confirmed build charged 1.7 (the hold of 75 released): 35.2");
 
   console.log("rename");
   const listBefore = (await api(A, "GET", "/projects")).body;
@@ -2773,16 +2781,17 @@ async function main() {
   const H = `dev:e2e-${stamp}-h@test.local`;
   const hId = devId(H);
   await api(H, "GET", "/me");
-  ok(admin("plan", emailOf(H), "medium").status === 0 && admin("grant", emailOf(H), "-18.7").status === 0 && (await api(H, "GET", "/me")).body.credits.available === 1.3, "H: Medium with 1.3 credits (a Fast new game's low is 1.2)");
-  const hGame = await api(H, "POST", "/projects", { prompt: "H's game", model: "fast" });
-  ok(hGame.status === 201, "H's build starts on 1.3");
+  ok(admin("plan", emailOf(H), "medium").status === 0 && admin("grant", emailOf(H), "-17").status === 0 && (await api(H, "GET", "/me")).body.credits.available === 3, "H: Medium with 3 credits (a Fast new game's low is 3)");
+  // CHECKUSD: the genre call reports $0.10, so the run costs $0.20 in all (3.4 credits), more than H has.
+  const hGame = await api(H, "POST", "/projects", { prompt: "H's game CHECKUSD:0.1", model: "fast" });
+  ok(hGame.status === 201, "H's build starts on 3");
   if (hGame.body?.id) {
     projects.push(hGame.body.id);
     const s = await openEvents(H, hGame.body.id);
     await s.until(finished);
     s.close();
   }
-  ok((await api(H, "GET", "/me")).body.credits.available === -0.4, "charged 1.7 on 1.3: -0.4 (debt)");
+  ok((await api(H, "GET", "/me")).body.credits.available === -0.4, "charged 3.4 on 3: -0.4 (debt)");
   ok((await api(H, "POST", "/projects", { prompt: "Another", model: "fast" })).body?.error === "no_credits", "in debt: 402 no_credits");
   ok((await db.query(`SELECT "debtTenths" FROM "User" WHERE id = $1`, [hId])).rows[0].debtTenths === 4, "database: debt 4 tenths, as a null-bucket allocation");
   ok(auditOk(emailOf(H)), "audit holds with debt");

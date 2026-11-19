@@ -135,7 +135,7 @@ async function mock(page, combo) {
       return route.fulfill({ status: 204, headers: { ...headers, "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE" } });
     if (url.pathname === "/me") return json(me(combo.android));
     if (url.pathname === "/projects") return json([proj]);
-    if (url.pathname === "/estimate") return json({ kind: "edit", model: "fast", typical: 0.3, low: 0.1, high: 0.5, needsConfirm: false });
+    if (url.pathname === "/estimate") return json({ kind: "edit", model: "fast", typical: 0.4, low: 0.2, high: 0.7, needsConfirm: false });
     if (url.pathname.endsWith("/events"))
       return route.fulfill({ status: 200, headers: { ...headers, "Content-Type": "text/event-stream" }, body: `data: ${JSON.stringify({ type: "snapshot", project: proj })}\n\n` });
     if (url.pathname.startsWith("/projects/") && req.method() === "PATCH") {

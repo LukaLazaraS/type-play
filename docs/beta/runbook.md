@@ -165,8 +165,8 @@ npm run admin:live -w @typeplay/server -- plan friend@gmail.com medium    # only
 ```
 
 **[Luka] decides how much.** 1 credit is at most $0.06 of AI. On Free (Fast only, at most 5 a day): a new game about
-1.7 credits, a change about 0.3. `plan … medium` is the plan without a payment: Smart and Best, no daily cap, one build
-at a time; a Smart game is about 6.7 credits ($0.40), a Best one about 17 ($1.02). 10 testers with 100 credits each is
+4.5 credits, a change about 0.4. `plan … medium` is the plan without a payment: Smart and Best, no daily cap, one build
+at a time; a Smart game is about 15 credits ($0.90), a Best one about 45 ($2.70) (beta 1's measured charges, `docs/pricing.md`). 10 testers with 100 credits each is
 at most $60 of AI. `grant` before the first sign-in fails ("no user with email …": the account appears then).
 `invite remove <email>` takes someone out: their account stays (games, credits), the app shows the closed-beta page.
 

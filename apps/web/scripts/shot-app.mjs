@@ -188,12 +188,12 @@ try {
   check("free plan: Best locked", (await page.locator('.choice[data-locked] input[value="best"]').count()) === 1);
   check("free plan: Fast picked", await page.locator('input[value="fast"]').isChecked());
   const estimate = await page.locator(".make__send .figures").innerText();
-  check("estimate next to Build", /about 1\.7 credits/.test(estimate), estimate);
+  check("estimate next to Build", /about 4\.5 credits/.test(estimate), estimate);
   check("header credits", (await headerCredits(page)) === "20", await headerCredits(page));
   check("effort: Medium by default on /create", await page.locator('input[name="effort-create"][value="medium"]').isChecked());
   await page.locator(".make__effort label", { hasText: "High" }).click();
-  await page.waitForFunction(() => /3\.1 credits/.test(document.querySelector(".make__send .figures")?.textContent ?? ""), null, { timeout: 10_000 }).catch(() => {});
-  check("effort High: the estimate follows (1.7 x 1.8 = 3.1)", /about 3\.1 credits/.test(await page.locator(".make__send .figures").innerText()));
+  await page.waitForFunction(() => /5\.6 credits/.test(document.querySelector(".make__send .figures")?.textContent ?? ""), null, { timeout: 10_000 }).catch(() => {});
+  check("effort High: the estimate follows (4.5 x 1.25 = 5.6)", /about 5\.6 credits/.test(await page.locator(".make__send .figures").innerText()));
   check("effort High: its honest line", (await page.locator(".make__effort .field-hint").innerText()).startsWith("High effort"));
   await page.getByRole("button", { name: /Puzzle/ }).click();
   check("starter fills the box", (await page.locator("#idea").inputValue()).includes("match-3"));
@@ -201,11 +201,11 @@ try {
   await page.waitForTimeout(300);
   await shot(page, "create-desktop");
 
-  // Build at High effort: on Free that passes the ask-first limit (up to 3.8 credits), so the API
+  // Build at High effort: on Free that passes the ask-first limit (up to 10 credits, the limit 8), so the API
   // answers 409 needs_confirm and the page asks; "Build it" sends it again with confirm: true.
   await page.getByRole("button", { name: "Build my game" }).click();
   await page.locator(".make .ask").waitFor({ timeout: 15_000 });
-  check("ask first on /create: the API's real needs_confirm", /3\.8 credits/.test(await page.locator(".make .ask").innerText()), await page.locator(".make .ask").innerText());
+  check("ask first on /create: the API's real needs_confirm", /10 credits/.test(await page.locator(".make .ask").innerText()), await page.locator(".make .ask").innerText());
   await shot(page, "create-ask-first-desktop");
   await page.getByRole("button", { name: "Build it" }).click();
   await page.waitForURL(/\/games\/[a-z0-9]+$/, { timeout: 30_000 });
@@ -233,11 +233,11 @@ try {
   const firstFrame = await page.locator(".gameframe iframe").getAttribute("src");
   await page.fill("#say", "Make the robot jump higher");
   check("composer defaults to Fast", await page.locator('input[name="switch-edit"][value="fast"]').isChecked());
-  check("composer estimate", (await page.locator(".composer__cost").innerText()).includes("0.3"), await page.locator(".composer__cost").innerText());
+  check("composer estimate", (await page.locator(".composer__cost").innerText()).includes("0.4"), await page.locator(".composer__cost").innerText());
   check("composer effort: Medium by default", await page.locator('input[name="effort-edit"][value="medium"]').isChecked());
   await page.locator(".composer .effort label", { hasText: "High" }).click();
-  await page.waitForFunction(() => /0\.5 credits/.test(document.querySelector(".composer__cost")?.textContent ?? ""), null, { timeout: 10_000 }).catch(() => {});
-  check("composer effort High: about 0.5 credits, and its line", (await page.locator(".composer__cost").innerText()).includes("0.5") && (await page.locator("#say-tip").innerText()).startsWith("High effort"));
+  await page.waitForFunction(() => /0\.8 credits/.test(document.querySelector(".composer__cost")?.textContent ?? ""), null, { timeout: 10_000 }).catch(() => {});
+  check("composer effort High: about 0.8 credits (0.4 x 2), and its line", (await page.locator(".composer__cost").innerText()).includes("0.8") && (await page.locator("#say-tip").innerText()).startsWith("High effort"));
   await shot(page, "game-effort-desktop");
   await page.locator(".composer .effort label", { hasText: "Medium" }).click();
   await page.getByRole("button", { name: "Send" }).click();

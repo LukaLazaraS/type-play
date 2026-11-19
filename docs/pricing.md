@@ -44,7 +44,8 @@ number (Rork, a0.dev, Base44, Emergent all sell exactly that).
   to 0.1 credit, minimum 0.1. A bigger game or a longer prompt costs more credits; one credit is
   always the same amount of AI, so no single message can lose money.
 - The estimate shows next to the send button before it runs. A message whose estimate passes
-  **25 credits** on a paid plan (3 on Free) stops and asks first.
+  **25 credits** on a paid plan (8 on Free, 2026-11-19: just above a Fast new game's high, so a typical one goes
+  straight through and one at high effort, up to 10, asks; it was 3) stops and asks first.
 - A build the model refuses costs nothing; a build that fails our check is retried free, and if
   it still fails its credits come back automatically.
 - **The size check** (10-29): before a change on Fast or Smart is built, one cheap Haiku call (~$0.0003-0.001)
@@ -58,16 +59,33 @@ number (Rork, a0.dev, Base44, Emergent all sell exactly that).
   genre call. Questions: that answer is charged at once like the size check's stop (its calls, at least 0.1 credit) and the
   build after the answers is charged on its own, never asking again; an answer never given costs nothing more.
 
-Typical cost of one message (measured, `packages/agent/RESULTS.md`; Smart edit is an estimate):
+Typical cost of one message at medium effort. **Source since 2026-11-19: beta 1's measured charges** (the paragraph
+under the table; Fast new game from our three local Haiku builds since the 11-04 rules, charged 3.1, 4.6 and 7.6 credits:
+`packages/agent/RESULTS.md` attach-ref-robot, `runs.jsonl` real-fast and beta1-fast-frog; the beta's two were from October,
+before those rules). The API's estimate
+next to the send button is this table (`apps/server/src/credits/credits.ts` `TABLE`); effort moves it per kind: a new
+game ×0.9 at low and ×1.25 at high, a change ×0.8 and ×2.
 
 | Message | AI it runs on | Credits, usually (range) | User price on Medium |
 |---|---|---|---|
-| Fast edit | Haiku 5.5 | 0.3 (0.1-0.5) | $0.06 |
-| Fast new game | Haiku 5.5, 2 steps | 1.7 (1.2-2.1) | $0.33 |
-| Smart edit | Sonnet 5.5 (estimate) | 1.3 (0.8-2.1) | $0.27 |
-| Smart new game | Sonnet 5.5 medium + genre skill | 6.7 (5-8.2) | $1.33 |
-| Best edit | Opus 5.5 medium | 3.3 (2.5-4.2) | $0.67 |
-| Best new game | Opus 5.5 medium | 17 (13-24) | $3.33 |
+| Fast edit | Haiku 5.5 | 0.4 (0.2-0.7) | $0.08 |
+| Fast new game | Haiku 5.5, 2 steps | 4.5 (3-8) | $0.90 |
+| Smart edit | Sonnet 5.5 medium | 4.5 (2.5-9) | $0.90 |
+| Smart new game | Sonnet 5.5 medium + genre skill | 15 (10-22) | $3.00 |
+| Best edit | Opus 5.5 medium | 10 (3-14) | $2.00 |
+| Best new game | Opus 5.5 medium | 45 (25-60) | $9.00 |
+
+**Measured 2026-11-19 in beta 1** (live, read with `npm run admin:live -w @typeplay/server -- stats`; 54 built answers
+of 9 testers, 10-27 to 11-16; credits charged, p10 / median / p90, against the estimate the app showed then). New games:
+Best at high effort 31.7 / 56.3 / 61.4 (10; shown 30.6, 23.4-43.2: 8 above its high), Best at medium 43.8 / 45.5 / 46
+(3; shown 17), Smart at medium 20.1 (1; shown 6.7), Fast 1.1 and 1.7 (2; shown 1.7, 1.2-2.1). Changes: Best at high
+5.4 / 21.5 / 24.6 (11; shown 5.9), Best at medium 0.8 / 9.7 / 23.6 (7; shown 3.3), Smart at medium 2.7 / 4.4 / 8.9 (7;
+shown 1.3, all 7 above its high), Fast at medium 0.2 / 0.4 / 0.7, at most 2.4 (13; shown 0.3, 4 above its high). Our
+own runs agree (`packages/agent/RESULTS.md`, `runs.jsonl`): Sonnet medium new games since 10-27 cost 9-23 credits (27
+builds), Opus high new games 32-78 (the six showcase games). So the old table understated Smart and Best 2-4×; the
+table above is these numbers. The 1 credit = $0.06 rule held ($0.060 of AI per credit charged). With them a paid plan
+asks first (over 25) for every Best new game and for a Smart new game or a Best change at high effort; Free (Fast only)
+asks first over 8, so only a Fast new game at high effort (up to 10).
 
 **Measured 2026-10-18 with the "look finished" rules and the tower-defence / racer skills**
 (`packages/agent/RESULTS.md` "10-17 night", one run each): new games cost 2-3× the table's
@@ -86,10 +104,12 @@ same four prompts Smart cost 5-6× Fast's credits (7-10× the dollars) for the s
 size of the game; a new mechanic does (the model's thinking, and crossing Haiku's 100K step adds about a third). So "350 Fast
 edits" per 100 credits is ~200-230 at the mean (0.44-0.51 credits) and ~250-330 at the median (0.3-0.4), and the Fast range the app shows next to the
 send button understates a new mechanic by up to 3×. Nothing above is changed in the table or on the site: the numbers
-are Luka's call (parked, "For Luka's website review").
+are Luka's call (parked, "For Luka's website review"). (2026-11-19: the table and the site changed to beta 1's numbers, above.)
 
-What a plan buys: Medium ≈ 15 Smart new games, 6 Best, or 350 Fast edits (≈ 8 games with 20 edits
-each); High ≈ 41 Smart; Ultra ≈ 90; Ultra+ ≈ 195. Free ≈ 12 Fast new games or 70 Fast edits.
+What a plan buys (Smart new game 15, Best new game 45, Fast new game 4.5, Fast edit 0.4; 2026-11-19): Medium ≈ 6 Smart
+new games, 2 Best, or 250 Fast edits (≈ 4 Smart games with 20 Fast edits each); High ≈ 18 Smart; Ultra ≈ 40;
+Ultra+ ≈ 85. Free ≈ 4 Fast new games or 50 Fast edits. (Before, from the old table: Medium ≈ 15 Smart, 6 Best or 350
+Fast edits; High ≈ 41; Ultra ≈ 90; Ultra+ ≈ 195; Free ≈ 12 Fast new games.)
 
 **Against the market:** per credit we sit on the market line ($0.20). Per game we are still
 below the paid game builders (vendor figures: Jabali $0.67-1, SEELE $1.30-15, Rork $4-8, Tesana
