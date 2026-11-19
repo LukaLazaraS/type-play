@@ -16,7 +16,7 @@ import { inLine, MAX_TEXT, people as together, pictures, questions } from "@/con
 import { checkoutHref, HOLD_LINE, pack, planAbove, planFacts } from "@/content/billing";
 import { credits as siteCredits } from "@/content/site";
 import { ApiFailure } from "@/lib/api";
-import { creditsWord, dayOf, tooLong, untilUtcMidnight, usd, whenParts } from "@/lib/format";
+import { dayOf, estimateWord, tooLong, untilUtcMidnight, usd, whenParts } from "@/lib/format";
 import { saveAskFirst } from "@/lib/session";
 import { planName } from "./AccountSlot";
 import { EffortSwitch, effortLine, ModelSwitch, modelLine } from "./ModelPicker";
@@ -177,7 +177,7 @@ export function Composer({
     }
     // An answer to open questions goes on the AI and effort they were asked on: its price was agreed when the idea was sent.
     if (!confirm && est?.needsConfirm && !answering) {
-      setAsk(`This could cost up to ${creditsWord(est.high)}. Send it?`);
+      setAsk(`This could cost up to ${estimateWord(est.high, true)}. Send it?`);
       return;
     }
     setBusy(true);
@@ -368,7 +368,7 @@ export function Composer({
           />
           {!going && est && (
             <span className={paidBy ? "composer__cost composer__cost--payer figures" : "composer__cost figures"}>
-              {paidBy ? together.cost(creditsWord(est.typical), paidBy) : `about ${creditsWord(est.typical)}`}
+              {paidBy ? together.cost(estimateWord(est.typical), paidBy) : `about ${estimateWord(est.typical)}`}
             </span>
           )}
           {/* "Ask me first" (2026-11-04), on a line of its own under Effort and the cost. */}

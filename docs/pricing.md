@@ -45,7 +45,9 @@ number (Rork, a0.dev, Base44, Emergent all sell exactly that).
   always the same amount of AI, so no single message can lose money.
 - The estimate shows next to the send button before it runs. A message whose estimate passes
   **25 credits** on a paid plan (8 on Free, 2026-11-19: just above a Fast new game's high, so a typical one goes
-  straight through and one at high effort, up to 10, asks; it was 3) stops and asks first.
+  straight through and one at high effort, up to 10, asks; it was 3) stops and asks first. From 10 credits up the
+  estimate shows in whole credits ("about 56"; "up to 57" for 56.3, an upper bound rounded up), below 10 with one
+  decimal ("about 4.5"); charges and balances keep their 0.1 (2026-11-19).
 - A build the model refuses costs nothing; a build that fails our check is retried free, and if
   it still fails its credits come back automatically.
 - **The size check** (10-29): before a change on Fast or Smart is built, one cheap Haiku call (~$0.0003-0.001)

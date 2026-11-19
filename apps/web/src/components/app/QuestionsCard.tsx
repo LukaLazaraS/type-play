@@ -9,7 +9,7 @@ import { ErrorLine } from "@/components/ui/ErrorLine";
 import { TextArea } from "@/components/ui/Field";
 import { questions as words } from "@/content/app";
 import { ApiFailure } from "@/lib/api";
-import { creditsWord } from "@/lib/format";
+import { estimateWord } from "@/lib/format";
 
 /** A pick per question: an answer's place ("0".."3"), You decide, or the player's own words. */
 const DECIDE = "decide";
@@ -168,7 +168,7 @@ export function QuestionsCard({
           {words.build}
         </Button>
         <span id={costId} className="questions__cost figures">
-          {words.buildsOn(model, cost ? creditsWord(cost.typical) : null)}
+          {words.buildsOn(model, cost ? estimateWord(cost.typical) : null)}
         </span>
       </div>
       {error && (

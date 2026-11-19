@@ -164,7 +164,10 @@ export class CreditsService {
       );
     }
     if (est.needsConfirm && !opts.confirm) {
-      throw new ApiException(409, "needs_confirm", `This could cost up to ${est.high} ${owner ? `of ${owner} ` : ""}credits. Send it again to confirm.`);
+      // From 10 up in whole credits, rounded up (56.3 -> 57), as the site says its estimates (web lib/format.ts
+      // estimateWord); the hold and the checks keep est.high itself.
+      const upTo = est.high >= 10 ? Math.ceil(est.high - 1e-9) : est.high;
+      throw new ApiException(409, "needs_confirm", `This could cost up to ${upTo} ${owner ? `of ${owner} ` : ""}credits. Send it again to confirm.`);
     }
     return est;
   }

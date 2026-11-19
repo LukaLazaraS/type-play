@@ -23,7 +23,7 @@ import { CLOSED_BETA_NOTE, closedBeta } from "@/content/beta";
 import { checkoutHref, planIdOf } from "@/content/billing";
 import { genreName } from "@/content/gallery";
 import { api, ApiFailure } from "@/lib/api";
-import { credits, creditsWord } from "@/lib/format";
+import { credits, creditsWord, estimateWord } from "@/lib/format";
 import { refreshMe, saveAskFirst, useSession } from "@/lib/session";
 
 function subscribe(onChange: () => void) {
@@ -194,7 +194,7 @@ export function CreateApp() {
       return;
     }
     if (!confirm && est?.needsConfirm) {
-      setAsk(`This could cost up to ${creditsWord(est.high)}. Build it?`);
+      setAsk(`This could cost up to ${estimateWord(est.high, true)}. Build it?`);
       return;
     }
     setBusy(true);
@@ -399,7 +399,7 @@ export function CreateApp() {
                 )}
               </p>
               <div className="make__send">
-                {est && <span className="figures">about {creditsWord(est.typical)}</span>}
+                {est && <span className="figures">about {estimateWord(est.typical)}</span>}
                 <Button type="submit" disabled={short} aria-disabled={ask !== null || undefined} busy={busy} busyLabel="Starting…">
                   Build my game
                 </Button>

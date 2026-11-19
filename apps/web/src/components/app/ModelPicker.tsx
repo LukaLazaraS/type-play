@@ -6,7 +6,7 @@ import { ChoiceRows } from "@/components/ui/ChoiceRows";
 import { ModelTile } from "@/components/ui/ModelTile";
 import { Segmented } from "@/components/ui/Segmented";
 import { efforts, models } from "@/content/app";
-import { creditsWord } from "@/lib/format";
+import { estimateWord } from "@/lib/format";
 
 type Props = {
   kind: "new" | "edit";
@@ -43,7 +43,7 @@ export function ModelRows({ kind, value, onChange, allowed, estimates, disabled 
               On paid plans
             </>
           ) : est ? (
-            `about ${creditsWord(est.typical)}`
+            `about ${estimateWord(est.typical)}`
           ) : (
             ""
           ),

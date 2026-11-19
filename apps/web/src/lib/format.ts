@@ -8,6 +8,15 @@ export const credits = (n: number) => one.format(Math.round(n * 10) / 10);
 /** "1 credit", "0.4 credits", "20 credits". */
 export const creditsWord = (n: number) => `${credits(n)} ${Math.round(n * 10) === 10 ? "credit" : "credits"}`;
 
+/**
+ * An estimate before a message runs (2026-11-19): from 10 up in whole credits, "about 56 credits", and an upper bound
+ * rounded up, "up to 57 credits" for 56.3, so it never says less than the API holds; below 10 with one decimal, "about
+ * 4.5 credits". Balances and charges keep their decimal (creditsWord). The API's ask-first message rounds its "up to"
+ * the same way (apps/server/src/credits/credits.service.ts).
+ */
+export const estimateWord = (n: number, upper = false) =>
+  n >= 10 ? `${one.format(upper ? Math.ceil(n - 1e-9) : Math.round(n))} credits` : creditsWord(n);
+
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 
 /** "1 play", "940 plays", "1.2K plays", "10M plays": a play count as the gallery and the Share menu say it. */
