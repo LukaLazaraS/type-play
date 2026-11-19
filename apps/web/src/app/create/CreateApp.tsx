@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Effort, GameTag, Genre, ModelChoice } from "@typeplay/shared";
 import { EffortSwitch, effortLine, ModelRows } from "@/components/app/ModelPicker";
+import { NotOnSale } from "@/components/app/NotOnSale";
 import { AddPictures, PictureTray, usePictureDrop, usePictureTray } from "@/components/app/Pictures";
 import { PlatformSwitch } from "@/components/app/PlatformSwitch";
 import { SignIn } from "@/components/app/SignIn";
@@ -20,8 +21,9 @@ import { IconChoice } from "@/components/ui/IconChoice";
 import { PageWidget } from "@/components/ui/PageWidget";
 import { DRAFT_KEY, gameTags, genreAbout, genreAgain, genreNone, genres, MAX_TEXT, PICKS_KEY, questions, tagsNone, type PlatformChoice } from "@/content/app";
 import { CLOSED_BETA_NOTE, closedBeta } from "@/content/beta";
-import { checkoutHref, planIdOf } from "@/content/billing";
+import { checkoutHref, notOnSale, paddleOn, planFacts, planIdOf } from "@/content/billing";
 import { genreName } from "@/content/gallery";
+import { credits as siteCredits } from "@/content/site";
 import { api, ApiFailure } from "@/lib/api";
 import { credits, creditsWord, estimateWord } from "@/lib/format";
 import { refreshMe, saveAskFirst, useSession } from "@/lib/session";
@@ -94,6 +96,8 @@ const clash = (a: GameTag, b: GameTag) => CLASHES.some(([x, y]) => (x === a && y
 const NEEDS: Partial<Record<GameTag, GameTag>> = { firstperson: "3d", thirdperson: "3d" };
 
 const SHORT = "Say a little more: what kind of game, and what you do in it.";
+/** Signed out at the open launch: what Free gives, before Google. */
+const FREE_NOTE = `Free: ${siteCredits.freePerMonth} credits a month. Your idea stays here while you sign in.`;
 const SHORT_PICKED = "Say a little more: what you do in your game.";
 
 /** The app's front door: the sentence, its genre and tags, the screens, the AI and its cost, then Build. */
@@ -171,9 +175,11 @@ export function CreateApp() {
   }, [fromUrl, router]);
 
   // The pricing page's "Get Medium" lands here with ?plan=: signed in, straight on to the checkout;
-  // signed out, the sign-in below comes back to the checkout.
+  // signed out, the sign-in below comes back to the checkout. With billing off (no Paddle token in this build) there is no
+  // checkout to go on to: the page stays and says so plainly, and the plan stays in the address through the sign-in.
   const plan = planIdOf(params.get("plan"));
-  const toCheckout = plan ? checkoutHref(`plan:${plan}`) : null;
+  const toCheckout = plan && paddleOn ? checkoutHref(`plan:${plan}`) : null;
+  const planOff = plan && !paddleOn ? planFacts(plan).name : null;
   useEffect(() => {
     if (toCheckout && session.status === "in") router.replace(toCheckout);
   }, [toCheckout, session.status, router]);
@@ -255,7 +261,7 @@ export function CreateApp() {
 
   if (toCheckout && signedIn) return <PageWidget busy />;
   return (
-    <PageWidget title={signedIn ? "Make your game." : "Your game is next."}>
+    <PageWidget title={signedIn ? "Make your game." : "Your game is next."} lead={planOff && signedIn ? <NotOnSale plan={planOff} /> : undefined}>
       <form className="make__form" onSubmit={submit} noValidate>
         <div className="make__idea" {...drop.zone}>
           <TextArea
@@ -327,12 +333,16 @@ export function CreateApp() {
         {session.status === "out" && (
           <div className="make__signin">
             {error && <ErrorLine>{error}</ErrorLine>}
-            <SignIn next={toCheckout ?? "/create"} note={
+            <SignIn
+              next={toCheckout ?? (planOff ? `/create?plan=${plan}` : "/create")}
+              note={
                 toCheckout
                   ? "Sign in first; the checkout opens right after."
                   : closedBeta
-                    ? `${CLOSED_BETA_NOTE} Your idea stays here.`
-                    : "Free: 20 credits a month. Your idea stays here while you sign in."
+                    ? `${planOff ? `${notOnSale.plan(planOff)} ` : ""}${CLOSED_BETA_NOTE} Your idea stays here.`
+                    : planOff
+                      ? `${notOnSale.plan(planOff)} ${FREE_NOTE}`
+                      : FREE_NOTE
               }
             />
           </div>
@@ -386,7 +396,7 @@ export function CreateApp() {
                     {est && me.credits.available < est.low ? (
                       <>: not enough for this one.</>
                     ) : est && me.credits.todayLeft !== null && me.credits.todayLeft < est.low ? (
-                      <>, but today&apos;s free credits are used up. More tomorrow, or on a paid plan now.</>
+                      <>, but today&apos;s free credits are used up. More tomorrow{paddleOn ? ", or on a paid plan now" : ""}.</>
                     ) : (
                       <>
                         {me.credits.todayLeft !== null && <>, {credits(me.credits.todayLeft)} more today on Free</>}.

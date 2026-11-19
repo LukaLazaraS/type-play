@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import type { BillingInfo, BillingPayment, CreditPart, Me, PlanChangePreview, PlanId, PortalLinks } from "@typeplay/shared";
 import { planName } from "@/components/app/AccountSlot";
-import { paddleOn } from "@/components/app/Paddle";
+import { NotOnSale } from "@/components/app/NotOnSale";
 import { SignIn } from "@/components/app/SignIn";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Ask } from "@/components/ui/Ask";
@@ -15,8 +15,8 @@ import { ErrorLine } from "@/components/ui/ErrorLine";
 import { PageWidget } from "@/components/ui/PageWidget";
 import { Strip } from "@/components/ui/Strip";
 import { TextLink } from "@/components/ui/TextLink";
-import { checkoutHref, HOLD_LINE, PAID_PLANS, pack, planAbove, planFacts, support, type PaidPlan } from "@/content/billing";
-import { credits as siteCredits, site } from "@/content/site";
+import { checkoutHref, HOLD_LINE, PAID_PLANS, pack, paddleOn, planAbove, planFacts, support, type PaidPlan } from "@/content/billing";
+import { credits as siteCredits } from "@/content/site";
 import { api } from "@/lib/api";
 import { credits, creditsWord, dayOf, usd, usdCents } from "@/lib/format";
 import { refreshMe, useSession } from "@/lib/session";
@@ -111,15 +111,14 @@ export function BillingClient() {
   );
 }
 
-/** No payment keys on this server (or sandbox billing is not for this user): today's beta text. */
+/** No payment keys on this server (or sandbox billing is not for this user): paid plans aren't on sale yet, said plainly. */
 function Off({ me }: { me: Me }) {
   return (
     <PageWidget
       title="Plan and billing."
       lead={
         <>
-          You are on <b>{planName[me.plan]}</b>, with {creditsWord(me.credits.available)} to spend. Paying for a plan or a credit pack opens here soon.
-          During the beta, credits are added by hand: write to <TextLink href={`mailto:${site.email}`}>{site.email}</TextLink>.
+          You are on <b>{planName[me.plan]}</b>, with {creditsWord(me.credits.available)} to spend. <NotOnSale free={false} />
         </>
       }
     >

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { openCheckout, paddleOn, usePaddle, usePaddleEvents, type PaddleEvent } from "@/components/app/Paddle";
+import { NotOnSale } from "@/components/app/NotOnSale";
+import { openCheckout, usePaddle, usePaddleEvents, type PaddleEvent } from "@/components/app/Paddle";
 import { SignIn } from "@/components/app/SignIn";
 import { Button } from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/ButtonLink";
@@ -11,8 +12,8 @@ import { ErrorLine } from "@/components/ui/ErrorLine";
 import { PageWidget } from "@/components/ui/PageWidget";
 import { Pulse } from "@/components/ui/Pulse";
 import { TextLink } from "@/components/ui/TextLink";
-import { checkoutHref, consent, HOLD_LINE, pack, planFacts, planIdOf, support, type PaidPlan } from "@/content/billing";
-import { site } from "@/content/site";
+import { closedBeta } from "@/content/beta";
+import { checkoutHref, consent, HOLD_LINE, pack, paddleOn, planFacts, planIdOf, support, type PaidPlan } from "@/content/billing";
 import { api } from "@/lib/api";
 import { usd } from "@/lib/format";
 import { refreshMe, useSession } from "@/lib/session";
@@ -135,23 +136,27 @@ export function CheckoutClient() {
     );
   }
   if (!me) return <Shell title={title} lead={session.problem ?? "Checking your plan…"} leadRole={session.problem ? "alert" : undefined} />;
+  // Billing off (no Paddle token in this build, or the API's billing mode is off): no checkout pretends to exist. In the
+  // closed beta the testers' credits are added by hand; at the open launch Free is how to start (content/billing.ts).
   if (!on) {
+    const toGame = back?.startsWith("/games/") ? back : null;
     return (
-      <Shell
-        title={title}
-        lead={
-          <>
-            Paying for a plan or a credit pack opens here soon. During the beta, credits are added by hand: write to{" "}
-            <TextLink href={`mailto:${site.email}`}>{site.email}</TextLink>.
-          </>
-        }
-      >
-        <div className="acct__buttons">
-          <ButtonLink href="/pricing">See the plans</ButtonLink>
-          <ButtonLink href={back ?? "/billing"} look="quiet">
-            Back
-          </ButtonLink>
-        </div>
+      <Shell title={title} lead={<NotOnSale plan={facts?.name} pack={item.kind === "pack"} />}>
+        {closedBeta ? (
+          <div className="acct__buttons">
+            <ButtonLink href="/pricing">See the plans</ButtonLink>
+            <ButtonLink href={back ?? "/billing"} look="quiet">
+              Back
+            </ButtonLink>
+          </div>
+        ) : (
+          <div className="acct__buttons">
+            <ButtonLink href={toGame ?? "/create"}>{toGame ? "Back to your game" : "Make a game"}</ButtonLink>
+            <ButtonLink href="/pricing" look="quiet">
+              See the plans
+            </ButtonLink>
+          </div>
+        )}
       </Shell>
     );
   }

@@ -7,6 +7,7 @@
 // is downloaded (scripts/shot-app.mjs).
 import { useEffect, useState } from "react";
 import { app } from "@/content/app";
+import { paddleOn } from "@/content/billing";
 
 export interface PaddleEvent {
   /** "checkout.completed", "checkout.closed", "checkout.error", "checkout.loaded", … */
@@ -29,9 +30,6 @@ declare global {
 
 const SRC = "https://cdn.paddle.com/paddle/v2/paddle.js";
 const COULD_NOT_LOAD = "Paddle's checkout couldn't load. Check your connection and try again.";
-
-/** Paddle can run on this build: the client token was set when it was built. */
-export const paddleOn = app.paddle.clientToken.length > 0;
 
 const listeners = new Set<(event: PaddleEvent) => void>();
 let loading: Promise<PaddleJs> | null = null;

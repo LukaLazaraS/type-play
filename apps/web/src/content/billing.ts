@@ -3,7 +3,41 @@
 // facts read from site.ts, and where a purchase starts. Copy rule (docs/pricing.md): credits "to
 // spend", "added", "ended", "refunded"; never balance, wallet, coins or gifts.
 import type { PlanId } from "@typeplay/shared";
+import { app } from "./app";
+import { closedBeta } from "./beta";
 import { credits, plans, site } from "./site";
+
+/**
+ * Paid plans can be bought from this build: Paddle's client token was set when it was built (NEXT_PUBLIC_PADDLE_CLIENT_TOKEN,
+ * deploy/server/compose.yaml; "go paid" is docs/beta/runbook.md step 13). On the billing pages the API's billing mode
+ * (Me.billing.mode) must say so too.
+ */
+export const paddleOn = app.paddle.clientToken.length > 0;
+
+/**
+ * Whether this build sells paid plans, by its two flags and never by a code edit (the launch-pages job, call 2):
+ * - "on": Paddle's token is set. A plan's button opens the checkout (through /create?plan=).
+ * - "beta": the closed beta (NEXT_PUBLIC_CLOSED_BETA=1), no token. A plan's button goes the way it always has (sign in,
+ *   then the closed-beta page: the beta code, or "Tell me when it opens", the waitlist), and says so.
+ * - "off": open sign-up, no token yet (the open launch before billing goes on). Paid plans aren't on sale; Free is how to
+ *   start, and the button and the page after it say exactly that. No dates.
+ */
+export type Sale = "on" | "beta" | "off";
+export const sale: Sale = paddleOn ? "on" : closedBeta ? "beta" : "off";
+
+/** The words wherever a paid plan can't be bought yet: the pricing page, the checkout, /billing and /create?plan=. */
+export const notOnSale = {
+  /** The one sentence, the same everywhere. */
+  line: "Paid plans aren't on sale yet.",
+  /** A plan by name, on the page its button leads to (/create?plan=, the checkout). */
+  plan: (name: string) => `${name} isn't on sale yet.`,
+  /** The credit pack, on its checkout page. */
+  pack: "Credit packs aren't on sale yet.",
+  /** What to do instead in the closed beta: credits by hand, for the invited testers (the address follows as a link). */
+  beta: "During the closed beta, we add credits by hand: write to",
+  /** What to do instead at the open launch. */
+  free: `Free is how to start: ${credits.freePerMonth} credits a month on Fast, up to ${credits.freePerDay} a day.`,
+} as const;
 
 export type PaidPlan = Exclude<PlanId, "free">;
 export const PAID_PLANS: PaidPlan[] = ["medium", "high", "ultra", "ultraplus"];

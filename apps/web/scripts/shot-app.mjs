@@ -401,12 +401,12 @@ try {
   await page.getByRole("button", { name: "Keep my account" }).click();
   await page.goto(`${base}/billing`, { waitUntil: "domcontentloaded" });
   await page.locator(".make__lead", { hasText: "You are on Free" }).waitFor({ timeout: 30_000 });
-  check("billing: says the plan, and how credits work in the beta", (await page.locator(".make__lead").innerText()).includes("added by hand"));
+  check("billing with billing off: says the plan, and that paid plans aren't on sale yet", (await page.locator(".make__lead").innerText()).includes("Paid plans aren't on sale yet."));
   await page.waitForTimeout(300);
   await shot(page, "billing-desktop");
   await page.goto(`${base}/billing/checkout?item=pack`, { waitUntil: "domcontentloaded" });
-  await page.locator(".make__lead", { hasText: "opens here soon" }).waitFor({ timeout: 60_000 });
-  check("checkout with billing off: says it opens here soon, nothing else", (await page.locator("h1").innerText()) === "Credit pack.");
+  await page.locator(".make__lead", { hasText: "on sale yet" }).waitFor({ timeout: 60_000 });
+  check("checkout with billing off: says credit packs aren't on sale yet, and Free is how to start; nothing else", (await page.locator("h1").innerText()) === "Credit pack." && /^Credit packs aren't on sale yet. Free is how to start: /.test(await page.locator(".make__lead").innerText()) && (await page.locator(".checkbox").count()) === 0);
 
   // ---- Billing with payments on: a sandbox API of our own, pointed at the Paddle stub ---------
   console.log(`billing with payments on (a sandbox API on :${SANDBOX_PORT} + the Paddle stub)`);
@@ -423,7 +423,7 @@ try {
   check("the buyer's calls reach the sandbox API (GET /me says billing sandbox)", (await sbApi("GET", "/me")).body?.billing?.mode === "sandbox");
   await b.goto(`${base}/billing`, { waitUntil: "domcontentloaded" });
   // The plan card (billing on), or the beta text (no token in the build); never the loading state in between.
-  await b.locator(".bill__planname, .make__lead:has-text('opens here soon')").first().waitFor({ timeout: 60_000 });
+  await b.locator(".bill__planname, .make__lead:has-text('on sale yet')").first().waitFor({ timeout: 60_000 });
   const paddleOnSite = (await b.locator(".bill__planname").count()) === 1;
   check("the site carries a Paddle client token (start it with NEXT_PUBLIC_PADDLE_ENV=sandbox NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=test_shots)", paddleOnSite);
   if (paddleOnSite) {

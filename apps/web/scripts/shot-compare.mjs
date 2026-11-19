@@ -575,7 +575,7 @@ step("stop the two builds", async () => {
 });
 
 // Plan and billing: the API runs with billing off; the "on" states are its answers replaced.
-add({ name: "billing-off", who: "maker", path: "/billing", ready: text("opens here") });
+add({ name: "billing-off", who: "maker", path: "/billing", ready: text(/opens here|on sale yet/) });
 add({ name: "billing-free", who: "maker", path: "/billing", patch: [asMe(meFree), asBilling(billingFree)], full: true, ready: button("Get a plan") });
 add({ name: "billing-free-picker", who: "maker", path: "/billing", patch: [asMe(meFree), asBilling(billingFree)], full: true, ready: button("Get a plan"), act: async (p) => {
   await click(p, "Get a plan");
@@ -614,7 +614,7 @@ add({ name: "billing-strips-cancel", who: "maker", path: "/billing", full: true,
 add({ name: "checkout", who: "maker", path: "/billing/checkout?item=plan:medium", patch: [asMe(meFree)], ready: button("Continue to payment"), act: (p) => p.getByRole("checkbox").check() });
 add({ name: "checkout-pack-free", who: "maker", path: "/billing/checkout?item=pack", patch: [asMe(meFree)], ready: text("Credit packs are for paid plans") });
 add({ name: "checkout-has-plan", who: "maker", path: "/billing/checkout?item=plan:ultra", patch: [asMe(mePaid)], ready: text("You already have a plan") });
-add({ name: "checkout-off", who: "maker", path: "/billing/checkout?item=plan:medium", ready: text("opens here soon") });
+add({ name: "checkout-off", who: "maker", path: "/billing/checkout?item=plan:medium", ready: text(/opens here soon|on sale yet/) });
 add({ name: "checkout-none", who: "maker", path: "/billing/checkout", ready: heading("Pick a plan.") });
 
 // Android: setup on Desert Racer; the hub on Robot Runner, its builds replaced with every state a build can be in.
