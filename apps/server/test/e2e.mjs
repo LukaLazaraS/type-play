@@ -681,11 +681,13 @@ async function queueChecks(db) {
     const f5After = (await call(F5, "GET", `/projects/${f5.body.id}`)).body;
     const hold4After = (await call(P, "GET", `/projects/${hold4.body.id}`)).body;
     ok(hold4After?.messages.at(-1).status === "failed" && /interrupted/.test(hold4After.messages.at(-1).text), "after the restart: the build that was going is marked interrupted");
-    ok(p4After?.status === "running" && f5After?.status === "queued" && f5After.queue?.ahead === 0, "the line kept its order: the paid build has started, the free one waits, next");
+    const ordered = p4After?.status === "running" && f5After?.status === "queued" && f5After.queue?.ahead === 0;
+    ok(ordered, `the line kept its order: the paid build has started, the free one waits, next${ordered ? "" : ` (got: paid ${p4After?.status}, free ${f5After?.status}, ahead ${f5After?.queue?.ahead})`}`);
     ok(/2 build\(s\) waiting in line/.test(q.output()), "the new API logged the two builds it found waiting");
     const sF5 = await watch(F5, f5.body.id);
     const f5Done = await sF5.until(finished, 30_000);
-    ok(f5Done.type === "done" && f5Done.message.credits === 1.7 && f5Done.credits.available === f5Before.available - 1.7, "then the free build runs: charged once, 1.7 credits (its hold was taken again, never doubled)");
+    const f5Ok = f5Done.type === "done" && f5Done.message.credits === 1.7 && f5Done.credits.available === f5Before.available - 1.7;
+    ok(f5Ok, `then the free build runs: charged once, 1.7 credits (its hold was taken again, never doubled)${f5Ok ? "" : ` (got: ${f5Done.type}, ${f5Done.message?.credits} credits, "${f5Done.message?.text?.slice(0, 80)}", ${f5Before.available} -> ${f5Done.credits?.available})`}`);
     ok((await db.query(`SELECT count(*)::int AS n FROM "QueuedRun"`)).rows[0].n === 0, "database: the line is empty at the end");
   } finally {
     if (tripped) await db.query(`UPDATE "FreeSpend" SET usd = greatest(0, usd - 25) WHERE day = ${UTC_TODAY}`).catch(() => {});
@@ -2797,7 +2799,9 @@ async function main() {
   ok((await api(C, "GET", "/me")).status === 401, "the old sign-in no longer works (401), and doesn't make a new account");
   ok((await freeToday()) >= freeSpentBefore, "the game and its messages are gone, but today's Free spend did not go down (the kill switch keeps counting it)");
   ok((await api(null, "GET", `/public/games/${cGame.id}`)).status === 404, "its share page is gone");
-  ok(!existsSync(join(DATA, "projects", cGame.id)) && !readdirSync(BUILDS).some((b) => b.startsWith(`${cGame.id}-v`)), "its game files and builds are gone");
+  const cLeft = [...(existsSync(join(DATA, "projects", cGame.id)) ? [`data/projects/${cGame.id}`] : []), ...readdirSync(BUILDS).filter((b) => b.startsWith(`${cGame.id}-v`))];
+  const cLog = (mainApi?.output() ?? "").split("\n").filter((l) => l.includes(cGame.id) && /remove folder|unpublish/.test(l));
+  ok(!cLeft.length, `its game files and builds are gone${cLeft.length ? ` (left: ${cLeft.join(", ")}; the API said: ${cLog.join(" | ").slice(0, 300) || "nothing"})` : ""}`);
   const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
   await db.connect();
   const cId = `dev-${emailOf(C).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
@@ -2947,7 +2951,8 @@ async function main() {
       if (r.body?.status === "idle") full = r.body;
     }
     const last = full?.messages.at(-1);
-    ok(full && last?.status === "failed" && last.credits === 0 && /took too long/.test(last.text), "a build past RUN_TIMEOUT_MIN: failed, 'took too long', 0 credits");
+    const timedOut = full && last?.status === "failed" && last.credits === 0 && /took too long/.test(last.text);
+    ok(timedOut, `a build past RUN_TIMEOUT_MIN: failed, 'took too long', 0 credits${timedOut ? "" : ` (got: ${full ? `${last?.status}, ${last?.credits}, "${last?.text?.slice(0, 80)}"` : "not idle within 20 s"})`}`);
     ok(!existsSync(join(DATA, "projects", tGame.id)), "timed out before a first version: the folder is gone");
     ok((await send("GET", "/me")).body.credits.available === 20, "nothing charged for the timed-out build");
     // Now pretend the API died mid-run: the message is 'running' again when a new API starts.
