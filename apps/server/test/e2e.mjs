@@ -40,16 +40,23 @@ function ok(cond, what) {
   if (!cond) failures++;
 }
 
+/**
+ * fetch, sent once more when the socket was reset: the API closes an idle keep-alive socket after 5 s, and a request
+ * that picks one up just then (right after an admin CLI call: spawnSync blocks this process) is reset before it
+ * reaches the server. Every request to an API of ours goes through it (the push section's had no retry: 11-19).
+ */
+function fetchAgain(url, init) {
+  return fetch(url, init).catch((e) => (e?.cause?.code === "ECONNRESET" ? fetch(url, init) : Promise.reject(e)));
+}
+
 async function api(token, method, path, body, base = API) {
   const send = () =>
-    fetch(base + path, {
+    fetchAgain(base + path, {
       method,
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body ? { "Content-Type": "application/json" } : {}) },
       body: body ? JSON.stringify(body) : undefined,
     });
-  // The server closes idle keep-alive sockets after 5 s; a request that picks one up just then is
-  // reset before it reaches the server (after the admin CLI's pauses): send it again once.
-  const res = await send().catch((e) => (e?.cause?.code === "ECONNRESET" ? send() : Promise.reject(e)));
+  const res = await send();
   const text = await res.text();
   return { status: res.status, body: text ? JSON.parse(text) : null };
 }
@@ -57,7 +64,7 @@ async function api(token, method, path, body, base = API) {
 /** Reads the project's SSE stream with fetch (as the site does) and collects the events (`base`: another API of ours). */
 async function openEvents(token, id, base = API) {
   const ctrl = new AbortController();
-  const res = await fetch(`${base}/projects/${id}/events`, { headers: { Authorization: `Bearer ${token}` }, signal: ctrl.signal });
+  const res = await fetchAgain(`${base}/projects/${id}/events`, { headers: { Authorization: `Bearer ${token}` }, signal: ctrl.signal });
   const events = [];
   const wake = new Set();
   if (res.ok) {
@@ -105,8 +112,8 @@ async function openEvents(token, id, base = API) {
 
 /** A download: status, headers and the raw bytes. */
 async function raw(token, path) {
-  const send = () => fetch(API + path, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-  const res = await send().catch((e) => (e?.cause?.code === "ECONNRESET" ? send() : Promise.reject(e)));
+  const send = () => fetchAgain(API + path, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  const res = await send();
   return { status: res.status, type: res.headers.get("content-type") ?? "", disposition: res.headers.get("content-disposition") ?? "", buf: Buffer.from(await res.arrayBuffer()) };
 }
 
@@ -177,7 +184,7 @@ async function spawnApi(extraEnv = {}, port = null) {
   for (let i = 0; i < 60; i++) {
     await new Promise((r) => setTimeout(r, 500));
     if (child.exitCode !== null) throw new Error(`the test API on :${port} exited: ${output.slice(-800)}`);
-    const h = await fetch(`http://127.0.0.1:${port}/health`).then((r) => r.json()).catch(() => null);
+    const h = await fetchAgain(`http://127.0.0.1:${port}/health`).then((r) => r.json()).catch(() => null);
     if (h?.agent === "fake") return { url: `http://127.0.0.1:${port}`, port, kill: () => child.kill(), output: () => output };
   }
   child.kill();
@@ -226,7 +233,7 @@ async function securityChecks() {
   });
   const M = `dev:e2e-${stamp}-m@test.local`;
   const call = async (method, path, body) => {
-    const res = await fetch(sec.url + path, {
+    const res = await fetchAgain(sec.url + path, {
       method,
       headers: { Authorization: `Bearer ${M}`, ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -266,7 +273,7 @@ async function securityChecks() {
     ok((await freeToday()) - afterStop >= usd(600_000) - 1e-4, `... and the kill switch counts the metered $${usd(600_000).toFixed(2)}, not the reported $0.14`);
     // Bodies past the limit (1.5 MB; it was 1 MB, too small for a 1 MB Android icon as base64).
     const post = (n) =>
-      fetch(`${sec.url}/public/games/abcdefghij/report`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: "other", text: "x".repeat(n) }) }).then(async (r) => ({
+      fetchAgain(`${sec.url}/public/games/abcdefghij/report`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: "other", text: "x".repeat(n) }) }).then(async (r) => ({
         status: r.status,
         body: await r.json().catch(() => null),
       }));
@@ -351,7 +358,7 @@ async function pushChecks(db) {
   const env = { VAPID_PUBLIC_KEY: vapid.publicKey, VAPID_PRIVATE_KEY: vapid.privateKey, PUSH_ALLOW_LOCAL: "1", RUN_TIMEOUT_MIN: "0.2", BILLING_JOBS: "0" };
   let push = await spawnApi(env);
   const call = async (token, method, path, body) => {
-    const res = await fetch(push.url + path, {
+    const res = await fetchAgain(push.url + path, {
       method,
       headers: { Authorization: `Bearer ${token}`, ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -362,7 +369,7 @@ async function pushChecks(db) {
   /** GET /me/events, read as the site reads it: the notices, and the last event id seen (`id:` lines, heartbeats too). */
   const accountEvents = async (token, lastEventId) => {
     const ctrl = new AbortController();
-    const res = await fetch(`${push.url}/me/events`, { headers: { Authorization: `Bearer ${token}`, ...(lastEventId ? { "Last-Event-ID": String(lastEventId) } : {}) }, signal: ctrl.signal });
+    const res = await fetchAgain(`${push.url}/me/events`, { headers: { Authorization: `Bearer ${token}`, ...(lastEventId ? { "Last-Event-ID": String(lastEventId) } : {}) }, signal: ctrl.signal });
     const s = { status: res.status, notices: [], lastId: 0, close: () => ctrl.abort() };
     (async () => {
       const reader = res.body.getReader();
@@ -886,13 +893,12 @@ async function galleryChecks(db) {
   const GB = `dev:e2e-${stamp}-gb@test.local`;
   const call = async (token, method, path, body, ip) => {
     const send = () =>
-      fetch(gal.url + path, {
+      fetchAgain(gal.url + path, {
         method,
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body !== undefined ? { "Content-Type": "application/json" } : {}), ...(ip ? { "CF-Connecting-IP": ip } : {}) },
         body: body !== undefined ? JSON.stringify(body) : undefined,
       });
-    // As api() above: a keep-alive socket the server closed during an admin CLI pause is reset; send once more.
-    const res = await send().catch((e) => (e?.cause?.code === "ECONNRESET" ? send() : Promise.reject(e)));
+    const res = await send();
     const text = await res.text();
     return { status: res.status, body: text ? JSON.parse(text) : null };
   };
@@ -1116,7 +1122,7 @@ async function feedbackChecks(db, othersGame) {
   const fbId = devId(FB);
   const UA = "Mozilla/5.0 (e2e) TypePlayTest/1.0";
   const post = (token, body) =>
-    fetch(API + "/feedback", {
+    fetchAgain(API + "/feedback", {
       method: "POST",
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json", "User-Agent": UA },
       body: JSON.stringify(body),
@@ -1219,7 +1225,7 @@ async function inviteChecks(db) {
     inviteMatch("Luka.L+beta@Gmail.com") === "lukal@gmail.com" && inviteMatch("a.b@googlemail.com") === "ab@gmail.com" && inviteMatch("A.B+x@Example.com") === "a.b+x@example.com",
     "matching: Gmail without its dots and +tag, other domains as they are",
   );
-  ok((await (await fetch(`${API}/health`)).json()).inviteOnly === false, "the main API (this PC's default): invite only off, so every check above ran as today");
+  ok((await (await fetchAgain(`${API}/health`)).json()).inviteOnly === false, "the main API (this PC's default): invite only off, so every check above ran as today");
   const BOSS = `dev:e2e-${stamp}-boss@test.local`;
   const beta = await spawnApi({ BETA_INVITE_ONLY: "1", ADMIN_EMAILS: emailOf(BOSS) });
   const U = `dev:e2e-${stamp}-u@test.local`; // never invited
@@ -1227,12 +1233,12 @@ async function inviteChecks(db) {
   const given = `E2E-${stamp}-I.N.V+beta@Gmail.com`;
   const call = async (token, method, path, body) => {
     const send = () =>
-      fetch(beta.url + path, {
+      fetchAgain(beta.url + path, {
         method,
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
         body: body !== undefined ? JSON.stringify(body) : undefined,
       });
-    const res = await send().catch((e) => (e?.cause?.code === "ECONNRESET" ? send() : Promise.reject(e)));
+    const res = await send();
     const text = await res.text();
     let parsed = null;
     try {
@@ -1243,7 +1249,7 @@ async function inviteChecks(db) {
     return { status: res.status, body: parsed };
   };
   try {
-    ok((await (await fetch(`${beta.url}/health`)).json()).inviteOnly === true, "/health says inviteOnly: true");
+    ok((await (await fetchAgain(`${beta.url}/health`)).json()).inviteOnly === true, "/health says inviteOnly: true");
     const routes = [
       ["GET", "/me"],
       ["GET", "/estimate?kind=new&model=fast"],
@@ -1378,13 +1384,12 @@ async function codeChecks(db) {
   const [A, B, C, D, W] = ["a", "b", "c", "d", "w"].map(tok);
   const ask = async (token, method, path, body) => {
     const send = () =>
-      fetch(beta.url + path, {
+      fetchAgain(beta.url + path, {
         method,
         headers: { Authorization: `Bearer ${token}`, ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
         body: body !== undefined ? JSON.stringify(body) : undefined,
       });
-    // As api() above: a keep-alive socket the server closed during an admin CLI pause is reset; send once more.
-    const res = await send().catch((e) => (e?.cause?.code === "ECONNRESET" ? send() : Promise.reject(e)));
+    const res = await send();
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const redeem = (token, code) => ask(token, "POST", "/beta/code", code === undefined ? {} : { code });
@@ -1523,17 +1528,17 @@ async function waitlistChecks(db) {
   const G2 = `dev:E2E-${stamp}-W.G+later@Gmail.com`;
   const ask = async (token, method, body) => {
     const send = () =>
-      fetch(`${beta.url}/beta/waitlist`, {
+      fetchAgain(`${beta.url}/beta/waitlist`, {
         method,
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
         body: body !== undefined ? JSON.stringify(body) : undefined,
       });
-    const res = await send().catch((e) => (e?.cause?.code === "ECONNRESET" ? send() : Promise.reject(e)));
+    const res = await send();
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const row = async (token) => (await db.query(`SELECT email, "askedAt" FROM "WaitlistEntry" WHERE match = $1`, [inviteMatch(emailOf(token))])).rows[0] ?? null;
   const me = async (token) => {
-    const res = await fetch(`${beta.url}/me`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetchAgain(`${beta.url}/me`, { headers: { Authorization: `Bearer ${token}` } });
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   try {
@@ -1569,7 +1574,7 @@ async function waitlistChecks(db) {
     ok((await me(V)).status === 200, "… and V is in");
     ok(admin("code", "add", "616161", "--uses", "1", "--credits", "0", "e2e", "waitlist").status === 0, "a code for C");
     ok((await ask(C, "POST")).body?.on === true, "C joins");
-    const inC = await fetch(`${beta.url}/beta/code`, { method: "POST", headers: { Authorization: `Bearer ${C}`, "Content-Type": "application/json" }, body: JSON.stringify({ code: "616161" }) });
+    const inC = await fetchAgain(`${beta.url}/beta/code`, { method: "POST", headers: { Authorization: `Bearer ${C}`, "Content-Type": "application/json" }, body: JSON.stringify({ code: "616161" }) });
     ok(inC.status === 200 && (await row(C)) === null && (await me(C)).status === 200, "a right beta code lets C in and takes the row away");
 
     // The hour's limit: 10 joins and leaves per email (U has made 4 so far), then 429; GET is not counted.
@@ -1960,7 +1965,7 @@ async function pictureChecks(db) {
     return existsSync(dir) ? readdirSync(dir).filter((f) => f.startsWith(id)) : [];
   };
   const upload = async (token, body, type = "image/png", base = API) => {
-    const res = await fetch(`${base}/attachments`, { method: "POST", headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": type }, body });
+    const res = await fetchAgain(`${base}/attachments`, { method: "POST", headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": type }, body });
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const idle = async (token, id, base = API) => {
@@ -2026,7 +2031,7 @@ async function pictureChecks(db) {
   // --- only its owner fetches it ---
   const own = await raw(P, `/attachments/${red.body.id}`);
   const ownThumb = await raw(P, `/attachments/${red.body.id}/thumb`);
-  const headers = await fetch(`${API}/attachments/${red.body.id}`, { headers: { Authorization: `Bearer ${P}` } });
+  const headers = await fetchAgain(`${API}/attachments/${red.body.id}`, { headers: { Authorization: `Bearer ${P}` } });
   ok(own.status === 200 && own.type === "image/png" && ownThumb.status === 200 && ownThumb.type === "image/webp", "the owner: the picture (image/png) and its thumbnail (image/webp)");
   ok(headers.headers.get("cache-control") === "private, no-store" && headers.headers.get("x-content-type-options") === "nosniff", "never kept by a shared cache, never sniffed as anything else");
   await headers.arrayBuffer().catch(() => {});
@@ -2380,7 +2385,7 @@ async function questionChecks(db) {
 async function main() {
   console.log(`e2e against ${API}`);
   // Never against a real server: a run would burn the agent, and cleanup deletes users under it.
-  const health = await (await fetch(`${API}/health`)).json().catch(() => null);
+  const health = await (await fetchAgain(`${API}/health`)).json().catch(() => null);
   if (health?.agent !== "fake") throw new Error("the e2e needs a server started with DEV_AUTH=1 AGENT_FAKE=1 (GET /health says agent: fake)");
 
   console.log("credit math");
@@ -2929,7 +2934,7 @@ async function main() {
   try {
     const tApi = (method, path, body) => api(T, method, path, body).catch(() => ({ status: 0, body: null }));
     const send = (method, path, body) =>
-      fetch(slow.url + path, { method, headers: { Authorization: `Bearer ${T}`, ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined }).then(
+      fetchAgain(slow.url + path, { method, headers: { Authorization: `Bearer ${T}`, ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined }).then(
         async (r) => ({ status: r.status, body: await r.json().catch(() => null) }),
       );
     void tApi;
