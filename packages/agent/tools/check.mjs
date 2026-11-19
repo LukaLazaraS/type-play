@@ -161,11 +161,20 @@ const webDir = join(project, 'export', 'web');
 mkdirSync(webDir, { recursive: true });
 // Keep Godot from importing the exported files back into the project.
 writeFileSync(join(project, 'export', '.gdignore'), '');
+const exportStart = Date.now();
 godot('export', ['--export-release', 'Web', 'export/web/index.html'], 180_000);
 
+// The pack must be written by this export: an export that writes nothing leaves an older build in export/web,
+// and the browser checks below would report that build's errors as this one's.
 let built = false;
-try { built = statSync(join(webDir, 'index.pck')).size > 0; } catch {}
-if (!built) errors.push('[export] no web build was produced');
+let stale = false;
+try {
+  const pck = statSync(join(webDir, 'index.pck'));
+  stale = pck.size > 0 && pck.mtimeMs < exportStart - 2000;
+  built = pck.size > 0 && !stale;
+} catch {}
+if (stale) errors.push('[export] the web export wrote no new build: export/web/index.pck is older than this check, so the browser lines below come from an older build');
+else if (!built) errors.push('[export] no web build was produced');
 
 const shots = [];
 const frameRates = [];
