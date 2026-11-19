@@ -1,0 +1,9 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "check": {
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/server/src/credits/credits.ts"]
+    }
+  }
+}
