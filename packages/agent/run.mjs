@@ -31,7 +31,8 @@
 //          read by the server, apps/server. The result carries costUsd = every attempt, and
 //          chargeUsd = only the attempts in the game the player gets: what they are charged; and
 //          the chat's 9 next-step ideas, tools/next-steps.mjs, whose cost the server adds to the charge, as it adds the
-//          genre call's (classifyCostUsd) and the size check's (sizeCheckCostUsd); a change the size check stopped
+//          genre call's (classifyCostUsd), the size check's (sizeCheckCostUsd) and the public line's (pitchCostUsd,
+//          tools/pitch.mjs: the game's PITCH, kept in its build commit); a change the size check stopped
 //          ends with tooBig: true, the game untouched, and the check's message as the answer)
 // Each game folder is its own git repo: every successful run is a commit, a failed one is
 // rolled back, so a change can never leave the game broken.
@@ -46,23 +47,13 @@ import { thinkingLine } from './tools/thinking.mjs';
 import { nextSteps } from './tools/next-steps.mjs';
 import { BIGGER, NAMES, SIZED, sizeCheck } from './tools/size-check.mjs';
 import { askQuestions } from './tools/questions.mjs';
+// The models and the isolation every session and call here uses (the game agent sees only its own 7 tools).
+import { ISOLATED, MODELS } from './tools/isolated.mjs';
+import { PITCH_OPTIONS, makePitch, readPitch, savePitch } from './tools/pitch.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const MODELS = { opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5-5', haiku: 'claude-haiku-5-5' };
 const DEFAULT_EFFORT = { haiku: 'medium', sonnet: 'medium', opus: 'medium' };
 const GODOT = process.env.GODOT_EXE || 'C:/Users/lazar/Godot/4.7.2/Godot_v4.7.2-stable_win64.exe';
-const TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'TodoWrite'];
-// The game agent sees only its own 7 tools. Without this it inherits the login's claude.ai
-// connectors (Luka's Google Drive, vidIQ/YouTube, Docs: 84 tools, +89K tokens per call),
-// skills, MCP servers, and this repo's CLAUDE.md and settings.
-const ISOLATED = {
-  tools: TOOLS,
-  settingSources: [],
-  settings: { disableClaudeAiConnectors: true },
-  strictMcpConfig: true,
-  mcpServers: {},
-  skills: [],
-};
 // Safety caps in API-price dollars (an estimate on Max, real money on the API).
 const BUDGET = { new: { haiku: 0.5, sonnet: 2, opus: 4 }, edit: { haiku: 0.15, sonnet: 0.75, opus: 1.5 } };
 
@@ -181,6 +172,9 @@ if (isEdit) {
   if (opt('seed')) cpSync(resolve(opt('seed')), dir, { recursive: true }); // ports and tests: files the game starts with (Builder only)
   git('init', '-q'); git('add', '-A'); git('commit', '-qm', 'template');
 }
+// The game's public line as its last good version has it (PITCH, tools/pitch.mjs): read before any session runs, so a
+// PITCH the build session wrote itself never counts; the closing call keeps or replaces this one.
+const pitchBefore = readPitch(dir);
 // Games from before 10-25 have no PLATFORM file: their window stretches to any shape (rules/SCREEN_LEGACY.md).
 const platformFile = join(dir, 'PLATFORM');
 const savedPlatform = existsSync(platformFile) ? readFileSync(platformFile, 'utf8').trim() : '';
@@ -567,25 +561,47 @@ function captureAssets() {
     child.on('error', end);
   });
 }
-// Beside it, the chat's 9 next-step ideas: only when the game changed; part of the answer's charge (below).
-const [message, next, captured] = await Promise.all([
+// Beside it, the chat's 9 next-step ideas and the game's public line (tools/pitch.mjs: from NOTES.md, never the prompt):
+// only when the game changed; both part of the answer's charge (below).
+const [message, next, captured, pitched] = await Promise.all([
   playerMessage(prompt, builderReply, { isNew: !isEdit }),
   final.ok
     ? nextSteps({ dir, reply: final.reply, query, options: { ...ISOLATED, model: MODELS.haiku, effort: 'low', tools: [], maxTurns: 1, systemPrompt: 'You suggest the next small change for a game a player is making by chat. Reply with a JSON array of strings only.' } })
     : { list: [], costUsd: 0 },
   final.ok ? captureAssets() : null,
+  final.ok ? makePitch({ dir, current: pitchBefore, query, options: PITCH_OPTIONS }) : null,
 ]);
 if (captured) console.log(`${captured.line} (${captured.seconds} s with its start)`);
+if (pitched) {
+  console.log(`pitch: ${pitched.action}${pitched.why ? ` (${pitched.why})` : ''}, $${pitched.costUsd.toFixed(4)}, ${pitched.seconds} s, ${pitched.tokens.input + pitched.tokens.cacheRead + pitched.tokens.cacheWrite} in / ${pitched.tokens.output} out: ${pitched.pitch ? `"${pitched.pitch}"` : '(none)'}${pitched.action === 'rejected' ? ` [answer: "${pitched.answer}"]` : ''}`);
+  // PITCH goes into the build's own commit (it travels with the version, a fork and a download, as GENRE does). The
+  // capture beside it was stamped with that commit, and the server takes the capture only at the commit the folder is at:
+  // the stamp moves with the amend (PITCH changes nothing the capture saw).
+  if (savePitch(dir, pitched.pitch)) {
+    const before = git('rev-parse', 'HEAD').stdout.trim();
+    git('add', '--all', '--', 'PITCH');
+    if (git('commit', '-q', '--amend', '--no-edit').status === 0) {
+      const after = git('rev-parse', 'HEAD').stdout.trim();
+      const stamp = join(dir, 'export', 'assets', 'captured.json');
+      try {
+        const json = JSON.parse(readFileSync(stamp, 'utf8'));
+        if (json.commit === before) writeFileSync(stamp, JSON.stringify({ ...json, commit: after }, null, 1) + '\n');
+      } catch { /* no capture: nothing to move */ }
+    }
+  }
+}
 
 // costUsd is the agent's work only (every attempt, for our own accounting); the player-message
-// rewrite (messageCostUsd), the next-step ideas (suggestionsCostUsd), the genre call (classifyCostUsd)
-// and the size check (sizeCheckCostUsd) are kept apart, and the server adds them to the charge (Luka,
+// rewrite (messageCostUsd), the next-step ideas (suggestionsCostUsd), the public line (pitchCostUsd), the genre call
+// (classifyCostUsd) and the size check (sizeCheckCostUsd) are kept apart, and the server adds them to the charge (Luka,
 // 10-24: every AI cost a player causes is theirs). chargeUsd is the agent's part of it: only the attempts
 // that are in the game they receive (a step or a Haiku try that failed the check and was rolled back costs
 // them nothing, as docs/pricing.md promises); 0 when the run failed.
 const record = {
   ...recordBase(), steps, ok: final.ok, playerMessage: message.text, messageCostUsd: +message.costUsd.toFixed(4),
   suggestions: next.list, suggestionsCostUsd: +next.costUsd.toFixed(4),
+  // The public line (PITCH): what the game has now, what the call did, and its cost (part of the charge, as the ideas).
+  ...(pitched && { pitch: pitched.pitch || null, pitchAction: pitched.action, pitchCostUsd: +pitched.costUsd.toFixed(4), pitchSeconds: pitched.seconds, pitchTokens: pitched.tokens }),
   classifyCostUsd: +classifyCostUsd.toFixed(4), sizeCheckCostUsd: +sizeCheckCostUsd.toFixed(4), sizeCheck: sizeRecord,
   ...(ask ? { askCostUsd: +askCostUsd.toFixed(4) } : {}),
   costUsd: +attempts.reduce((s, a) => s + a.costUsd, 0).toFixed(3),
