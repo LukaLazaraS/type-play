@@ -31,6 +31,15 @@ const base = process.argv[3] ?? "http://localhost:3000";
 const apiBase = process.argv[4] ?? "http://127.0.0.1:3002";
 mkdirSync(out, { recursive: true });
 
+/**
+ * fetch, sent once more when the socket was reset: the API closes an idle keep-alive socket after 5 s, and a request
+ * that picks one up just then (right after an admin CLI call: spawnSync blocks this process) is reset before it reaches
+ * the server. Every request this script makes to an API of ours goes through it (apps/server/test/e2e.mjs, 4a0964a).
+ */
+function fetchAgain(url, init) {
+  return fetch(url, init).catch((e) => (e?.cause?.code === "ECONNRESET" ? fetch(url, init) : Promise.reject(e)));
+}
+
 // ---- Payments on: a sandbox API + the Paddle stub, and a window.Paddle stand-in ---------------------
 const serverDir = join(import.meta.dirname, "../../server");
 const SANDBOX_PORT = await freePort();
@@ -66,7 +75,7 @@ async function startSandboxApi() {
   for (let i = 0; ; i++) {
     await new Promise((r) => setTimeout(r, 500));
     if (child.exitCode !== null || i > 90) throw new Error(`the sandbox API on :${SANDBOX_PORT} did not start: ${output.slice(-800)}`);
-    const h = await fetch(`${url}/health`).then((r) => r.json()).catch(() => null);
+    const h = await fetchAgain(`${url}/health`).then((r) => r.json()).catch(() => null);
     if (h?.billing?.ready) break;
   }
   let n = 0;
@@ -74,7 +83,7 @@ async function startSandboxApi() {
   const hook = async (type, data) => {
     n++;
     const body = JSON.stringify({ event_id: `evt_shots${stamp}_${n}`, event_type: type, occurred_at: new Date().toISOString(), notification_id: `ntf_shots${stamp}_${n}`, data });
-    const res = await fetch(`${url}/webhooks/paddle`, { method: "POST", headers: { "content-type": "application/json", "paddle-signature": signBody(body, SECRET, Math.floor(Date.now() / 1000)) }, body });
+    const res = await fetchAgain(`${url}/webhooks/paddle`, { method: "POST", headers: { "content-type": "application/json", "paddle-signature": signBody(body, SECRET, Math.floor(Date.now() / 1000)) }, body });
     await new Promise((r) => setTimeout(r, 1200)); // the inbox applies it right after answering
     return res.status;
   };
@@ -163,7 +172,7 @@ const droidMail = droidEmail(stamp);
 const galleryMail = galleryEmail(stamp);
 /** Closes a test account through the API (its games, builds and rows go with it); 401 = already closed. */
 const closeAccount = (email, at = apiBase) =>
-  fetch(`${at}/me`, { method: "DELETE", headers: { Authorization: `Bearer dev:${email}`, "Content-Type": "application/json" }, body: JSON.stringify({ confirm: "DELETE" }) })
+  fetchAgain(`${at}/me`, { method: "DELETE", headers: { Authorization: `Bearer dev:${email}`, "Content-Type": "application/json" }, body: JSON.stringify({ confirm: "DELETE" }) })
     .then((r) => r.status)
     .catch(() => 0);
 const browser = await chromium.launch({ channel: "msedge", headless: true });
@@ -412,7 +421,7 @@ try {
   console.log(`billing with payments on (a sandbox API on :${SANDBOX_PORT} + the Paddle stub)`);
   sandbox = await startSandboxApi();
   const sbApi = (method, path, body) =>
-    fetch(`${sandbox.url}${path}`, { method, headers: { Authorization: `Bearer dev:${buyerEmail}`, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => null) }));
+    fetchAgain(`${sandbox.url}${path}`, { method, headers: { Authorization: `Bearer dev:${buyerEmail}`, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => null) }));
   const shop = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
   await sendApiTo(shop, sandbox.url);
   await mockPaddle(shop);
@@ -789,7 +798,7 @@ try {
   check("delete account: the goodbye screen", true);
   await l.waitForTimeout(300);
   await shot(l, "account-deleted-desktop");
-  const after = await fetch(`${apiBase}/me`, { headers: { Authorization: `Bearer dev:${leaverEmail}` } }).catch(() => null);
+  const after = await fetchAgain(`${apiBase}/me`, { headers: { Authorization: `Bearer dev:${leaverEmail}` } }).catch(() => null);
   check("delete account: the old sign-in no longer works (401)", after?.status === 401, String(after?.status));
   await leaver.close();
 } finally {
@@ -800,7 +809,7 @@ try {
   // account with a plan it can't cancel); the Android part's user too; then the sandbox API and the stub stop.
   const closed = await Promise.all([closeAccount(mainEmail), closeAccount(leaverEmail), closeAccount(droidMail), closeAccount(galleryMail), sandbox ? closeAccount(buyerEmail, sandbox.url) : 401]);
   await sandbox?.close();
-  const left = await fetch(`${apiBase}/me`, { headers: { Authorization: `Bearer dev:${mainEmail}` } }).then((r) => r.status).catch(() => 0);
+  const left = await fetchAgain(`${apiBase}/me`, { headers: { Authorization: `Bearer dev:${mainEmail}` } }).then((r) => r.status).catch(() => 0);
   check("cleanup: every test account closed (the main one answers 401 now)", left === 401 && closed.every((s) => s === 200 || s === 401), `${closed.join(", ")}; /me ${left}`);
 }
 
