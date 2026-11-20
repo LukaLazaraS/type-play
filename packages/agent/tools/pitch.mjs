@@ -3,14 +3,16 @@
 // Haiku call, no tools, beside run.mjs's other closing calls; like every AI cost a player causes, it is part of that
 // answer's charge (run.mjs `pitchCostUsd`). The server's one-off backfill (`admin gallery pitch`) uses the same call.
 //
-// What it reads: the game's name (project.godot), its genre (GENRE), NOTES.md as notesOf reads it, and its current line
-// (PITCH). Never the player's prompt, the request history (the folder's git log) or the builder's reply: all three
-// carry the player's own words, and the line is public. It answers KEEP when the game didn't change in kind.
-// The line is checked in code too (checkPitch): one that fails keeps the old line (or none), and never fails a build.
-import { existsSync, lstatSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+// What it reads: the game's name (project.godot), its genre (GENRE), NOTES.md's first 60 lines (as notesOf reads them)
+// and its current line (PITCH). Never the player's prompt, the request history (the folder's git log) or the builder's
+// reply: all three carry the player's own words, and the line is public. It answers KEEP when the game didn't change in
+// kind. The line is checked in code too (checkPitch): one that fails keeps the old line (or none), and never fails a build.
+// The game agent controls its folder, so these files are read only when they are plain small files (a NOTES.md that is a
+// link to /proc/self/environ must not put a process's secrets into a public line); the server reads them its own safe way
+// (games/files.ts) and calls pitchFor with the text.
+import { closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readFileSync, readSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ISOLATED, MODELS } from './isolated.mjs';
-import { notesOf } from './next-steps.mjs';
 
 /** The file in the game folder: the agent's line, one line of text, committed with the build (no file: no line yet). */
 export const PITCH_FILE = 'PITCH';
@@ -18,24 +20,42 @@ export const PITCH_FILE = 'PITCH';
 export const PITCH_MIN = 60;
 export const PITCH_MAX = 150;
 
-const GENRE_WORDS = {
+export const GENRE_WORDS = {
   runner: 'an endless runner', platformer: 'a platformer', puzzle: 'a puzzle game', racer: 'a racing game', shooter: 'a shooter',
   towerdefence: 'a tower defence game', arcade: 'an arcade game', adventure: 'an adventure game',
 };
 
-/** The game's name as project.godot has it (config/name), or ''. */
-export function nameOf(dir) {
-  const file = join(dir, 'project.godot');
-  if (!existsSync(file)) return '';
-  return /^config\/name="((?:[^"\\]|\\.)*)"/m.exec(readFileSync(file, 'utf8'))?.[1].replace(/\\(.)/g, '$1').trim().slice(0, 60) ?? '';
+/** A file in the game folder as text: only a plain file (no link, pipe or folder) of at most `max` bytes; '' otherwise. */
+export function folderText(dir, rel, max) {
+  const file = join(dir, rel);
+  try {
+    if (!lstatSync(file).isFile()) return '';
+    const fd = openSync(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
+    try {
+      const st = fstatSync(fd);
+      if (!st.isFile() || st.size > max) return '';
+      const buf = Buffer.alloc(st.size);
+      return buf.subarray(0, readSync(fd, buf, 0, st.size, 0)).toString('utf8');
+    } finally {
+      closeSync(fd);
+    }
+  } catch {
+    return '';
+  }
 }
 
+/** project.godot's config/name, or ''. */
+export const nameIn = (projectGodot) => /^config\/name="((?:[^"\\]|\\.)*)"/m.exec(projectGodot)?.[1].replace(/\\(.)/g, '$1').trim().slice(0, 60) ?? '';
+/** The game's name as project.godot has it, or ''. */
+export const nameOf = (dir) => nameIn(folderText(dir, 'project.godot', 1 << 20));
 /** The genre skill the game was built with (GENRE), or ''. */
 export function genreOf(dir) {
-  const file = join(dir, 'GENRE');
-  const word = existsSync(file) ? readFileSync(file, 'utf8').trim() : '';
+  const word = folderText(dir, 'GENRE', 64).trim();
   return GENRE_WORDS[word] ? word : '';
 }
+/** NOTES.md's first 60 lines (the notes rule's own limit, as tools/next-steps.mjs notesOf reads them), or ''. */
+export const notesIn = (text) => text.split('\n').slice(0, 60).join('\n').trim();
+export const notesOf = (dir) => notesIn(folderText(dir, 'NOTES.md', 256 << 10));
 
 /** A line as read or answered, tidied: its first line, no wrapping quotes, no control characters or doubled spaces, a
  * full stop at the end. */
@@ -89,15 +109,8 @@ export function checkPitch(raw, { name = '' } = {}) {
 
 /** The game's current line: its PITCH file if it is a plain small file whose line passes the check; '' otherwise. */
 export function readPitch(dir) {
-  const file = join(dir, PITCH_FILE);
-  try {
-    const st = lstatSync(file);
-    if (!st.isFile() || st.size > 2048) return '';
-    const c = checkPitch(readFileSync(file, 'utf8'), { name: nameOf(dir) });
-    return c.ok ? c.text : '';
-  } catch {
-    return '';
-  }
+  const c = checkPitch(folderText(dir, PITCH_FILE, 2048), { name: nameOf(dir) });
+  return c.ok ? c.text : '';
 }
 
 /** Writes the line into the folder (none: no file). True when the file changed. */
@@ -122,8 +135,8 @@ export function pitchPrompt({ name, genre, notes, current }) {
     current ? `Its current sentence: "${current}"` : 'It has no sentence yet.',
     [
       'Rules:',
-      '- English, one sentence, 90 to 140 characters.',
-      "- Say what the player does and the hook that makes this game itself (its world, its twist, its goal), in plain words a player would use. Start with what you do or where you are, not with the game's name.",
+      '- English, one sentence of 80 to 130 characters: short, never over 140 (count them).',
+      "- Say what the player does and the hook that makes this game itself (its world, its twist, its goal), in plain words a player would use; pick the best two or three things, don't list everything. Start with what you do or where you are, not with the game's name.",
       '- Only what the notes say the game has. Nothing about how it was made or checked: no AI, TypePlay, Godot, code, scripts, notes, tests or prompts, no "made with". Rivals the computer drives are "rivals", not "AI".',
       "- Nothing personal: no people's names, dedications or messages to someone (\"for my son\"), birthdays, real places, schools or companies, unless they are part of the game's own name. Leave out anything like that in the notes.",
       '- Plain and true: no hype words (amazing, epic, ultimate, addictive, the best), no clichés like "test your skills", no exclamation marks, hashtags, emoji, links or @handles.',
@@ -139,39 +152,56 @@ export function pitchPrompt({ name, genre, notes, current }) {
 export const PITCH_OPTIONS = { ...ISOLATED, tools: [], model: MODELS.haiku, effort: 'low', maxTurns: 1, systemPrompt: PITCH_SYSTEM };
 
 /**
- * Writes or keeps the line for the game in `dir` (one call). `current`: the line it had before this build (run.mjs reads
- * it at the run's start, so a PITCH the build session wrote itself never counts). Never throws: a run that built the game
- * must not fail over its line. `query`: the Agent SDK's (imported here when not given). Returns
+ * Writes or keeps the line for a game (one call), from its name, genre (a GENRE word), NOTES.md text and `current` line.
+ * An answer whose only fault is its length is asked for once more, shorter (Haiku overshoots now and then: 1 of 12 in
+ * the 11-20 sample); any other fault keeps the old line. Never throws: a run that built the game must not fail over its
+ * line. `query`: the Agent SDK's (imported here when not given). Returns
  *   { pitch: the line to keep ('' none), action: new | kept | rejected | failed | skipped, why, answer, costUsd,
- *     tokens: { input, output, cacheRead, cacheWrite }, seconds }.
+ *     tokens: { input, output, cacheRead, cacheWrite }, calls, seconds }.
  */
-export async function makePitch({ dir, current = '', query, options = PITCH_OPTIONS }) {
+export async function pitchFor({ name = '', genre = '', notes = '', current = '', query, options = PITCH_OPTIONS }) {
   const t0 = Date.now();
-  const base = { pitch: current, why: '', answer: '', costUsd: 0, tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } };
-  const done = (r) => ({ ...base, ...r, seconds: +((Date.now() - t0) / 1000).toFixed(1) });
-  const notes = notesOf(dir);
-  if (!notes) return done({ action: 'skipped', why: 'no NOTES.md' });
-  const name = nameOf(dir);
-  let answer = '';
   let costUsd = 0;
-  const tokens = { ...base.tokens };
-  try {
-    query ??= (await import('@anthropic-ai/claude-agent-sdk')).query;
-    for await (const m of query({ prompt: pitchPrompt({ name, genre: genreOf(dir), notes, current }), options })) {
+  let calls = 0;
+  const tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  const done = (r) => ({ pitch: current, why: '', answer: '', ...r, costUsd, tokens, calls, seconds: +((Date.now() - t0) / 1000).toFixed(1) });
+  notes = notesIn(notes);
+  if (!notes) return done({ action: 'skipped', why: 'no NOTES.md' });
+  const ask = async (prompt) => {
+    let answer = '';
+    calls++;
+    for await (const m of query({ prompt, options })) {
       if (m.type !== 'result') continue;
       if (m.subtype === 'success') answer = (m.result ?? '').trim();
-      costUsd = m.total_cost_usd ?? 0;
+      costUsd += m.total_cost_usd ?? 0;
       for (const u of Object.values(m.modelUsage ?? {})) {
         tokens.input += u.inputTokens ?? 0; tokens.output += u.outputTokens ?? 0;
         tokens.cacheRead += u.cacheReadInputTokens ?? 0; tokens.cacheWrite += u.cacheCreationInputTokens ?? 0;
       }
     }
+    return answer;
+  };
+  const prompt = pitchPrompt({ name, genre, notes, current });
+  let answer = '';
+  let c;
+  try {
+    query ??= (await import('@anthropic-ai/claude-agent-sdk')).query;
+    answer = await ask(prompt);
+    if (current && /^\W*keep\W*$/i.test(answer)) return done({ action: 'kept', answer });
+    c = checkPitch(answer, { name });
+    if (!c.ok && c.text && /^\d+ letters/.test(c.why)) {
+      answer = await ask(`${prompt}\n\nYou answered: "${c.text}"\nThat is ${[...c.text].length} characters. Write it again in 80 to 130 characters, the same rules. Reply with the sentence alone.`);
+      c = checkPitch(answer, { name });
+    }
   } catch (e) {
-    return done({ action: 'failed', why: String(e?.message || e).split('\n')[0].slice(0, 120), costUsd, tokens });
+    return done({ action: 'failed', why: String(e?.message || e).split('\n')[0].slice(0, 120) });
   }
-  if (current && /^\W*keep\W*$/i.test(answer)) return done({ action: 'kept', answer, costUsd, tokens });
-  const c = checkPitch(answer, { name });
-  if (!c.ok) return done({ action: 'rejected', why: c.why, answer: c.text || answer, costUsd, tokens });
-  if (c.text === current) return done({ action: 'kept', answer, costUsd, tokens });
-  return done({ pitch: c.text, action: 'new', answer, costUsd, tokens });
+  if (!c.ok) return done({ action: 'rejected', why: c.why, answer: c.text || answer });
+  if (c.text === current) return done({ action: 'kept', answer });
+  return done({ pitch: c.text, action: 'new', answer });
 }
+
+/** pitchFor with the game folder's own files (run.mjs): `current` is the line it had before this build (run.mjs reads it
+ * at the run's start, so a PITCH the build session wrote itself never counts). */
+export const makePitch = ({ dir, current = '', query, options = PITCH_OPTIONS }) =>
+  pitchFor({ name: nameOf(dir), genre: genreOf(dir), notes: notesOf(dir), current, query, options });

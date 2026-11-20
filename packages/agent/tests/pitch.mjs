@@ -100,6 +100,23 @@ try {
   r = await makePitch({ dir, query: answering('KEEP') });
   assert.equal(r.action, 'rejected', 'nothing to keep');
   assert.equal(r.pitch, '');
+  // Too long: asked once more, shorter (the second answer counts, the costs add up); still too long: none.
+  const asked = [];
+  const inTurn = (...answers) => (q) => { asked.push(q.prompt); return answering(answers[asked.length - 1])(); };
+  const long = `${good.slice(0, -1)}, with a podium, a trophy and confetti for the winner at the end.`;
+  r = await makePitch({ dir, query: inTurn(long, good) });
+  assert.equal(r.action, 'new');
+  assert.equal(r.pitch, good);
+  assert.equal(r.calls, 2);
+  assert.equal(r.costUsd, 0.0008);
+  assert.match(asked[1], /That is \d+ characters/);
+  asked.length = 0;
+  r = await makePitch({ dir, current: good, query: inTurn(long, long) });
+  assert.equal(r.action, 'rejected');
+  assert.equal(r.pitch, good);
+  asked.length = 0;
+  r = await makePitch({ dir, query: inTurn('The ultimate racer for my son on a tropical island loop with boost pads, nitro and five rivals to beat.') });
+  assert.equal(r.calls, 1, 'only a length fault is asked again');
   r = await makePitch({ dir, current: good, query: () => { throw new Error('session limit'); } });
   assert.equal(r.action, 'failed');
   assert.equal(r.pitch, good, 'a failed call keeps the old line');

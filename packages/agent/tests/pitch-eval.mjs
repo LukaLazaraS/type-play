@@ -36,11 +36,11 @@ for (const name of args) {
   total += r.costUsd;
   const row = {
     game: name, name: nameOf(dir), genre: genreOf(dir) || 'none', action: r.action, pitch: r.pitch, length: [...r.pitch].length,
-    why: r.why, answer: r.action === 'rejected' ? r.answer : undefined, costUsd: r.costUsd, seconds: r.seconds,
+    why: r.why, answer: r.action === 'rejected' ? r.answer : undefined, costUsd: r.costUsd, calls: r.calls, seconds: r.seconds,
     tokensIn: r.tokens.input + r.tokens.cacheRead + r.tokens.cacheWrite, tokensOut: r.tokens.output,
   };
   rows.push(row);
-  console.log(`${name} ("${row.name}", ${row.genre}): ${r.action}${r.why ? ` (${r.why})` : ''}, ${row.length} letters, $${r.costUsd.toFixed(5)}, ${r.seconds} s, ${row.tokensIn} in / ${row.tokensOut} out\n  ${r.pitch || `(none) [answer: ${r.answer}]`}`);
+  console.log(`${name} ("${row.name}", ${row.genre}): ${r.action}${r.why ? ` (${r.why})` : ''}, ${row.length} letters, $${r.costUsd.toFixed(5)} in ${r.calls} call(s), ${r.seconds} s, ${row.tokensIn} in / ${row.tokensOut} out\n  ${r.pitch || `(none) [answer: ${r.answer}]`}`);
   if (name === 'private') rmSync(dir, { recursive: true, force: true });
 }
 console.log(`\n${rows.length} games, $${total.toFixed(4)} in all, $${(total / Math.max(1, rows.length)).toFixed(5)} each`);
