@@ -3540,6 +3540,14 @@ body:has(.ws) {
   flex-wrap: wrap;
   gap: 10px;
 }
+/* Large text on a narrow phone (200% at 280px): a button's words wrap inside the widget instead of running past the
+   screen (the share page was 333px wide). At the usual sizes each stays one line. */
+.play__cta .button {
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.25;
+  text-align: center;
+}
 .play .button {
   touch-action: manipulation;
   -webkit-user-select: none;

@@ -7,6 +7,7 @@ export function Footer() {
     <footer className="footer">
       <div>
         <Wordmark />
+        <wbr />
         {/* Each of the home page's games began as one message; five of the fourteen are two sentences (content/games.ts). */}
         <span className="footer__line">Real games, each started from one message.</span>
       </div>
@@ -15,7 +16,11 @@ export function Footer() {
         <Link href="/terms">Terms</Link>
         <Link href="/privacy">Privacy</Link>
         <Link href="/refunds">Refunds</Link>
-        <a href={`mailto:${site.email}`}>{site.email}</a>
+        {/* At large text on a narrow phone the address breaks after the @ first. */}
+        <a href={`mailto:${site.email}`}>
+          {site.email.split("@")[0]}@<wbr />
+          {site.email.split("@")[1]}
+        </a>
         {site.phone && <a href={`tel:${site.phone.replace(/[^\d+]/g, "")}`}>{site.phone}</a>}
       </nav>
     </footer>

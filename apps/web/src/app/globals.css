@@ -1639,19 +1639,22 @@ q {
   font-size: 14px;
   color: var(--on-sky-muted);
 }
+/* The gap after the name is its own margin, so where the line breaks after it (Footer.tsx's <wbr />, large text on a
+   narrow phone) the next line starts flush, not indented. */
 .footer .wordmark {
   font-size: 18px;
-}
-.footer__line {
-  margin-left: 14px;
+  margin-right: 14px;
+  color: var(--on-sky); /* "Type" white, as in the status bar (DESIGN.md "Wordmark"), not the footer's muted text */
 }
 .footer nav {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 22px;
 }
+/* The address breaks rather than run past a narrow screen at large text (280px at 200%). */
 .footer nav a {
   color: var(--on-sky);
+  overflow-wrap: anywhere;
   transition: color 160ms var(--ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
