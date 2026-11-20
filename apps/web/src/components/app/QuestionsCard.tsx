@@ -8,6 +8,7 @@ import { ChipChoice } from "@/components/ui/ChipChoice";
 import { ErrorLine } from "@/components/ui/ErrorLine";
 import { TextArea } from "@/components/ui/Field";
 import { questions as words } from "@/content/app";
+import { paddleOn } from "@/content/billing";
 import { ApiFailure } from "@/lib/api";
 import { estimateWord } from "@/lib/format";
 
@@ -174,7 +175,8 @@ export function QuestionsCard({
       {error && (
         <div className="questions__error" lang="en">
           <ErrorLine>{error.text}</ErrorLine>
-          {error.credits && ownCredits && (
+          {/* With billing off there are no credits to get (/billing only says nothing is on sale), so no link. */}
+          {error.credits && ownCredits && paddleOn && (
             <ButtonLink href="/billing?change=1" size="small">
               {words.getCredits}
             </ButtonLink>

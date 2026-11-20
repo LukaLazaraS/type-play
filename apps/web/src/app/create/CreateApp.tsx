@@ -433,7 +433,8 @@ export function CreateApp() {
                 <Button type="submit" disabled={short} aria-disabled={ask !== null || undefined} busy={busy} busyLabel="Starting…">
                   Build my game
                 </Button>
-                {short && <ButtonLink href="/billing?change=1">Get credits</ButtonLink>}
+                {/* With billing off there are no credits to get: /billing only says nothing is on sale, so no link. */}
+                {short && paddleOn && <ButtonLink href="/billing?change=1">Get credits</ButtonLink>}
               </div>
             </div>
             {ask && (

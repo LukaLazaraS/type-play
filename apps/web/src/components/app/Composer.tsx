@@ -406,8 +406,14 @@ export function Composer({
           "Building now. You can type your next change and send it when this one is done."
         ) : est && balance && balance.available < est.low ? (
           <>
-            Not enough credits for {model === "fast" ? "this" : "this on " + model.charAt(0).toUpperCase() + model.slice(1)}.{" "}
-            <TextLink href="/billing">Get more</TextLink>
+            Not enough credits for {model === "fast" ? "this" : "this on " + model.charAt(0).toUpperCase() + model.slice(1)}.
+            {/* With billing off there are no credits to get (/billing only says nothing is on sale), so no link. */}
+            {paddleOn && (
+              <>
+                {" "}
+                <TextLink href="/billing">Get more</TextLink>
+              </>
+            )}
           </>
         ) : est && balance?.todayLeft != null && balance.todayLeft < est.low ? (
           "Today's free credits are used up. More tomorrow."

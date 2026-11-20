@@ -587,6 +587,25 @@ try {
         );
         check("the path (open): the composer and Build my game are there", await page.getByRole("button", { name: "Build my game" }).isVisible({ timeout: 60_000 }));
         await shot(page, "path-create-plan-signed-in-390", true);
+        // Short of credits with billing off: /billing only says nothing is on sale, so /create offers no Get credits.
+        await page.route(`${apiBase}/me`, async (route) => {
+          if (route.request().method() !== "GET") return route.continue();
+          const res = await route.fetch();
+          const me = await res.json();
+          await route.fulfill({ response: res, json: { ...me, credits: { ...me.credits, available: 0.1, todayLeft: 0.1 } } });
+        });
+        await open(page, "/create");
+        await hydrated(page, "#idea");
+        await page.locator("#idea").fill("Make a puzzle game where you slide tiles to light a lamp");
+        await page.locator(".make__send .figures").waitFor({ timeout: 120_000 });
+        const build = page.getByRole("button", { name: "Build my game" });
+        check(
+          "the path (open): short of credits with billing off, Build is off and nothing offers credits that can't be bought",
+          (await build.isDisabled()) && (await page.getByRole("link", { name: /Get (credits|more)/ }).count()) === 0 && (await page.locator("main a[href^='/billing']").count()) === 0,
+          words(await page.locator(".make").textContent()),
+        );
+        await shot(page, "path-create-short-off-390", true);
+        await page.unroute(`${apiBase}/me`);
         await page.goto(`${base}/billing/checkout?item=plan:medium`, { waitUntil: "domcontentloaded" });
         const checkoutLead = page.locator(".make__lead", { hasText: "on sale yet" });
         await checkoutLead.waitFor({ timeout: 120_000 });
