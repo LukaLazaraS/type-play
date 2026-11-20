@@ -229,8 +229,19 @@ try {
   const gameUrl = page.url();
   const gameId = gameUrl.split("/").pop();
   await page.locator(".bubble--live").waitFor({ timeout: 30_000 });
-  await page.waitForTimeout(2200);
-  const line = await page.locator(".bubble--live").innerText();
+  // Read the live line the moment it moves on from "Getting started": a fast fake run can end, and the bubble go, inside
+  // a fixed wait (QA, 2026-11-20: gone 2.2 s after it was first seen, so the read timed out).
+  const line = await page
+    .waitForFunction(
+      () => {
+        const text = document.querySelector(".bubble--live")?.innerText.trim() ?? "";
+        return text.length > 3 && text !== "Getting started" ? text : false;
+      },
+      null,
+      { timeout: 30_000, polling: 100 },
+    )
+    .then((h) => h.jsonValue())
+    .catch(() => "");
   check("live building line", line.length > 3 && line !== "Getting started", line);
   await shot(page, "game-building-desktop");
   await page.locator(".msg__meta", { hasText: "version 1" }).waitFor({ timeout: 60_000 });
