@@ -58,7 +58,8 @@ const jsonLd = (html) =>
   });
 /** The page as a crawler gets it: status and text, no redirects followed, no script run. */
 async function crawl(base, path, bot = "bingbot") {
-  const res = await fetch(`${base}${path}`, { headers: { "User-Agent": BOTS[bot], Accept: "text/html,application/xml" }, redirect: "manual", signal: AbortSignal.timeout(120_000) });
+  // fetchAgain: a crawl right after the admin CLI meets the same dropped keep-alive connection as the API calls.
+  const res = await fetchAgain(`${base}${path}`, { headers: { "User-Agent": BOTS[bot], Accept: "text/html,application/xml" }, redirect: "manual", signal: AbortSignal.timeout(120_000) });
   return { status: res.status, type: res.headers.get("content-type") ?? "", retry: res.headers.get("retry-after"), html: await res.text() };
 }
 
@@ -70,8 +71,17 @@ let apiBase = "";
 let closed = false;
 // Once more on a dropped connection: the admin CLI (spawnSync) holds this process past the API's keep-alive time, and the
 // next request on the old connection finds it closed (ECONNRESET), as the server e2e's fetchAgain says.
-const fetchAgain = (url, init) =>
-  fetch(url, init).catch((e) => (["ECONNRESET", "UND_ERR_SOCKET"].includes(e?.cause?.code) ? fetch(url, init) : Promise.reject(e)));
+// On a PC under load the next try can meet the same, so up to three tries, a second apart, for any network failure.
+const fetchAgain = async (url, init, tries = 3) => {
+  for (let i = 1; ; i++) {
+    try {
+      return await fetch(url, init);
+    } catch (e) {
+      if (i >= tries || e?.name !== "TypeError") throw e;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+};
 const api = (method, path, body) =>
   fetchAgain(`${apiBase}${path}`, { method, headers: { Authorization: `Bearer dev:${maker}`, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({
     status: r.status,
@@ -89,11 +99,14 @@ try {
   // GENRE: the fake agent writes the word into the game's GENRE file, as run.mjs does with the genre skill it picked.
   const build = async (prompt) => (await api("POST", "/projects", { prompt, model: "fast" })).body?.id ?? null;
   const idle = async (id) => {
-    for (let i = 0; i < 600 && id; i++) { // up to 5 minutes: two fake builds at once, held to below-normal priority
-      const p = (await api("GET", `/projects/${id}`)).body;
-      if (p?.status === "idle") return p;
+    // Up to 10 minutes by the clock: two fake builds at once, held to below-normal priority on a PC that may be busy.
+    let last = null;
+    for (const end = Date.now() + 600_000; id && Date.now() < end; ) {
+      last = (await api("GET", `/projects/${id}`)).body;
+      if (last?.status === "idle") return last;
       await new Promise((r) => setTimeout(r, 500));
     }
+    if (id) console.log(`  ${id} not idle after 10 minutes: ${last?.status ?? "no answer"}`);
     return null;
   };
   const listed = await build("A stacking game with falling blocks GENRE:arcade");
@@ -130,8 +143,16 @@ ${stack.siteLog().slice(-2500)}`);
     desc.startsWith("Pebble Drop: chase a high score") && /free arcade game/.test(desc) && /browser/.test(desc) && /no download/.test(desc) && /Made with TypePlay/.test(desc) && [...desc].length <= 155,
     `${[...desc].length}: ${desc}`,
   );
+  // A gallery game's date in the page as served, in plain English: listed today, built before it was listed, so one date.
+  const today = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date());
+  const dates = g.html.match(/<p class="figures play__dates">[\s\S]*?<\/p>/)?.[0] ?? "";
+  check(
+    "…\"In the gallery since <date>\" under it, server-rendered, the day in plain English in a <time>, no \"updated\" (built before it was listed)",
+    new RegExp(`<span class="play__part">In the gallery since(?:<!-- -->)? (?:<!-- -->)?<span class="play__date"><time datetime="\\d{4}-\\d{2}-\\d{2}">${today}</time>`, "i").test(dates) && !/updated/.test(dates),
+    dates.replace(/\u00a0/g, " ") || "no dates line",
+  );
   // The figures under the name, in the page as served: its genre, then Made with TypePlay.
-  check("…its genre on the page, server-rendered (\"Arcade · Made with TypePlay\")", /<p class="figures play__by">Arcade(?:<!-- -->)? · (?:<!-- -->)?Made with TypePlay/.test(g.html), g.html.match(/<p class="figures play__by">[\s\S]{0,120}/)?.[0] ?? "no figures line");
+  check("…its genre on the page, server-rendered (\"Arcade · Made with TypePlay\", each part a box of its own with its dot)", /<p class="figures play__by"><span class="play__part">Arcade(?:<!-- -->)?(?:\u00a0|&nbsp;)·<\/span> <span class="play__part">Made with TypePlay/.test(g.html), g.html.match(/<p class="figures play__by">[\s\S]{0,120}/)?.[0] ?? "no figures line");
   check("…its canonical address", canonical(head) === want.canonical, canonical(head) ?? "none");
   const ogImage = meta(head, "og:image") ?? "";
   check(
@@ -147,8 +168,8 @@ ${stack.siteLog().slice(-2500)}`);
   const game = graph.find((d) => types(d).includes("VideoGame")) ?? {};
   const crumbs = graph.find((d) => d["@type"] === "BreadcrumbList")?.itemListElement ?? [];
   check(
-    "…structured data: a VideoGame and WebApplication with its name, address, picture, genre, the web browser, free (0 USD), TypePlay as publisher",
-    ld.length === 1 && types(game).join() === "VideoGame,WebApplication" && game.name === "Pebble Drop" && game.url === want.canonical && game.image === ogImage && game.genre === "Arcade" && game.gamePlatform === "Web browser" && game.isAccessibleForFree === true && game.offers?.price === 0 && game.offers?.priceCurrency === "USD" && game.publisher?.["@id"] === `${SITE}/#organization`,
+    "…structured data: a VideoGame only (no WebApplication: Google's software app types need a rating) with its name, address, picture, genre, the web browser, free (0 USD), TypePlay as publisher",
+    ld.length === 1 && types(game).join() === "VideoGame" && game.name === "Pebble Drop" && game.url === want.canonical && game.image === ogImage && game.genre === "Arcade" && game.gamePlatform === "Web browser" && game.isAccessibleForFree === true && game.offers?.price === 0 && game.offers?.priceCurrency === "USD" && game.publisher?.["@id"] === `${SITE}/#organization`,
     JSON.stringify(game).slice(0, 300),
   );
   check(
@@ -259,6 +280,20 @@ ${stack.siteLog().slice(-2500)}`);
   // Back: the pages answer 200 again; the maker's account goes (its games, folders and builds with it).
   await stack.startApi();
   check("the API back: the share page and /explore 200 again", (await crawl(base, `/play/${listed}`)).status === 200 && (await crawl(base, "/explore")).status === 200);
+  // ---- The row's heading: a genre's name only over that genre's games, genre first (fix round 2) ---------------------
+  check("a link-only page shows no dates (nothing beyond what it showed before)", !pages["Roof Dash"].includes("play__dates"));
+  const second = await build("Another stacking game GENRE:arcade");
+  check("a second arcade game built", !!(await idle(second))?.buildId);
+  await api("PATCH", `/projects/${second}`, { name: "Block Rain", shared: true, listed: true });
+  const allArcade = row((await crawl(base, `/play/${listed}`)).html);
+  check("a row that is all its genre: \"More arcade games\" (Block Rain)", allArcade?.title === "More arcade games" && allArcade.links.join() === second, allArcade ? `${allArcade.title}: ${allArcade.links.join(", ")}` : "no row");
+  check("an admin puts Tile Slide (puzzle) back in the gallery", admin("gallery", "unhide", hidden).status === 0);
+  const mixed = row((await crawl(base, `/play/${listed}`)).html);
+  check(
+    "a row with another genre in it: plain words (\"More games to play\"), its genre's game still first",
+    mixed?.title === "More games to play" && mixed.links[0] === second && mixed.links.includes(hidden) && !mixed.links.includes(listed),
+    mixed ? `${mixed.title}: ${mixed.links.join(", ")}` : "no row",
+  );
   check("the maker's account closed (its games and builds with it)", (await api("DELETE", "/me", { confirm: "DELETE" })).status === 200);
   closed = true;
   const after = await crawl(base, "/sitemap.xml");

@@ -414,6 +414,9 @@ try {
       `${pill.pathname}${pill.search}; Google ends at ${Math.round(first.google)} of ${first.h}, the idea box at ${Math.round(first.idea)}`,
     );
     await shot(ps, "on-signin-pill-phone");
+    // Its note says where the sign-in goes (fix round 2), after the closed beta's words where the beta is on.
+    const pillNote = (await ps.locator(".signin .field-hint").textContent()).replace(/\s+/g, " ").trim();
+    check("on: …its note says the sign-in goes back to the page you were on, the idea kept", pillNote.endsWith("After you sign in, you go back to the page you were on. Your idea stays here."), pillNote);
     await ps.evaluate((email) => (window.__gis.email = email), invited);
     await googleIn(ps).click();
     await ps.waitForURL((u) => u.pathname === "/pricing", { timeout: 60_000 });
@@ -434,6 +437,13 @@ try {
     const r2 = (await gis(p2))?.renders.at(-1) ?? {};
     check("on: uninvited: the closed-beta screen, Use another account is Google's light button (outline, medium: never shows an account)", r2.theme === "outline" && r2.size === "medium" && r2.text === "continue_with" && (await p2.getByRole("button", { name: "Use another account" }).count()) === 0, JSON.stringify(r2));
     await shot(p2, "on-closed-beta-desktop", ".closed__who");
+    // Side by side from 641px: Sign out's words on the middle of Google's button (fix round 2: they sat 5.5px above it).
+    const side = await p2.evaluate(() => {
+      const mid = (el) => (el ? (({ top, bottom }) => (top + bottom) / 2)(el.getBoundingClientRect()) : null);
+      const out = [...document.querySelectorAll(".closed__actions .textbutton")].find((b) => b.textContent === "Sign out");
+      return { google: mid(document.querySelector(".closed__actions .googlebutton")), out: mid(out) };
+    });
+    check("on, desktop, closed beta: Sign out on the middle of Google's button (within 1px)", side.google !== null && side.out !== null && Math.abs(side.google - side.out) <= 1, JSON.stringify(side));
     await p2.evaluate((email) => (window.__gis.email = email), invited);
     await googleIn(p2).click();
     await buildButton(p2).waitFor({ timeout: 60_000 });

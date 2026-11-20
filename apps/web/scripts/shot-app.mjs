@@ -228,21 +228,32 @@ try {
   await page.waitForURL(/\/games\/[a-z0-9]+$/, { timeout: 30_000 });
   const gameUrl = page.url();
   const gameId = gameUrl.split("/").pop();
-  await page.locator(".bubble--live").waitFor({ timeout: 30_000 });
+  // The live bubble, or the finished build: on a cold .next cache the game page compiles slower than the fake build runs,
+  // so the page can first show the answer (version 1) with no live bubble ever on it (fix round 2, 2026-11-20).
+  const done1 = page.locator(".msg__meta", { hasText: "version 1" });
+  await page.locator(".bubble--live").or(done1).first().waitFor({ timeout: 60_000 });
+  const endedFirst = (await page.locator(".bubble--live").count()) === 0 && (await done1.count()) > 0;
   // Read the live line the moment it moves on from "Getting started": a fast fake run can end, and the bubble go, inside
   // a fixed wait (QA, 2026-11-20: gone 2.2 s after it was first seen, so the read timed out).
-  const line = await page
-    .waitForFunction(
-      () => {
-        const text = document.querySelector(".bubble--live")?.innerText.trim() ?? "";
-        return text.length > 3 && text !== "Getting started" ? text : false;
-      },
-      null,
-      { timeout: 30_000, polling: 100 },
-    )
-    .then((h) => h.jsonValue())
-    .catch(() => "");
-  check("live building line", line.length > 3 && line !== "Getting started", line);
+  const line = endedFirst
+    ? ""
+    : await page
+        .waitForFunction(
+          () => {
+            const text = document.querySelector(".bubble--live")?.innerText.trim() ?? "";
+            if (!text && document.querySelector(".msg__meta")?.textContent?.includes("version 1")) return "(ended)";
+            return text.length > 3 && text !== "Getting started" ? text : false;
+          },
+          null,
+          { timeout: 30_000, polling: 100 },
+        )
+        .then((h) => h.jsonValue())
+        .catch(() => "");
+  check(
+    "live building line (or, on a cold cache, the build already ended when the page showed)",
+    endedFirst || line === "(ended)" || (line.length > 3 && line !== "Getting started"),
+    endedFirst ? "the build ended before the page showed: version 1" : line,
+  );
   await shot(page, "game-building-desktop");
   await page.locator(".msg__meta", { hasText: "version 1" }).waitFor({ timeout: 60_000 });
   // The line keeps its parts whole with no-break spaces (lib/format.ts figuresLine): read them as plain spaces.
@@ -362,7 +373,8 @@ try {
   const res = await v.goto(playUrl, { waitUntil: "domcontentloaded", timeout: 120_000 });
   check("public page: 200 for anyone with the link", res?.status() === 200, String(res?.status()));
   await v.locator(".play__name").waitFor({ timeout: 30_000 });
-  const byLine = await v.locator(".play__by").innerText();
+  // Each part's dot after a no-break space (PlayStage.tsx Parts): read them as plain spaces.
+  const byLine = (await v.locator(".play__by").innerText()).replace(/\u00a0/g, " ");
   check("public page: the name, its genre (when it has one) and Made with TypePlay", (await v.locator(".play__name").innerText()) === "Cat Box Jumper" && /^([A-Z][a-z ]+ · )?Made with TypePlay$/.test(byLine), byLine);
   check("public page: Make your own goes to /create", (await v.getByRole("link", { name: "Make your own" }).getAttribute("href")) === "/create");
   check("public page, shared by link only (not in the gallery): kept out of search (noindex)", (await v.locator('meta[name="robots"]').getAttribute("content"))?.includes("noindex") === true);

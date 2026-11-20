@@ -191,7 +191,9 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     check("a new page view counts again (2 plays)", (await plays(g1)) === before + 2);
     await v.reload({ waitUntil: "domcontentloaded" });
     await v.locator(".play__by").waitFor({ timeout: 60_000 });
-    check("the share page says its genre and plays", (await v.locator(".play__by").innerText()) === "Runner · Made with TypePlay · 2 plays", await v.locator(".play__by").innerText());
+    // Each part's dot after a no-break space (PlayStage.tsx Parts): read them as plain spaces.
+    const byLine = (await v.locator(".play__by").innerText()).replace(/\u00a0/g, " ");
+    check("the share page says its genre and plays", byLine === "Runner · Made with TypePlay · 2 plays", byLine);
     check("the share page links to the gallery", (await v.getByRole("link", { name: "More games made with TypePlay" }).getAttribute("href")) === "/explore");
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.locator(".stage__version").waitFor({ timeout: 30_000 });
@@ -394,10 +396,11 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       const at = () => phoneSwitch.evaluate((el) => Math.round(el.getBoundingClientRect().top * 10) / 10);
       const onTop = await at();
       await phoneSwitch.click();
-      await p.locator(`[role="switch"][aria-labelledby="gallery-title-${g1}"][aria-checked="false"]`).waitFor({ timeout: 10_000 });
+      // Saved, not only shown: a tap while the save is in flight is ignored (Toggle's busy), so the next one waits for it.
+      await p.locator(`[role="switch"][aria-labelledby="gallery-title-${g1}"][aria-checked="false"]:not([aria-busy])`).waitFor({ timeout: 30_000 });
       const offTop = await at();
       await phoneSwitch.click();
-      await p.locator(`[role="switch"][aria-labelledby="gallery-title-${g1}"][aria-checked="true"]`).waitFor({ timeout: 10_000 });
+      await p.locator(`[role="switch"][aria-labelledby="gallery-title-${g1}"][aria-checked="true"]:not([aria-busy])`).waitFor({ timeout: 30_000 });
       check("phone 390: the gallery switch stays where it was, off and on", Math.abs(onTop - offTop) < 0.5 && Math.abs((await at()) - onTop) < 0.5, `${onTop} / ${offTop}`);
       await p.keyboard.press("Escape");
       await p.setViewportSize({ width: 280, height: 653 });
