@@ -1,9 +1,10 @@
-// End-to-end pass over the app screens with screenshots, against the real API in test mode:
-//   API:  DEV_AUTH=1 AGENT_FAKE=1 node apps/server/dist/main.js   (port 3002)
-//   site: NEXT_PUBLIC_DEV_AUTH=1 npm run dev -w web                 (port 3000)
-//   games origin: node apps/games/scripts/serve.mjs                 (port 3001)
+// End-to-end pass over the app screens with screenshots, against the real API in test mode. By default on a stack of its
+// own (dev-env.mjs startStack; build the API first): a database of the run's own and ports picked free, never the local
+// site's stack or typeplay_dev (docs/environments.md); the API with DEV_AUTH=1, AGENT_FAKE=1 and the Android fake
+// (ANDROID_EXPORT=1 ANDROID_FAKE=1, a throwaway ANDROID_KEY_MASTER made for the run), the site with Paddle's sandbox mode
+// and a test_ token (below). Given both a site and an API address it drives those instead, started as below.
 // Run it through the CPU limiter, one browser at a time:
-//   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-app.mjs [outDir] [siteUrl] [apiUrl]
+//   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-app.mjs [outDir] [siteUrl apiUrl]
 // Signs in with "Dev sign-in" as a new test user, builds a game, plays it, sends a change, a failing
 // change, restores version 1, checks the Free plan locks Smart and Best and the effort setting, then
 // shares the game (its public page, signed out, and its link preview), renames and downloads it,
@@ -20,15 +21,24 @@
 // NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=test_shots (any test_ token; nothing real is called).
 import { chromium } from "playwright";
 import { spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { freePort } from "../../../scripts/test-run.mjs";
+import { startStack, useOwnStack } from "./dev-env.mjs";
 import { androidPart, droidEmail } from "./shot-android.mjs";
 import { galleryEmail, galleryPart } from "./shot-gallery.mjs";
 
 const out = process.argv[2] ?? join(import.meta.dirname, "../../../.impeccable/review/app");
-const base = process.argv[3] ?? "http://localhost:3000";
-const apiBase = process.argv[4] ?? "http://127.0.0.1:3002";
+const stack =
+  process.argv[3] && process.argv[4]
+    ? null
+    : await startStack("app", await useOwnStack("app", 3), {
+        api: { ANDROID_EXPORT: "1", ANDROID_FAKE: "1", ANDROID_KEY_MASTER: randomBytes(32).toString("hex") },
+        site: { NEXT_PUBLIC_PADDLE_ENV: "sandbox", NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "test_shots" },
+      });
+const base = stack?.base ?? process.argv[3];
+const apiBase = stack?.apiBase ?? process.argv[4];
 mkdirSync(out, { recursive: true });
 
 /**
@@ -864,6 +874,7 @@ try {
   await sandbox?.close();
   const left = await fetchAgain(`${apiBase}/me`, { headers: { Authorization: `Bearer dev:${mainEmail}` } }).then((r) => r.status).catch(() => 0);
   check("cleanup: every test account closed (the main one answers 401 now)", left === 401 && closed.every((s) => s === 200 || s === 401), `${closed.join(", ")}; /me ${left}`);
+  stack?.stop();
 }
 
 const failed = results.filter((r) => !r.ok);

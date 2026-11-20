@@ -99,7 +99,8 @@ NEXT_PUBLIC_DEV_AUTH=1 npm run dev -w web                  # site on http://loca
   refuses to start (`next.config.ts`), and the code ignores it outside `next dev`.
 - `NEXT_PUBLIC_API_ORIGIN` (default `http://127.0.0.1:3002`).
 - **Tests with screenshots** (through the CPU limiter, one browser):
-  `node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-app.mjs` signs in (dev), builds,
+  `node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-app.mjs` (on a stack of its own since 2026-11-20: a
+  database of its own, ports picked free, the fake agent and the Android and Paddle fakes; build the API first) signs in (dev), builds,
   plays, changes, fails a change ("FAIL"), restores, checks credits and the Free plan's locks, then
   the phone layout, then the 10-18 additions below (60 checks, shots in `.impeccable/review/app/`). `scripts/shot-worst.mjs` renders
   worst-case data (long names, 0 and 1,287 credits, 60 messages, 21 versions, a failed first build)
