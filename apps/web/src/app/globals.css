@@ -740,8 +740,14 @@ q {
     align-items: stretch;
     padding: 8px 8px 8px 16px;
   }
+  /* Full width here: under large text "Make my game" wraps inside it instead of running out, as the cards' buttons do. */
   .prompt__field .button {
     width: 100%;
+    white-space: normal;
+    text-align: center;
+    text-wrap: balance;
+    line-height: 1.2;
+    padding-block: 15px;
   }
 }
 
