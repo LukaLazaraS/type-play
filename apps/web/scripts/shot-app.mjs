@@ -685,13 +685,39 @@ try {
   await page.getByRole("button", { name: "Send" }).click();
   await page.locator('[data-panel="no_credits"]').waitFor({ timeout: 15_000 });
   const freePanel = await page.locator('[data-panel="no_credits"] p').innerText();
-  check("out of credits on Free: the panel", /^You've used this month's free credits\. 20 more arrive on \d+ \w+(?: \d{4})?\. Or get Medium: 100 credits a month, Smart and Best, no daily cap\.$/.test(freePanel), freePanel);
-  check("its button: Get Medium, $20 a month, back to this game", (await page.locator('[data-panel="no_credits"] a').getAttribute("href")) === `/billing/checkout?item=plan:medium&back=%2Fgames%2F${gameId}`);
+  // A site built without a Paddle token sells nothing: the pricing page's words (content/billing.ts notOnSale), no button.
+  const offLine = /Paid plans aren't on sale yet\.( During the closed beta, we add credits by hand: write to hello@typeplay\.app\.)?/.source;
+  const when = /in (about \d+ hours|about an hour|less than an hour)/.source;
+  check(
+    `out of credits on Free: the panel${paddleOnSite ? "" : " (billing off)"}`,
+    (paddleOnSite
+      ? /^You've used this month's free credits\. 20 more arrive on \d+ \w+( \d{4})?\. Or get Medium: 100 credits a month, Smart and Best, no daily cap\.$/
+      : new RegExp(String.raw`^You've used this month's free credits\. 20 more arrive on \d+ \w+( \d{4})?\. ${offLine}$`)
+    ).test(freePanel),
+    freePanel,
+  );
+  if (paddleOnSite) {
+    check("its button: Get Medium, $20 a month, back to this game", (await page.locator('[data-panel="no_credits"] a').getAttribute("href")) === `/billing/checkout?item=plan:medium&back=%2Fgames%2F${gameId}`);
+  } else {
+    check("billing off: no button to buy", (await page.locator('[data-panel="no_credits"] a[href^="/billing"]').count()) === 0);
+  }
   await shot(page, "game-out-of-credits-free-desktop");
   await page.getByRole("button", { name: "Not now" }).click();
   const playedBack = [
-    ["daily_limit", 402, /^Today's 5 free credits are used\. More in (about \d+ hours|about an hour|less than an hour), or get Medium: no daily cap\.$/],
-    ["free_paused", 402, /^Free builds are paused; they start again in (about \d+ hours|about an hour|less than an hour): today's free allowance is used up across TypePlay\. Get a plan to keep going\.$/],
+    [
+      "daily_limit",
+      402,
+      paddleOnSite
+        ? /^Today's 5 free credits are used\. More in (about \d+ hours|about an hour|less than an hour), or get Medium: no daily cap\.$/
+        : new RegExp(String.raw`^Today's 5 free credits are used\. More ${when}\. ${offLine}$`),
+    ],
+    [
+      "free_paused",
+      402,
+      paddleOnSite
+        ? /^Free builds are paused; they start again in (about \d+ hours|about an hour|less than an hour): today's free allowance is used up across TypePlay\. Get a plan to keep going\.$/
+        : new RegExp(String.raw`^Free builds are paused; they start again ${when}: today's free allowance is used up across TypePlay\. ${offLine}$`),
+    ],
     ["billing_hold", 403, /^A payment was disputed with your bank\. Buying is paused; write to hello@typeplay\.app\.$/],
   ];
   for (const [code, status, text] of playedBack) {

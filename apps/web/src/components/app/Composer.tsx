@@ -13,7 +13,7 @@ import { Strip } from "@/components/ui/Strip";
 import { TextLink } from "@/components/ui/TextLink";
 import { android } from "@/content/android";
 import { inLine, MAX_TEXT, people as together, pictures, questions } from "@/content/app";
-import { checkoutHref, HOLD_LINE, pack, planAbove, planFacts } from "@/content/billing";
+import { checkoutHref, HOLD_LINE, pack, paddleOn, planAbove, planFacts } from "@/content/billing";
 import { credits as siteCredits } from "@/content/site";
 import { ApiFailure } from "@/lib/api";
 import { dayOf, estimateWord, tooLong, untilUtcMidnight, usd, whenParts } from "@/lib/format";
@@ -21,6 +21,7 @@ import { saveAskFirst } from "@/lib/session";
 import { planName } from "./AccountSlot";
 import { EffortSwitch, effortLine, ModelSwitch, modelLine } from "./ModelPicker";
 import { NotifyAsk } from "./NotifyAsk";
+import { NotOnSale } from "./NotOnSale";
 import { AddPictures, PictureTray, usePictureDrop, usePictureTray } from "./Pictures";
 
 type Props = {
@@ -427,6 +428,8 @@ export function Composer({
 /**
  * Out of credits, in the ask panel's style (docs/payments-design.md §8): what happened, when more
  * come, and the one or two ways to go on now. Its buttons deep-link to the checkout and back here.
+ * With billing off (no Paddle token in this build) nothing can be bought: what happened and when more come, then the
+ * pricing page's words (`NotOnSale`: paid plans or packs aren't on sale yet; in the closed beta, write to us), no button.
  */
 function CreditPanel({
   kind,
@@ -450,7 +453,7 @@ function CreditPanel({
       Get Medium, {usd(medium.price)} a month
     </ButtonLink>
   );
-  let text: string;
+  let text: ReactNode;
   let actions: ReactNode = null;
   if (owners) {
     // Someone else's game (pair developing): its owner's credits, said in the API's words, the paused builds' wait as the
@@ -459,18 +462,52 @@ function CreditPanel({
   } else if (kind === "billing_hold") {
     text = HOLD_LINE;
   } else if (kind === "free_paused") {
-    text = `Free builds are paused; they start again ${untilUtcMidnight()}: today's free allowance is used up across TypePlay. Get a plan to keep going.`;
-    actions = (
-      <ButtonLink href="/billing?change=1" size="small">
-        Get a plan
-      </ButtonLink>
-    );
+    const paused = `Free builds are paused; they start again ${untilUtcMidnight()}: today's free allowance is used up across TypePlay.`;
+    if (!paddleOn) {
+      text = (
+        <>
+          {paused} <NotOnSale free={false} />
+        </>
+      );
+    } else {
+      text = `${paused} Get a plan to keep going.`;
+      actions = (
+        <ButtonLink href="/billing?change=1" size="small">
+          Get a plan
+        </ButtonLink>
+      );
+    }
   } else if (kind === "daily_limit") {
-    text = `Today's ${siteCredits.freePerDay} free credits are used. More ${untilUtcMidnight()}, or get Medium: no daily cap.`;
-    actions = getMedium;
+    const more = `Today's ${siteCredits.freePerDay} free credits are used. More ${untilUtcMidnight()}`;
+    if (!paddleOn) {
+      text = (
+        <>
+          {more}. <NotOnSale free={false} />
+        </>
+      );
+    } else {
+      text = `${more}, or get Medium: no daily cap.`;
+      actions = getMedium;
+    }
   } else if (plan === "free") {
-    text = `You've used this month's free credits. ${siteCredits.freePerMonth} more arrive ${billing?.freeRefillAt ? `on ${dayOf(billing.freeRefillAt)}` : "next month"}. Or get Medium: ${medium.credits} credits a month, Smart and Best, no daily cap.`;
-    actions = getMedium;
+    const used = `You've used this month's free credits. ${siteCredits.freePerMonth} more arrive ${billing?.freeRefillAt ? `on ${dayOf(billing.freeRefillAt)}` : "next month"}.`;
+    if (!paddleOn) {
+      text = (
+        <>
+          {used} <NotOnSale free={false} />
+        </>
+      );
+    } else {
+      text = `${used} Or get Medium: ${medium.credits} credits a month, Smart and Best, no daily cap.`;
+      actions = getMedium;
+    }
+  } else if (!paddleOn) {
+    const until = billing?.periodEndsAt && billing.status === "active" ? ` until ${dayOf(billing.periodEndsAt)}` : "";
+    text = (
+      <>
+        You&apos;re out of credits{until}. <NotOnSale pack free={false} />
+      </>
+    );
   } else {
     const above = planAbove(plan);
     const until = billing?.periodEndsAt && billing.status === "active" ? ` until ${dayOf(billing.periodEndsAt)}` : "";
