@@ -431,7 +431,7 @@ try {
     const freeCard = await b.locator(".bill__plan").innerText();
     check("billing on Free: the plan card", (await b.locator(".bill__planname").innerText()) === "Free" && /20 credits a month, up to 5 a day, on Fast\./.test(freeCard), freeCard);
     const freeLine = await b.locator(".bill__credits").innerText();
-    check("billing on Free: left, today, and when 20 more come", /^20 left, 5 more today\. 20 more on \d+ \w+\.$/.test(freeLine), freeLine);
+    check("billing on Free: left, today, and when 20 more come", /^20 left, 5 more today\. 20 more on \d+ \w+(?: \d{4})?\.$/.test(freeLine), freeLine);
     check("billing on Free: no payments yet", (await b.locator(".usage__empty").innerText()) === "No payments yet.");
     await b.waitForTimeout(300);
     await shot(b, "billing-free-desktop", true);
@@ -504,13 +504,13 @@ try {
     await b.goto(`${base}/billing`, { waitUntil: "domcontentloaded" });
     await b.locator(".bill__planname").waitFor({ timeout: 60_000 });
     const paidCard = await b.locator(".bill__plan").innerText();
-    check("billing on Medium: the plan, its price and the next payment with the card", (await b.locator(".bill__planname").innerText()) === "Medium" && /\$20 a month\./.test(paidCard) && /Next payment \d+ \w+: \$20 plus tax, Visa ending 4242\./.test(paidCard), paidCard.replace(/\n/g, " | "));
+    check("billing on Medium: the plan, its price and the next payment with the card", (await b.locator(".bill__planname").innerText()) === "Medium" && /\$20 a month\./.test(paidCard) && /Next payment \d+ \w+(?: \d{4})?: \$20 plus tax, Visa ending 4242\./.test(paidCard), paidCard.replace(/\n/g, " | "));
     const creditsLine = await b.locator(".bill__credits").innerText();
-    check("billing on Medium: credits to spend, by part", /^160 credits to spend: 20 free \(until \d+ \w+\), 100 from Medium \(carry over to \d+ \w+, up to 100\) and 40 from a pack \(until \d+ \w+ \d{4}\)\.$/.test(creditsLine), creditsLine);
+    check("billing on Medium: credits to spend, by part", /^160 credits to spend: 20 free \(until \d+ \w+(?: \d{4})?\), 100 from Medium \(carry over to \d+ \w+(?: \d{4})?, up to 100\) and 40 from a pack \(until \d+ \w+ \d{4}\)\.$/.test(creditsLine), creditsLine);
     const pays = await b.locator(".pays__row").allInnerTexts();
-    check("billing: two payments, newest first, with tax, the invoice and the refund window", pays.length === 2 && /Credit pack/.test(pays[0]) && /\$11\.00/.test(pays[0]) && /\$10 \+ \$1 tax/.test(pays[0]) && /Medium plan/.test(pays[1]) && /\$22\.00/.test(pays[1]) && /invoice TP-/.test(pays[1]) && /paid, refundable until \d+ \w+/.test(pays[1]), pays.join(" || ").replace(/\n/g, " "));
+    check("billing: two payments, newest first, with tax, the invoice and the refund window", pays.length === 2 && /Credit pack/.test(pays[0]) && /\$11\.00/.test(pays[0]) && /\$10 \+ \$1 tax/.test(pays[0]) && /Medium plan/.test(pays[1]) && /\$22\.00/.test(pays[1]) && /invoice TP-/.test(pays[1]) && /paid, refundable until \d+ \w+(?: \d{4})?/.test(pays[1]), pays.join(" || ").replace(/\n/g, " "));
     const consentLine = await b.locator("[data-consent]").innerText();
-    check("billing: the consent record", /^On \d+ \w+ you asked us to start right away \(wording v1\)\.$/.test(consentLine), consentLine);
+    check("billing: the consent record", /^On \d+ \w+(?: \d{4})? you asked us to start right away \(wording v1\)\.$/.test(consentLine), consentLine);
     check("billing: Buy a credit pack / Change plan / Cancel plan", (await b.locator(".bill__plan .acct__buttons").innerText()).replace(/\s+/g, " ").trim() === "Buy a credit pack Change plan Cancel plan");
     await b.waitForTimeout(300);
     await shot(b, "billing-paid-desktop", true);
@@ -523,7 +523,7 @@ try {
     await b.locator(".picker__row", { hasText: "High" }).getByRole("button", { name: "Upgrade" }).click();
     await b.locator(".picker__preview p", { hasText: "You pay" }).waitFor({ timeout: 15_000 });
     const previewLine = await b.locator(".picker__preview p").innerText();
-    check("the upgrade preview line", /^You pay \$16\.50 now \(tax included\), charged to Visa ending 4242, and get about 87\.5 credits now; then \$50 a month from \d+ \w+\.$/.test(previewLine), previewLine);
+    check("the upgrade preview line", /^You pay \$16\.50 now \(tax included\), charged to Visa ending 4242, and get about 87\.5 credits now; then \$50 a month from \d+ \w+(?: \d{4})?\.$/.test(previewLine), previewLine);
     await shot(b, "billing-upgrade-preview-desktop", true);
     await b.getByRole("button", { name: "Upgrade to High" }).click();
     await b.locator(".picker__preview p", { hasText: "Done." }).waitFor({ timeout: 15_000 });
@@ -544,11 +544,11 @@ try {
     await b.locator(".picker__row", { hasText: "Medium" }).getByRole("button", { name: "Switch at renewal" }).click();
     await b.locator(".picker__preview p", { hasText: "Nothing now" }).waitFor({ timeout: 15_000 });
     const downLine = await b.locator(".picker__preview p").innerText();
-    check("the downgrade preview line", /^Nothing now\. From \d+ \w+ you pay \$20 a month and get 100 credits a month; High and all its credits stay until then\.$/.test(downLine), downLine);
+    check("the downgrade preview line", /^Nothing now\. From \d+ \w+(?: \d{4})? you pay \$20 a month and get 100 credits a month; High and all its credits stay until then\.$/.test(downLine), downLine);
     await b.getByRole("button", { name: "Switch to Medium" }).click();
     await b.locator('[data-strip="downgrade"]').waitFor({ timeout: 15_000 });
     const downStrip = await b.locator('[data-strip="downgrade"] p').innerText();
-    check("the downgrade strip", /^You move to Medium on \d+ \w+\. Until then High and all its credits stay\.$/.test(downStrip), downStrip);
+    check("the downgrade strip", /^You move to Medium on \d+ \w+(?: \d{4})?\. Until then High and all its credits stay\.$/.test(downStrip), downStrip);
     await b.waitForTimeout(300);
     await shot(b, "billing-downgrade-strip-desktop", true);
     await b.getByRole("button", { name: "Keep High" }).click();
@@ -559,13 +559,13 @@ try {
     await b.getByRole("button", { name: "Cancel plan" }).click();
     await b.locator(".bill__ask").waitFor({ timeout: 10_000 });
     const cancelAsk = await b.locator(".bill__ask p").innerText();
-    check("Cancel plan asks first", /^Cancel at the end of your period\? High and its credits stay until \d+ \w+; pack credits keep working for their 12 months\.$/.test(cancelAsk), cancelAsk);
+    check("Cancel plan asks first", /^Cancel at the end of your period\? High and its credits stay until \d+ \w+(?: \d{4})?; pack credits keep working for their 12 months\.$/.test(cancelAsk), cancelAsk);
     await shot(b, "billing-cancel-ask-desktop", true);
     await b.locator(".bill__ask").getByRole("button", { name: "Cancel plan" }).click();
     await b.locator('[data-strip="cancel"]').waitFor({ timeout: 15_000 });
     const cancelStrip = await b.locator('[data-strip="cancel"] p').innerText();
-    check("the cancel strip", /^Your plan ends on \d+ \w+\. Your credits stay until then; pack credits keep working for their 12 months\.$/.test(cancelStrip), cancelStrip);
-    check("while cancelled: 'Ends on …' and no Cancel plan button", /Ends on \d+ \w+\./.test(await b.locator(".bill__plan").innerText()) && (await b.locator(".bill__plan").getByRole("button", { name: "Cancel plan" }).count()) === 0);
+    check("the cancel strip", /^Your plan ends on \d+ \w+(?: \d{4})?\. Your credits stay until then; pack credits keep working for their 12 months\.$/.test(cancelStrip), cancelStrip);
+    check("while cancelled: 'Ends on …' and no Cancel plan button", /Ends on \d+ \w+(?: \d{4})?\./.test(await b.locator(".bill__plan").innerText()) && (await b.locator(".bill__plan").getByRole("button", { name: "Cancel plan" }).count()) === 0);
     await shot(b, "billing-cancel-strip-desktop", true);
     await b.getByRole("button", { name: "Keep my plan" }).click();
     await b.locator('[data-strip="cancel"]').waitFor({ state: "detached", timeout: 15_000 });
@@ -580,7 +580,7 @@ try {
     // The account page with a plan: renews, and closing cancels it
     await b.goto(`${base}/account`, { waitUntil: "domcontentloaded" });
     await b.locator(".acct__facts").waitFor({ timeout: 60_000 }); // rendered once GET /me answered
-    check("account on High: 'Renews on …'", /Renews on \d+ \w+\./.test(await b.locator(".acct__plan").innerText()), (await b.locator(".acct__plan").innerText()).replace(/\n/g, " | "));
+    check("account on High: 'Renews on …'", /Renews on \d+ \w+(?: \d{4})?\./.test(await b.locator(".acct__plan").innerText()), (await b.locator(".acct__plan").innerText()).replace(/\n/g, " | "));
     await b.getByRole("button", { name: "Delete my account" }).click();
     await b.locator("#confirm-delete").waitFor({ timeout: 5_000 });
     check("account: closing says the plan is cancelled with it", /Your High plan is still active: it is cancelled when the account closes\./.test(await b.locator(".acct__confirm").innerText()));
@@ -608,7 +608,7 @@ try {
     await b.getByRole("button", { name: "Send" }).click();
     await b.locator('[data-panel="no_credits"]').waitFor({ timeout: 15_000 });
     const paidPanel = await b.locator('[data-panel="no_credits"] p').innerText();
-    check("out of credits on High: the panel", /^You're out of credits until \d+ \w+\. Add 40 for \$10 now, or move up to Ultra \(600 a month\)\.$/.test(paidPanel), paidPanel);
+    check("out of credits on High: the panel", /^You're out of credits until \d+ \w+(?: \d{4})?\. Add 40 for \$10 now, or move up to Ultra \(600 a month\)\.$/.test(paidPanel), paidPanel);
     check(
       "its buttons: Add 40 credits, $10 (to the checkout and back to this game), Upgrade, Not now",
       (await b.locator('[data-panel="no_credits"] a', { hasText: "Add 40 credits" }).getAttribute("href")) === `/billing/checkout?item=pack&back=%2Fgames%2F${buyerGame}` && (await b.locator('[data-panel="no_credits"] a', { hasText: "Upgrade" }).getAttribute("href")) === "/billing?change=1",
@@ -624,7 +624,7 @@ try {
     await b.reload({ waitUntil: "domcontentloaded" });
     await b.locator('[data-strip="past-due"]').waitFor({ timeout: 60_000 });
     const pastDue = await b.locator('[data-strip="past-due"] p').innerText();
-    check("past due: the strip above the composer", /^Your \d+ \w+ payment for High didn't go through\. Update your card and Paddle will try again for up to 30 days\. You keep your credits until a day after your period ends; no new ones until a payment goes through\.$/.test(pastDue), pastDue);
+    check("past due: the strip above the composer", /^Your \d+ \w+(?: \d{4})? payment for High didn't go through\. Update your card and Paddle will try again for up to 30 days\. You keep your credits until a day after your period ends; no new ones until a payment goes through\.$/.test(pastDue), pastDue);
     check("past due: Update card goes to /billing", (await b.locator('[data-strip="past-due"] a').getAttribute("href")) === "/billing");
     await shot(b, "game-past-due-desktop");
     await b.unroute(`${apiBase}/me`);
@@ -676,7 +676,7 @@ try {
   await page.getByRole("button", { name: "Send" }).click();
   await page.locator('[data-panel="no_credits"]').waitFor({ timeout: 15_000 });
   const freePanel = await page.locator('[data-panel="no_credits"] p').innerText();
-  check("out of credits on Free: the panel", /^You've used this month's free credits\. 20 more arrive on \d+ \w+\. Or get Medium: 100 credits a month, Smart and Best, no daily cap\.$/.test(freePanel), freePanel);
+  check("out of credits on Free: the panel", /^You've used this month's free credits\. 20 more arrive on \d+ \w+(?: \d{4})?\. Or get Medium: 100 credits a month, Smart and Best, no daily cap\.$/.test(freePanel), freePanel);
   check("its button: Get Medium, $20 a month, back to this game", (await page.locator('[data-panel="no_credits"] a').getAttribute("href")) === `/billing/checkout?item=plan:medium&back=%2Fgames%2F${gameId}`);
   await shot(page, "game-out-of-credits-free-desktop");
   await page.getByRole("button", { name: "Not now" }).click();
