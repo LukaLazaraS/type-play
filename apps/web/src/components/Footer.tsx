@@ -7,7 +7,8 @@ export function Footer() {
     <footer className="footer">
       <div>
         <Wordmark />
-        <span className="footer__line">Real games from one sentence.</span>
+        {/* Each of the home page's games began as one message; five of the fourteen are two sentences (content/games.ts). */}
+        <span className="footer__line">Real games, each started from one message.</span>
       </div>
       <nav aria-label="Legal">
         <Link href="/pricing">Pricing</Link>
