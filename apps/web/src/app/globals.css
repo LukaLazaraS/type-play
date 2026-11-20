@@ -2351,3 +2351,30 @@ q {
     margin-bottom: 20px;
   }
 }
+/* A phone held sideways (844x390): the notice, the box, Make my game and the line under it inside the first screen. */
+@media (max-width: 1100px) and (max-height: 500px) {
+  .notice {
+    margin-top: 6px;
+    padding: 8px 14px 8px 8px;
+  }
+  .home__grid {
+    margin-top: 10px;
+  }
+  /* One grid row, as tall as what it holds (two rows' 320px spread the box apart and pushed Make my game down). */
+  .home__widget {
+    grid-row: 1 / 2;
+    justify-content: flex-start;
+    padding: 20px 28px 18px;
+    gap: 12px;
+  }
+  /* "Type it. Play it." on one line: the widget is wide here, and a second line costs the room the line under the box needs. */
+  .home__widget h1 {
+    font-size: 48px;
+  }
+  .home__widget h1 br {
+    display: none;
+  }
+  .home__widget h1 em {
+    margin-left: 0.25em;
+  }
+}
