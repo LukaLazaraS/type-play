@@ -171,6 +171,9 @@ export function CreateApp() {
     // A new idea starts with nothing picked: picks left from an idea that was never built don't belong to it (the page
     // reads the kept picks again as the address changes).
     savePicks(NO_PICKS);
+    // From the home page's last box the browser keeps the old scroll, which put /create at its foot with the idea box out
+    // of view (2026-11-20): an idea handed over starts at the top, where its box is.
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     router.replace("/create", { scroll: false });
   }, [fromUrl, router]);
 

@@ -538,6 +538,9 @@ try {
       await page.waitForURL(/\/create/, { timeout: 120_000 });
       await page.locator("#idea").waitFor({ timeout: 120_000 });
       check("home: the last box's Make my game opens /create with its sentence", (await page.locator("#idea").inputValue()) === idea);
+      // The browser kept the home page's scroll, so /create opened at its foot with the idea box out of view (2026-11-20).
+      const landed = await page.evaluate(() => ({ y: Math.round(window.scrollY), box: Math.round(document.querySelector("#idea").getBoundingClientRect().top) }));
+      check("home: the last box's idea opens /create at its top, with the idea box on the screen", landed.y === 0 && landed.box >= 0 && landed.box < 900, JSON.stringify(landed));
       const note = words(await page.locator(".signin .field-hint").textContent({ timeout: 60_000 }));
       check(
         `the path (${state}): before Google, /create says ${beta ? "the closed beta and the waitlist" : "Free and that the idea is kept"}`,
