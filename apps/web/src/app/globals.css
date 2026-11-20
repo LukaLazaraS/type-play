@@ -446,6 +446,9 @@ q {
   font-weight: 600;
   font-size: 14px;
   line-height: 1.1;
+  /* At large text a long name wraps inside its own cell instead of running into its neighbours (UI check, 2026-11-20). */
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .app__stat {
   font-family: var(--font-figures);
