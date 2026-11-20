@@ -870,7 +870,9 @@ q {
   }
   .dock__slots {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* Two columns, or one when the words are too big for two (large text on a phone): a column is never narrower than
+       6em of the text, so it grows with the text size instead of the tiles running off the screen. */
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, max(6em, 40%)), 1fr));
   }
 }
 
@@ -1508,7 +1510,7 @@ q {
 }
 .ship .dock__slots {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(6em, 40%)), 1fr));
 }
 @media (max-width: 900px) {
   .ship {
