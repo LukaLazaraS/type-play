@@ -446,9 +446,12 @@ q {
   font-weight: 600;
   font-size: 14px;
   line-height: 1.1;
-  /* At large text a long name wraps inside its own cell instead of running into its neighbours (UI check, 2026-11-20). */
+  /* At large text a long name wraps inside its own cell instead of running into its neighbours (UI check, 2026-11-20):
+     at a syllable with a hyphen where the browser knows the language ("Ginger-bread"), anywhere only where it can't. */
   max-width: 100%;
   overflow-wrap: anywhere;
+  -webkit-hyphens: auto;
+  hyphens: auto;
 }
 .app__stat {
   font-family: var(--font-figures);
