@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import type { GallerySort, Genre } from "@typeplay/shared";
+import { JsonLd } from "@/components/JsonLd";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 import { genreName } from "@/content/gallery";
+import { galleryName, galleryStructuredData } from "@/content/seo";
 import { galleryFirst, UNAVAILABLE } from "@/lib/public";
 import { ExploreGames, Invite } from "./ExploreClient";
 
@@ -11,12 +13,14 @@ import { ExploreGames, Invite } from "./ExploreClient";
 // for the API before answering, so the first page arrives whole.
 export const instant = false;
 
+// In search (2026-11-20): the gallery shows only games their makers chose to show. One page for every view: an order, a
+// genre or a search in the address (?sort=new&genre=puzzle&q=fox) is the same page, so the canonical is always /explore.
+const description =
+  "Free games to play in your browser, with no download and no sign-up. Each one began as an idea someone typed into TypePlay. Play one, then make your own.";
 export const metadata: Metadata = {
-  title: "Explore games",
-  description: "Play games people made with TypePlay, free in your browser. Each one started as a typed idea.",
+  title: galleryName,
+  description,
   alternates: { canonical: "/explore" },
-  // Kept out of search until Luka says otherwise, like the share pages (docs/parked.md, row 13).
-  robots: { index: false, follow: true },
 };
 
 type Props = { searchParams: Promise<{ sort?: string | string[]; genre?: string | string[]; q?: string | string[] }> };
@@ -38,6 +42,8 @@ export default async function Explore({ searchParams }: Props) {
   const empty = top !== UNAVAILABLE && top.games.length === 0;
   return (
     <main className="explore">
+      {/* For search engines: the gallery as a collection, its usual first page (the week's most played) as the list. */}
+      {top !== UNAVAILABLE && top.games.length > 0 && <JsonLd data={galleryStructuredData(top.games, top.total ?? top.games.length, description)} />}
       <header className="explore__head">
         <div>
           <h1 className="title explore__title">Explore.</h1>

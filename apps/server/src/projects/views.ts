@@ -2,6 +2,7 @@
 import { Injectable } from "@nestjs/common";
 import type {
   Effort,
+  Genre,
   PlanId,
   PublicGame,
   Message as MessageView,
@@ -102,7 +103,8 @@ export class ProjectViews {
     return this.summaryOf(p, p.versions[0] ?? null, await this.playsOf(projectId));
   }
 
-  /** A shared game with a build, for anyone (the share page); 404 otherwise, the same for "private" and "missing". */
+  /** A shared game with a build, for anyone (the share page); 404 otherwise, the same for "private" and "missing".
+   * `listed`: in the gallery now, by the gallery's own rule (GalleryService.inGallery), which puts the page in search. */
   async publicGame(id: string): Promise<PublicGame> {
     const p =
       typeof id === "string" && /^[a-z0-9]{4,40}$/.test(id)
@@ -110,6 +112,7 @@ export class ProjectViews {
         : null;
     const v = p?.versions[0];
     if (!p || !v) throw notFound("We couldn't find that game.");
+    const [plays, listed] = await Promise.all([this.playsOf(p.id), this.gallery.inGallery(p.id)]);
     return {
       id: p.id,
       name: p.name,
@@ -118,7 +121,11 @@ export class ProjectViews {
       buildId: v.buildId,
       poster: v.poster,
       updatedAt: p.updatedAt.toISOString(),
-      plays: await this.playsOf(p.id),
+      plays,
+      listed,
+      genre: p.genre as Genre | null,
+      listedAt: listed && p.listedAt ? p.listedAt.toISOString() : null,
+      builtAt: v.createdAt.toISOString(),
     };
   }
 

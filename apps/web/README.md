@@ -134,8 +134,17 @@ chat, composer, game stage, versions), `src/app/create/CreateApp.tsx`, `src/app/
   address; the link preview is `/play/<id>/preview.png` (`card.tsx`: the start screen in an ink frame
   on the dusk desert, the site's fonts from `assets/fonts/`, SIL OFL). A route handler, not the
   `opengraph-image` file: under the app gate's `.app.tsx` names Next 16.4 links that file and then
-  answers 404. **The share pages say `noindex` (kept out of search) until Luka says otherwise**: then
-  drop `robots` in `app/play/[id]/page.app.tsx` and list shared games in `sitemap.ts`. Private by
+  answers 404. **In search only while the game is in the gallery** (2026-11-20, HQ's decision for parked
+  row 13): the API's `PublicGame.listed` (its maker put it there, it is shared and built, no admin took it
+  out) makes the page `index, follow`, with a search title and description that put the name first
+  (`content/seo.ts` `gameTitle`, `gameDescription`: "Sky Stack: play a free arcade game online | TypePlay",
+  "Sky Stack is a free arcade game you play in your browser, with no download and no sign-up. Made with TypePlay: …",
+  under 60 and 155 letters, shorter forms for long names), the same words in its link preview, and schema.org data
+  (`gameStructuredData`, one `@graph`): a `VideoGame` (name, address, picture, genre, web browser, free with an offer
+  at 0 USD, published when it went into the gallery, modified when it last changed, its plays as a `PlayAction`
+  count, TypePlay as publisher; nothing about the maker, no ratings) and a `BreadcrumbList` (TypePlay, the gallery,
+  the game). Shared by link only, taken out, or no answer about it:
+  `noindex, follow` with the same link preview (a link is for friends). Private by
   default; unsharing makes the page (and its preview) 404 at once, since nothing is cached. The real
   404 status comes from `src/proxy.app.ts`: it asks the API first and sends an unshared game to the
   prerendered `/play/not-shared` (the page itself streams after its shell, as Cache Components pages do,
@@ -358,8 +367,10 @@ PLAN.md "Better than the competitors" #9 with #4's share pages; the API's side: 
   Share menu shows a second switch, **Show it in the gallery** (off by default), that puts it on `/explore` too. Turning
   sharing off takes it out of the gallery as well, and sharing again leaves it out until the switch goes on again. When an
   admin took it out after a report, the switch's line says so and names the support address; its link keeps working.
-- **`/explore`** (`app/explore/`; app builds only, like the share pages; **noindex** until Luka says otherwise,
-  `docs/parked.md` row 13): "Explore." with one line; the **top game in its frame** (the week's most played, whatever the
+- **`/explore`** (`app/explore/`; app builds only, like the share pages; **in search** since 2026-11-20: it shows only
+  games their makers put there; one canonical, `/explore`, for every order, genre and search; "Explore free browser
+  games"; a schema.org `CollectionPage` whose `ItemList` is the first page of Popular by address and name,
+  `galleryStructuredData` in `content/seo.ts`): "Explore." with one line; the **top game in its frame** (the week's most played, whatever the
   library below shows) on the share page's ink stage (Play loads the real game in place, full screen on a phone; the name
   links to its page; Full screen, Share, Report this game) with the "Make your own game." invitation beside an upright one
   on wide screens; then **the library** (2026-10-27, Luka: a real library, not a few games): "Every game." with the count
@@ -391,7 +402,8 @@ PLAN.md "Better than the competitors" #9 with #4's share pages; the API's side: 
 - **Links in:** the status bar's **Games** on every page (2026-10-27; the public build, which has no gallery, keeps the
   home page's `/#games`), the share page's "More games made with TypePlay" and /games' "Explore games".
 - **Tests:** `scripts/shot-gallery.mjs`, inside `shot-app.mjs` or alone
-  (`node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-gallery.mjs [outDir] [siteUrl] [apiUrl]`, shots in
+  (`node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-gallery.mjs [outDir] [siteUrl apiUrl]`: alone on a
+  stack of its own, `dev-env.mjs` `startStack`, unless both addresses are given; shots in
   `.impeccable/review/gallery/` by default when alone): the empty gallery, the Share menu's switch, a play counted once per
   page view and the counts the maker sees, /explore signed out (Popular, New and All in place, a genre, a search, no
   match, an address with a view), a report from a listing and on a share page
@@ -706,7 +718,7 @@ screenshots work.
 
 - **Every public page is static HTML** built at deploy (`○ Static` in `next build`): crawlers and
   link-preview bots get the full content without running JavaScript. The signed-in app will be
-  `noindex`; SEO is for the public pages and, later, the public game pages.
+  `noindex`; SEO is for the public pages, the gallery and its games' share pages (since 2026-11-20).
 - **Per page:** title (template `%s | TypePlay`), description, canonical URL (`alternates.canonical`).
   The pricing description is built from `plans` in `content/site.ts`.
 - **Share card and icons:** files in `src/app/` (`opengraph-image.png` + `twitter-image.png`
@@ -717,7 +729,19 @@ screenshots work.
   from `site.ts`), rendered on the home page by `components/JsonLd.tsx`. Validates with 0 errors.
 - **`robots.ts`** blocks only `/app` and `/api`; pages kept out of search say `noindex` themselves
   (a robots block would hide the noindex). **`sitemap.ts`** lists the public pages; dates only where
-  real (the legal pages' `site.updated`).
+  real (the legal pages' `site.updated`). In app builds (2026-11-20) also `/explore` and every game in the
+  gallery (`/play/<id>`, `lastModified` when its page last changed: its playing version or its going into the
+  gallery, whichever is later, the same as its `dateModified`), read from the API's
+  `GET /public/sitemap` at request time (`lib/public.ts` `gallerySitemap`, `connection()`: a sitemap is a
+  special route handler, static unless it uses a request-time API); an API that doesn't answer leaves the
+  games out, never an error. Link-only, hidden and unshared games are never in it. At 50,000 games the API's
+  list stops (one sitemap file's limit): then `generateSitemaps`.
+- **The search check:** `node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-search.mjs` (a stack of its
+  own, no browser): what a crawler reads in the HTML as served, as Bingbot (no JavaScript) and Googlebot: a gallery
+  game's page index with its title, description, canonical, link preview, `VideoGame` (free, its dates) and
+  breadcrumb; link-only and hidden pages `noindex`; an unshared game's page 404; `/explore` indexable with one
+  canonical and its `CollectionPage` holding only the gallery game; `sitemap.xml` with `/explore` and
+  the gallery game only; the sitemap with the API down.
 - **Search engines:** Google Search Console, domain property `typeplay.app` on lazarashvili02@gmail.com
   (verified by a DNS TXT record on Cloudflare, keep it), sitemap submitted 10-16. Bing, Yandex and
   others get IndexNow pings after every `deploy.mjs site` (key file `public/55500354baed5d4122f52d78448b595d.txt`).

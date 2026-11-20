@@ -1,8 +1,8 @@
 // What anyone may see or do, without signing in: a shared game (the share page typeplay.app/play/<id>), the
-// public gallery (typeplay.app/explore), a play of a shared game, and a report about one.
+// public gallery (typeplay.app/explore) and its list for the sitemap, a play of a shared game, and a report about one.
 import { Body, Controller, Get, Header, HttpCode, Param, Post, Query, Req } from "@nestjs/common";
 import type { Request } from "express";
-import type { GalleryPage, PublicGame } from "@typeplay/shared";
+import type { GalleryPage, GallerySitemap, PublicGame } from "@typeplay/shared";
 import { Public } from "./auth/auth.guard.js";
 import { GalleryService } from "./gallery/gallery.service.js";
 import { visitorKey } from "./gallery/limits.js";
@@ -35,6 +35,19 @@ export class PublicController {
     @Query("q") q?: unknown,
   ): Promise<GalleryPage> {
     return this.gallery.page(sort, cursor, limit, genre, q);
+  }
+
+  /**
+   * Every game in the gallery, the newest change first (at most 50,000, one sitemap file's limit): what the site's
+   * sitemap.xml lists. Only what /explore shows anyone, nothing about makers. Cached 5 minutes by whatever sits between
+   * (a CDN, the site): a sitemap is a hint that crawlers read a few times a day, and each page says index or noindex
+   * itself at request time (GET games/:id, never cached), so a game that just left the gallery is out of search even
+   * while an older copy of this list still names it.
+   */
+  @Get("sitemap")
+  @Header("Cache-Control", "public, max-age=300")
+  sitemap(): Promise<GallerySitemap> {
+    return this.gallery.sitemap();
   }
 
   /** The share page's game started (the frame said ready): one more play today. 204 whatever came of it, so it says nothing. */

@@ -21,7 +21,8 @@ const useCanShare = () => useSyncExternalStore(noop, () => typeof navigator.shar
 
 /**
  * Share: a switch that makes the game public at /play/<id>, and its link to copy or send; then, while it is
- * shared, a second switch that also shows it in the public gallery (/explore), and how often it was played.
+ * shared, a second switch that also shows it in the public gallery (/explore), which lets search engines list its page
+ * too (2026-11-20), and how often it was played.
  * Private by default; turning sharing off makes the page disappear (404) at once and takes it out of the gallery.
  */
 export function ShareMenu({ project, onChange }: { project: Project; onChange: (p: Project) => void }) {
@@ -131,7 +132,7 @@ export function ShareMenu({ project, onChange }: { project: Project; onChange: (
                 {project.galleryHidden
                   ? "We took it out of the gallery after a report."
                   : project.listed
-                    ? "Anyone can find it on Explore."
+                    ? "Anyone can find it on Explore, and in search engines like Google."
                     : "Off: only people with the link find it."}
               </span>
             </div>

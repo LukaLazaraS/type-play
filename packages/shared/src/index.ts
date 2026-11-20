@@ -513,7 +513,10 @@ export interface UsagePage {
   next: string | null;
 }
 
-/** A shared game, as anyone can see it (no sign-in): the share page typeplay.app/play/<id>. */
+/**
+ * A shared game, as anyone can see it (no sign-in): the share page typeplay.app/play/<id>. Nothing about its maker. The
+ * page is in search only while `listed` is true; a link-only game's page says noindex (a link is for friends).
+ */
 export interface PublicGame {
   id: string;
   name: string;
@@ -526,6 +529,30 @@ export interface PublicGame {
   updatedAt: string;
   /** All-time plays, as ProjectSummary.plays. Added 2026-10-18 (the gallery). */
   plays: number;
+  /**
+   * In the public gallery (/explore) right now, by the gallery's own rule (the API's gallery.service.ts `IN_GALLERY`:
+   * listed by its maker, shared, not taken out by an admin, built): the one thing that puts the share page in search.
+   * False for a game shared by link only, or one an admin took out after reports. Added 2026-11-20; an older API leaves
+   * it out, which the site reads as false.
+   */
+  listed: boolean;
+  /** The genre skill it was built with, as GalleryGame.genre (null: none, or not known). Added 2026-11-20. */
+  genre: Genre | null;
+  /** While it is in the gallery: when it first went in, as GalleryGame.listedAt; null otherwise. Added 2026-11-20. */
+  listedAt: string | null;
+  /** When the version that plays now was made (a build, or a restore). Added 2026-11-20. */
+  builtAt: string;
+}
+
+/** GET /public/sitemap (2026-11-20): every game in the gallery, for typeplay.app/sitemap.xml. */
+export interface GallerySitemap {
+  /** Newest change first, at most 50,000 (one sitemap file's limit). */
+  games: {
+    id: string;
+    /** When its page last changed for a search engine: the later of the version that plays now (a new build or a
+     * restore) and its going into the gallery. The sitemap's lastmod; the share page's dateModified is the same. */
+    updatedAt: string;
+  }[];
 }
 
 /** GET /me/export: everything we keep about the account, as a JSON file (the privacy policy's "export"). */
@@ -1115,6 +1142,13 @@ export interface FeedbackBody {
 //                                                             and leaves an hour)
 // DELETE /beta/waitlist                    -> WaitlistState   (off the list; again: the same; 429 as above)
 // A beta code or an invite that lets the email in takes it off the list.
+//
+// Added 2026-11-20 (gallery games in search; apps/server/README.md "The public gallery"):
+// GET    /public/games/:id                 PublicGame gains `listed` (in the gallery now: the share page may be in search),
+//                                          `genre`, `listedAt` (while listed) and `builtAt` (the playing version's time)
+// GET    /public/sitemap                   -> GallerySitemap  (no sign-in; every game in the gallery as { id, updatedAt },
+//                                                             newest first, at most 50,000; Cache-Control public,
+//                                                             max-age=300)
 
 export type ApiErrorCode =
   | "unauthorized" // no or bad token

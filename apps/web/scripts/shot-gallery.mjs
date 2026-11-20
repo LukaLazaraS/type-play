@@ -8,14 +8,15 @@
 // then worst cases planted in the database: 300 games, 60-letter and unbreakable names, 9,999,999 plays,
 // missing and broken pictures, a wide game on top, Show more, 320 px.
 // The API under test: DEV_AUTH=1 AGENT_FAKE=1 (fake builds). Part of shot-app.mjs (galleryPart), or alone,
-// through the CPU limiter:
-//   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-gallery.mjs [outDir] [siteUrl] [apiUrl]
+// through the CPU limiter, on a stack of its own (2026-11-20: a database of the run's own and ports picked free,
+// dev-env.mjs startStack; build the API first) unless a site and an API are named:
+//   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-gallery.mjs [outDir] [siteUrl apiUrl]
 import { chromium } from "playwright";
 import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
-import { useDevEnv } from "./dev-env.mjs";
+import { startStack, useDevEnv, useOwnStack } from "./dev-env.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 
@@ -51,6 +52,34 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     }
     throw new Error("the report dialog didn't open");
   };
+  /** What runs out of the open Share menu: a line or a control outside it, the gallery line under its switch, and with
+   * `screen` (the viewport's width in CSS px) the menu off the screen. */
+  const shareFits = (p, id, screen = 0) =>
+    p.evaluate(([id, screen]) => {
+      const pop = document.getElementById(`share-${id}`);
+      if (!pop) return ["no Share menu"];
+      const box = pop.getBoundingClientRect();
+      const bad = [];
+      if (screen && (box.left < -0.5 || box.right > screen + 0.5)) bad.push(`the menu at ${Math.round(box.left)}-${Math.round(box.right)} of ${screen}`);
+      for (const el of pop.querySelectorAll(".share__head b, .share__head > div > span, .share__note, .toggle, .button")) {
+        const r = el.getBoundingClientRect();
+        if (r.width && (r.left < box.left - 0.5 || r.right > box.right + 0.5)) bad.push(`${el.className || el.tagName} outside`);
+      }
+      const line = document.getElementById(`gallery-state-${id}`)?.getBoundingClientRect();
+      const toggle = pop.querySelector(".share__gallery .toggle")?.getBoundingClientRect();
+      if (line && toggle && line.right > toggle.left + 0.5 && line.bottom > toggle.top && line.top < toggle.bottom) bad.push("the gallery line runs under its switch");
+      return bad;
+    }, [id, screen]);
+  /** 200% text (a phone's large-text setting), as shot-launch emulates it: every font size and line height doubled. */
+  const doubleText = (p) =>
+    p.evaluate(() => {
+      const els = [...document.querySelectorAll("body *")];
+      const sizes = els.map((el) => [parseFloat(getComputedStyle(el).fontSize), getComputedStyle(el).lineHeight]);
+      els.forEach((el, i) => {
+        el.style.fontSize = `${sizes[i][0] * 2}px`;
+        if (sizes[i][1].endsWith("px")) el.style.lineHeight = `${parseFloat(sizes[i][1]) * 2}px`;
+      });
+    });
   /** innerText with the figures' no-break spaces as plain ones. */
   const text = async (locator) => (await locator.innerText()).replace(/\u00a0/g, " ");
   // Next's dev-mode badge floats over a corner of the page: out of the pictures.
@@ -70,7 +99,8 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       await v.goto(`${base}/explore`, { waitUntil: "domcontentloaded", timeout: 120_000 });
       await v.locator(".explore__empty").waitFor({ timeout: 60_000 });
       check("an empty gallery says so, with Make a game", (await v.locator(".explore__empty-title").innerText()) === "No games here yet." && (await v.getByRole("link", { name: "Make a game" }).getAttribute("href")) === "/create");
-      check("/explore is kept out of search (noindex)", (await v.locator('meta[name="robots"]').getAttribute("content"))?.includes("noindex") === true);
+      const robots = await v.locator('meta[name="robots"]').evaluateAll((els) => els.map((e) => e.getAttribute("content")).join(" "));
+      check("/explore is in search (no noindex): it shows only games their makers put there", !robots.includes("noindex"), robots || "no robots tag");
       await noBadge(v);
       await shot(v, "explore-empty-desktop");
     } else console.log("skip: the database already has listed games, so the empty gallery isn't shown");
@@ -113,7 +143,7 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     await shot(page, "game-share-gallery-off-desktop");
     await gallerySwitch.click();
     await page.locator(`[role="switch"][aria-labelledby="gallery-title-${g1}"][aria-checked="true"]`).waitFor({ timeout: 10_000 });
-    check("the gallery switch on: it says anyone can find it on Explore", (await page.locator(`#gallery-state-${g1}`).innerText()) === "Anyone can find it on Explore.");
+    check("the gallery switch on: it says anyone can find it on Explore and in search engines", (await page.locator(`#gallery-state-${g1}`).innerText()) === "Anyone can find it on Explore, and in search engines like Google.");
     check("the API has it listed", (await api("GET", `/projects/${g1}`)).body?.listed === true);
     await page.waitForTimeout(200);
     await shot(page, "game-share-gallery-on-desktop");
@@ -182,7 +212,7 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     // ---- /explore, signed out ------------------------------------------------------------------------
     await v.goto(`${base}/explore`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     await v.locator(".feature").waitFor({ timeout: 60_000 });
-    check("/explore: its title", (await v.title()) === "Explore games | TypePlay", await v.title());
+    check("/explore: its title", (await v.title()) === "Explore free browser games | TypePlay", await v.title());
     check("Popular: the most played this week is on top, in its frame, with this week's plays", (await v.locator(".feature__name").innerText()) === "Fox Log Jumper" && (await text(v.locator(".feature__figures"))) === "2 plays this week · Runner", await text(v.locator(".feature__figures")));
     check("an upright top game sits beside the invitation (as on an upright share page)", await v.evaluate(() => { const f = document.querySelector(".feature")?.getBoundingClientRect(); const m = document.querySelector(".explore__top .play__made")?.getBoundingClientRect(); return !!f && !!m && m.left >= f.right && Math.abs(m.top - f.top) < 2; }));
     check("the top game's frame has its size (an upright game, beside its words)", await v.locator(".feature__frame").evaluate((f) => f.getBoundingClientRect().width > 200 && f.getBoundingClientRect().height > 350));
@@ -327,6 +357,28 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       await p.locator(".ws__tabs").waitFor({ timeout: 30_000 });
       await openShare(p);
       await shot(p, "game-share-gallery-phone");
+      // The gallery line says search engines too (2026-11-20): two lines now, still beside its switch and inside the
+      // popover, at 390 and 280 px and at 280 px with 200% text.
+      const at390 = await shareFits(p, g1, 390);
+      check("phone 390: the Share menu on the screen, its words inside it, the gallery line beside its switch", at390.length === 0, at390.join("; "));
+      await p.keyboard.press("Escape");
+      await p.setViewportSize({ width: 280, height: 653 });
+      await p.waitForTimeout(300);
+      await openShare(p);
+      const at280 = await shareFits(p, g1, 280);
+      check("phone 280: the same", at280.length === 0, at280.join("; "));
+      await shot(p, "game-share-gallery-280");
+      await p.keyboard.press("Escape");
+      // 200% text as a phone's setting gives it: the text large before the menu opens (it places itself as it opens).
+      await doubleText(p);
+      await p.waitForTimeout(300);
+      await openShare(p);
+      await p.waitForTimeout(300);
+      const big = await shareFits(p, g1);
+      check("phone 280 at 200% text: the words inside the menu, the gallery line beside its switch", big.length === 0, big.join("; "));
+      const bigScreen = await shareFits(p, g1, 280);
+      console.log(`phone 280 at 200% text, the menu on the screen: ${bigScreen.join("; ") || "yes"} (the page ${await p.evaluate(() => document.documentElement.scrollWidth)} px wide)`);
+      await shot(p, "game-share-gallery-280-text200");
       await p.keyboard.press("Escape");
     } finally {
       await phone.close();
@@ -433,9 +485,11 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
 
 // Alone: a browser of its own, the same helpers as shot-app.mjs, and the test account closed at the end.
 if (process.argv[1] && import.meta.filename === process.argv[1]) {
-  const out = process.argv[2] ?? join(import.meta.dirname, "../../../.impeccable/review/app");
-  const base = process.argv[3] ?? "http://localhost:3000";
-  const apiBase = process.argv[4] ?? "http://127.0.0.1:3002";
+  const out = process.argv[2] ?? join(import.meta.dirname, "../../../.impeccable/review/gallery");
+  // Never the local site's stack or typeplay_dev by default: a stack of its own unless both addresses are given.
+  const stack = process.argv[3] && process.argv[4] ? null : await startStack("gallery", await useOwnStack("gallery", 3));
+  const base = stack?.base ?? process.argv[3];
+  const apiBase = stack?.apiBase ?? process.argv[4];
   mkdirSync(out, { recursive: true });
   const stamp = Date.now().toString(36);
   const results = [];
@@ -471,6 +525,7 @@ if (process.argv[1] && import.meta.filename === process.argv[1]) {
       .then((r) => r.status)
       .catch(() => 0);
     check("cleanup: the test account closed", closed === 200 || closed === 401, String(closed));
+    stack?.stop();
   }
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed; screenshots in ${out}`);

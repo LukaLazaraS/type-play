@@ -906,6 +906,13 @@ async function galleryChecks(db) {
   };
   const play = (id, ip) => call(null, "POST", `/public/games/${id}/play`, undefined, ip);
   const report = (id, body, ip) => call(null, "POST", `/public/games/${id}/report`, body, ip);
+  // In search (2026-11-20): the share page's `listed` (index only then) and the sitemap's list.
+  const publicOf = (id) => call(null, "GET", `/public/games/${id}`);
+  const sitemap = async () => {
+    const res = await fetchAgain(`${gal.url}/public/sitemap`);
+    return { status: res.status, cache: res.headers.get("cache-control"), games: (await res.json()).games ?? [] };
+  };
+  const sitemapIds = async () => (await sitemap()).games.map((g) => g.id);
   const playsInDb = async (id) => (await db.query(`SELECT coalesce(sum(count), 0)::int AS n FROM "PlayCount" WHERE "projectId" = $1`, [id])).rows[0].n;
   const listedAt = async (id) => (await db.query(`SELECT "listedAt" FROM "Project" WHERE id = $1`, [id])).rows[0]?.listedAt ?? null;
   const build = async (token, prompt) => {
@@ -961,14 +968,23 @@ async function galleryChecks(db) {
     ok((await call(GB, "PATCH", `/projects/${g1}`, { shared: true, listed: true })).status === 404, "another user can't list it (404)");
     const both = await call(GA, "PATCH", `/projects/${g1}`, { shared: true, listed: true });
     ok(both.status === 200 && both.body.shared === true && both.body.listed === true, "share and list in one go");
+    const pubListed = await publicOf(g1);
+    ok(pubListed.status === 200 && pubListed.body.listed === true && pubListed.body.genre === "runner", "its share page: listed (so it may be in search), with its genre");
+    ok(Object.keys(pubListed.body).sort().join() === "buildId,builtAt,genre,id,listed,listedAt,name,orientation,platform,plays,poster,updatedAt", "the share page's game carries nothing about its maker");
+    // Milliseconds from SQL: node-postgres reads a timestamp without a time zone as this PC's local time, the API as UTC.
+    const listedMs = (await db.query(`SELECT round(extract(epoch FROM "listedAt") * 1000)::bigint AS ms FROM "Project" WHERE id = $1`, [g1])).rows[0]?.ms;
+    ok(Date.parse(pubListed.body.listedAt) === Number(listedMs) && Number.isFinite(Date.parse(pubListed.body.builtAt)), "…when it went into the gallery, and when its playing version was made");
     const firstListed = await listedAt(g1);
     ok(firstListed instanceof Date, "database: listedAt set");
     const unshared = (await call(GA, "PATCH", `/projects/${g1}`, { shared: false })).body;
     ok(unshared.shared === false && unshared.listed === false, "unsharing takes it out of the gallery too");
     ok((await call(GA, "PATCH", `/projects/${g1}`, { shared: true })).body?.listed === false, "sharing again doesn't put it back in the gallery by itself");
+    const linkOnly = await publicOf(g1);
+    ok(linkOnly.status === 200 && linkOnly.body.listed === false && linkOnly.body.listedAt === null, "shared by link only: the share page plays, not listed (it stays out of search), no gallery date");
     await new Promise((r) => setTimeout(r, 30));
     const back = await call(GA, "PATCH", `/projects/${g1}`, { listed: true });
     ok(back.body?.listed === true && (await listedAt(g1))?.getTime() === firstListed.getTime(), "back in the gallery: listedAt stays the first one (no jumping up in New)");
+    ok((await publicOf(g1)).body?.listed === true, "…and its share page is listed again");
     ok((await play(g2, "198.51.100.1")).status === 204 && (await playsInDb(g2)) === 0, "a play of a private game: 204, nothing counted");
     ok((await play("NOPE!", "198.51.100.1")).status === 404, "a play of something that isn't a game id: 404");
     for (const [t, id] of [[GA, g2], [GA, g3], [GB, g4]]) {
@@ -1050,11 +1066,27 @@ async function galleryChecks(db) {
     ok(later.games.length === 1 && later.total === undefined && later.genres === undefined, "a later page: no counts");
     await db.query(`UPDATE "Project" SET shared = true, listed = true, "listedAt" = now() AT TIME ZONE 'UTC' WHERE id = $1`, [g5]);
     ok(!(await gallery("new")).games.some((g) => g.id === g5), "listed and shared but never built (planted): not in the gallery");
+    ok((await publicOf(g5)).status === 404 && !(await sitemapIds()).includes(g5), "…no share page (404) and not in the sitemap");
     await db.query(`UPDATE "Project" SET shared = false, listed = false WHERE id = $1`, [g5]);
     await call(GA, "PATCH", `/projects/${g3}`, { shared: false });
     ok(!mine((await gallery("new")).games).includes(g3), "unshared: out of the gallery");
     await call(GA, "PATCH", `/projects/${g3}`, { shared: true });
     ok(!mine((await gallery("new")).games).includes(g3), "shared again, not listed: still out");
+
+    console.log("  in search: the sitemap's list (GET /public/sitemap)");
+    const sm = await sitemap();
+    const inGalleryNow = (await gallery("new")).games.map((g) => g.id);
+    ok(sm.status === 200 && sm.cache === "public, max-age=300", `200, cached 5 minutes (${sm.cache})`);
+    ok(sm.games.map((g) => g.id).sort().join() === [...inGalleryNow].sort().join() && mine(sm.games).split(",").sort().join() === [g1, g2, g4].sort().join(), "it lists exactly the gallery's games");
+    ok(!sm.games.some((g) => g.id === g3) && (await publicOf(g3)).body?.listed === false, "a game shared by link only: not in it, its share page not listed");
+    ok(sm.games.every((g) => Object.keys(g).sort().join() === "id,updatedAt" && Number.isFinite(Date.parse(g.updatedAt))), "each game: its id and a date, nothing else");
+    ok(sm.games.every((g, i) => i === 0 || Date.parse(sm.games[i - 1].updatedAt) >= Date.parse(g.updatedAt)), "newest first");
+    // As milliseconds in SQL: node-postgres reads a timestamp without a time zone as this PC's local time, Prisma as UTC.
+    const changedMs = (await db.query(`SELECT round(extract(epoch FROM GREATEST(v."createdAt", p."listedAt")) * 1000)::bigint AS ms FROM "Project" p JOIN "Version" v ON v."projectId" = p.id AND v.n = p."currentVersion" WHERE p.id = $1`, [g1])).rows[0]?.ms;
+    const g1Date = sm.games.find((g) => g.id === g1)?.updatedAt;
+    ok(changedMs != null && Date.parse(g1Date) === Number(changedMs), `a game's date: the later of its playing version and its going into the gallery (${g1Date})`);
+    const { SITEMAP_MAX } = await import("../dist/gallery/gallery.service.js");
+    ok(SITEMAP_MAX === 50_000, "at most 50,000 games (one sitemap file's limit)");
     const popCursor = (await call(null, "GET", "/public/gallery?sort=popular&limit=1")).body.next;
     const bad = await Promise.all(
       ["sort=best", "cursor=nonsense", "limit=49", "limit=0", "genre=space", `q=${"a".repeat(61)}`, `sort=all&cursor=${encodeURIComponent(popCursor)}`].map((q) => call(null, "GET", `/public/gallery?${q}`)),
@@ -1066,10 +1098,12 @@ async function galleryChecks(db) {
     const before = (await call(GA, "GET", `/projects/${g2}`)).body;
     ok(admin("gallery", "hide", g2, "e2e", "check").status === 0, "admin gallery hide");
     ok(!mine((await gallery("new")).games).includes(g2) && (await call(null, "GET", `/public/games/${g2}`)).status === 200, "hidden: out of the gallery, its share link still works");
+    ok((await publicOf(g2)).body?.listed === false && !(await sitemapIds()).includes(g2), "hidden: its share page isn't listed (out of search), not in the sitemap");
     const hiddenView = (await call(GA, "GET", `/projects/${g2}`)).body;
     ok(hiddenView.galleryHidden === true && hiddenView.listed === true, "the maker's view: still listed, and hidden (the Share menu says so)");
     ok((await db.query(`SELECT "hiddenReason" FROM "Project" WHERE id = $1`, [g2])).rows[0]?.hiddenReason === "e2e check", "database: the admin's reason");
     ok(admin("gallery", "unhide", g2).status === 0 && mine((await gallery("new")).games).includes(g2), "admin gallery unhide: back in");
+    ok((await publicOf(g2)).body?.listed === true && (await sitemapIds()).includes(g2), "unhidden: listed and in the sitemap again");
     ok((await call(GA, "GET", `/projects/${g2}`)).body.updatedAt === before.updatedAt, "hide and unhide don't move the game up its maker's list");
 
     console.log("  reports");
@@ -1088,6 +1122,7 @@ async function galleryChecks(db) {
     ok((await report(g4, { reason: "scam" }, "192.0.2.4")).status === 204, "a third report from a third address");
     const auto = (await call(GB, "GET", `/projects/${g4}`)).body;
     ok(auto.galleryHidden === true && !mine((await gallery("new")).games).includes(g4) && (await call(null, "GET", `/public/games/${g4}`)).status === 200, "3 open reports: out of the gallery by itself; the share link still works");
+    ok((await publicOf(g4)).body?.listed === false && !(await sitemapIds()).includes(g4), "…its share page isn't listed, not in the sitemap");
     ok((await db.query(`SELECT count(*)::int AS n FROM "BillingAudit" WHERE "userId" = $1 AND actor = 'job:reports' AND action = 'gallery_hide'`, [devId(GB)])).rows[0].n === 1, "audited (actor job:reports)");
     const open = admin("gallery", "reports");
     ok(open.status === 0 && open.stdout.includes(g4) && open.stdout.includes("3 reports, waiting for a look") && open.stdout.includes('"Looks like a copy of Mario"'), "admin gallery reports: the game, why it is hidden, the reports' words");
@@ -1105,6 +1140,7 @@ async function galleryChecks(db) {
     ok(admin("gallery", "unshare", g1, "e2e").status === 0, "admin gallery unshare");
     const un = (await call(GA, "GET", `/projects/${g1}`)).body;
     ok(un.shared === false && un.listed === false && (await call(null, "GET", `/public/games/${g1}`)).status === 404 && !mine((await gallery("new")).games).includes(g1), "unshared by an admin: the share page 404s, out of the gallery");
+    ok(!(await sitemapIds()).includes(g1), "…and out of the sitemap");
     ok(admin("gallery", "hide").status === 1 && admin("gallery", "hide", "nosuchgame1").status === 1, "a missing game id, or an unknown one: exit 1");
     const actions = (await db.query(`SELECT action FROM "BillingAudit" WHERE "userId" = $1 AND actor LIKE 'admin:%' ORDER BY at`, [devId(GA)])).rows.map((r) => r.action).join();
     ok(actions === "plan,gallery_hide,gallery_unhide,gallery_dismiss,gallery_unshare", `every gallery command wrote an audit row (${actions})`);
@@ -2707,7 +2743,8 @@ async function main() {
   ok(shared.status === 200 && shared.body.shared === true, "share: shared true");
   const pub = await api(null, "GET", `/public/games/${p.id}`);
   ok(pub.status === 200 && pub.body.name === "My Cat Game" && pub.body.buildId === `${p.id}-v4` && pub.body.poster === true, "public page: name, build, poster, no sign-in");
-  ok(Object.keys(pub.body).sort().join() === "buildId,id,name,orientation,platform,plays,poster,updatedAt", "public page shows nothing else (no prompts, no owner)");
+  ok(Object.keys(pub.body).sort().join() === "buildId,builtAt,genre,id,listed,listedAt,name,orientation,platform,plays,poster,updatedAt", "public page shows nothing else (no prompts, no owner)");
+  ok(pub.body.listed === false, "shared by link only: not listed (the share page stays out of search)");
   ok((await api(B, "GET", `/projects/${p.id}`)).status === 404, "sharing doesn't open the project itself to others");
   ok((await api(null, "GET", "/public/games/../me")).status === 404 && (await api(null, "GET", "/public/games/NOPE!")).status === 404, "odd ids: 404");
   const sharedAt = async () => (await dbMain.query(`SELECT "sharedAt" FROM "Project" WHERE id = $1`, [p.id])).rows[0]?.sharedAt ?? null;

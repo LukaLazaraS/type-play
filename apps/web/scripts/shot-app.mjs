@@ -364,8 +364,8 @@ try {
   await v.locator(".play__name").waitFor({ timeout: 30_000 });
   check("public page: the name and Made with TypePlay", (await v.locator(".play__name").innerText()) === "Cat Box Jumper" && (await v.locator(".play__by").innerText()) === "Made with TypePlay");
   check("public page: Make your own goes to /create", (await v.getByRole("link", { name: "Make your own" }).getAttribute("href")) === "/create");
-  check("public page: kept out of search (noindex)", (await v.locator('meta[name="robots"]').getAttribute("content"))?.includes("noindex") === true);
-  check("public page: its title", (await v.title()) === "Cat Box Jumper | TypePlay", await v.title());
+  check("public page, shared by link only (not in the gallery): kept out of search (noindex)", (await v.locator('meta[name="robots"]').getAttribute("content"))?.includes("noindex") === true);
+  check("public page: its title, the name first (\"Cat Box Jumper: play a free … online | TypePlay\")", /^Cat Box Jumper: play a free .+ online \| TypePlay$/.test(await v.title()), await v.title());
   const ogUrl = await v.locator('meta[property="og:image"]').getAttribute("content");
   const og = ogUrl ? await v.request.get(base + new URL(ogUrl).pathname + new URL(ogUrl).search) : null;
   check("public page: link preview picture (1200x630 PNG)", og?.status() === 200 && og.headers()["content-type"] === "image/png", ogUrl ?? "none");

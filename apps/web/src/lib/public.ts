@@ -1,8 +1,8 @@
-// Server side of the share pages and the gallery: what anyone may see (GET /public/*, no sign-in).
+// Server side of the share pages, the gallery and the sitemap: what anyone may see (GET /public/*, no sign-in).
 // Memoised per request, so a page and its metadata ask the API once.
 import { connection } from "next/server";
 import { cache } from "react";
-import type { GalleryPage, GallerySort, Genre, PublicGame } from "@typeplay/shared";
+import type { GalleryPage, GallerySitemap, GallerySort, Genre, PublicGame } from "@typeplay/shared";
 import { app } from "@/content/app";
 import { galleryQuery } from "@/lib/gallery";
 
@@ -38,3 +38,20 @@ export const galleryFirst = cache(async (sort: GallerySort, genre: Genre | null 
     return UNAVAILABLE;
   }
 });
+
+/** Every game in the gallery for sitemap.xml (GET /public/sitemap), newest first; null when the API can't say (down, too
+ * slow, or an older API without the route): the sitemap then lists the site's own pages alone. */
+export async function gallerySitemap(): Promise<GallerySitemap["games"] | null> {
+  // At request time, like the gallery: a game that joined it is listed at the next read.
+  await connection();
+  try {
+    const res = await fetch(`${app.apiOrigin}/public/sitemap`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const body = (await res.json()) as Partial<GallerySitemap>;
+    if (!Array.isArray(body.games)) return null;
+    // Only what makes a good address: a game id as the share pages take it, a date that reads.
+    return body.games.filter((g) => typeof g?.id === "string" && /^[a-z0-9]{4,40}$/.test(g.id) && Number.isFinite(Date.parse(g.updatedAt)));
+  } catch {
+    return null;
+  }
+}

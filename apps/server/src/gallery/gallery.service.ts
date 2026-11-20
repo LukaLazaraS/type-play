@@ -4,7 +4,7 @@
 import { closeSync, lstatSync, openSync, readSync } from "node:fs";
 import { join } from "node:path";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
-import type { GalleryGame, GalleryPage, GallerySort, Genre, Orientation, Platform, ReportReason } from "@typeplay/shared";
+import type { GalleryGame, GalleryPage, GallerySitemap, GallerySort, Genre, Orientation, Platform, ReportReason } from "@typeplay/shared";
 import { ApiException, badRequest, notFound } from "../common/api-error.js";
 import { config } from "../env.js";
 import { Prisma } from "../generated/prisma/client.js";
@@ -31,6 +31,15 @@ export const MAX_OPEN_REPORTS = 20;
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
+/** The most games GET /public/sitemap lists: one sitemap file's limit (sitemaps.org: 50,000 addresses). */
+export const SITEMAP_MAX = 50_000;
+
+/**
+ * In the gallery: listed by its maker, shared, not taken out by an admin, and built (with the playing version). The one
+ * definition, for a project row named `p`: the gallery's pages and counts, the share page's `listed` (which puts it in
+ * search) and the sitemap all read this.
+ */
+const IN_GALLERY = Prisma.sql`p.listed AND p.shared AND p."hiddenAt" IS NULL AND p."listedAt" IS NOT NULL AND p."currentVersion" IS NOT NULL`;
 
 /** The genre skill the game was built with: its folder's GENRE file (run.mjs writes it), read as untrusted data. */
 export function genreOf(projectId: string): Genre | null {
@@ -145,8 +154,6 @@ export class GalleryService implements OnModuleInit {
     const words = searchWords(qRaw);
     const c = cursorRaw === undefined || cursorRaw === "" ? null : decodeCursor(cursorRaw, sort);
     const week = Prisma.sql`coalesce(w.n, 0)`;
-    // In the gallery: listed, shared, not hidden, and built (the join below needs the playing version).
-    const inGallery = Prisma.sql`p.listed AND p.shared AND p."hiddenAt" IS NULL AND p."listedAt" IS NOT NULL AND p."currentVersion" IS NOT NULL`;
     const genreIs = genre ? Prisma.sql`AND p.genre = ${genre}::"Genre"` : Prisma.empty;
     const named = words.length ? Prisma.sql`AND ${Prisma.join(words.map((w) => Prisma.sql`p.name ILIKE ${anywhere(w)}`), " AND ")}` : Prisma.empty;
     const after = !c
@@ -162,7 +169,8 @@ export class GalleryService implements OnModuleInit {
         : sort === "all"
           ? Prisma.sql`lower(p.name) ASC, p.id ASC`
           : Prisma.sql`${week} DESC, p."listedAt" DESC, p.id DESC`;
-    // The playing version is the newest one (currentVersion); a restore makes a new version that reuses an old build.
+    // In the gallery (IN_GALLERY); the playing version is the newest one (currentVersion), a restore makes a new version
+    // that reuses an old build.
     const rows = await this.prisma.$queryRaw<Row[]>`
       SELECT p.id, p.name, lower(p.name) AS lname, p.orientation::text AS orientation, p.platform::text AS platform,
         p.genre::text AS genre, p."listedAt", v."buildId", v.poster, ${week}::int AS week
@@ -172,7 +180,7 @@ export class GalleryService implements OnModuleInit {
         SELECT "projectId", sum(count)::int AS n FROM "PlayCount"
         WHERE day > (now() AT TIME ZONE 'UTC')::date - 7 GROUP BY "projectId"
       ) w ON w."projectId" = p.id
-      WHERE ${inGallery} ${genreIs} ${named} ${after}
+      WHERE ${IN_GALLERY} ${genreIs} ${named} ${after}
       ORDER BY ${order}
       LIMIT ${limit + 1}`;
     const shown = rows.slice(0, limit);
@@ -181,9 +189,9 @@ export class GalleryService implements OnModuleInit {
       c
         ? null
         : Promise.all([
-            this.prisma.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM "Project" p WHERE ${inGallery} ${genreIs} ${named}`,
+            this.prisma.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM "Project" p WHERE ${IN_GALLERY} ${genreIs} ${named}`,
             this.prisma.$queryRaw<{ genre: Genre; n: number }[]>`
-              SELECT p.genre::text AS genre, count(*)::int AS n FROM "Project" p WHERE ${inGallery} AND p.genre IS NOT NULL GROUP BY p.genre`,
+              SELECT p.genre::text AS genre, count(*)::int AS n FROM "Project" p WHERE ${IN_GALLERY} AND p.genre IS NOT NULL GROUP BY p.genre`,
           ]),
     ]);
     const games: GalleryGame[] = shown.map((r) => ({
@@ -211,6 +219,32 @@ export class GalleryService implements OnModuleInit {
       if (n) genres[g] = n;
     }
     return { games, next, total, genres };
+  }
+
+  /** Whether this game is in the gallery now (IN_GALLERY): the share page is in search only then. */
+  async inGallery(id: string): Promise<boolean> {
+    if (!ID.test(id)) return false;
+    const [row] = await this.prisma.$queryRaw<{ listed: boolean }[]>`
+      SELECT EXISTS (SELECT 1 FROM "Project" p WHERE p.id = ${id} AND ${IN_GALLERY}) AS listed`;
+    return row?.listed === true;
+  }
+
+  /**
+   * Every game in the gallery for the site's sitemap.xml: its id and when its page last changed for a search engine, the
+   * later of the version that plays now (a build or a restore; a rename or a chat message doesn't change that page, a new
+   * build does) and the game's going into the gallery (when its page became public in search; the share page's
+   * dateModified is the same), newest first, at most SITEMAP_MAX. Nothing about makers; the gallery shows the same games
+   * to anyone.
+   */
+  async sitemap(): Promise<GallerySitemap> {
+    const rows = await this.prisma.$queryRaw<{ id: string; at: Date }[]>`
+      SELECT p.id, GREATEST(v."createdAt", p."listedAt") AS at
+      FROM "Project" p
+      JOIN "Version" v ON v."projectId" = p.id AND v.n = p."currentVersion"
+      WHERE ${IN_GALLERY}
+      ORDER BY at DESC, p.id DESC
+      LIMIT ${SITEMAP_MAX}`;
+    return { games: rows.map((r) => ({ id: r.id, updatedAt: r.at.toISOString() })) };
   }
 
   /** All-time plays per game, for these games (0 when none). */

@@ -138,7 +138,8 @@ Routes (all in the contract's endpoint list, `packages/shared/src/index.ts`):
   than 90 days are removed at the next closing. No payment records are in our database yet (Paddle
   keeps invoices).
 - `GET /public/games/:id` (no sign-in, `@Public()`): a shared, built game's name, build and poster;
-  404 for private, unshared or missing (no difference). The share page `/play/<id>` reads it.
+  404 for private, unshared or missing (no difference). The share page `/play/<id>` reads it. Since 2026-11-20 also
+  `listed`, `genre`, `listedAt` and `builtAt` ("The public gallery" below).
 - `GET /estimate` takes `&effort=low|medium|high`: a new game about 0.9× and 1.25× the medium numbers, a change
   0.8× and 2× (measured in beta 1, `credits.ts`); the credit checks before a run use the same effort.
 - **Posters:** `publishBuild()` also publishes the check's `export/screenshot-start.png` as
@@ -201,6 +202,24 @@ PLAN.md "Better than the competitors" #9 with #4's share pages. `src/gallery/` (
   database. The API log has a line per stored report (`report on <id>: <reason>`); nothing else tells Luka yet.
 - `ProjectSummary` gains `listed`, `galleryHidden` and `plays` (all time), `PublicGame` gains `plays`; the account export
   carries them.
+- **In search** (2026-11-20, HQ's decision for parked row 13): a share page is in search only while its game is in the
+  gallery. One definition decides it, `IN_GALLERY` in `gallery.service.ts` (listed, shared, `hiddenAt` null, `listedAt`
+  set, a playing version): the gallery's pages and counts, the share page and the sitemap all use it.
+  - `PublicGame.listed` (`GET /public/games/:id`, still `no-store`): in the gallery right now. True, the share page says
+    `index` and gets its search title and structured data; false (shared by link only, or taken out by an admin or by
+    reports), `noindex`. `PublicGame.genre`: the game's genre, as on a gallery card (null: none). `PublicGame.listedAt`:
+    while it is in the gallery, when it first went in (null otherwise, so a link-only page says nothing of it);
+    `PublicGame.builtAt`: when the version that plays now was made. The share page's structured data takes its
+    published and modified dates from these two.
+  - `GET /public/sitemap` (no sign-in) → `{ games: [{ id, updatedAt }] }`: every game in the gallery, newest first, at most
+    50,000 (`SITEMAP_MAX`, one sitemap file's limit; past that the site needs a sitemap index). `updatedAt` is the later
+    of when the version that plays now was made (a build, or a restore) and when the game went into the gallery (its
+    page became public in search), the same date as the share page's `dateModified`; not `Project.updatedAt`: a chat
+    message or a rename moves that, and the page a search engine reads changes with the build. One query, an id and a
+    date per game, nothing about
+    makers. `Cache-Control: public, max-age=300`: a sitemap is a hint crawlers read a few times a day, and each page says
+    `index` or `noindex` itself at request time, so a copy up to 5 minutes old never puts a game that left the gallery
+    in search; the site's `sitemap.xml` reads it at request time.
 - Admin, every command audited (a `BillingAudit` row as `admin:<name>`, action `gallery_<command>`):
 
 ```
@@ -230,7 +249,10 @@ npm run admin -w @typeplay/server -- gallery showcase                    # our s
   file, from the folder when listed, and filled in by a starting API; a genre, a search by words in any order and case,
   `%` and `_` as letters, the first page's counts, hidden / unshared / never built / not listed left out, bad parameters), reports (404, 400s, the stored line, 429 twice from one address and after 5 an hour,
   the third report hides by itself and is audited), `admin gallery reports | hide | unhide | dismiss | unshare` and their
-  audit rows.
+  audit rows; in search (2026-11-20): the share page's `listed` true only while in the gallery (false shared by link
+  only, hidden by an admin or by reports; 404 unshared and never built, as before), and the sitemap's list (exactly the
+  gallery's games, id and date only, newest first, the playing version's date, `Cache-Control`; link-only, hidden,
+  never built and unshared games left out).
 
 ## The closed beta and feedback (beta 1, added 2026-10-19)
 
