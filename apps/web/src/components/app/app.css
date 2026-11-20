@@ -2495,6 +2495,12 @@ body:has(.ws) .ground-band {
     position: relative;
     flex: 1;
   }
+  /* Large text on a narrow phone (200% at 280-390px): the tabs wrap onto more rows inside the bar, between the way back
+     and the people, instead of running past the screen (the page was 358px wide at 280). At the usual sizes one row. */
+  .ws__tabs .pillbar__tabs {
+    flex-wrap: wrap;
+    min-width: auto;
+  }
   .ws__back {
     display: grid;
     flex: none;

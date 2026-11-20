@@ -377,7 +377,8 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       const big = await shareFits(p, g1);
       check("phone 280 at 200% text: the words inside the menu, the gallery line beside its switch", big.length === 0, big.join("; "));
       const bigScreen = await shareFits(p, g1, 280);
-      console.log(`phone 280 at 200% text, the menu on the screen: ${bigScreen.join("; ") || "yes"} (the page ${await p.evaluate(() => document.documentElement.scrollWidth)} px wide)`);
+      const bigPage = await p.evaluate(() => document.documentElement.scrollWidth);
+      check("phone 280 at 200% text: the page no wider than the screen (the game's bar fits), the menu on it", bigScreen.length === 0 && bigPage <= 280, `${bigScreen.join("; ") || "on the screen"}; the page ${bigPage} px wide`);
       await shot(p, "game-share-gallery-280-text200");
       await p.keyboard.press("Escape");
     } finally {
