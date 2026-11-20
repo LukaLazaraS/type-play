@@ -930,6 +930,35 @@ maintenance changes). Minutes / $: Box Push 6.6 / 0.44, Desert Dash 8.7 / 0.50, 
 15.2 / 0.33. On the live server (our key, `admin run`): Dead Haul 4.7 min, Scrap Siege 11.2, Tank City 4.9, Sparkle Cleaners
 8.4, Shape Escape 14.2 (each with its proven fix or the rules). Before and after per game: the 11-07 report.
 
+## 2026-11-20: the game's public line (`tools/pitch.mjs`)
+
+One sentence per game, written after every run that built it, beside the closing calls: Haiku 5.5 at low effort, one
+turn, no tools, `ISOLATED`; inputs the name, GENRE, NOTES.md (first 60 lines) and the line it has, never the prompt.
+Code-checked (60-150 letters, one sentence, Latin letters, no links / @names / hashtags / emoji, nothing about how it
+was made, nothing personal, no hype words); a length-only fault is asked again once; any failure keeps the old line.
+
+**Quality sample** (`tests/pitch-eval.mjs`, Luka's Max login, API-equivalent; `_HQ/v2/notebook/tasks/typeplay-game-pitch-20261120/pitch-sample-*.json`):
+the prompt aimed at "90-140" put 3 of 12 lines over 150 (sample 1); aiming at 80-130 left 1 of 12 (sample 2); with the
+one retry, 12 of 12 pass (sample 3), $0.00004-0.0013 a line (a cache read makes the low one), $0.0007 on average, 5-10 s. The private case (a runner's
+notes with "Made for my daughter Lily Beridze's 7th birthday … class 2B at Tbilisi Public School 51 … Happy birthday
+Lily!" written in) came out "Leap a robot over cactuses in a sunset desert, double jump with a backflip, and grab gold
+coins as the speed keeps climbing." (124): no name, school, city or dedication. Every line says what the player does
+and the hook, from the notes only.
+
+**Real Fast builds** (`output/pitch-penguin`, runs.jsonl 11-20):
+
+| Run | Build | Charged | The call | Its seconds (capture beside it) | Tokens in / out | Share of the charge |
+|---|---|---|---|---|---|---|
+| New: "a penguin slides down an icy hill, collecting fish and jumping over snowmen" | 17.7 min, 2 steps | $0.164 | new, $0.0010 | 8.3 (60.8) | 6,056 / 265 | 0.6% |
+| Change: "Make the fish a bit bigger" | 5.2 min | $0.009 | kept, $0.0012 | 9.0 (37.4) | 6,444 / 454 | 13% (0.7% of the new build's) |
+| Change: "Add a night level after 1000 metres" | 8.5 min | $0.028 | kept, $0.0012 | 6.5 (27.8) | 6,844 / 432 | 4.3% |
+| Change: a night level and polar bears | stopped by the size check | $0.0008 (the check) | no call | - | - | - |
+
+The line: "Dodge the snowmen and grab the fish as a penguin slides down an endless icy hill, where the speed rises the
+faster you go." (121). No wall clock added: the call ends inside the capture. About half the tokens in are a cache
+write (the SDK caches the system prompt; one call per build never reads it back), so a build's call costs ~$0.001
+whatever the game. In the backfill (one call after another) later calls read the cache: $0.0003-0.0009.
+
 ## 2026-11-19: one Fast new game for the estimate (beta 1 had none under the current rules)
 
 Beta 1's two Fast new games were from October, before the 11-04 speed rules, so one was measured here (Luka's Max, the

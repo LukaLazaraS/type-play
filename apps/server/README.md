@@ -230,7 +230,8 @@ npm run admin -w @typeplay/server -- gallery hide <gameId> [reason]      # out o
 npm run admin -w @typeplay/server -- gallery unhide <gameId>             # back in (while its maker lists it); open reports handled
 npm run admin -w @typeplay/server -- gallery dismiss <gameId>            # open reports handled, the game stays as it is
 npm run admin -w @typeplay/server -- gallery unshare <gameId> [reason]   # stops sharing it: the share page 404s and it leaves the gallery (its maker can share it again)
-npm run admin -w @typeplay/server -- gallery showcase                    # our six showcase games in it (src/gallery/showcase.ts): the missing ones are added; one on an older build than showcase.ts names moves to it as its next version; else nothing changes
+npm run admin -w @typeplay/server -- gallery showcase                    # our six showcase games in it (src/gallery/showcase.ts): the missing ones are added; one on an older build than showcase.ts names moves to it as its next version; one whose public line differs gets showcase.ts's (2026-11-20); else nothing changes
+npm run admin -w @typeplay/server -- gallery pitch [--write]             # the gallery's games without a public line get one, once (below, "The game's public line"); a dry run unless --write
 ```
 
   `gallery showcase` (10-29) puts the six polished showcase games (the home page's) in the gallery under the account
@@ -255,6 +256,60 @@ npm run admin -w @typeplay/server -- gallery showcase                    # our s
   only, hidden by an admin or by reports; 404 unshared and never built, as before), and the sitemap's list (exactly the
   gallery's games, id and date only, newest first, the playing version's date, `Cache-Control`; link-only, hidden,
   never built and unshared games left out).
+
+## The game's public line (2026-11-20)
+
+Every game has one public sentence about itself (the site calls it its **description**): what the player does and the
+hook, 60-150 letters (aimed at 80-130), plain English. The share page shows it under the name and uses it as its
+description, link preview and `VideoGame` description (`apps/web/README.md` "Share page").
+
+- **Written by the build.** After every run that built the game (a new game or a change, `final.ok`), run.mjs's closing
+  calls include one more (`packages/agent/tools/pitch.mjs`: Haiku 5.5 at low effort, one turn, no tools, `ISOLATED`),
+  beside the player's message, the next-step ideas and the asset capture, so the build ends no later. Its inputs: the
+  game's name (project.godot), GENRE, NOTES.md (its first 60 lines) and the line it has; **never** the prompt, the
+  request history or the builder's reply (they hold the player's own words). It answers KEEP (the game didn't change in
+  kind) or a new line, which a code check holds to the rules (one sentence, 60-150 letters, Latin letters, no links,
+  @names, hashtags or emoji, nothing about how it was made, nothing personal, no hype words; a length-only fault is
+  asked again once). A failed check or call keeps the old line (or none) and never fails the build. The line goes in the
+  game folder's `PITCH`, inside the build's own commit (amended after the closing calls; the capture's
+  `captured.json` is moved to the amended commit), so it goes with versions, forks and downloads. A failed build,
+  questions and a size-check stop write none.
+- **Read after the build** (`src/games/pitch.ts` `readPitch`, through `readGameFile`: a plain file inside the folder; a
+  line that isn't 60-150 letters without links or @names is no line) into `Project.pitch` in `succeed()`, as GENRE is
+  read. A restore leaves `pitch` and `ownerPitch` as they are (as it leaves the name); the next build reads the restored
+  folder's PITCH.
+- **The owner's own.** `PATCH /projects/:id { ownerPitch }`, the owner only (a member: 403 `owner_only`, "Only the
+  game's owner can change its description."): a string is cleaned to one line (control characters out, spaces single)
+  and must be 1-150 letters without links or @names (400 with the reason, said for the Share menu); `null` goes back to
+  the AI's; the AI's own words sent back store null. Builds never touch it. `ProjectSummary` carries both (`pitch`,
+  `ownerPitch`); `PublicGame.pitch` is the one shown, `ownerPitch ?? pitch` (null: none yet, the site says its genre's
+  line). Migration `20261120000000_game_pitch`: the two nullable columns.
+- **Its cost is in the build's charge** (`pitchCostUsd` in the run's record and `FinalRecord`, added to `sideUsd` like the
+  next-step ideas): never a separate charge. Measured (PLAN.md package 9): ~$0.001 and ~8 s a call, beside the capture's
+  35-60 s, so no wall-clock added.
+- **The showcase games** have no player folder: their lines are in `src/gallery/showcase.ts` (written once by the same
+  call from the NOTES.md of the folders their builds came from, on Luka's PC), set by `gallery showcase` when added,
+  moved or when the line differs ("given their line"; `updatedAt` kept, so the gallery's order stays).
+- **The games in the gallery before lines** get theirs once: `npm run admin -- gallery pitch` (a dry run: each game's line,
+  its cost, calls and seconds, and the total) then `--write` (the database only, `UPDATE … WHERE pitch IS NULL`, so a
+  line set meanwhile wins; `updatedAt` kept; the folder's PITCH comes with the game's next build). Listed, shared, not
+  hidden, built, no line yet, not the showcase's; oldest in the gallery first; one audit row `gallery_pitch`. The same
+  call as a build's, from each folder's NOTES.md, GENRE and project.godot read as text the safe way (nothing in a game
+  folder is ever run); the call's Claude Code process starts in an empty folder of its own with only the system's
+  variables and, on `AGENT_AUTH=api`, the API key.
+  **On the live database it runs on the live server, in the api container** (the players' folders are real users' data
+  and never come to this PC, `docs/environments.md`; `admin:live` from this PC refuses it), on our API key there:
+  ```
+  node deploy/deploy.mjs api-ssh "cd /opt/typeplay-api && docker compose exec -T -w /app/apps/server -e ADMIN_NAME=hq api node dist/admin.js gallery pitch"
+  node deploy/deploy.mjs api-ssh "cd /opt/typeplay-api && docker compose exec -T -w /app/apps/server -e ADMIN_NAME=hq api node dist/admin.js gallery pitch --write"
+  ```
+  The last line printed is the total, "(billed to our API key)". On this PC's test databases it uses the Claude Code
+  login (the root .env's API key is kept out of the call).
+- Tests: `test/e2e.mjs` "the game's public line" (a new build writes it, in the build's commit and charge; a change keeps
+  or rewrites it; the owner's line, its 400s, 150 letters in any script; the AI's words typed back; a build with no line;
+  a PITCH with a link is none; a restore), `test/members-e2e.mjs` (the member's 403 and what the member sees),
+  `packages/agent/tests/pitch.mjs` (the call's rules without a model), `packages/agent/tests/pitch-eval.mjs` (the real
+  call on real NOTES.md files, the private case too).
 
 ## The closed beta and feedback (beta 1, added 2026-10-19)
 

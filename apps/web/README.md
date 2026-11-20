@@ -157,7 +157,16 @@ chat, composer, game stage, versions), `src/app/create/CreateApp.tsx`, `src/app/
   none on a link-only page), and under the invitation **More games** (`MoreGames.tsx`, on link-only pages too): up to
   12 other gallery games as the gallery's cards, its genre's most played first, then the gallery's, never itself,
   rendered on the server, in whole rows at each width (`OtherGames.tsx`); "More <genre> games" only when every card is
-  that genre, else "More games to play"; no answer from the API, no row. **While the API doesn't answer**, the share
+  that genre, else "More games to play"; no answer from the API, no row. **The game's own line** (its description,
+  2026-11-20; the API's `PublicGame.pitch`, the owner's line else the AI's, `apps/server/README.md` "The game's public
+  line"): one sentence of at most 150 letters under the name, before the figures (`.play__pitch`, white 16px, wrapping in
+  the column the frame makes: its own width counts for nothing, so a long line never widens a portrait game's column;
+  the frame leaves it room, `--play-chrome`, so Play stays on the first screen at 390 × 844). It is the page's
+  description, link preview (og and twitter) and `VideoGame.description`: the line, then " Play free in your browser, no
+  download." or " Free in your browser." when that fits whole in 155 letters, else the line alone (never cut inside a
+  word, never "…"; an owner's line without a full stop gets one before the tail). A game without one (built before
+  2026-11-20 and not changed since, until the backfill gives gallery games theirs) keeps the genre's words above. A
+  link-only page shows it too and stays `noindex`. **While the API doesn't answer**, the share
   page and `/explore` answer **503 with `Retry-After: 120`** (`src/proxy.app.ts` asks the API first, then sends the
   page as it renders, with its own "We can't load … right now", under that status; a search engine keeps a page
   through a 5xx and comes back, where a 200 with an error or noindex would drop it). The proxy asks for documents only
@@ -387,6 +396,17 @@ PLAN.md "Better than the competitors" #9 with #4's share pages; the API's side: 
   Share menu shows a second switch, **Show it in the gallery** (off by default), that puts it on `/explore` too. Turning
   sharing off takes it out of the gallery as well, and sharing again leaves it out until the switch goes on again. When an
   admin took it out after a report, the switch's line says so and names the support address; its link keeps working.
+- **Description** (the game's public line, 2026-11-20): the Share menu's last part, the owner's alone (as sharing: a
+  member of a pair-developed game has no Share menu; the API answers their edit 403 `owner_only`). Shown before the game
+  is shared, so the owner knows what goes public: the sentence as the page shows it (`.share__pitch`, set off by a rule on
+  its left, no box: a box would read as a field), whose it is ("Written by the AI from your game. A change that makes a
+  different game rewrites it." or "Yours. Changes to the game leave it as it is."), where it shows (its page; link
+  previews; search while in the gallery), **Edit** (the Field `TextArea`, 150 letters at most counted as the API counts
+  them, an emoji one, the letters left from 120, Enter saves, Escape cancels and leaves the menu open, a pasted line comes
+  in as one line; the API's no, a link or an @name, under the box) and, when the owner wrote their own,
+  **Use the AI's**. No line yet: "None yet. Your next change to the game writes one, or write your own." and Write one.
+  Saving the AI's own words back clears the owner's (the API stores null). The privacy note under the gallery switch
+  names the description among what anyone sees.
 - **`/explore`** (`app/explore/`; app builds only, like the share pages; **in search** since 2026-11-20: it shows only
   games their makers put there; one canonical, `/explore`, for every order, genre and search; "Explore free browser
   games"; a schema.org `CollectionPage` whose `ItemList` is the first page of Popular by address and name,
@@ -762,9 +782,13 @@ screenshots work.
   own, no browser): what a crawler reads in the HTML as served, as Bingbot (no JavaScript) and Googlebot: a gallery
   game's page index with its title, description, canonical, link preview, `VideoGame` (free, its dates) and
   breadcrumb; link-only and hidden pages `noindex`; an unshared game's page 404; `/explore` indexable with one
-  canonical and its `CollectionPage` holding only the gallery game; the descriptions differing by genre; the genre on
+  canonical and its `CollectionPage` holding only the gallery game; the genre on
   the page and its "In the gallery since" date (none on a link-only page); More games on a link-only page (the gallery
-  game, never itself) and its heading (a genre's name only over that genre's games); a `VideoGame` only; with the API
+  game, never itself) and its heading (a genre's name only over that genre's games); a `VideoGame` only; the game's line
+  (2026-11-20): under the name in the page as served, the description and both link previews the line and the long tail,
+  the `VideoGame` description the line, a link-only page showing it and still `noindex`, the owner's 150-letter line
+  alone and whole, a stop before the tail on an owner's line without one, back to the AI's, and a game without a line
+  keeping its genre's words; with the API
   down, 503 with Retry-After on the share page and `/explore` and the sitemap keeping its
   list; `sitemap.xml` with `/explore` and
   the gallery game only; the sitemap with the API down.
