@@ -144,7 +144,8 @@ export async function androidPart({ browser, base, apiBase, email, check, shot, 
     check("Use my own: the field opens", (await page.locator("#droid-package").getAttribute("readonly")) === null);
     await page.fill("#droid-package", "com.example.cat");
     await page.locator("#droid-name").focus();
-    const problem = await page.locator("#droid-package-hint").innerText();
+    // A refused name takes the hint's place as the field's error line (TextField: `<id>-error`).
+    const problem = await page.locator("#droid-package-error").innerText();
     check("a com.example name is refused before sending", /Google Play doesn't allow/.test(problem), problem);
     await page.fill("#droid-package", `com.shots.cat${stamp}`);
     await page.setInputFiles('input[type="file"]', { name: "icon.png", mimeType: "image/png", buffer: ICON });
