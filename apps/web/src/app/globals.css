@@ -1937,6 +1937,8 @@ q {
   gap: 20px;
   /* A word longer than the card (a translation's compound) breaks inside it instead of widening the page. */
   overflow-wrap: anywhere;
+  /* The price sizes itself from the card (cqi), so a narrow phone's card or large text never splits it. */
+  container-type: inline-size;
 }
 .plan--lead {
   background: var(--hot);
@@ -1949,9 +1951,10 @@ q {
 .plan__price {
   font-family: var(--font-display);
   font-weight: 900;
-  font-size: 56px;
+  font-size: min(56px, 20cqi);
   letter-spacing: -0.04em;
   line-height: 1;
+  overflow-wrap: normal;
 }
 .plan__price small {
   font-family: var(--font-ui);
@@ -1959,6 +1962,10 @@ q {
   font-size: 15px;
   letter-spacing: 0;
   margin-left: 6px;
+  /* "/ month" in one piece, and the one place the price may break (a digit and a slash never part otherwise): when the
+     line is too narrow (large text), it goes under the number whole. */
+  display: inline-block;
+  white-space: nowrap;
 }
 .plan p {
   font-size: 15px;
@@ -2024,7 +2031,19 @@ q {
 /* A plan's button and, with billing off, the line above it (content/billing.ts pricingSale). */
 .plan__action {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
+}
+/* A label too long for its line (large text, a narrow phone) wraps inside its card or box instead of running out of it,
+   as the closed beta's buttons do on a phone; the padding gives back what the taller line takes (50px tall, was 51). */
+.plan__action .button,
+.cta--start .cta__actions .button {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  text-wrap: balance;
+  line-height: 1.2;
+  padding-block: 15px;
 }
 .plan .plan__off {
   font-weight: 600;
@@ -2110,7 +2129,6 @@ q {
    list's. From 900px down each row's words take the full width over its three numbers. */
 .credits {
   padding: 6px 0;
-  overflow: hidden;
 }
 .credits__table {
   width: 100%;
@@ -2206,6 +2224,9 @@ q {
   .credits__table .credits__ai {
     display: block;
     padding: 0;
+    /* Each cell wraps inside its own column (large text): nothing runs into the next one. */
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .credits__table .credits__corner {
     display: none;
