@@ -123,7 +123,8 @@ export default function Pricing() {
           dollar. <TextLink href="#credits">What credits buy</TextLink> is below the plans. Prices in US dollars; tax is added at checkout by Paddle.
         </p>
         {off && <p className="pricing__state">{off.lead}</p>}
-        <div className="plans">
+        {/* Billing off: Free, the plan to start on, stays first when the cards stack (globals.css .plans--off). */}
+        <div className={off ? "plans plans--off" : "plans"}>
           {plans
             .filter((p) => p.row === 1)
             .map((p) => (

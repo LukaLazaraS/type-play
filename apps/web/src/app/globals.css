@@ -2001,7 +2001,9 @@ q {
   .plans--big {
     grid-template-columns: minmax(0, 1fr);
   }
-  .plan--lead {
+  /* Stacked, the lead plan (Medium) comes first while it can be bought; with billing off (`.plans--off`) the cards keep
+     their order, Free first, as they come in the page (and in Tab's order). */
+  .plans:not(.plans--off) .plan--lead {
     order: -1;
   }
 }
