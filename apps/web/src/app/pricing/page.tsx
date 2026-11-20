@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   // Built from the plans, so a price change in site.ts reaches search results too.
   description: `TypePlay plans: ${plans
     .map((p) => (p.price === 0 ? `${p.name} to start` : `${p.name} at $${p.price} a ${p.period}`))
-    .join(", ")}. Credits per build, shown before it runs.`,
+    .join(", ")}. Credits per message, with an estimate shown before it runs.`,
   alternates: { canonical: "/pricing" },
 };
 

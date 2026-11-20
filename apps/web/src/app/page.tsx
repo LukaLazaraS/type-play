@@ -192,9 +192,8 @@ export default function Home() {
           <p>
             Every game is a real Godot project, so the same game can go to the web now, and to
             Android, iOS and Steam as each export arrives. Then we make the build, and you
-            publish it on your own Google or Apple developer account, under your own name. Next
-            on the list: connect your Google Play account once and publish from TypePlay in one
-            click.
+            publish it on your own Google or Apple developer account, under your own name.
+            Later: connect your Google Play account once and publish from TypePlay in one click.
           </p>
           <PlatformSlots />
         </div>
