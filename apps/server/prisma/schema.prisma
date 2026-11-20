@@ -288,6 +288,11 @@ model Project {
   hiddenReason   String?
   /// The genre skill it was built with (its folder's GENRE file after each build): the gallery's genre filter.
   genre          Genre?
+  /// The game's public line (2026-11-20), the AI's: its folder's PITCH file after each build (packages/agent/tools/pitch.mjs,
+  /// from NOTES.md, never the prompt); null: none yet. A restore leaves it as it is, as it leaves the name.
+  pitch          String?
+  /// The owner's own line (the Share menu), shown instead of `pitch`; null: the AI's shows. Builds never touch it.
+  ownerPitch     String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   messages       Message[]

@@ -19,6 +19,7 @@ import { MODELS } from "../credits/credits.js";
 import { CreditsService, type CreditHold } from "../credits/credits.service.js";
 import type { User } from "../generated/prisma/client.js";
 import { readPlatformWord, readProjectGodot } from "../games/files.js";
+import { cleanOwnerPitch } from "../games/pitch.js";
 import { removeFolder, restoreCommit, settleFolder } from "../games/git.js";
 import { orientationOf, platformOf } from "../games/godot.js";
 import { parsePicks, picksOf } from "../games/picks.js";
@@ -352,13 +353,34 @@ export class ProjectsService {
     return this.views.full(id, user.id);
   }
 
-  /** Rename (anyone in the game), share or unshare, and show it in the gallery or not (its owner only). A rename sticks:
-   * later builds keep it. */
+  /** Rename (anyone in the game), share or unshare, show it in the gallery or not, and its public line (its owner only). A
+   * rename and the owner's line stick: later builds keep them. */
   async update(user: User, id: string, body: unknown): Promise<ProjectView> {
     const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
     const sharing = b.shared !== undefined || b.listed !== undefined;
-    const { project } = await this.access.game(user.id, id, sharing ? "owner" : "edit", "Only the game's owner can share it or put it in the gallery.");
-    const data: { name?: string; renamed?: true; shared?: boolean; sharedAt?: Date | null; listed?: boolean; listedAt?: Date; genre?: Genre | null } = {};
+    const pitching = b.ownerPitch !== undefined;
+    const { project } = await this.access.game(
+      user.id,
+      id,
+      sharing || pitching ? "owner" : "edit",
+      sharing ? "Only the game's owner can share it or put it in the gallery." : "Only the game's owner can change its description.",
+    );
+    const data: {
+      name?: string;
+      renamed?: true;
+      shared?: boolean;
+      sharedAt?: Date | null;
+      listed?: boolean;
+      listedAt?: Date;
+      genre?: Genre | null;
+      ownerPitch?: string | null;
+    } = {};
+    // The game's public line, the owner's own (null: back to the AI's). The AI's line typed back unchanged is the AI's
+    // again, so its later lines show.
+    if (pitching) {
+      const line = cleanOwnerPitch(b.ownerPitch);
+      data.ownerPitch = line === project.pitch ? null : line;
+    }
     if (b.name !== undefined) {
       data.name = cleanName(b.name);
       data.renamed = true;
@@ -380,7 +402,7 @@ export class ProjectsService {
       if (b.listed) data.genre = genreOf(id);
     }
     if (data.shared === false) data.listed = false;
-    if (!Object.keys(data).length) throw badRequest("Say what to change: a name, sharing, or the gallery.");
+    if (!Object.keys(data).length) throw badRequest("Say what to change: a name, sharing, the gallery, or the description.");
     // updatedAt is the last build or message: a rename or a share doesn't move the game up the list.
     await this.prisma.project.update({ where: { id }, data: { ...data, updatedAt: project.updatedAt } });
     return this.views.full(id, user.id);

@@ -981,7 +981,7 @@ async function galleryChecks(db) {
     ok(both.status === 200 && both.body.shared === true && both.body.listed === true, "share and list in one go");
     const pubListed = await publicOf(g1);
     ok(pubListed.status === 200 && pubListed.body.listed === true && pubListed.body.genre === "runner", "its share page: listed (so it may be in search), with its genre");
-    ok(Object.keys(pubListed.body).sort().join() === "buildId,builtAt,genre,id,listed,listedAt,name,orientation,platform,plays,poster,updatedAt", "the share page's game carries nothing about its maker");
+    ok(Object.keys(pubListed.body).sort().join() === "buildId,builtAt,genre,id,listed,listedAt,name,orientation,pitch,platform,plays,poster,updatedAt", "the share page's game carries nothing about its maker");
     // Milliseconds from SQL: node-postgres reads a timestamp without a time zone as this PC's local time, the API as UTC.
     const listedMs = (await db.query(`SELECT round(extract(epoch FROM "listedAt") * 1000)::bigint AS ms FROM "Project" WHERE id = $1`, [g1])).rows[0]?.ms;
     ok(Date.parse(pubListed.body.listedAt) === Number(listedMs) && Number.isFinite(Date.parse(pubListed.body.builtAt)), "…when it went into the gallery, and when its playing version was made");
@@ -1781,6 +1781,80 @@ async function platformChecks() {
  * build that failed builds again with them; and one that waits in line (an API of our own with one builder)
  * starts with them.
  */
+/**
+ * The game's public line (2026-11-20; packages/agent/tools/pitch.mjs, the fake agent's PITCH file): a new build writes it
+ * into the folder and its commit, the server reads it onto the project; a change keeps or rewrites it, a bad file is no
+ * line; its call is inside the build's charge; the share page shows the owner's line, else the AI's; the owner's line
+ * (cleaned, 400 with the reason, the AI's typed back is the AI's again) survives builds; a restore leaves both.
+ */
+async function pitchChecks(db) {
+  console.log("the game's public line: written by the build, kept or rewritten by a change, the owner's own, the share page, the charge");
+  const { FAKE_PITCH } = await import("../dist/runs/fake-agent.js");
+  const L = `dev:e2e-${stamp}-pitch@test.local`;
+  await api(L, "GET", "/me");
+  ok(admin("plan", emailOf(L), "medium").status === 0 && admin("grant", emailOf(L), "40").status === 0, "a maker on Medium + 40 credits");
+  const made = await api(L, "POST", "/projects", { prompt: "A robot runner PITCHUSD:0.06", model: "fast" });
+  const id = made.body.id;
+  projects.push(id);
+  const s = await openEvents(L, id);
+  const fileOf = () => (existsSync(join(DATA, "projects", id, "PITCH")) ? readFileSync(join(DATA, "projects", id, "PITCH"), "utf8").trim() : null);
+  // A change's end: the done (or failed) event of the agent message its POST answered with.
+  const change = async (text) => {
+    const sent = await api(L, "POST", `/projects/${id}/messages`, { text, model: "fast" });
+    const answer = sent.body?.messages?.at(-1)?.id;
+    return s.until((e) => finished(e) && e.message.id === answer);
+  };
+  const publicLine = async () => (await api(null, "GET", `/public/games/${id}`)).body?.pitch;
+  const end1 = await s.until(finished);
+  ok(end1.type === "done" && end1.project.pitch === FAKE_PITCH.new && end1.project.ownerPitch === null, "a new build: its line on the project (the done event's summary), no owner's line");
+  ok(fileOf() === FAKE_PITCH.new && gitIn(id, "show", "HEAD:PITCH") === FAKE_PITCH.new && gitIn(id, "status", "--porcelain") === "", "…in the folder's PITCH, inside the build's own commit");
+  const row1 = (await db.query(`SELECT credits::float AS credits, "costUsd"::float AS cost FROM "Message" WHERE id = $1`, [end1.message.id])).rows[0];
+  ok(end1.message.credits === creditsForUsd(0.16) && Math.abs(row1.cost - 0.2) < 1e-9, `its call is inside the build's charge: $0.10 + $0.06 = ${creditsForUsd(0.16)} credits, $0.20 in our accounting`);
+
+  const end2 = await change("Add coins");
+  ok(end2.type === "done" && end2.project.pitch === FAKE_PITCH.new && fileOf() === FAKE_PITCH.new, "a change that keeps it: the same line");
+  const end3 = await change("Make it night REPITCH");
+  ok(end3.project.pitch === FAKE_PITCH.edit && gitIn(id, "show", "HEAD:PITCH") === FAKE_PITCH.edit, "a change that rewrites it: the new line, in its commit");
+
+  ok((await api(null, "GET", `/public/games/${id}`)).status === 404, "private: no share page");
+  await api(L, "PATCH", `/projects/${id}`, { shared: true });
+  const pub = (await api(null, "GET", `/public/games/${id}`)).body;
+  ok(pub.pitch === FAKE_PITCH.edit && pub.listed === false, "shared by link: the share page gets the AI's line (not in the gallery)");
+
+  const own = await api(L, "PATCH", `/projects/${id}`, { ownerPitch: "  Help a tiny robot\n outrun the desert\u0007 night,   one jump at a time.  " });
+  ok(own.status === 200 && own.body.ownerPitch === "Help a tiny robot outrun the desert night, one jump at a time." && own.body.pitch === FAKE_PITCH.edit, "the owner's line: one line, spaces tidied; the AI's kept beside it");
+  ok((await publicLine()) === own.body.ownerPitch, "the share page shows the owner's line");
+  for (const [body, what, words] of [
+    [{ ownerPitch: "   " }, "empty", /Write a description/],
+    [{ ownerPitch: "x".repeat(151) }, "151 letters", /150 letters at most/],
+    [{ ownerPitch: "Race the robot home, then grab free coins at robots.example.com before they run out." }, "a link", /links/],
+    [{ ownerPitch: "Race the robot home with friends: follow @robotfan for the next levels and secrets." }, "an @name", /links/],
+    [{ ownerPitch: 42 }, "not text", /text/],
+  ]) {
+    const r = await api(L, "PATCH", `/projects/${id}`, body);
+    ok(r.status === 400 && r.body?.error === "bad_request" && words.test(r.body.message), `the owner's line, ${what}: 400 "${r.body?.message}"`);
+  }
+  const wide = "ნ".repeat(147) + " 🤖🤖";
+  ok((await api(L, "PATCH", `/projects/${id}`, { ownerPitch: wide })).body?.ownerPitch === wide, "150 letters in any script, emoji too: the owner's to write");
+  const typedBack = await api(L, "PATCH", `/projects/${id}`, { ownerPitch: FAKE_PITCH.edit });
+  ok(typedBack.body?.ownerPitch === null && (await publicLine()) === FAKE_PITCH.edit, "the AI's line typed back is the AI's again (its later lines show)");
+  await api(L, "PATCH", `/projects/${id}`, { ownerPitch: own.body.ownerPitch });
+
+  const end4 = await change("Add a boss NOPITCH");
+  ok(end4.project.pitch === null && end4.project.ownerPitch === own.body.ownerPitch && fileOf() === null, "a build with no line: the AI's is gone, the owner's stays");
+  ok((await publicLine()) === own.body.ownerPitch, "…and the share page keeps the owner's");
+  const reset = await api(L, "PATCH", `/projects/${id}`, { ownerPitch: null });
+  ok(reset.status === 200 && reset.body.ownerPitch === null && (await publicLine()) === null, "back to the AI's line (none now): the share page has none (the site says its genre's line)");
+  const end5 = await change("Add sparkles BADPITCH");
+  ok(end5.type === "done" && end5.project.pitch === null, "a PITCH file with a link in it is no line");
+
+  const restored = await api(L, "POST", `/projects/${id}/restore`, { n: 3 });
+  ok(restored.status === 200 && restored.body.pitch === null && fileOf() === FAKE_PITCH.edit, "a restore leaves the project's line as it is (as the name); the folder has that version's PITCH");
+  const end6 = await change("Add a second level");
+  ok(end6.project.pitch === FAKE_PITCH.edit, "the next build reads the folder's line again (kept)");
+  s.close();
+}
+
 async function pickChecks(db) {
   console.log("the genre and tags: wrong ones refused, they reach the build and are recorded; a change, a retry, the queue");
   const K = `dev:e2e-${stamp}-picks@test.local`;
@@ -2769,7 +2843,7 @@ async function main() {
   ok(shared.status === 200 && shared.body.shared === true, "share: shared true");
   const pub = await api(null, "GET", `/public/games/${p.id}`);
   ok(pub.status === 200 && pub.body.name === "My Cat Game" && pub.body.buildId === `${p.id}-v4` && pub.body.poster === true, "public page: name, build, poster, no sign-in");
-  ok(Object.keys(pub.body).sort().join() === "buildId,builtAt,genre,id,listed,listedAt,name,orientation,platform,plays,poster,updatedAt", "public page shows nothing else (no prompts, no owner)");
+  ok(Object.keys(pub.body).sort().join() === "buildId,builtAt,genre,id,listed,listedAt,name,orientation,pitch,platform,plays,poster,updatedAt", "public page shows nothing else (no prompts, no owner)");
   ok(pub.body.listed === false, "shared by link only: not listed (the share page stays out of search)");
   ok((await api(B, "GET", `/projects/${p.id}`)).status === 404, "sharing doesn't open the project itself to others");
   ok((await api(null, "GET", "/public/games/../me")).status === 404 && (await api(null, "GET", "/public/games/NOPE!")).status === 404, "odd ids: 404");
@@ -3046,6 +3120,7 @@ async function main() {
   await badgeChecks();
   await platformChecks();
   await pickChecks(db);
+  await pitchChecks(db);
   await sizeChecks(db);
   await securityChecks();
   await pushChecks(db);

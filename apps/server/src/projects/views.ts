@@ -87,6 +87,8 @@ export class ProjectViews {
       listed: p.listed,
       galleryHidden: p.hiddenAt !== null,
       plays,
+      pitch: p.pitch,
+      ownerPitch: p.ownerPitch,
     };
   }
 
@@ -126,6 +128,8 @@ export class ProjectViews {
       genre: p.genre as Genre | null,
       listedAt: listed && p.listedAt ? p.listedAt.toISOString() : null,
       builtAt: v.createdAt.toISOString(),
+      // The owner's own line wins over the AI's (a link-only page shows it too: friends' link previews).
+      pitch: p.ownerPitch ?? p.pitch,
     };
   }
 

@@ -67,6 +67,9 @@ export interface AgentResult {
   suggestions?: string[];
   /** What the ideas call cost: part of the answer's charge, like the player-message rewrite. */
   suggestionsCostUsd?: number;
+  /** What the public line's call cost (2026-11-20, packages/agent/tools/pitch.mjs; the line itself is the folder's PITCH):
+   * part of the answer's charge, as the ideas'. */
+  pitchCostUsd?: number;
   /** A new game's genre and size call, and a change's size check: part of the answer's charge too (added 2026-10-29). */
   classifyCostUsd?: number;
   sizeCheckCostUsd?: number;
@@ -159,6 +162,7 @@ interface FinalRecord {
   chargeUsd?: number;
   suggestions?: unknown;
   suggestionsCostUsd?: number;
+  pitchCostUsd?: number;
   classifyCostUsd?: number;
   sizeCheckCostUsd?: number;
   tooBig?: boolean;
@@ -253,6 +257,7 @@ export function runAgent(job: AgentJob): AgentHandle {
     // refusing the job, e.g. a game folder over its size limit) is a failure whatever the record says.
     // Its costs still count for our accounting; the player pays nothing.
     const sideCosts = {
+      pitchCostUsd: Number(r?.pitchCostUsd ?? 0),
       classifyCostUsd: Number(r?.classifyCostUsd ?? 0),
       sizeCheckCostUsd: Number(r?.sizeCheckCostUsd ?? 0),
       askCostUsd: Number(r?.askCostUsd ?? 0),

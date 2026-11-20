@@ -216,6 +216,13 @@ export interface ProjectSummary {
   galleryHidden: boolean;
   /** Times its share page started the game, all time. Counted per game and day only: nothing about who played. */
   plays: number;
+  /**
+   * The game's public line (2026-11-20), written by the AI after each build from the game's notes (never the prompt):
+   * one sentence on its share page and in its search and link previews. null: none yet. Everyone in the game sees it.
+   */
+  pitch: string | null;
+  /** The owner's own line (the Share menu, PATCH { ownerPitch }), shown instead of `pitch`; null: the AI's shows. */
+  ownerPitch: string | null;
 }
 
 /** queued: the build waits for a free builder (added 2026-10-26); running from its start. */
@@ -542,6 +549,12 @@ export interface PublicGame {
   listedAt: string | null;
   /** When the version that plays now was made (a build, or a restore). Added 2026-11-20. */
   builtAt: string;
+  /**
+   * Its public line: the owner's own, else the AI's (ProjectSummary.ownerPitch ?? pitch), one sentence of at most 150
+   * letters. Shown on the share page and used as its description in search and link previews; null: none yet (the page
+   * says its genre's line instead). Added 2026-11-20 (the game pitch); an older API leaves it out, read as null.
+   */
+  pitch?: string | null;
 }
 
 /** GET /public/sitemap (2026-11-20): every game in the gallery, for typeplay.app/sitemap.xml. */
@@ -841,11 +854,13 @@ export interface RestoreBody {
 }
 
 /** PATCH /projects/:id: rename (1-60 letters; later builds keep it), share or unshare, and show it in the gallery or not
- * (`listed`, only while shared). */
+ * (`listed`, only while shared), and the game's public line (`ownerPitch`, 2026-11-20: one line of plain text, 1-150
+ * letters, no links; null goes back to the AI's line). Sharing, the gallery and the line are the owner's (403 owner_only). */
 export interface UpdateProjectBody {
   name?: string;
   shared?: boolean;
   listed?: boolean;
+  ownerPitch?: string | null;
 }
 
 /** DELETE /me: closes the account. `confirm` must be exactly "DELETE" (the user typed it). */
@@ -1149,6 +1164,12 @@ export interface FeedbackBody {
 // GET    /public/sitemap                   -> GallerySitemap  (no sign-in; every game in the gallery as { id, updatedAt },
 //                                                             newest first, at most 50,000; Cache-Control public,
 //                                                             max-age=300)
+//
+// Added 2026-11-20 (the game's public line; apps/server/README.md "The game's public line"):
+// GET    /public/games/:id                 PublicGame gains `pitch` (the owner's line, else the AI's; null: none yet)
+// GET    /projects, /projects/:id, events  ProjectSummary gains `pitch` (the AI's, after each build) and `ownerPitch`
+// PATCH  /projects/:id                     { ownerPitch: string | null }: the owner's own line (1-150 letters, no links;
+//                                          400 with the reason), null back to the AI's; owner only (403 owner_only)
 
 export type ApiErrorCode =
   | "unauthorized" // no or bad token

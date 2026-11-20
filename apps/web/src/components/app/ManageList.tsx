@@ -30,6 +30,8 @@ const summaryOf = (p: Project): ProjectSummary => ({
   listed: p.listed,
   galleryHidden: p.galleryHidden,
   plays: p.plays,
+  pitch: p.pitch,
+  ownerPitch: p.ownerPitch,
 });
 
 /** /games, "Manage": every game as a row with Rename, Download and Delete (which asks first). */

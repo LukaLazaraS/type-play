@@ -18,9 +18,13 @@
 // The Assets tab (2026-11-04): "ASSETS", "ASSETS3D" and "ASSETSWORST" (the worst real data) leave asset files and the
 // build's capture, "NOCAPTURE" none
 // (fake-assets.ts); any other prompt, a capture with nothing in it.
+// The public line (2026-11-20, packages/agent/tools/pitch.mjs) in the PITCH file, in the build's commit, as run.mjs keeps
+// it: a new game gets FAKE_PITCH.new; a change keeps the line it had, "REPITCH" writes FAKE_PITCH.edit, "NOPITCH" leaves
+// none, "BADPITCH" a line with a link (the server must take it as none). "PITCHUSD:<n>" is what the call reports it cost
+// ($0 otherwise, as the ideas: the tests' figures stay exact).
 // It makes a real git commit, like the agent would.
 import { createHash } from "node:crypto";
-import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import type { Platform } from "@typeplay/shared";
@@ -139,6 +143,11 @@ async function fakeWork(job: AgentJob) {
   if (job.kind === "new" && job.genre) writeFileSync(join(job.dir, "GENRE"), `${job.genre}\n`);
   if (job.kind === "new" && job.tags?.length) writeFileSync(join(job.dir, "TAGS"), `${job.tags.join(" ")}\n`);
   fakeAssetFiles(job.dir, job.prompt); // ASSETS, ASSETS3D: files for the Assets tab (fake-assets.ts)
+  // The public line, as run.mjs leaves it in the build's commit.
+  const pitchFile = join(job.dir, "PITCH");
+  if (job.prompt.includes("NOPITCH")) rmSync(pitchFile, { force: true });
+  else if (job.prompt.includes("BADPITCH")) writeFileSync(pitchFile, "Race five rivals round a tropical island, then grab free coins at play.example.com today.\n");
+  else if (job.kind === "new" || job.prompt.includes("REPITCH")) writeFileSync(pitchFile, `${FAKE_PITCH[job.prompt.includes("REPITCH") ? "edit" : "new"]}\n`);
   await commitAll(`${job.kind}: ${job.prompt}`);
   const pack = demoPack();
   if (!pack) throw new Error("no demo build to fake with (run apps/games/scripts/build-demo.mjs)");
@@ -178,6 +187,12 @@ function fakeModelCall(job: AgentJob): Promise<void> {
       () => undefined,
     );
 }
+
+/** A fake run's public line: a new game's, and a change's that rewrites it ("REPITCH"). */
+export const FAKE_PITCH = {
+  new: "Jump a little robot over desert cactuses, grab the coins on the way and see how far your run can go before dusk.",
+  edit: "Jump a little robot over desert cactuses at night, dodge falling meteors and keep your run going until sunrise.",
+};
 
 /** A fake run's 9 next-step ideas, best first, as the real ideas call returns them. */
 const IDEAS = {
@@ -304,6 +319,7 @@ export function runFakeAgent(job: AgentJob): AgentHandle {
             chargeUsd: 0.1,
             suggestions: IDEAS[job.kind],
             suggestionsCostUsd: 0, // the real call costs ~$0.001; kept at 0 so the tests' cost figures stay exact
+            pitchCostUsd: Number(/PITCHUSD:([\d.]+)/.exec(job.prompt)?.[1] ?? 0), // the same (PITCHUSD:<n> to see it charged)
             ...side,
           });
         } catch (e) {

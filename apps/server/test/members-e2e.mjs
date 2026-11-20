@@ -262,6 +262,9 @@ try {
     ["POST", `/projects/${id}/restore`, { n: v1.n }, 200, 200, 404, 404, 401],
     ["PATCH", `/projects/${id}`, { shared: true }, 200, 403, 404, 404, 401],
     ["PATCH", `/projects/${id}`, { shared: true, listed: false }, 200, 403, 404, 404, 401],
+    // The game's public line (2026-11-20) is the owner's, as sharing is: a member sees it, can't change it.
+    ["PATCH", `/projects/${id}`, { ownerPitch: "Push boxes onto the marks before the cat gets bored and wanders off the board." }, 200, 403, 404, 404, 401],
+    ["PATCH", `/projects/${id}`, { ownerPitch: null }, 200, 403, 404, 404, 401],
     ["GET", `/projects/${id}/android`, null, 200, 403, 404, 404, 401],
     ["POST", `/projects/${id}/android`, {}, null, 403, 404, 404, 401],
     ["GET", `/projects/${id}/android/key`, null, null, 403, 404, 404, 401],
@@ -297,6 +300,10 @@ try {
   }
   const deny = await api(E, "PATCH", `/projects/${id}`, { shared: false });
   ok(deny.body?.error === "owner_only" && /owner/.test(deny.body.message), `a member's owner-only request: owner_only, one sentence (${deny.body?.message})`);
+  const denyLine = await api(E, "PATCH", `/projects/${id}`, { ownerPitch: "A line of my own for the game, as a member who builds it with the owner." });
+  ok(denyLine.body?.error === "owner_only" && /owner/.test(denyLine.body.message), `a member's line: owner_only, said for the line (${denyLine.body?.message})`);
+  const lineE = (await api(E, "GET", `/projects/${id}`)).body;
+  ok(typeof lineE.pitch === "string" && lineE.pitch.length >= 60 && lineE.ownerPitch === null, "the member sees the game's line (the AI's; no owner's line after the reset)");
   const evE = await stream(E, id);
   const evX = await stream(X, id);
   ok(evE.status === 200 && evX.status === 404, `the stream: editor 200, outsider 404 (${evE.status}, ${evX.status})`);

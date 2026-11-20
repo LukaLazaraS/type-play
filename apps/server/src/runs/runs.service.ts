@@ -15,6 +15,7 @@ import { EventBus } from "../events/event-bus.js";
 import { genreOf } from "../gallery/gallery.service.js";
 import { headOf, settleFolder } from "../games/git.js";
 import { readPlatformWord, readProjectGodot } from "../games/files.js";
+import { readPitch } from "../games/pitch.js";
 import { exportWeb, gameNameOf, orientationOf, platformOf } from "../games/godot.js";
 import { publishBuild, trimExport, unpublishBuild } from "../games/publish.js";
 import type { Message, Plan, Version } from "../generated/prisma/client.js";
@@ -84,14 +85,14 @@ class CancelledLate extends Error {
 
 const NO_RESULT: AgentResult = { ok: false, costUsd: 0, messageCostUsd: 0, chargeUsd: 0 };
 
-type Costs = Pick<AgentResult, "costUsd" | "messageCostUsd" | "suggestionsCostUsd" | "classifyCostUsd" | "sizeCheckCostUsd" | "askCostUsd">;
+type Costs = Pick<AgentResult, "costUsd" | "messageCostUsd" | "suggestionsCostUsd" | "pitchCostUsd" | "classifyCostUsd" | "sizeCheckCostUsd" | "askCostUsd">;
 /**
  * The run's AI calls beside the agent's own work, each a part of the answer's charge (Luka, 10-24 and 10-29: every AI
- * call a player causes is theirs): the player-message rewrite, the next-step ideas, a new game's genre and size call,
- * a change's size check, and the questions call before a build (2026-11-04).
+ * call a player causes is theirs): the player-message rewrite, the next-step ideas, the game's public line (2026-11-20),
+ * a new game's genre and size call, a change's size check, and the questions call before a build (2026-11-04).
  */
 export const sideUsd = (r: Costs) =>
-  r.messageCostUsd + (r.suggestionsCostUsd ?? 0) + (r.classifyCostUsd ?? 0) + (r.sizeCheckCostUsd ?? 0) + (r.askCostUsd ?? 0);
+  r.messageCostUsd + (r.suggestionsCostUsd ?? 0) + (r.pitchCostUsd ?? 0) + (r.classifyCostUsd ?? 0) + (r.sizeCheckCostUsd ?? 0) + (r.askCostUsd ?? 0);
 
 /**
  * What a run cost us in AI, for the Free kill switch: what the agent reported, or what the key proxy metered when that is
@@ -362,6 +363,8 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     const platform = platformOf(readPlatformWord(dir), orientation);
     // The genre skill it was built with (the GENRE file run.mjs keeps): the gallery's genre filter.
     const genre = genreOf(run.projectId);
+    // The game's public line as this build left it (the PITCH file run.mjs keeps; none: null). The owner's own stays.
+    const pitch = readPitch(dir);
     if (run.cancelled) throw new CancelledLate();
     // After a rolled-back step the check's pictures are of that step, not of this build: no poster.
     // The Free plan's mark goes by the owner's plan now, as the build is published (game.json `badge`).
@@ -369,7 +372,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
     const { poster } = await publishBuild({ buildId, dir, name, orientation, badge, poster: !result.staleExport });
 
     // The player pays for the attempts in the game they get (chargeUsd; older records: everything) and the run's
-    // other AI calls (sideUsd: the player-message rewrite, the 9 next-step ideas, the genre call, the size check;
+    // other AI calls (sideUsd: the player-message rewrite, the 9 next-step ideas, the public line, the genre call, the size check;
     // Luka, 10-24: every AI cost they cause is theirs), or what the key proxy metered when that is more (model calls
     // the agent's shell made itself).
     const agentUsd = (result.chargeUsd ?? result.costUsd) + sideUsd(result);
@@ -399,7 +402,7 @@ export class RunsService implements OnModuleInit, OnApplicationShutdown {
         if (message.plan === "free" && !run.maintenance) await this.ledger.addFreeSpend(tx, aiSpentUsd(result, metered));
         // A rename while this run was going wins over the game agent's name.
         const now = await tx.project.findUniqueOrThrow({ where: { id: run.projectId }, select: { renamed: true } });
-        await tx.project.update({ where: { id: run.projectId }, data: { currentVersion: n, orientation, platform, genre, ...(now.renamed ? {} : { name }) } });
+        await tx.project.update({ where: { id: run.projectId }, data: { currentVersion: n, orientation, platform, genre, pitch, ...(now.renamed ? {} : { name }) } });
         if (!run.maintenance) await this.ledger.chargeIn(tx, run.userId, toTenths(credits), { messageId: run.messageId, note: `${run.kind} on ${run.model}` });
         return [message, version] as const;
       }, TX_OPTIONS);

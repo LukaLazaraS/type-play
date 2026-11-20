@@ -2,7 +2,8 @@
 // their own. The one way they get there: on the live database after a deploy (docs/beta/runbook.md), and on this PC's
 // development database by the local site's seed (scripts/local-site.mjs). Running it again adds what is missing and
 // moves a game that is there to a newer build named below as its next version (2026-11-07: the faster builds of the
-// 11-04 night): its plays, reports and a hide stay, and the version before stays restorable; otherwise nothing changes.
+// 11-04 night): its plays, reports and a hide stay, and the version before stays restorable; and gives a game that is
+// there its public line as written below when it differs (2026-11-20); otherwise nothing changes.
 // The builds are the polished Opus ones the home page plays (apps/web/src/content/games.ts), in the home page's order;
 // name and orientation come from each build's own game.json where the gallery loads it: the games folder here
 // (GAMES_BUILDS_DIR), https://typeplay.dev for the live database. A build, pack or poster that isn't there stops it
@@ -19,15 +20,54 @@ import type { PrismaClient } from "../generated/prisma/client.js";
 export const SHOWCASE_OWNER = { id: "typeplay-showcase", email: "showcase@typeplay.invalid", name: "TypePlay" };
 
 /** Each game's id (its share page typeplay.app/play/<id>), its build on the games origin, its genre for the gallery's
- * filter (the genre skill it would be built with today), and what its newest build changed (the version's label). */
-export const SHOWCASE: { id: string; build: string; genre: Genre; label?: string }[] = [
+ * filter (the genre skill it would be built with today), what its newest build changed (the version's label), and its
+ * public line (2026-11-20): written once by the builds' own call (packages/agent/tools/pitch.mjs) from the NOTES.md of
+ * the folder each build was made from on Luka's PC (packages/agent/output/fix-show-*, the 11-07 update of
+ * show-*-polished), as the games have no player folder on the server. */
+export const SHOWCASE: { id: string; build: string; genre: Genre; label?: string; pitch: string }[] = [
   // 2026-11-07: the builds that pass the speed budgets and the colour check (the 11-04 night's fixes included).
-  { id: "showracer", build: "show-racer-polished-v3", genre: "racer", label: "TypePlay update: smoother, clearer colours" },
-  { id: "showarcade", build: "show-arcade-polished-v3", genre: "arcade", label: "TypePlay update: smoother, clearer colours" },
-  { id: "showtd", build: "show-td-polished-v3", genre: "towerdefence", label: "TypePlay update: smoother, clearer colours" },
-  { id: "showmatch3", build: "show-match3-polished-v3", genre: "puzzle", label: "TypePlay update: smoother, clearer colours" },
-  { id: "showrunner", build: "show-runner-polished-v3", genre: "runner", label: "TypePlay update: smoother, clearer colours" },
-  { id: "show3d", build: "show-3d-polished-v3", genre: "platformer", label: "TypePlay update: smoother, clearer colours" },
+  {
+    id: "showracer",
+    build: "show-racer-polished-v3",
+    genre: "racer",
+    label: "TypePlay update: smoother, clearer colours",
+    pitch: "Race a red car around a winding tropical beach loop, starting last on the grid and passing five rivals over three laps.",
+  },
+  {
+    id: "showarcade",
+    build: "show-arcade-polished-v3",
+    genre: "arcade",
+    label: "TypePlay update: smoother, clearer colours",
+    pitch: "Tap to drop sliding floors onto a growing tower, slicing off any overhang, as the sky turns from sunset to outer space.",
+  },
+  {
+    id: "showtd",
+    build: "show-td-polished-v3",
+    genre: "towerdefence",
+    label: "TypePlay update: smoother, clearer colours",
+    pitch: "Build candy towers along a cookie road to stop marching ants and beetles from reaching your gingerbread castle.",
+  },
+  {
+    id: "showmatch3",
+    build: "show-match3-polished-v3",
+    genre: "puzzle",
+    label: "TypePlay update: smoother, clearer colours",
+    pitch: "Match colourful flowers in a magical garden, swapping and clearing tiles to hit goals in 10 levels and reach the Queen's Bloom.",
+  },
+  {
+    id: "showrunner",
+    build: "show-runner-polished-v3",
+    genre: "runner",
+    label: "TypePlay update: smoother, clearer colours",
+    pitch: "Leap across night rooftops as a ninja cat, dodging chimneys, crows and drones, collecting fish, and grabbing shields and magnets to keep running.",
+  },
+  {
+    id: "show3d",
+    build: "show-3d-polished-v3",
+    genre: "platformer",
+    label: "TypePlay update: smoother, clearer colours",
+    pitch: "Hop across floating islands, grab coins and stars, and dodge spikes and spinning saws on the way to each level's flag.",
+  },
 ];
 
 const LIVE_GAMES = "https://typeplay.dev";
@@ -85,7 +125,7 @@ export async function showcaseAdmin(prisma: PrismaClient, ledger: LedgerService,
   if (problems.length) throw new Error(`nothing changed: ${problems.join("; ")} (publish the builds first: node deploy/deploy.mjs games)`);
 
   const now = Date.now();
-  const added = await prisma.$transaction(async (tx) => {
+  const { ids: added, lined } = await prisma.$transaction(async (tx) => {
     await tx.user.upsert({ where: { id: SHOWCASE_OWNER.id }, create: SHOWCASE_OWNER, update: {} });
     const ids: string[] = [];
     for (const [i, g] of SHOWCASE.entries()) {
@@ -100,6 +140,7 @@ export async function showcaseAdmin(prisma: PrismaClient, ledger: LedgerService,
           name: b.name,
           orientation: b.orientation,
           genre: g.genre,
+          pitch: g.pitch,
           currentVersion: 1,
           shared: true,
           sharedAt: at,
@@ -116,10 +157,24 @@ export async function showcaseAdmin(prisma: PrismaClient, ledger: LedgerService,
       const m = moves.get(g.id);
       if (!m) continue;
       await tx.version.create({ data: { projectId: g.id, n: m.n, label: g.label ?? "A newer build", buildId: g.build, commit: "showcase", poster: true } });
-      await tx.project.update({ where: { id: g.id }, data: { currentVersion: m.n, name: m.name, orientation: m.orientation } });
+      await tx.project.update({ where: { id: g.id }, data: { currentVersion: m.n, name: m.name, orientation: m.orientation, pitch: g.pitch } });
     }
-    await ledger.audit(tx, { actor, userId: SHOWCASE_OWNER.id, action: "gallery_showcase", details: { added: ids, moved: [...moves.entries()].map(([id, m]) => `${id} v${m.n}`) } });
-    return ids;
+    // A game that is there gets its line as written above (2026-11-20: the games in the gallery before lines existed). The
+    // order of the gallery stays: updatedAt is kept.
+    const lined: string[] = [];
+    for (const g of SHOWCASE) {
+      const p = there.get(g.id);
+      if (!p || p.owner.id !== SHOWCASE_OWNER.id || moves.has(g.id) || p.pitch === g.pitch) continue;
+      await tx.project.update({ where: { id: g.id }, data: { pitch: g.pitch, updatedAt: p.updatedAt } });
+      lined.push(g.id);
+    }
+    await ledger.audit(tx, {
+      actor,
+      userId: SHOWCASE_OWNER.id,
+      action: "gallery_showcase",
+      details: { added: ids, moved: [...moves.entries()].map(([id, m]) => `${id} v${m.n}`), lined },
+    });
+    return { ids, lined };
   });
 
   for (const g of SHOWCASE) {
@@ -131,8 +186,12 @@ export async function showcaseAdmin(prisma: PrismaClient, ledger: LedgerService,
     else if (p && p.owner.id !== SHOWCASE_OWNER.id) console.log(`${g.id.padEnd(11)} belongs to ${p.owner.email}: left as it is`);
     else if (p) {
       const state = p.listed && p.shared ? (p.hiddenAt ? `hidden since ${p.hiddenAt.toISOString().slice(0, 10)} (admin gallery unhide ${g.id})` : "in the gallery") : "not listed";
-      console.log(`${g.id.padEnd(11)} "${p.name}": there already, ${state}`);
+      console.log(`${g.id.padEnd(11)} "${p.name}": there already, ${state}${lined.includes(g.id) ? `; its line now "${g.pitch}"` : ""}`);
     }
   }
-  console.log(added.length || moves.size ? `${added.length} added to the gallery, ${moves.size} moved to a newer build` : "nothing to change: every showcase game is there, on its build");
+  console.log(
+    added.length || moves.size || lined.length
+      ? `${added.length} added to the gallery, ${moves.size} moved to a newer build, ${lined.length} given their line`
+      : "nothing to change: every showcase game is there, on its build, with its line",
+  );
 }

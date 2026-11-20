@@ -35,6 +35,8 @@
 //   npm run admin -w @typeplay/server -- gallery dismiss <gameId>            (its open reports handled; the game stays as it is)
 //   npm run admin -w @typeplay/server -- gallery unshare <gameId> [reason]   (stops sharing it: the share page 404s too)
 //   npm run admin -w @typeplay/server -- gallery showcase                    (our six showcase games in it, src/gallery/showcase.ts; a newer build: their next version)
+//   npm run admin -w @typeplay/server -- gallery pitch [--write]             (a public line for the gallery's games without one, from their NOTES.md; a dry run
+//                                                                            unless --write; on the live database it runs in the api container: src/gallery/pitch-backfill.ts)
 // TypePlay's own changes to a player's game (src/runs/admin-run.ts, 2026-11-07): free, by the TypePlay account, the next version:
 //   npm run admin -w @typeplay/server -- run list | run status [gameId]
 //   npm run admin -w @typeplay/server -- run <gameId> --text <chat line> --prompt-file <file> [--model smart] [--effort medium] [--label <l>]
