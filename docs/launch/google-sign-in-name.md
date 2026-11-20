@@ -6,7 +6,8 @@ This page says where that happens, the ways to fix it, what was built, and Luka'
 bought and no account was touched; Claude may not log in or change account settings.
 
 **Status 2026-11-20 (HQ, parked #28 decided):** brand verification passed and is published (step 2), so Google's own
-pages now say **TypePlay** with the logo, on today's redirect too; Google's button is switched on (step 1.2). The rows
+pages now say **TypePlay** with the logo, on today's redirect too; Google's button is switched on (step 1.2) and live on
+typeplay.app since the 11-20 deploy, checked with a real sign-in at a phone's size (step 3). The rows
 below are the 11-04 picture; step 2 and step 1 say what was done and checked.
 
 ## Where players see the Supabase address today
@@ -110,6 +111,14 @@ with Google" 194x40, light "Continue with Google" 191x32.
    screen (the site can be installed). No test here can reach that case. Reports from other projects say Apple opens
    Google's page there in a separate Safari sheet with its own cookies, so it may fail with today's redirect too. If
    it fails, say so: fixing sign-in in the installed app is a task of its own.
+   **Checked live 2026-11-20 by HQ** in the automation Edge with a phone's shape (Pixel 8 size, Android Chrome user
+   agent, touch).
+   - The header's Sign in on a gallery game's page opened `/create?signin=1&next=…`, with the black button on the first
+     screen.
+   - Tapping it opened Chrome's own dialog: "Sign in to typeplay.app with google.com", an account chooser.
+   - After the account was picked, the page came back signed in, with the balance and the picture in the header.
+   - That proves the token passes Supabase (client ID and nonce flow).
+   - Not checked here: a real phone, the iPhone home-screen app, and the security email in Gmail.
 4. To go back: `"0"` and deploy again.
 
 ### 2. "TypePlay" and the logo instead of "typeplay.app" (15 minutes; Google: minutes, or 2-3 business days)

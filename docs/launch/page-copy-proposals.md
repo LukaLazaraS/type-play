@@ -185,7 +185,7 @@ their own work"). A rival locks code export to its $50 plan (competitors.md). No
 published games are "not to be made up"). It gives the gallery an inside link, and it is "Better than the competitors" #9 in PLAN.md.
 
 **When:** With the gallery, and only when it holds at least [6] games by other people (your number). Add "Explore" to the status bar at the same time
-(parked.md: "No Explore in the status bar"). /explore stays noindex until you answer parked row 13.
+(parked.md: "No Explore in the status bar"). /explore is indexable since 11-20 (parked "Done" #13).
 
 ### B3. Pricing FAQ (new): who can see my game?
 
@@ -428,7 +428,7 @@ For Claude, when you say the word. Each line is the set of proposals that flip t
 | Terms approved | D1 (terms sentence, then the ownership point) | B5 and B1 may then say "whenever you like" |
 | Before the share pages go public | D2 | |
 | The app opens (beta 1) | A3, A4 (first), B1, B4, B5, E1 (first) | (The Free-plan badge is built, 10-20) |
-| The gallery holds games by others | B2, B3 | "Explore" in the status bar; answer parked row 13 (noindex) |
+| The gallery holds games by others | B2, B3 | "Explore" in the status bar; in search since 11-20 (parked "Done" #13) |
 | Android is live | C1, C2, C3, C4, C5, A4 (second) | Set `platforms` Android to "now"; the demo video's Android beats unlock |
 | Racers and tower defence open | E1 (second), E2 | Showcase games on the home page (parked #14); test them on a Free account |
 
