@@ -23,6 +23,8 @@ Written 2026-10-19. Nothing here is on the site: every block is a proposal for y
 | E1 | In, for the eight genres /create has had since 10-27 (each with its own skill): "TypePlay is tuned for eight kinds of game ..." | `app/page.tsx` |
 | E2 | Superseded: /create picks a genre (eight pictures) instead of starter sentences | |
 
+Fix round 1 (2026-11-20), every sentence checked against the code and the terms: the pages and the FAQ say an estimate shows next to Send before a message runs (the charge is the work done); the big new game's row says "about", with a line that a very big game can cost more; the games strip's heading is "Each started from one message." and its lead says the games were then changed by chat and by our own fixes for speed and colour, and that the minutes are each game's first build (the footer on every page: "Real games, each started from one message."); "One game. Every screen." says the web now and Android, iOS and Steam as each export arrives (C2's "Now" below is the older text); the ownership line follows the terms: "the code and art made for your game, and the exported builds".
+
 **Where the pages and the product disagree today (fix these first)**
 
 1. ~~**The Free plan's "small TypePlay badge in your game".**~~ **Built 2026-10-20**: Free builds show "Made with TypePlay" while
