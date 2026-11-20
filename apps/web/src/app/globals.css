@@ -130,12 +130,15 @@ a {
 }
 
 /* Status bar (nav) */
+/* One 64px line at every normal size; under large text (200%) the links wrap to a line of their own, on the right,
+   instead of pushing the page sideways. */
 .statusbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  height: 64px;
+  gap: 0 16px;
+  min-height: 64px;
   padding: 0 clamp(16px, 4vw, 56px);
 }
 .wordmark {
@@ -151,8 +154,11 @@ a {
 }
 .statusbar nav {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
-  gap: clamp(14px, 2.4vw, 32px);
+  margin-left: auto;
+  gap: 4px clamp(14px, 2.4vw, 32px);
   font-size: 15px;
   font-weight: 500;
 }
