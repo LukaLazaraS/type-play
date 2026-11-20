@@ -399,7 +399,9 @@ try {
     check("on: Sign out empties the session cookies and shows Google's button again", !after.some((c) => c.name.startsWith(COOKIE) && c.value));
     await ctx.close();
 
-    // 6. From the pricing page's Get Medium (/create?plan=medium): after Google, straight on to the checkout.
+    // 6. From the pricing page's Get Medium (/create?plan=medium). Billing is off in this build, as live (no Paddle token:
+    // content/billing.ts `sale`; since 11-20 there is no checkout to go on to): the sign-in comes back to the same address
+    // with the plan kept, and the page says the plan isn't on sale. With a token, `next` is the checkout instead.
     const ctxP = await desk();
     await wire(ctxP, { gis: "stub" });
     const pp = await ctxP.newPage();
@@ -407,8 +409,13 @@ try {
     await googleIn(pp).waitFor({ timeout: 120_000 });
     await pp.evaluate((email) => (window.__gis.email = email), invited);
     await googleIn(pp).click();
-    await pp.waitForURL(/\/billing\/checkout\?item=plan(:|%3A)medium/, { timeout: 60_000 });
-    check("on: a sign-in from /create?plan=medium goes on to the checkout (next), as the redirect did", true, new URL(pp.url()).pathname);
+    await pp.locator(".avatarbutton").waitFor({ timeout: 60_000 });
+    const planUrl = new URL(pp.url());
+    check(
+      "on: a sign-in from /create?plan=medium comes back to it signed in, the plan kept, saying Medium isn't on sale (billing off, as live)",
+      planUrl.pathname === "/create" && planUrl.searchParams.get("plan") === "medium" && (await pp.getByText("Medium isn't on sale yet.").count()) > 0,
+      planUrl.pathname + planUrl.search,
+    );
     await ctxP.close();
 
     // 7. The closed beta: signed in uninvited, then Use another account with Google's light button.

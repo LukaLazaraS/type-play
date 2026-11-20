@@ -17,8 +17,9 @@ services:
         # Supabase, so Google's screens and emails name typeplay.app (TypePlay once the brand is verified) instead of the
         # Supabase project's address; where a blocker stops Google's script, the redirect through Supabase as before.
         # "only" = the same without that redirect (once Google Cloud no longer lists Supabase's callback). "0" = the
-        # redirect through Supabase, as before. Luka's steps and when to flip it: docs/launch/google-sign-in-name.md.
-        NEXT_PUBLIC_GOOGLE_BUTTON: "0"
+        # redirect through Supabase, as before. "1" since 2026-11-20 (HQ). Luka's steps and when to flip it:
+        # docs/launch/google-sign-in-name.md.
+        NEXT_PUBLIC_GOOGLE_BUTTON: "1"
         # Paddle.js (payments part 3): the environment and the client-side token (public by design: test_… / live_…).
         # Empty = the billing page says "opens here soon". Set with the API's PADDLE_ENV (deploy/api/compose.yaml).
         # Go paid (docs/beta/runbook.md step 13) sets both at once: "live" and live_1f80bbe8fcc5597c2ac2a5af06a (the live

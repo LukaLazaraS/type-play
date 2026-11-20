@@ -42,7 +42,8 @@ only after its button matched the guidelines.
 ## What was built (branch `signin-name`)
 
 **The switch**: `NEXT_PUBLIC_GOOGLE_BUTTON` in `deploy/server/compose.yaml`, read when the site is built (like
-`NEXT_PUBLIC_CLOSED_BETA`). It is `"0"` in the branch: the sign-in exactly as today.
+`NEXT_PUBLIC_CLOSED_BETA`). It is `"1"` since 2026-11-20 (HQ's decision): Google's own button, with the redirect through
+Supabase where Google's script can't load. It takes effect with the next `node deploy/deploy.mjs site`.
 
 | Value | Sign-in | Where Google's script can't load (an ad blocker, offline) |
 |---|---|---|
@@ -77,10 +78,11 @@ the closed-beta screen's "Use another account"):
 **Tests:** `node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-signin.mjs` (its own database and free ports;
 nothing reaches Google or the live Supabase; Google's script and Supabase's token endpoint are answered by the test the
 way they answer, and dev sign-in stands in for Google's token). It covers all three values: off is today's redirect,
-PKCE and the callback; on covers the button, nonce, wrong nonce, replay, cookies, /me, sign-out, the checkout handoff,
-the closed beta, the blocked-script fallback and phone width; `only` covers the blocked line. Screenshots go to
-`.impeccable/review/signin/`. Google's real button was also drawn once in a test browser (no account, no click) to
-size its placeholder: dark "Sign in with Google" 194x40, light "Continue with Google" 191x32.
+PKCE and the callback; on covers the button, nonce, wrong nonce, replay, cookies, /me, sign-out, the pricing page's
+plan kept through the sign-in (billing off, as live; with billing on it is the checkout), the closed beta, the
+blocked-script fallback and phone width; `only` covers the blocked line. Screenshots go to `.impeccable/review/signin/`.
+Google's real button was also drawn once in a test browser (no account, no click) to size its placeholder: dark "Sign in
+with Google" 194x40, light "Continue with Google" 191x32.
 
 ## Luka's steps (shortest path first)
 
@@ -91,8 +93,8 @@ size its placeholder: dark "Sign in with Google" 194x40, light "Continue with Go
    `1093794003252-t3b2…apps.googleusercontent.com` (the web client; a future Android or iOS client is added only after
    its own review), and **Skip nonce check** is off. That toggle is what makes the nonce count, and Supabase accepts
    tokens for these client IDs whatever the switch says.
-2. Say "turn the Google button on". After HQ merges `signin-name`, Claude sets `NEXT_PUBLIC_GOOGLE_BUTTON: "1"` in
-   `deploy/server/compose.yaml` and runs `node deploy/deploy.mjs site` (~1 minute).
+2. **Done 2026-11-20, by HQ's decision**: `NEXT_PUBLIC_GOOGLE_BUTTON: "1"` in `deploy/server/compose.yaml` (branch
+   `signin-name`); it goes live with HQ's merge and `node deploy/deploy.mjs site` (~1 minute).
 3. Check on typeplay.app, on the computer and on the phone: tap **Sign in with Google** (now black). Google's window or
    Chrome's dialog should say **typeplay.app**, and you're back on the page signed in. Then Google's email in Gmail
    should name typeplay.app. On the iPhone also try it from the home-screen app, if you added TypePlay to the home
