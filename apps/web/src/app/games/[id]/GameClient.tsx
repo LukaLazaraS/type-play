@@ -91,6 +91,9 @@ export function GameClient() {
         setProject(e.project);
         opened(e.project);
         if (e.project.status !== "running") setLive(null);
+        // A build that ended before this stream connected sent its charge in a `done` this page never got: read the
+        // balance again, or the header keeps the one /create read before the charge.
+        if (e.project.status !== "running" && e.project.status !== "queued") void refreshMe();
         break;
       case "queued": {
         // The build waits for its turn: its place and rough wait, as they change.
