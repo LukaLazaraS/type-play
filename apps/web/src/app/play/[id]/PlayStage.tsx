@@ -30,13 +30,14 @@ function Parts({ parts }: { parts: ReactNode[] }) {
 /** A date the page shows: the words ("12 Nov 2026") and the day for <time> ("2026-11-12"). */
 export type ShownDate = { text: string; iso: string };
 
-/** The shared game in its frame: the name, its genre, Made with TypePlay and its plays, while it is in the gallery when
+/** The shared game in its frame: the name, its line (the owner's, else the AI's; 2026-11-20), its genre, Made with TypePlay and its plays, while it is in the gallery when
  * it went in and was last changed, Play, Full screen outside the game, and Report this game. The game's first start on
  * this page view counts one play. */
 export function PlayStage({
   id,
   buildId,
   name,
+  pitch,
   orientation,
   fits,
   poster,
@@ -47,6 +48,8 @@ export function PlayStage({
   id: string;
   buildId: string;
   name: string;
+  /** Its public line, one sentence of at most 150 letters, or null (no line yet: the name and the figures only). */
+  pitch?: string | null;
   orientation: Orientation;
   /** It fills every screen: no turn-your-phone hint. */
   fits: boolean;
@@ -68,12 +71,13 @@ export function PlayStage({
     countPlay(id);
   }, [id]);
   return (
-    <section className="widget widget--ink play__stage" aria-labelledby="play-name">
+    <section className="widget widget--ink play__stage" aria-labelledby="play-name" data-pitch={pitch ? "" : undefined}>
       <header className="play__bar">
         <div className="play__titles">
           <h1 id="play-name" className="title play__name">
             {name}
           </h1>
+          {pitch && <p className="play__pitch">{pitch}</p>}
           <p className="figures play__by">
             <Parts parts={[genre, "Made with TypePlay", plays > 0 ? playsWord(plays) : null]} />
           </p>

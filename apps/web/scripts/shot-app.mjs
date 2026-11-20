@@ -376,7 +376,10 @@ try {
   // Each part's dot after a no-break space (PlayStage.tsx Parts): read them as plain spaces.
   const byLine = (await v.locator(".play__by").innerText()).replace(/\u00a0/g, " ");
   check("public page: the name, its genre (when it has one) and Made with TypePlay", (await v.locator(".play__name").innerText()) === "Cat Box Jumper" && /^([A-Z][a-z ]+ · )?Made with TypePlay$/.test(byLine), byLine);
-  check("public page: Make your own goes to /create", (await v.getByRole("link", { name: "Make your own" }).getAttribute("href")) === "/create");
+  // The game's line (2026-11-20): the build's, under the name (its Share menu's edit and reset: shot-gallery.mjs).
+  const pitchShown = await v.locator(".play__pitch").innerText().catch(() => "");
+  check("public page: the build's line under the name, one sentence of 60-150 letters", [...pitchShown].length >= 60 && [...pitchShown].length <= 150, pitchShown || "none");
+  check("public page: Make your own goes to /create",(await v.getByRole("link", { name: "Make your own" }).getAttribute("href")) === "/create");
   check("public page, shared by link only (not in the gallery): kept out of search (noindex)", (await v.locator('meta[name="robots"]').getAttribute("content"))?.includes("noindex") === true);
   check("public page: its title, the name first (\"Cat Box Jumper: play a free … online | TypePlay\")", /^Cat Box Jumper: play a free .+ online \| TypePlay$/.test(await v.title()), await v.title());
   const ogUrl = await v.locator('meta[property="og:image"]').getAttribute("content");

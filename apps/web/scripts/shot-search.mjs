@@ -4,7 +4,10 @@
 // and one an admin took out say noindex (the link-only one keeps its link preview); /explore is in search with one
 // canonical for every view; sitemap.xml lists /explore and the gallery game and none of the others; an unshared game's
 // page stays a 404; with the API down the share page and /explore answer 503 with Retry-After (a search engine keeps
-// them and comes back) and the sitemap keeps the list it last read. Read as two kinds of crawler:
+// them and comes back) and the sitemap keeps the list it last read. A game's own line (2026-11-20: the owner's, else the
+// AI's) is its page's words under its name, its description (with "free in your browser" when that fits whole in 155
+// letters, else the line alone, never cut) and its VideoGame description; a game without one keeps its genre's words.
+// Read as two kinds of crawler:
 // one that runs no JavaScript (Bingbot: Next puts the metadata in <head> before it answers) and Googlebot (which runs
 // it: Next may stream the metadata after the page's shell, still in the HTML as served).
 // On a stack of its own (dev-env.mjs useOwnStack + startStack: a database of the run's own, ports picked free). Build
@@ -113,7 +116,8 @@ try {
   const linkOnly = await build("A little runner on the rooftops GENRE:runner");
   await idle(listed);
   await idle(linkOnly);
-  const hidden = await build("A puzzle with sliding tiles GENRE:puzzle");
+  // NOPITCH: the fake agent leaves no PITCH, so this one shows the words a game without a line gets.
+  const hidden = await build("A puzzle with sliding tiles GENRE:puzzle NOPITCH");
   const unshared = await build("A racing game with tiny cars GENRE:racer");
   const built = [await idle(listed), await idle(linkOnly), await idle(hidden), await idle(unshared)];
   check("four games built", built.every((p) => p?.buildId), built.map((p) => p?.buildId ?? "none").join(", "));
@@ -138,11 +142,16 @@ ${stack.siteLog().slice(-2500)}`);
   check("…says index (no noindex anywhere)", meta(head, "robots") === "index, follow" && !/noindex/i.test(g.html), meta(head, "robots") ?? "no robots tag");
   check("…its title: the name first, then the genre", title(head) === want.title, title(head) ?? "none");
   const desc = meta(head, "description") ?? "";
+  // The fake agent's line for a new game (apps/server src/runs/fake-agent.ts FAKE_PITCH.new), 112 letters.
+  const line = pub.pitch ?? "";
+  check("the API: Pebble Drop has the build's line", [...line].length >= 60 && [...line].length <= 150, line || "none");
   check(
-    "…its description: the name first, what you do in an arcade game, free, in the browser, no download, Made with TypePlay, at most 155 letters",
-    desc.startsWith("Pebble Drop: chase a high score") && /free arcade game/.test(desc) && /browser/.test(desc) && /no download/.test(desc) && /Made with TypePlay/.test(desc) && [...desc].length <= 155,
+    "…its description: its own line, then free in your browser with no download (the long tail fits whole), at most 155 letters",
+    desc === `${line} Play free in your browser, no download.` && [...desc].length <= 155,
     `${[...desc].length}: ${desc}`,
   );
+  const shownLine = (html) => decode(html.match(/<p class="play__pitch">([\s\S]*?)<\/p>/)?.[1] ?? "") || null;
+  check("…its line on the page under its name, server-rendered", shownLine(g.html) === line && g.html.indexOf("play__pitch") > g.html.indexOf("id=\"play-name\"") && g.html.indexOf("play__pitch") < g.html.indexOf("play__by"), shownLine(g.html) ?? "no line");
   // A gallery game's date in the page as served, in plain English: listed today, built before it was listed, so one date.
   const today = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date());
   const dates = g.html.match(/<p class="figures play__dates">[\s\S]*?<\/p>/)?.[0] ?? "";
@@ -157,7 +166,7 @@ ${stack.siteLog().slice(-2500)}`);
   const ogImage = meta(head, "og:image") ?? "";
   check(
     "…the link preview: the same title and words, the game's picture",
-    meta(head, "og:title") === "Pebble Drop: play a free arcade game online" && meta(head, "og:description") === desc && ogImage.startsWith(`${SITE}/play/${listed}/preview.png?v=`) && meta(head, "twitter:card") === "summary_large_image" && meta(head, "twitter:image") === ogImage,
+    meta(head, "og:title") === "Pebble Drop: play a free arcade game online" && meta(head, "og:description") === desc && meta(head, "twitter:description") === desc && ogImage.startsWith(`${SITE}/play/${listed}/preview.png?v=`) && meta(head, "twitter:card") === "summary_large_image" && meta(head, "twitter:image") === ogImage,
     ogImage,
   );
   const preview = await fetch(`${base}${new URL(ogImage).pathname}${new URL(ogImage).search}`).catch(() => null);
@@ -168,8 +177,8 @@ ${stack.siteLog().slice(-2500)}`);
   const game = graph.find((d) => types(d).includes("VideoGame")) ?? {};
   const crumbs = graph.find((d) => d["@type"] === "BreadcrumbList")?.itemListElement ?? [];
   check(
-    "…structured data: a VideoGame only (no WebApplication: Google's software app types need a rating) with its name, address, picture, genre, the web browser, free (0 USD), TypePlay as publisher",
-    ld.length === 1 && types(game).join() === "VideoGame" && game.name === "Pebble Drop" && game.url === want.canonical && game.image === ogImage && game.genre === "Arcade" && game.gamePlatform === "Web browser" && game.isAccessibleForFree === true && game.offers?.price === 0 && game.offers?.priceCurrency === "USD" && game.publisher?.["@id"] === `${SITE}/#organization`,
+    "…structured data: a VideoGame only (no WebApplication: Google's software app types need a rating) with its name, its line as its description, address, picture, genre, the web browser, free (0 USD), TypePlay as publisher",
+    ld.length === 1 && types(game).join() === "VideoGame" && game.name === "Pebble Drop" && game.description === line && game.url === want.canonical && game.image === ogImage && game.genre === "Arcade" && game.gamePlatform === "Web browser" && game.isAccessibleForFree === true && game.offers?.price === 0 && game.offers?.priceCurrency === "USD" && game.publisher?.["@id"] === `${SITE}/#organization`,
     JSON.stringify(game).slice(0, 300),
   );
   check(
@@ -208,10 +217,30 @@ ${stack.siteLog().slice(-2500)}`);
     descriptions[name] = meta(p.html, "description") ?? "";
     pages[name] = p.html;
   }
-  // No two genres' descriptions alike: with the name and the genre's own words taken out, each still says its own thing.
-  descriptions["Pebble Drop"] = desc;
-  const bare = Object.entries(descriptions).map(([name, d]) => d.replace(name, "<name>").replace(/a free (arcade|runner|puzzle) game/, "a free <genre>"));
-  check("the descriptions differ by genre, not only by name and genre word (arcade, runner, puzzle)", new Set(bare).size === 3, bare.join(" | "));
+  // A game without a line (Tile Slide: NOPITCH): its genre's words, as every game had before lines.
+  const noLine = descriptions["Tile Slide"];
+  check(
+    "a game without a line: the name first, what you do in a puzzle game, free, in the browser, no download, Made with TypePlay, at most 155 letters; no line on its page",
+    noLine.startsWith("Tile Slide: solve each level one move at a time") && /free puzzle game/.test(noLine) && /browser/.test(noLine) && /no download/.test(noLine) && /Made with TypePlay/.test(noLine) && [...noLine].length <= 155 && !pages["Tile Slide"].includes("play__pitch"),
+    `${[...noLine].length}: ${noLine}`,
+  );
+  check("a link-only page shows its line too (friends' link previews), in its description", shownLine(pages["Roof Dash"]) === line && descriptions["Roof Dash"] === desc, shownLine(pages["Roof Dash"]) ?? "no line");
+  // The owner's own line wins, everywhere. The worst case: 150 letters, the most it holds, with no room for the tail: the
+  // description is the line alone, whole (never cut inside a word, never "…").
+  const longest = `${"Slide down a long and winding rooftop road at night, ".repeat(3)}`.slice(0, 149).trimEnd() + ".";
+  const ownLong = await api("PATCH", `/projects/${linkOnly}`, { ownerPitch: longest });
+  const roofLong = await crawl(base, `/play/${linkOnly}`);
+  check(
+    `the owner's line of ${[...longest].length} letters: the page shows it, its description and link preview are the line alone, whole (no tail, no "…"), still noindex`,
+    ownLong.status === 200 && shownLine(roofLong.html) === longest && meta(roofLong.html, "description") === longest && meta(roofLong.html, "og:description") === longest && meta(roofLong.html, "twitter:description") === longest && /noindex/.test(meta(roofLong.html, "robots") ?? ""),
+    `${ownLong.status}: ${meta(roofLong.html, "description")}`,
+  );
+  // A short line of the owner's with no full stop: one goes in before the tail, so the two read as two sentences.
+  await api("PATCH", `/projects/${linkOnly}`, { ownerPitch: "Hop across night rooftops and keep your run going for as long as you can" });
+  const roofShort = meta((await crawl(base, `/play/${linkOnly}`)).html, "description");
+  check("an owner's line without a full stop: one goes in before the tail", roofShort === "Hop across night rooftops and keep your run going for as long as you can. Play free in your browser, no download.", roofShort ?? "none");
+  const back = await api("PATCH", `/projects/${linkOnly}`, { ownerPitch: null });
+  check("back to the AI's line: the page shows the build's line again", back.status === 200 && back.body?.ownerPitch === null && shownLine((await crawl(base, `/play/${linkOnly}`)).html) === line);
   // More games: on every share page, link-only too, in the HTML as served, only the gallery's games and never itself.
   const row = (html) => {
     const at = html.indexOf('aria-labelledby="play-others"');

@@ -112,10 +112,22 @@ export function gameTitle(name: string, genre: Genre | null): string {
   return name;
 }
 
-/** The search result's line: the name, what you do in its genre (genreHook), that it is free in the browser with nothing
- * to download or sign up for, how many have played it (from 10 plays: fewer reads thin), and how it was made. Shorter
- * when a long name would take it past 155 letters: without the plays, then with fewer words about the browser. */
-export function gameDescription(name: string, genre: Genre | null, plays = 0): string {
+/** What a game's line gets after it in a description, the longest that fits in 155 letters (the line is at most 150). */
+const PITCH_TAILS = [" Play free in your browser, no download.", " Free in your browser."];
+
+/** The search result's line. A game with its own line (PublicGame.pitch, 2026-11-20): that line, then that it is free in
+ * the browser, as much of it as fits whole (never cut inside a word, never "…"), else the line alone. Without one: the
+ * name, what you do in its genre (genreHook), that it is free in the browser with nothing to download or sign up for, how
+ * many have played it (from 10 plays: fewer reads thin), and how it was made; shorter when a long name would take it past
+ * 155 letters: without the plays, then with fewer words about the browser. */
+export function gameDescription(name: string, genre: Genre | null, plays = 0, pitch?: string | null): string {
+  const own = pitch?.trim();
+  if (own) {
+    // An owner's line may end without a stop: one goes in before the tail, so the two read as two sentences.
+    const ended = /[.!?…]["'’”)\]]?$/u.test(own) ? own : `${own}.`;
+    for (const tail of PITCH_TAILS) if ([...ended].length + tail.length <= DESCRIPTION_MAX) return `${ended}${tail}`;
+    return own;
+  }
   const what = genre ? genreWords[genre] : "game";
   const lead = `${name}: ${genreHook[genre ?? "none"]}.`;
   const free = `A free ${what} in your browser, no download or sign-up.`;
@@ -158,7 +170,8 @@ export function gameStructuredData(game: PublicGame) {
         "@id": `${url}#game`,
         name: game.name,
         url,
-        description: gameDescription(game.name, game.genre, game.plays),
+        // The game's own line as it is (2026-11-20); without one, the description the page's meta has.
+        description: game.pitch?.trim() || gameDescription(game.name, game.genre, game.plays),
         image: `${siteUrl}${gamePreview(game)}`,
         ...(game.genre ? { genre: genreName[game.genre] } : {}),
         gamePlatform: "Web browser",

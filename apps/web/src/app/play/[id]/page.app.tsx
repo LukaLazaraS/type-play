@@ -41,7 +41,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!game) return { title: "Game not found", robots: { index: false } };
   // The same words for search and for link previews; a link-only game's friends get good previews too.
   const title = gameTitle(game.name, game.genre ?? null);
-  const description = gameDescription(game.name, game.genre ?? null, game.plays ?? 0);
+  // The game's own line when it has one (2026-11-20: the owner's, else the AI's), else the genre's words.
+  const description = gameDescription(game.name, game.genre ?? null, game.plays ?? 0, game.pitch);
   const image = { url: gamePreview(game), width: 1200, height: 630, alt: `${game.name}, a game made with TypePlay`, type: "image/png" };
   return {
     title,
@@ -81,6 +82,7 @@ export default async function Play({ params }: Props) {
         id={game.id}
         buildId={game.buildId}
         name={game.name}
+        pitch={game.pitch?.trim() || null}
         orientation={game.orientation}
         fits={game.platform === "fill"}
         poster={game.poster ? posterUrl(game.buildId) : undefined}

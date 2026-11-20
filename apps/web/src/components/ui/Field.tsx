@@ -102,8 +102,11 @@ export function Select({ id, label, labelHidden, optional, hint, error, describe
   );
 }
 
-/** Letters left, from `from` letters on; at the limit a sentence instead. */
-export type Count = { from: number; max: number; full: ReactNode };
+/**
+ * Letters left, from `from` letters on; at the limit a sentence instead. `of` counts the letters when the limit is the
+ * API's in letters (code points: an emoji is one) rather than the box's `maxLength` (UTF-16 units: an emoji is two).
+ */
+export type Count = { from: number; max: number; full: ReactNode; of?: (value: string) => number };
 
 /**
  * Words over more than one line (the idea, a change, a note): the Field box with a textarea that grows with its words up
@@ -138,7 +141,8 @@ export function TextArea({
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, grow)}px`;
   }, [value, grow]);
-  const left = count && value.length >= count.from ? count.max - value.length : null;
+  const length = count?.of ? count.of(value) : value.length;
+  const left = count && length >= count.from ? count.max - length : null;
   const countId = left !== null ? `${id}-count` : undefined;
   return (
     <>

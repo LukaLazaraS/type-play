@@ -3478,8 +3478,18 @@ body:has(.ws) {
   align-items: start;
 }
 .play__stage {
+  /* The room the bar over the frame and the foot under it take, which the frame's height leaves free so Play shows
+     without scrolling. A game with its line under its name (data-pitch) takes more: 3-4 lines in a portrait game's
+     narrow column, 1-2 over a landscape game. */
+  --play-chrome: 210px;
   min-width: 0;
   padding: 16px 16px 20px;
+}
+.play[data-orientation="portrait"] .play__stage[data-pitch] {
+  --play-chrome: 290px;
+}
+.play[data-orientation="landscape"] .play__stage[data-pitch] {
+  --play-chrome: 254px;
 }
 .play__bar {
   display: flex;
@@ -3488,13 +3498,34 @@ body:has(.ws) {
   gap: 12px;
   padding: 6px 4px 16px 12px;
 }
+/* With the game's line under the name the titles run 4-8 lines: Full screen stays up beside the name, not halfway down
+   the words. */
+.play__stage[data-pitch] .play__bar {
+  align-items: flex-start;
+}
 .play__titles {
+  /* The bar's width beside Full screen, so the game's line under the name wraps in all of it. */
+  flex: 1 1 auto;
   min-width: 0;
 }
 .play__name {
   margin: 0;
   font-size: clamp(24px, 2.6vw, 34px);
   overflow-wrap: anywhere;
+}
+/* The game's line (2026-11-20): plain words under the name, white, before the figures. Its own width counts for nothing
+   (width 0, then the column's width up to 64ch as its least), so a long line wraps in the column the frame makes and never
+   widens a portrait game's, and over a wide game it keeps a reading measure. */
+.play__pitch {
+  width: 0;
+  min-width: min(100%, 64ch);
+  max-width: 64ch;
+  margin: 8px 0 0;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--on-sky);
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 .play__by {
   margin: 8px 0 0;
@@ -3521,12 +3552,12 @@ body:has(.ws) {
   background: var(--sky-2);
 }
 .play__frame[data-orientation="landscape"] {
-  width: min(100%, (100dvh - 64px - 210px) * 16 / 9);
+  width: min(100%, (100dvh - 64px - var(--play-chrome)) * 16 / 9);
   aspect-ratio: 16 / 9;
   margin: 0 auto;
 }
 .play__frame[data-orientation="portrait"] {
-  width: min(100%, max(240px, (100dvh - 64px - 210px) * 9 / 16));
+  width: min(100%, max(240px, (100dvh - 64px - var(--play-chrome)) * 9 / 16));
   aspect-ratio: 9 / 16;
   margin: 0 auto;
 }
@@ -3663,6 +3694,12 @@ body:has(.ws) {
     padding: 12px 12px 16px;
     border-radius: 32px;
   }
+  .play[data-orientation="portrait"] .play__stage {
+    --play-chrome: 190px;
+  }
+  .play[data-orientation="portrait"] .play__stage[data-pitch] {
+    --play-chrome: 274px;
+  }
   .play__bar {
     padding: 4px 2px 12px 8px;
   }
@@ -3671,7 +3708,7 @@ body:has(.ws) {
     border-radius: 32px;
   }
   .play__frame[data-orientation="portrait"] {
-    width: min(100%, max(220px, (100dvh - 64px - 190px) * 9 / 16));
+    width: min(100%, max(220px, (100dvh - 64px - var(--play-chrome)) * 9 / 16));
   }
 }
 
@@ -5185,6 +5222,32 @@ body:has(main.explore) > .ground-band {
 .share__head .share__plays {
   margin-top: 6px;
   font-size: 11px;
+}
+
+/* The Share menu's description (2026-11-20): its own part under a Field line; the sentence as the page shows it, set off
+   by a Field-coloured rule on its left like a quote (no box: a box would read as a field to type in), whose it is under
+   it, then Edit and Use the AI's. */
+.share__line {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--field);
+}
+.share__pitch {
+  margin: 0;
+  padding: 2px 0 2px 12px;
+  border-left: 3px solid var(--field);
+  font-size: 15px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+/* 12px: the box's focus ring (3px out, 3px wide) keeps clear of Save. */
+.share__edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 /* A modal dialog (ui/Dialog.tsx: Report this game, Send feedback): paper at the popovers' radius, arriving and leaving

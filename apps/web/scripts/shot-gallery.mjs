@@ -6,7 +6,9 @@
 // page and from a listing (the dialog, a reason, the thanks, the row, a second report from the same visitor),
 // an admin hide (out of the gallery, the share link still works, the maker's Share menu says so), the phone,
 // then worst cases planted in the database: 300 games, 60-letter and unbreakable names, 9,999,999 plays,
-// missing and broken pictures, a wide game on top, Show more, 320 px.
+// missing and broken pictures, a wide game on top, Show more, 320 px. The game's description (2026-11-20) in the Share
+// menu: the build's line, Edit, Enter saves the owner's own, the share page shows it, Use the AI's goes back, a link is
+// refused; then the longest, unbreakable line on the share page and in the menu at 390 and 280 px and at 200% text.
 // The API under test: DEV_AUTH=1 AGENT_FAKE=1 (fake builds). Part of shot-app.mjs (galleryPart), or alone,
 // through the CPU limiter, on a stack of its own (2026-11-20: a database of the run's own and ports picked free,
 // dev-env.mjs startStack; build the API first) unless a site and an API are named:
@@ -61,7 +63,7 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       const box = pop.getBoundingClientRect();
       const bad = [];
       if (screen && (box.left < -0.5 || box.right > screen + 0.5)) bad.push(`the menu at ${Math.round(box.left)}-${Math.round(box.right)} of ${screen}`);
-      for (const el of pop.querySelectorAll(".share__head b, .share__head > div > span, .share__note, .toggle, .button")) {
+      for (const el of pop.querySelectorAll(".share__head b, .share__head > div > span, .share__note, .share__pitch, .share__line .field, .share__line .field-count, .toggle, .button")) {
         const r = el.getBoundingClientRect();
         if (r.width && (r.left < box.left - 0.5 || r.right > box.right + 0.5)) bad.push(`${el.className || el.tagName} outside`);
       }
@@ -147,6 +149,83 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     check("the API has it listed", (await api("GET", `/projects/${g1}`)).body?.listed === true);
     await page.waitForTimeout(200);
     await shot(page, "game-share-gallery-on-desktop");
+
+    // ---- The game's description (2026-11-20): the build's line, the owner's own, back to the build's ----------------
+    const aiLine = (await api("GET", `/projects/${g1}`)).body?.pitch ?? "";
+    const desc = page.locator(`#share-${g1} .share__line`);
+    const descText = async () => (await desc.innerText()).replace(/\s+/g, " ");
+    check(
+      "the Share menu's description: the build's line as its page shows it, said to be written from the game, and where it shows (in the gallery: its page, link previews and search)",
+      aiLine.length >= 60 && (await desc.locator(".share__pitch").innerText()) === aiLine && /Written by the AI from your game/.test(await descText()) && /Its page, link previews and search show it\./.test(await descText()),
+      aiLine || "no line",
+    );
+    await desc.getByRole("button", { name: "Edit", exact: true }).click();
+    const lineBox = page.locator(`#share-line-${g1}`);
+    await lineBox.waitFor({ timeout: 5_000 });
+    check("Edit: a text box with the line in it, the keyboard in it", (await lineBox.inputValue()) === aiLine && (await lineBox.evaluate((el) => el === document.activeElement)));
+    const ownLine = "Help a fox clear every log in the forest, one jump at a time";
+    await lineBox.fill(ownLine);
+    await page.waitForTimeout(150);
+    await shot(page, "game-share-line-edit-desktop");
+    await lineBox.press("Enter");
+    await desc.locator(".share__pitch", { hasText: "Help a fox" }).waitFor({ timeout: 10_000 });
+    const owned = (await api("GET", `/projects/${g1}`)).body;
+    check(
+      "Enter saves: the owner's line shown and said to be theirs, with Use the AI's; the API keeps the build's beside it",
+      owned?.ownerPitch === ownLine && owned.pitch === aiLine && /Yours\./.test(await descText()) && (await desc.getByRole("button", { name: "Use the AI's" }).isVisible()),
+      `${owned?.ownerPitch} / ${owned?.pitch}`,
+    );
+    await page.waitForTimeout(200);
+    await shot(page, "game-share-line-own-desktop");
+    await v.goto(`${base}/play/${g1}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
+    await v.locator(".play__pitch").waitFor({ timeout: 60_000 });
+    const ownDescription = await v.locator('meta[name="description"]').getAttribute("content");
+    check(
+      "the share page: the owner's line under the name; its description the line, a full stop, then free in your browser",
+      (await v.locator(".play__pitch").innerText()) === ownLine && ownDescription === `${ownLine}. Play free in your browser, no download.`,
+      ownDescription ?? "no description",
+    );
+    // Its measure: the column's width up to 64ch (a wide game's bar is far wider than that at 1440).
+    const measure = await v.locator(".play__pitch").evaluate((el) => {
+      const ch = parseFloat(getComputedStyle(el).maxWidth);
+      return { width: Math.round(el.getBoundingClientRect().width), column: Math.round(el.parentElement.getBoundingClientRect().width), ch: Math.round(ch) };
+    });
+    check("…the line as wide as its column, at most 64ch", Math.abs(measure.width - Math.min(measure.column, measure.ch)) <= 1, JSON.stringify(measure));
+    await desc.getByRole("button", { name: "Use the AI's" }).click();
+    await desc.locator(".share__pitch", { hasText: aiLine.slice(0, 40) }).waitFor({ timeout: 10_000 });
+    check(
+      "Use the AI's: the build's line again, the owner's gone in the API, no Use the AI's any more, the keyboard on Edit",
+      (await api("GET", `/projects/${g1}`)).body?.ownerPitch === null &&
+        (await desc.getByRole("button", { name: "Use the AI's" }).count()) === 0 &&
+        /Written by the AI from your game/.test(await descText()) &&
+        (await page.evaluate(() => document.activeElement?.textContent?.trim())) === "Edit",
+    );
+    // Escape in the box: the edit closes, the menu stays open, the line unchanged, the keyboard back on Edit.
+    await desc.getByRole("button", { name: "Edit", exact: true }).click();
+    await lineBox.fill("Words never saved");
+    await lineBox.press("Escape");
+    await page.waitForTimeout(200);
+    check(
+      "Escape in the box: the edit closed and the menu still open, the line unchanged, the keyboard on Edit",
+      (await lineBox.count()) === 0 &&
+        (await page.locator(`#share-${g1}:popover-open`).count()) === 1 &&
+        (await desc.locator(".share__pitch").innerText()) === aiLine &&
+        (await api("GET", `/projects/${g1}`)).body?.ownerPitch === null &&
+        (await page.evaluate(() => document.activeElement?.textContent?.trim())) === "Edit",
+    );
+    // A link in it: the API says no, under the box, and the line stays as it was.
+    await desc.getByRole("button", { name: "Edit", exact: true }).click();
+    await lineBox.fill("Play the fox game free at foxlogs.example.com before it goes");
+    await lineBox.press("Enter");
+    await page.locator(`#share-line-${g1}-error`).waitFor({ timeout: 10_000 });
+    check(
+      "a link in the description: refused, said under the box, the line unchanged",
+      /links/.test(await page.locator(`#share-line-${g1}-error`).innerText()) && (await api("GET", `/projects/${g1}`)).body?.ownerPitch === null,
+      await page.locator(`#share-line-${g1}-error`).innerText(),
+    );
+    await page.waitForTimeout(200);
+    await shot(page, "game-share-line-error-desktop");
+    await desc.getByRole("button", { name: "Cancel" }).click();
     await page.keyboard.press("Escape");
 
     // One game in the gallery (when nothing else is listed): the top game alone, no listings.
@@ -333,6 +412,10 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     await shot(page, "game-share-gallery-hidden-desktop");
     await page.keyboard.press("Escape");
     admin("gallery", "unhide", g3);
+    // The worst description on the phones below: 150 letters (the most), a 62-letter word, Georgian and emoji.
+    const WORST = [...`Supercalifragilisticexpialidociousfoxjumpingoverlogsforeverandever ნაძვის ხე და თოვლი 🦊🦊 ${"Wwww ".repeat(20)}`].slice(0, 150).join("").trim();
+    const worstSet = await api("PATCH", `/projects/${g1}`, { ownerPitch: WORST });
+    check(`the worst description saved (${[...WORST].length} letters)`, worstSet.status === 200 && worstSet.body?.ownerPitch === WORST, worstSet.body?.message ?? "");
 
     // ---- Phones ------------------------------------------------------------------------------------
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
@@ -354,6 +437,17 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       await p.locator(".play__name").waitFor({ timeout: 60_000 });
       await noBadge(p);
       await shot(p, "play-report-phone", true);
+      // The worst description under the name: whole, inside the screen, and Play still on the first screen at 390 x 844.
+      const pitchAt = await p.evaluate(() => {
+        const el = document.querySelector(".play__pitch");
+        const frame = document.querySelector(".play__frame")?.getBoundingClientRect();
+        return { text: el?.textContent ?? "", right: el?.getBoundingClientRect().right ?? 0, frameBottom: frame ? frame.bottom + scrollY : 0 };
+      });
+      check(
+        "phone 390: the worst description under the name, whole, inside the screen; the game's frame (Play) still on the first screen",
+        pitchAt.text === WORST && pitchAt.right <= 390 && pitchAt.frameBottom <= 844,
+        `right ${Math.round(pitchAt.right)}, the frame's bottom at ${Math.round(pitchAt.frameBottom)} of 844`,
+      );
       // More games under the share page: the gallery's cards, never the game itself, inside every phone width and at
       // 200% text (rendered on the server: there before any script runs).
       const moreAt = async (w) => {
@@ -366,6 +460,7 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
             cards: row?.querySelectorAll(".gamecard").length ?? 0,
             self: [...(row?.querySelectorAll("a") ?? [])].some((a) => a.getAttribute("href") === location.pathname),
             page: document.documentElement.scrollWidth,
+            pitch: document.querySelector(".play__pitch")?.getBoundingClientRect().right ?? 0,
           };
         });
       };
@@ -373,8 +468,8 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       for (const w of [390, 360, 320, 280]) more.push([w, await moreAt(w)]);
       check(
         "phone: More games under the share page (its genre's, then the gallery's), never itself, nothing wider than the screen at 390, 360, 320 and 280",
-        more.every(([w, m]) => m.cards > 0 && m.cards <= 12 && !m.self && m.page <= w && /^More /.test(m.title ?? "")),
-        more.map(([w, m]) => `${w}: ${m.cards} cards, ${m.page}px, "${m.title}"`).join("; "),
+        more.every(([w, m]) => m.cards > 0 && m.cards <= 12 && !m.self && m.page <= w && m.pitch <= w && /^More /.test(m.title ?? "")),
+        more.map(([w, m]) => `${w}: ${m.cards} cards, ${m.page}px, the description to ${Math.round(m.pitch)}px, "${m.title}"`).join("; "),
       );
       await doubleText(p);
       await p.waitForTimeout(400);
@@ -421,7 +516,25 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       const bigPage = await p.evaluate(() => document.documentElement.scrollWidth);
       check("phone 280 at 200% text: the page no wider than the screen (the game's bar fits), the menu on it", bigScreen.length === 0 && bigPage <= 280, `${bigScreen.join("; ") || "on the screen"}; the page ${bigPage} px wide`);
       await shot(p, "game-share-gallery-280-text200");
+      // The worst description in the menu at 280 px and 200% text, then its edit box (doubled too: it is new).
+      await p.locator(`#share-${g1} .share__line`).scrollIntoViewIfNeeded();
+      await shot(p, "game-share-line-280-text200");
+      await p.locator(`#share-${g1} .share__line`).getByRole("button", { name: "Edit", exact: true }).click();
+      await p.locator(`#share-line-${g1}`).waitFor({ timeout: 5_000 });
+      await p.evaluate(() =>
+        document.querySelectorAll(".share__edit, .share__edit *").forEach((el) => {
+          const cs = getComputedStyle(el);
+          el.style.fontSize = `${parseFloat(cs.fontSize) * 2}px`;
+          if (cs.lineHeight.endsWith("px")) el.style.lineHeight = `${parseFloat(cs.lineHeight) * 2}px`;
+        }),
+      );
+      await p.waitForTimeout(300);
+      await p.locator(`#share-line-${g1}`).scrollIntoViewIfNeeded();
+      const editBig = await shareFits(p, g1, 280);
+      check("phone 280 at 200% text: the worst description's edit box and its buttons inside the menu, on the screen", editBig.length === 0, editBig.join("; "));
+      await shot(p, "game-share-line-edit-280-text200");
       await p.keyboard.press("Escape");
+      await api("PATCH", `/projects/${g1}`, { ownerPitch: null });
     } finally {
       await phone.close();
     }
