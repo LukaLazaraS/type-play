@@ -175,7 +175,7 @@ export function CreateApp() {
   }, [fromUrl, router]);
 
   // The pricing page's "Get Medium" lands here with ?plan=: signed in, straight on to the checkout;
-  // signed out, the sign-in below comes back to the checkout. With billing off (no Paddle token in this build) there is no
+  // signed out, the sign-in (at the top, under the lead) comes back to the checkout. With billing off (no Paddle token in this build) there is no
   // checkout to go on to: the page stays and says so plainly, and the plan stays in the address through the sign-in.
   const plan = planIdOf(params.get("plan"));
   const toCheckout = plan && paddleOn ? checkoutHref(`plan:${plan}`) : null;
@@ -260,9 +260,47 @@ export function CreateApp() {
   const short = !!est && !!me && (me.credits.available < est.low || (me.credits.todayLeft !== null && me.credits.todayLeft < est.low));
 
   if (toCheckout && signedIn) return <PageWidget busy />;
+  // A plan's button that can't sell (billing off) is answered at the top, signed in or out: the plan isn't on sale, then
+  // what to do (the closed beta's code or waitlist; Free at the open launch). Signed in, the testers' way to more credits.
+  const planLead = !planOff
+    ? undefined
+    : session.status === "in"
+      ? <NotOnSale plan={planOff} />
+      : session.status === "out" && closedBeta
+        ? `${notOnSale.plan(planOff)} ${CLOSED_BETA_NOTE}`
+        : session.status === "out"
+          ? <NotOnSale plan={planOff} />
+          : notOnSale.plan(planOff);
+  // Signed out: Google's button. A plan's visitor (?plan=) came to go on, so it sits right under the answer, on the first
+  // screen of a phone; everyone else meets it after the idea and the picks, where it was.
+  const signInPart = (
+    <>
+      {session.status === "loading" && <div className="make__wait" aria-hidden="true" />}
+      {session.status === "out" && (
+        <div className="make__signin">
+          {error && <ErrorLine>{error}</ErrorLine>}
+          <SignIn
+            next={toCheckout ?? (planOff ? `/create?plan=${plan}` : "/create")}
+            note={
+              toCheckout
+                ? "Sign in first; the checkout opens right after."
+                : planOff
+                  ? closedBeta
+                    ? "Your idea stays here while you sign in."
+                    : "Your idea stays here while you sign in, ready to build."
+                  : closedBeta
+                    ? `${CLOSED_BETA_NOTE} Your idea stays here.`
+                    : FREE_NOTE
+            }
+          />
+        </div>
+      )}
+    </>
+  );
   return (
-    <PageWidget title={signedIn ? "Make your game." : "Your game is next."} lead={planOff && signedIn ? <NotOnSale plan={planOff} /> : undefined}>
+    <PageWidget title={signedIn ? "Make your game." : "Your game is next."} lead={planLead}>
       <form className="make__form" onSubmit={submit} noValidate>
+        {plan && signInPart}
         <div className="make__idea" {...drop.zone}>
           <TextArea
             id="idea"
@@ -328,25 +366,7 @@ export function CreateApp() {
           />
         </div>
 
-        {session.status === "loading" && <div className="make__wait" aria-hidden="true" />}
-
-        {session.status === "out" && (
-          <div className="make__signin">
-            {error && <ErrorLine>{error}</ErrorLine>}
-            <SignIn
-              next={toCheckout ?? (planOff ? `/create?plan=${plan}` : "/create")}
-              note={
-                toCheckout
-                  ? "Sign in first; the checkout opens right after."
-                  : closedBeta
-                    ? `${planOff ? `${notOnSale.plan(planOff)} ` : ""}${CLOSED_BETA_NOTE} Your idea stays here.`
-                    : planOff
-                      ? `${notOnSale.plan(planOff)} ${FREE_NOTE}`
-                      : FREE_NOTE
-              }
-            />
-          </div>
-        )}
+        {!plan && signInPart}
 
         {signedIn && (
           <>
