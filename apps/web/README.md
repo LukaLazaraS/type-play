@@ -146,17 +146,25 @@ chat, composer, game stage, versions), `src/app/create/CreateApp.tsx`, `src/app/
   in your browser, no download or sign-up. 1,240 plays. Made with TypePlay.", what you do in the genre in a player's
   words (`genreHook`, one per genre and one for none) and the plays from 10; under 60 and 155 letters, shorter forms for
   long names), the same words in its link preview, and schema.org data
-  (`gameStructuredData`, one `@graph`): a `VideoGame` and `WebApplication` (name, address, picture, genre, web browser, free with an offer
+  (`gameStructuredData`, one `@graph`): a `VideoGame` only (a `WebApplication` co-type would need a rating or reviews
+  for Google's software app type, so Search Console would list every page as invalid) (name, address, picture, genre, web browser, free with an offer
   at 0 USD, published when it went into the gallery, modified when it last changed, its plays as a `PlayAction`
   count, TypePlay as publisher; nothing about the maker, no ratings) and a `BreadcrumbList` (TypePlay, the gallery,
   the game). Shared by link only, taken out:
   `noindex, follow` with the same link preview (a link is for friends). The genre is in the figures under the name
-  ("Arcade · Made with TypePlay · 12 plays"), and under the invitation **More <genre> games** (`MoreGames.tsx`, on
-  link-only pages too): up to 12 other gallery games as the gallery's cards, its genre's most played first, then the
-  gallery's, never itself, rendered on the server; no answer from the API, no row. **While the API doesn't answer**,
-  the share page and `/explore` answer **503 with `Retry-After: 120`** (`src/proxy.app.ts` asks the API first, then
-  sends the page as it renders, with its own "We can't load … right now", under that status; a search engine keeps a
-  page through a 5xx and comes back, where a 200 with an error or noindex would drop it). Private by
+  ("Arcade · Made with TypePlay · 12 plays", each part whole), a gallery game's dates under it ("In the gallery since
+  12 Nov 2026 · updated 18 Nov 2026", from `listedAt` and `builtAt`; one date when the build is from that day or before;
+  none on a link-only page), and under the invitation **More games** (`MoreGames.tsx`, on link-only pages too): up to
+  12 other gallery games as the gallery's cards, its genre's most played first, then the gallery's, never itself,
+  rendered on the server, in whole rows at each width (`OtherGames.tsx`); "More <genre> games" only when every card is
+  that genre, else "More games to play"; no answer from the API, no row. **While the API doesn't answer**, the share
+  page and `/explore` answer **503 with `Retry-After: 120`** (`src/proxy.app.ts` asks the API first, then sends the
+  page as it renders, with its own "We can't load … right now", under that status; a search engine keeps a page
+  through a 5xx and comes back, where a 200 with an error or noindex would drop it). The proxy asks for documents only
+  (a browser's or a crawler's page request): the app router's prefetches (`Next-Router-Prefetch`; the status bar's
+  Games link prefetches `/explore` on every page) and in-app moves (`RSC`, `_rsc`) go straight on, so a page view
+  elsewhere asks the API nothing (measured on a production build: 2 requests per home page load before, 0 after).
+  Private by
   default; unsharing makes the page (and its preview) 404 at once, since nothing is cached. The real
   404 status comes from `src/proxy.app.ts`: it asks the API first and sends an unshared game to the
   prerendered `/play/not-shared` (the page itself streams after its shell, as Cache Components pages do,
@@ -745,7 +753,8 @@ screenshots work.
   gallery (`/play/<id>`, `lastModified` when its page last changed: its playing version or its going into the
   gallery, whichever is later, the same as its `dateModified`), read from the API's
   `GET /public/sitemap` at request time, kept 60 s in the server's memory (`SITEMAP_CACHE_SECONDS`; the last list
-  is kept while the API doesn't answer, so an outage doesn't empty the sitemap) (`lib/public.ts` `gallerySitemap`, `connection()`: a sitemap is a
+  is kept while the API doesn't answer, so an outage doesn't empty the sitemap; requests that come while a read is under
+  way wait for it, so 50 at once ask the API once) (`lib/public.ts` `gallerySitemap`, `connection()`: a sitemap is a
   special route handler, static unless it uses a request-time API); an API that doesn't answer leaves the
   games out, never an error. Link-only, hidden and unshared games are never in it. At 50,000 games the API's
   list stops (one sitemap file's limit): then `generateSitemaps`.
@@ -754,8 +763,9 @@ screenshots work.
   game's page index with its title, description, canonical, link preview, `VideoGame` (free, its dates) and
   breadcrumb; link-only and hidden pages `noindex`; an unshared game's page 404; `/explore` indexable with one
   canonical and its `CollectionPage` holding only the gallery game; the descriptions differing by genre; the genre on
-  the page; More games on a link-only page (the gallery game, never itself); the co-type `VideoGame` +
-  `WebApplication`; with the API down, 503 with Retry-After on the share page and `/explore` and the sitemap keeping its
+  the page and its "In the gallery since" date (none on a link-only page); More games on a link-only page (the gallery
+  game, never itself) and its heading (a genre's name only over that genre's games); a `VideoGame` only; with the API
+  down, 503 with Retry-After on the share page and `/explore` and the sitemap keeping its
   list; `sitemap.xml` with `/explore` and
   the gallery game only; the sitemap with the API down.
 - **Search engines:** Google Search Console, domain property `typeplay.app` on lazarashvili02@gmail.com

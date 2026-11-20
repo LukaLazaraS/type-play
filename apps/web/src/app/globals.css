@@ -1645,7 +1645,7 @@ q {
 .footer .wordmark {
   font-size: 18px;
   margin-right: 14px;
-  color: var(--on-sky); /* "Type" white, as in the status bar (DESIGN.md "Wordmark"), not the footer's muted text */
+  color: var(--on-sky); /* "Type" white, as in the status bar (DESIGN.md: Wordmark), not the footer's muted text */
 }
 .footer nav {
   display: flex;
