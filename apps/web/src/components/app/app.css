@@ -292,6 +292,7 @@ body:has(.ws) .ground-band {
 .searchfield input {
   flex: 1;
   min-width: 0;
+  width: 100%; /* not the browser's 20-letter width, which set the box's least width (290px on a 280px phone) */
   height: 44px;
   padding: 0;
   border: 0;
@@ -495,11 +496,14 @@ body:has(.ws) .ground-band {
   align-items: flex-start;
   gap: 12px;
 }
-/* The redirect button (Google's script blocked): its words wrap inside a narrow column or at 200% text. */
+/* The redirect button (Google's script blocked): its words wrap inside a narrow column or at 200% text, at 1.25 so
+   wrapped lines don't touch. The block padding gives the extra back, so one line stays 54px as before (a 20px G and
+   17px either side): 1.25em of words and 16.375px either side at 17px words. */
 .signin > .button {
   max-width: 100%;
   white-space: normal;
   line-height: 1.25;
+  padding-block: calc(18.5px - 0.125em);
   text-align: center;
 }
 /* The words wrap; Google's G keeps its size beside them (it shrank to a speck at 280px with 200% text). */
@@ -3496,6 +3500,21 @@ body:has(.ws) {
   margin: 8px 0 0;
   color: var(--on-sky-muted);
 }
+/* The line under a shared game's name, and a gallery game's dates under it: each part a box of its own with its dot
+   (PlayStage.tsx Parts), so the line breaks between parts, after a dot. A part wider than the line wraps at its own
+   spaces; only a word longer than the line breaks inside (320px at 200% text: "Tower" / "defence ·"). A date is a box
+   too, so it stays whole beside "since" or under it, and wraps at its own spaces only when it alone is wider (280px at
+   200% text: "12 Nov" / "2026 ·"). */
+.play__part,
+.play__date {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.play__dates {
+  margin: 2px 0 0;
+  color: var(--on-sky-muted);
+}
 .play__frame {
   overflow: hidden;
   border-radius: 24px;
@@ -3560,11 +3579,13 @@ body:has(.ws) {
   gap: 10px;
 }
 /* Large text on a narrow phone (200% at 280px): a button's words wrap inside the widget instead of running past the
-   screen (the share page was 333px wide). At the usual sizes each stays one line. */
+   screen (the share page was 333px wide), at 1.25 so wrapped lines don't touch. At the usual sizes each stays one line
+   at its usual 51px: the block padding gives back what 1.25 adds (0.125em either side). */
 .play__cta .button {
   max-width: 100%;
   white-space: normal;
   line-height: 1.25;
+  padding-block: calc(17px - 0.125em);
   text-align: center;
 }
 /* More games under it (MoreGames.tsx): the gallery's cards, across the page's whole width under the stage and the
@@ -3576,6 +3597,48 @@ body:has(.ws) {
 }
 .play__others .library__title {
   overflow-wrap: anywhere;
+}
+/* Its cards in whole rows (OtherGames.tsx): six across from 1100px, four from 900, three from 641, two on phones; the
+   cards past the last whole row at that width are hidden (data-cutN: how many stay at N across). 12 cards fill all.
+   Two classes: over the gallery grid's own columns, which come later. */
+.explore__grid.play__grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+@media (min-width: 1100px) {
+  .explore__grid.play__grid[data-cut6="6"] > :nth-child(n + 7) {
+    display: none;
+  }
+}
+@media (min-width: 900px) and (max-width: 1099px) {
+  .explore__grid.play__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .explore__grid.play__grid[data-cut4="4"] > :nth-child(n + 5),
+  .explore__grid.play__grid[data-cut4="8"] > :nth-child(n + 9) {
+    display: none;
+  }
+}
+@media (min-width: 641px) and (max-width: 899px) {
+  .explore__grid.play__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .explore__grid.play__grid[data-cut3="3"] > :nth-child(n + 4),
+  .explore__grid.play__grid[data-cut3="6"] > :nth-child(n + 7),
+  .explore__grid.play__grid[data-cut3="9"] > :nth-child(n + 10) {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .explore__grid.play__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .explore__grid.play__grid[data-cut2="2"] > :nth-child(n + 3),
+  .explore__grid.play__grid[data-cut2="4"] > :nth-child(n + 5),
+  .explore__grid.play__grid[data-cut2="6"] > :nth-child(n + 7),
+  .explore__grid.play__grid[data-cut2="8"] > :nth-child(n + 9),
+  .explore__grid.play__grid[data-cut2="10"] > :nth-child(n + 11) {
+    display: none;
+  }
 }
 .play .button {
   touch-action: manipulation;
@@ -4830,6 +4893,7 @@ body:has(main.explore) > .ground-band {
 }
 .library__search {
   flex: 0 1 360px;
+  min-width: 0;
   margin-left: auto;
 }
 .library__filters {
@@ -4893,7 +4957,7 @@ body:has(main.explore) > .ground-band {
    row whether a card has a genre or not. */
 .glist__meta {
   display: grid;
-  grid-template-rows: 1.5em 1.5em;
+  grid-template-rows: minmax(1.5em, auto) minmax(1.5em, auto);
   justify-items: start;
   min-width: 0;
   margin: auto 0 0;
@@ -4906,6 +4970,11 @@ body:has(main.explore) > .ground-band {
 }
 .glist__meta > :not(.plays) {
   grid-row: 2;
+  /* At large text a genre wraps inside the card ("Tower / defence", "Plat-former") instead of being cut. */
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  -webkit-hyphens: auto;
+  hyphens: auto;
 }
 /* Report (IconButton scrim) in the picture's top corner, above the card's link. */
 .glist__report {
@@ -5020,6 +5089,11 @@ body:has(main.explore) > .ground-band {
   }
   .library__sort .pillbar__item {
     flex: 1;
+  }
+  /* Large text on a narrow phone (280px at 200%): the three orders wrap onto a second row inside the bar instead of
+     running past the screen (the page was 358px wide), as the game page's tabs do; at the usual sizes one row. */
+  .library__sort {
+    flex-wrap: wrap;
   }
   /* The genres: one row that scrolls sideways to the screen's edges (the last pill cut at the edge says there is more),
      instead of two or three rows of pills above the cards. Room above and below for the focus ring. */
@@ -5322,6 +5396,9 @@ body:has(main.explore) > .ground-band {
   align-items: center;
   gap: 8px 24px;
   margin-top: 4px;
+}
+.closed__actions > .textbutton {
+  align-self: center;
 }
 .closed .button {
   touch-action: manipulation;

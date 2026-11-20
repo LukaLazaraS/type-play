@@ -3,7 +3,8 @@ import { genreMore } from "@/content/gallery";
 import { galleryFirst, UNAVAILABLE } from "@/lib/public";
 import { OtherGames } from "./OtherGames";
 
-/** The most games the row shows: two rows of six on a wide screen. */
+/** The most games the row shows: 12 fills whole rows at six, four, three and two across (OtherGames trims a shorter row
+ * to whole rows the same way). */
 const MOST = 12;
 
 /**
@@ -26,6 +27,7 @@ export async function MoreGames({ id, genre }: { id: string; genre: Genre | null
     }
   }
   if (games.length === 0) return null;
-  const title = genre && games.some((g) => g.genre === genre) ? `More ${genreMore[genre]}` : "More games to play";
+  // A genre's name heads the row only when every game in it is of that genre; filled with others, plain words.
+  const title = genre && games.every((g) => g.genre === genre) ? `More ${genreMore[genre]}` : "More games to play";
   return <OtherGames title={title} games={games} />;
 }

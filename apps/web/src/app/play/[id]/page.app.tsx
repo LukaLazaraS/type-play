@@ -8,7 +8,23 @@ import { site } from "@/content/site";
 import { publicGame, UNAVAILABLE } from "@/lib/public";
 import { posterUrl } from "@/lib/urls";
 import { MoreGames } from "./MoreGames";
-import { PlayStage } from "./PlayStage";
+import { PlayStage, type ShownDate } from "./PlayStage";
+
+/** A date as the page shows it, in plain English and the day it was in UTC ("12 Nov 2026"), not "3 days ago". */
+const day = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const shown = (at: string): ShownDate => ({ text: day.format(new Date(at)), iso: at.slice(0, 10) });
+
+/**
+ * A gallery game's dates: when it went into the gallery, and when the version that plays now was made if that was a
+ * later day (a game built before it was listed reads as listed only). A link-only page shows none: nothing about it
+ * beyond what it showed before.
+ */
+function galleryDates(listedAt: string | null, builtAt: string | null) {
+  if (!listedAt || !Number.isFinite(Date.parse(listedAt))) return null;
+  const listed = shown(new Date(listedAt).toISOString());
+  const built = builtAt && Number.isFinite(Date.parse(builtAt)) ? shown(new Date(builtAt).toISOString()) : null;
+  return { listed, updated: built && built.iso > listed.iso ? built : null };
+}
 
 // App builds only (.app.tsx), like the API it reads. A shared game's public page: anyone with the
 // link plays it here, no sign-in. It waits for the game before answering, so a private, unshared
@@ -70,6 +86,7 @@ export default async function Play({ params }: Props) {
         poster={game.poster ? posterUrl(game.buildId) : undefined}
         plays={game.plays ?? 0}
         genre={game.genre ? genreName[game.genre] : null}
+        dates={game.listed === true ? galleryDates(game.listedAt ?? null, game.builtAt ?? null) : null}
       />
       <MakeYourOwn id="play-made" more />
       <MoreGames id={game.id} genre={game.genre ?? null} />
