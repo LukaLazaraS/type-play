@@ -10,11 +10,16 @@
 //   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-launch.mjs [outDir] [--only beta|open]
 // Shots in .impeccable/review/launch/<state>/: <page>-<width>x<height>.png (whole pages) and the paths' steps.
 // Checks, every shape: nothing wider than the screen; every button at least 44 px tall on the touch shapes (phones,
-// sideways too, and the tablet); worst-case data still fits at 320 and 360. The credits table's numbers are the
-// API's own estimate (a change and a simple new game at "usually", a big one at the top of the range) and its dollars
-// Medium's; the pricing FAQ keeps its seven questions and Paddle's text word for word; no demo video while its address is
-// unset. Per state: the words under the prompt box, the pricing lead, every paid card's line and button, where Medium's
-// button leads (signed out: the note before Google; signed in: the closed-beta page's waitlist, or /create saying Medium
+// sideways too, and the tablet); worst-case data still fits at 320 and 360 (set once React has hydrated the page, and
+// proved still there as it is measured); 200% text at 320 and 390 (every font size doubled, the status bar's too): no
+// sideways scrolling, nothing out of its table cell, card or box, no price broken inside its number or "/ month". Stacked
+// on a phone, Free is the first plan while paid plans aren't on sale, in the page as on the screen. The first screen:
+// sideways (844x390) the home hero's Make my game and the line under it; /create?plan=medium signed out, the answer and
+// Sign in, above the idea box, at 320, 390 and 844x390. The credits table's numbers are the API's own estimate (a change
+// and a simple new game at "usually", then "about" a big one at the top of the range) and its dollars Medium's; the
+// pricing FAQ keeps its seven questions and Paddle's text word for word; no demo video while its address is unset. Per
+// state: the words under the prompt box, the pricing lead, every paid card's line and button, where Medium's button leads
+// (signed out: the answer at the top, then Google; signed in: the closed-beta page's waitlist, or /create saying Medium
 // isn't on sale and Free is how to start, with Build), the checkout and /billing with billing off, the home page's last
 // box (its own prompt box, which hands its sentence to /create like the first).
 import { chromium } from "playwright";
@@ -29,7 +34,8 @@ const serverDir = join(root, "apps/server");
 const args = process.argv.slice(2);
 const onlyAt = args.indexOf("--only");
 const only = onlyAt >= 0 ? args[onlyAt + 1] : null;
-const out = args.find((a, i) => !a.startsWith("--") && i !== onlyAt + 1) ?? join(root, ".impeccable/review/launch");
+// The first argument that isn't a flag or --only's value (with no --only, onlyAt + 1 is 0: the first argument itself).
+const out = args.find((a, i) => !a.startsWith("--") && (onlyAt < 0 || i !== onlyAt + 1)) ?? join(root, ".impeccable/review/launch");
 const STATES = ["beta", "open"].filter((s) => !only || s === only);
 
 const [SITE_PORT, API_PORT, GAMES_PORT] = await useOwnStack("launch", 3);
@@ -143,6 +149,67 @@ const hydrated = (page, selector) =>
     const el = document.querySelector(sel);
     return !!el && Object.keys(el).some((k) => k.startsWith("__reactProps"));
   }, selector, { timeout: 300_000 });
+/** 200% text (a phone's large-text setting, WCAG 1.4.4), as the UI check emulates it: every element's computed font size
+ * and line height doubled, all read first so none is doubled twice; the status bar's too. */
+const doubleText = (page) =>
+  page.evaluate(() => {
+    const els = [...document.querySelectorAll("body *")];
+    const sizes = els.map((el) => {
+      const cs = getComputedStyle(el);
+      return [parseFloat(cs.fontSize), cs.lineHeight];
+    });
+    els.forEach((el, i) => {
+      el.style.fontSize = `${sizes[i][0] * 2}px`;
+      if (sizes[i][1].endsWith("px")) el.style.lineHeight = `${parseFloat(sizes[i][1]) * 2}px`;
+    });
+  });
+/** What runs out of its box at the moment (each `[selector, box selector, what]`: the element itself and every line of its
+ * visible text, bare text nodes too, inside its nearest box; screen-reader-only words don't count). */
+const outOfBox = (page, pairs) =>
+  page.evaluate((pairs) => {
+    const bad = [];
+    const rects = (el) => {
+      const all = [el.getBoundingClientRect()];
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        if (!n.textContent.trim() || n.parentElement?.closest(".sr-only")) continue;
+        const range = document.createRange();
+        range.selectNodeContents(n);
+        all.push(...range.getClientRects());
+      }
+      return all;
+    };
+    for (const [sel, boxSel, what] of pairs)
+      for (const el of document.querySelectorAll(sel)) {
+        const box = el.closest(boxSel)?.getBoundingClientRect();
+        if (!box || !el.getClientRects().length || el.closest(".sr-only")) continue;
+        const out = Math.max(0, ...rects(el).map((r) => Math.max(box.left - r.left, r.right - box.right)));
+        if (out > 1) bad.push(`${what} "${el.textContent.trim().slice(0, 24)}" ${Math.round(out)}px out`);
+      }
+    return bad;
+  }, pairs);
+/** Pictures of single pieces of the page (`[selector, name]`), each scrolled into view: for pages too tall for one. */
+async function pieces(page, prefix, list) {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  for (const [sel, name] of list) {
+    const el = page.locator(sel).first();
+    if (await el.count()) await el.screenshot({ path: join(dir, `${prefix}-${name}.png`) }).catch(() => {});
+  }
+}
+/** Where the page grows wider than the screen: the outermost pieces that stick out (not inside a box that clips). */
+const stickingOut = (page) =>
+  page.evaluate((vw) => {
+    const desc = (el) => `${el.tagName.toLowerCase()}${el.classList.length ? "." + [...el.classList].join(".") : ""}`;
+    const right = (el) => el.getBoundingClientRect().right;
+    const clipped = (el) => {
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) if (getComputedStyle(p).overflowX !== "visible") return true;
+      return false;
+    };
+    return [...document.querySelectorAll("body *")]
+      .filter((el) => el.getClientRects().length && !el.closest(".sr-only, nextjs-portal") && right(el) > vw + 1 && !(el.parentElement && right(el.parentElement) > vw + 1) && !clipped(el))
+      .slice(0, 6)
+      .map((el) => `${desc(el)} to ${Math.round(right(el))}px`);
+  }, page.viewportSize().width);
 async function devSignIn(page, email) {
   await page.locator("#dev-email").waitFor({ timeout: 120_000 });
   await page.fill("#dev-email", email);
@@ -209,7 +276,8 @@ try {
 
     // ---- Worst case (break-ui): bigger numbers, longer words and lines than today's, on the two smallest phones ----
     // Four-digit credits, a long unbroken word in a row's example and on a card, the billing-off lines three times over.
-    // Nothing may push the page sideways or be cut off inside the table (its widget clips with overflow: hidden).
+    // Nothing may push the page sideways or run out of a table cell. The page is changed only once React has hydrated it
+    // (before that, hydration puts the real words back), and the check proves the worst case is still there as it measures.
     {
       const bad = [];
       for (const [w, h] of [
@@ -218,32 +286,176 @@ try {
       ]) {
         const { context, page } = await visitor(w, h);
         await open(page, "/pricing");
+        await hydrated(page, ".credits__usd");
+        await hydrated(page, ".plan__action a");
         await page.evaluate(() => {
           const long = "Supercalifragilisticexpialidocious-level-select";
-          document.querySelectorAll(".credits__num").forEach((n) => (n.innerHTML = "<small>up to </small>1,300<small> credits</small>"));
+          document.querySelectorAll(".credits__num").forEach((n) => (n.innerHTML = "<small>about </small>1,300<small> credits</small>"));
           document.querySelectorAll(".credits__usd").forEach((n) => (n.textContent = "$260.00"));
           document.querySelectorAll(".credits__size span").forEach((n) => (n.textContent = `${n.textContent} ${long}`));
           document.querySelectorAll(".plan__off, .pricing__state").forEach((n) => (n.textContent = Array(3).fill(n.textContent).join(" ")));
           const li = document.querySelector(".plan li");
           if (li) li.append(` ${long}`);
         });
-        if (!(await fits(page))) bad.push(`pricing ${w}x${h} wider than the screen`);
-        const clipped = await page.locator(".credits__table th, .credits__table td").evaluateAll((cells) =>
-          cells.filter((c) => c.scrollWidth > c.clientWidth + 1).map((c) => c.textContent.trim().slice(0, 30)),
+        await page.waitForTimeout(400);
+        if (!(await fits(page))) bad.push(`pricing ${w}x${h} wider than the screen: ${(await stickingOut(page)).join(", ")}`);
+        const clipped = await outOfBox(page, [
+          [".credits__table th, .credits__table td", "th, td", "table cell"],
+          [".credits__table", ".credits", "table"],
+          [".plan li, .plan__off", ".plan", "card"],
+        ]);
+        if (clipped.length) bad.push(`pricing ${w}x${h} out of its box: ${clipped.join(" | ")}`);
+        const there = await page.evaluate(
+          () =>
+            [...document.querySelectorAll(".credits__usd")].every((n) => n.textContent === "$260.00") &&
+            [...document.querySelectorAll(".credits__num")].every((n) => n.textContent === "about 1,300 credits") &&
+            (document.querySelector(".plan li")?.textContent ?? "").includes("Supercalifragilistic"),
         );
-        if (clipped.length) bad.push(`pricing ${w}x${h} cut off in the table: ${clipped.join(" | ")}`);
+        if (!there) bad.push(`pricing ${w}x${h}: the worst case was gone when measured (hydration put the page back)`);
         await shot(page, `worst-pricing-${w}x${h}`);
         await open(page, "/");
+        await hydrated(page, ".cta--start p");
+        await hydrated(page, "#prompt");
         await page.evaluate(() => {
           const p = document.querySelector(".cta--start p");
           if (p) p.textContent = Array(3).fill(p.textContent).join(" ");
           document.querySelectorAll("#models .figures").forEach((f) => f.append(" about 1,300 credits a new game"));
         });
-        if (!(await fits(page))) bad.push(`home ${w}x${h} wider than the screen`);
+        await page.waitForTimeout(400);
+        if (!(await fits(page))) bad.push(`home ${w}x${h} wider than the screen: ${(await stickingOut(page)).join(", ")}`);
+        const homeThere = await page.evaluate(
+          () =>
+            (document.querySelector("#models .figures")?.textContent ?? "").includes("1,300") &&
+            (document.querySelector(".cta--start p")?.textContent ?? "").length > 200,
+        );
+        if (!homeThere) bad.push(`home ${w}x${h}: the worst case was gone when measured (hydration put the page back)`);
         await shot(page, `worst-home-${w}x${h}`);
         await context.close();
       }
       check(`${state}: worst case (4-digit credits, long words, long lines) still fits at 320 and 360`, bad.length === 0, bad.join("; "));
+    }
+
+    // ---- 200% text on the two upright phones: both pages, the status bar included ----
+    // No sideways scrolling; each table cell's words inside their own column; a price never broken inside its number,
+    // "/ month" on one line; a card's line and button, Make my game and the last box's buttons, inside their boxes.
+    {
+      const bad = [];
+      for (const [w, h] of [
+        [320, 568],
+        [390, 844],
+      ]) {
+        const { context, page } = await visitor(w, h);
+        await open(page, "/pricing");
+        await hydrated(page, ".plan__action a");
+        await doubleText(page);
+        await page.waitForTimeout(400);
+        if (!(await fits(page))) bad.push(`pricing ${w}x${h} wider than the screen: ${(await stickingOut(page)).join(", ")}`);
+        bad.push(
+          ...(await outOfBox(page, [
+            [".credits__table th, .credits__table td", "th, td", "table cell"],
+            [".credits__table", ".credits", "table"],
+            [".plan__price, .plan__off, .plan__action .button", ".plan, .pack", "card"],
+          ])).map((b) => `pricing ${w}x${h} ${b}`),
+        );
+        const prices = await page.locator(".plan__price").evaluateAll((els) =>
+          els.map((el) => {
+            const small = el.querySelector("small");
+            const number = document.createRange();
+            number.setStart(el, 0);
+            if (small) number.setEndBefore(small);
+            else number.setEnd(el, el.childNodes.length);
+            const lines = (rects) => new Set([...rects].filter((r) => r.width > 0).map((r) => Math.round(r.top))).size;
+            return { price: el.textContent, number: lines(number.getClientRects()), period: small ? lines(small.getClientRects()) : 1 };
+          }),
+        );
+        for (const p of prices) {
+          if (p.number > 1) bad.push(`pricing ${w}x${h} "${p.price}": the number breaks over ${p.number} lines`);
+          if (p.period > 1) bad.push(`pricing ${w}x${h} "${p.price}": "/ month" breaks over ${p.period} lines`);
+        }
+        await walkDown(page);
+        await shot(page, `zoom200-pricing-${w}x${h}`);
+        // A page this tall passes the browser's largest picture (about 16,000 px): the parts that matter, each on its own.
+        await shot(page, `zoom200-pricing-${w}x${h}-top`, false);
+        await pieces(page, `zoom200-pricing-${w}x${h}`, [
+          [".plans:not(.plans--big)", "plans"],
+          [".plans--big", "big-plans"],
+          [".credits", "table"],
+        ]);
+        await open(page, "/");
+        await hydrated(page, "#prompt-end");
+        await doubleText(page);
+        await page.waitForTimeout(400);
+        if (!(await fits(page))) bad.push(`home ${w}x${h} wider than the screen: ${(await stickingOut(page)).join(", ")}`);
+        bad.push(
+          ...(await outOfBox(page, [
+            [".cta--start .button", ".cta--start", "last box"],
+            [".prompt__field .button", ".prompt__field", "prompt box"],
+          ])).map((b) => `home ${w}x${h} ${b}`),
+        );
+        await walkDown(page);
+        await shot(page, `zoom200-home-${w}x${h}`);
+        await shot(page, `zoom200-home-${w}x${h}-top`, false);
+        await pieces(page, `zoom200-home-${w}x${h}`, [
+          [".ship", "ship"],
+          [".cta--start", "endbox"],
+        ]);
+        await context.close();
+      }
+      check(`${state}: 200% text fits at 320 and 390 (table cells, prices, cards' lines and buttons, the prompt boxes' and last box's buttons, the status bar)`, bad.length === 0, bad.join("; "));
+    }
+
+    // ---- The plans' order on a phone: Free first while paid plans aren't on sale, in the page as on the screen ----
+    {
+      const { context, page } = await visitor(390, 844);
+      await open(page, "/pricing");
+      const cards = await page.locator(".plans:not(.plans--big) .plan").evaluateAll((els) =>
+        els.map((el) => [el.querySelector(".plan__name")?.textContent, Math.round(el.getBoundingClientRect().top)]),
+      );
+      const shown = [...cards].sort((a, b) => a[1] - b[1]).map(([n]) => n);
+      const inPage = cards.map(([n]) => n);
+      check(`pricing (${state}): stacked at 390, Free is the first card, and the screen's order is the page's (Tab's)`, shown[0] === "Free" && shown.join() === inPage.join(), `shown ${shown.join(", ")}; in the page ${inPage.join(", ")}`);
+      await context.close();
+    }
+
+    // ---- The first screen: the hero's box and Make my game sideways; /create?plan= signed out, the answer and Sign in ----
+    {
+      const { context, page } = await visitor(844, 390);
+      await open(page, "/");
+      const hero = await page.evaluate(() => {
+        const button = document.querySelector(".home__widget button[type=submit]")?.getBoundingClientRect();
+        const hint = document.querySelector("#prompt-hint")?.getBoundingClientRect();
+        return { button: button ? Math.round(button.bottom) : null, hint: hint ? Math.round(hint.bottom) : null };
+      });
+      check(`home (${state}): sideways (844x390), Make my game and the line under it on the first screen`, hero.button !== null && hero.button <= 390 && hero.hint !== null && hero.hint <= 390, JSON.stringify(hero));
+      await shot(page, "first-home-844x390", false);
+      await context.close();
+      const late = [];
+      for (const [w, h] of [
+        [320, 568],
+        [390, 844],
+        [844, 390],
+      ]) {
+        const { context, page } = await visitor(w, h);
+        await open(page, "/create?plan=medium");
+        await page.locator(".signin .field-hint").waitFor({ timeout: 120_000 });
+        const at = await page.evaluate(() => {
+          const bottom = (sel) => {
+            const r = document.querySelector(sel)?.getBoundingClientRect();
+            return r ? Math.round(r.bottom) : null;
+          };
+          const top = (sel) => {
+            const r = document.querySelector(sel)?.getBoundingClientRect();
+            return r ? Math.round(r.top) : null;
+          };
+          return { lead: bottom(".make__lead"), signIn: bottom(".signin > :first-child"), signInTop: top(".signin"), idea: top("#idea") };
+        });
+        if (at.lead === null || at.lead > h) late.push(`${w}x${h} the answer ends at ${at.lead}`);
+        if (at.signIn === null || at.signIn > h) late.push(`${w}x${h} Sign in ends at ${at.signIn}`);
+        if (at.signInTop === null || at.idea === null || at.signInTop > at.idea) late.push(`${w}x${h} Sign in is under the idea box`);
+        await shot(page, `first-create-plan-signed-out-${w}x${h}`, false);
+        await context.close();
+      }
+      check(`/create?plan=medium (${state}), signed out: the answer and Sign in on the first screen, above the idea box, at 320, 390 and 844x390`, late.length === 0, late.join("; "));
     }
 
     // ---- Pricing at 1440: the table, the cards, the FAQ ----
@@ -260,8 +472,8 @@ try {
         ["fast", "smart", "best"].map((m) => estimate("new", m, "medium", "medium").high),
       ];
       const got = cells.map((row) => row.map(([n]) => words(n)));
-      const expected = want.map((row, i) => row.map((n) => `${i === 2 ? "up to " : ""}${n} credits`));
-      check("pricing: the credits table is the API's estimate (a change, a simple new game, up to a big one; Fast, Smart, Best)", JSON.stringify(got) === JSON.stringify(expected), JSON.stringify(got));
+      const expected = want.map((row, i) => row.map((n) => `${i === 2 ? "about " : ""}${n} credits`));
+      check("pricing: the credits table is the API's estimate (a change, a simple new game, then \"about\" a big one at the top of the range; Fast, Smart, Best)", JSON.stringify(got) === JSON.stringify(expected), JSON.stringify(got));
       const usd = cells.map((row) => row.map(([, d]) => words(d)));
       const usdWant = want.map((row) => row.map((n) => `$${(n * perCredit).toFixed(2)}`));
       check("pricing: each number's dollars at Medium's price", JSON.stringify(usd) === JSON.stringify(usdWant), JSON.stringify(usd));
@@ -348,12 +560,14 @@ try {
       await medium.click();
       await page.waitForURL(/\/create\?plan=medium/, { timeout: 120_000 });
       const note = words(await page.locator(".signin .field-hint").textContent({ timeout: 120_000 }));
+      const answer = words(await page.locator(".make__lead").textContent({ timeout: 60_000 }));
       check(
-        `the path (${state}): Medium's button, signed out, says Medium isn't on sale ${beta ? "and how the closed beta works" : "and Free is how to start"}`,
+        `the path (${state}): Medium's button, signed out, answers at the top that Medium isn't on sale ${beta ? "and how the closed beta works" : "and Free is how to start"}, then Sign in`,
         beta
-          ? note.startsWith("Medium isn't on sale yet. A closed beta for now:") && note.includes("join the waitlist")
-          : note === "Medium isn't on sale yet. Free to start: 20 credits a month on Fast. Your idea stays here while you sign in, ready to build.",
-        note,
+          ? answer === "Medium isn't on sale yet. A closed beta for now: sign in with Google, then type the beta code from your invitation. No code yet? Sign in anyway to join the waitlist." &&
+              note === "Your idea stays here while you sign in."
+          : answer === "Medium isn't on sale yet. Free is how to start: 20 credits a month on Fast, up to 5 a day." && note === "Your idea stays here while you sign in, ready to build.",
+        `${answer} | ${note}`,
       );
       await shot(page, "path-create-plan-signed-out-390", false);
       const email = `launch-${state}-${stamp}@dev.test`;
