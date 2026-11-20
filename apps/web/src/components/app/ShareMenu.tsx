@@ -19,6 +19,10 @@ const noop = () => () => {};
 const useOrigin = () => useSyncExternalStore(noop, () => window.location.origin, () => "");
 const useCanShare = () => useSyncExternalStore(noop, () => typeof navigator.share === "function", () => false);
 
+/** The gallery switch's line, off and on: what it does, in both. */
+const GALLERY_OFF = "Off. Turn it on and anyone can find it on Explore and in search engines like Google.";
+const GALLERY_ON = "On. Anyone can find it on Explore and in search engines like Google.";
+
 /**
  * Share: a switch that makes the game public at /play/<id>, and its link to copy or send; then, while it is
  * shared, a second switch that also shows it in the public gallery (/explore), which lets search engines list its page
@@ -128,13 +132,16 @@ export function ShareMenu({ project, onChange }: { project: Project; onChange: (
           <div className="share__head share__gallery">
             <div>
               <b id={`gallery-title-${project.id}`}>Show it in the gallery</b>
-              <span id={`gallery-state-${project.id}`}>
-                {project.galleryHidden
-                  ? "We took it out of the gallery after a report."
-                  : project.listed
-                    ? "Anyone can find it on Explore, and in search engines like Google."
-                    : "Off: only people with the link find it."}
-              </span>
+              {project.galleryHidden ? (
+                <span id={`gallery-state-${project.id}`}>We took it out of the gallery after a report.</span>
+              ) : (
+                // What the switch does, said before it is on. Both lines take the room of the longer one (the other is
+                // there unseen), so the switch beside them stays put when it flips.
+                <span className="share__states">
+                  <span id={`gallery-state-${project.id}`}>{project.listed ? GALLERY_ON : GALLERY_OFF}</span>
+                  <span aria-hidden="true">{project.listed ? GALLERY_OFF : GALLERY_ON}</span>
+                </span>
+              )}
             </div>
             {/* Taken out by an admin: the switch reads off and waits (writing to us is the way back). */}
             <Toggle

@@ -1,8 +1,17 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import { PillLink } from "@/components/ui/Pill";
 
-/** Sign in: the paper pill at the end of the status bar, to /create (Google's sign-in is there). */
+/**
+ * Sign in: the paper pill at the end of the status bar. It opens /create with the sign-in at the top, on a phone's first
+ * screen (`?signin=1`), and after the sign-in comes back to the page it was pressed on (`next`, a path on this site:
+ * lib/safe-next.ts checks it where it is used).
+ */
 export function SignInPill() {
-  return <PillLink href="/create">Sign in</PillLink>;
+  const here = usePathname();
+  const href = here && here !== "/create" ? `/create?signin=1&next=${encodeURIComponent(here)}` : "/create?signin=1";
+  return <PillLink href={href}>Sign in</PillLink>;
 }
 
 /**

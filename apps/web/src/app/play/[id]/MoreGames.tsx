@@ -1,0 +1,31 @@
+import type { GalleryGame, Genre } from "@typeplay/shared";
+import { genreMore } from "@/content/gallery";
+import { galleryFirst, UNAVAILABLE } from "@/lib/public";
+import { OtherGames } from "./OtherGames";
+
+/** The most games the row shows: two rows of six on a wide screen. */
+const MOST = 12;
+
+/**
+ * More games under a shared game (on every share page, link-only too: these games are all in the public gallery): the
+ * most played of its genre first, then the gallery's most played, never the game itself, as the gallery's own cards
+ * (their pictures, names, plays and genres; nothing about makers). Rendered on the server, so its links are in the page
+ * as served. No answer from the API: no row, and the page works as before.
+ */
+export async function MoreGames({ id, genre }: { id: string; genre: Genre | null }) {
+  const [same, all] = await Promise.all([genre ? galleryFirst("popular", genre) : null, galleryFirst("popular")]);
+  const seen = new Set([id]);
+  const games: GalleryGame[] = [];
+  for (const page of [same, all]) {
+    if (!page || page === UNAVAILABLE) continue;
+    for (const g of page.games) {
+      if (games.length === MOST) break;
+      if (seen.has(g.id)) continue;
+      seen.add(g.id);
+      games.push(g);
+    }
+  }
+  if (games.length === 0) return null;
+  const title = genre && games.some((g) => g.genre === genre) ? `More ${genreMore[genre]}` : "More games to play";
+  return <OtherGames title={title} games={games} />;
+}

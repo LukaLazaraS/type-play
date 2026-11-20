@@ -236,7 +236,22 @@ export class GalleryService implements OnModuleInit {
    * dateModified is the same), newest first, at most SITEMAP_MAX. Nothing about makers; the gallery shows the same games
    * to anyone.
    */
-  async sitemap(): Promise<GallerySitemap> {
+  sitemap(): Promise<GallerySitemap> {
+    // Kept config.sitemapCacheMs (5 minutes): one read per that, however many ask. A read that fails isn't kept.
+    const now = Date.now();
+    if (this.sitemapKept && now < this.sitemapKept.until) return this.sitemapKept.list;
+    const list = this.readSitemap();
+    if (config.sitemapCacheMs > 0) {
+      this.sitemapKept = { until: now + config.sitemapCacheMs, list };
+      list.catch(() => {
+        if (this.sitemapKept?.list === list) this.sitemapKept = null;
+      });
+    }
+    return list;
+  }
+  private sitemapKept: { until: number; list: Promise<GallerySitemap> } | null = null;
+
+  private async readSitemap(): Promise<GallerySitemap> {
     const rows = await this.prisma.$queryRaw<{ id: string; at: Date }[]>`
       SELECT p.id, GREATEST(v."createdAt", p."listedAt") AS at
       FROM "Project" p

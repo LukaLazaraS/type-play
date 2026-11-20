@@ -16,6 +16,17 @@ import { useTestDatabase } from "./test-db.mjs";
 
 const here = resolve(import.meta.dirname, "..");
 const root = resolve(here, "../..");
+// A checkout without the root .env (a fresh worktree): the site's public Supabase values (content/app.ts) stand in, as
+// the walk-throughs do (apps/web/scripts/dev-env.mjs startStack). Nothing secret: the URL and the publishable key.
+{
+  const appTs = readFileSync(join(root, "apps/web/src/content/app.ts"), "utf8");
+  const pick = (marker) => appTs.match(new RegExp(`"([^"]+)", // ${marker}`))?.[1] ?? "";
+  process.env.SUPABASE_URL ||= pick("supabase:url");
+  process.env.SUPABASE_PUBLISHABLE_KEY ||= pick("supabase:publishableKey");
+}
+// Every API this run starts reads the sitemap's list fresh, so the checks see each change at once; the list kept in
+// memory is checked on an API of its own (galleryChecks, "kept 5 minutes").
+process.env.SITEMAP_CACHE_MS ??= "0";
 await useTestDatabase();
 // The API under test: one of our own on the test database (stopped at the end), unless API_URL names one.
 const mainApi = process.env.API_URL ? null : await spawnApi();
@@ -1087,6 +1098,21 @@ async function galleryChecks(db) {
     ok(changedMs != null && Date.parse(g1Date) === Number(changedMs), `a game's date: the later of its playing version and its going into the gallery (${g1Date})`);
     const { SITEMAP_MAX } = await import("../dist/gallery/gallery.service.js");
     ok(SITEMAP_MAX === 50_000, "at most 50,000 games (one sitemap file's limit)");
+    {
+      // Kept in memory (SITEMAP_CACHE_MS, 5 minutes on the live server): a flood of sitemap.xml reads asks once.
+      const kept = await spawnApi({ TRUST_PROXY: "1", SITEMAP_CACHE_MS: "60000" });
+      try {
+        const read = async (url) => (await (await fetchAgain(`${url}/public/sitemap`)).json()).games.map((g) => g.id);
+        const before = await read(kept.url);
+        await db.query(`UPDATE "Project" SET listed = false WHERE id = $1`, [g4]);
+        const again = await read(kept.url);
+        const fresh = await read(gal.url);
+        ok(before.includes(g4) && again.join() === before.join() && !fresh.includes(g4), "kept: a second read within its time gives the same list (an API with it off sees the change)");
+      } finally {
+        await db.query(`UPDATE "Project" SET listed = true WHERE id = $1`, [g4]);
+        kept.kill();
+      }
+    }
     const popCursor = (await call(null, "GET", "/public/gallery?sort=popular&limit=1")).body.next;
     const bad = await Promise.all(
       ["sort=best", "cursor=nonsense", "limit=49", "limit=0", "genre=space", `q=${"a".repeat(61)}`, `sort=all&cursor=${encodeURIComponent(popCursor)}`].map((q) => call(null, "GET", `/public/gallery?${q}`)),

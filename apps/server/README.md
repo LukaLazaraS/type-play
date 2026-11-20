@@ -219,7 +219,9 @@ PLAN.md "Better than the competitors" #9 with #4's share pages. `src/gallery/` (
     date per game, nothing about
     makers. `Cache-Control: public, max-age=300`: a sitemap is a hint crawlers read a few times a day, and each page says
     `index` or `noindex` itself at request time, so a copy up to 5 minutes old never puts a game that left the gallery
-    in search; the site's `sitemap.xml` reads it at request time.
+    in search; the site's `sitemap.xml` reads it at request time. The API keeps the list in memory as long
+    (`SITEMAP_CACHE_MS`, 300000; a read that fails isn't kept; 0 turns it off, as the e2e does, which checks the kept
+    list on an API of its own), so a flood of sitemap reads asks the database once per 5 minutes.
 - Admin, every command audited (a `BillingAudit` row as `admin:<name>`, action `gallery_<command>`):
 
 ```

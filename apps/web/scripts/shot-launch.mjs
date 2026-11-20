@@ -26,7 +26,8 @@ import { chromium } from "playwright";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { useOwnStack } from "./dev-env.mjs";
+import { fillPublicSupabase, useOwnStack } from "./dev-env.mjs";
+import { GIS_STUB } from "./gis-stub.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
@@ -39,6 +40,7 @@ const out = args.find((a, i) => !a.startsWith("--") && (onlyAt < 0 || i !== only
 const STATES = ["beta", "open"].filter((s) => !only || s === only);
 
 const [SITE_PORT, API_PORT, GAMES_PORT] = await useOwnStack("launch", 3);
+fillPublicSupabase(); // a worktree without the root .env: the public values stand in
 const base = `http://localhost:${SITE_PORT}`;
 const apiBase = `http://127.0.0.1:${API_PORT}`;
 const { estimate, PLAN_CREDITS, PLAN_PRICE_CENTS } = await import("../../server/dist/credits/credits.js");
@@ -116,6 +118,10 @@ const touch = (width, height) => Math.max(width, height) < 1100;
 async function visitor(width, height) {
   const phone = touch(width, height);
   const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1, isMobile: phone, hasTouch: phone });
+  // Google's button is on, as live (NEXT_PUBLIC_GOOGLE_BUTTON=1): its script is answered by the stand-in, never Google's.
+  await context.route((url) => url.host === "accounts.google.com" && url.pathname === "/gsi/client", (route) =>
+    route.fulfill({ status: 200, contentType: "text/javascript", body: GIS_STUB }),
+  );
   return { context, page: await context.newPage() };
 }
 async function open(page, path) {
@@ -248,6 +254,7 @@ try {
       NEXT_PUBLIC_GAMES_ORIGIN: `http://127.0.0.1:${GAMES_PORT}`,
       NEXT_PUBLIC_PADDLE_ENV: "",
       NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "",
+      NEXT_PUBLIC_GOOGLE_BUTTON: "1", // as live since 2026-11-20 (deploy/server/compose.yaml)
     });
     await until("the site", async () => (await fetch(`${base}/pricing`)).ok, 300, siteProc.log);
     await until("the home page", async () => (await fetch(`${base}/`)).ok, 300, siteProc.log);

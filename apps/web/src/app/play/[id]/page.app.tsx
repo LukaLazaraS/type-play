@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MakeYourOwn } from "@/components/app/MakeYourOwn";
 import { JsonLd } from "@/components/JsonLd";
+import { genreName } from "@/content/gallery";
 import { gameDescription, gamePreview, gameStructuredData, gameTitle } from "@/content/seo";
 import { site } from "@/content/site";
 import { publicGame, UNAVAILABLE } from "@/lib/public";
 import { posterUrl } from "@/lib/urls";
+import { MoreGames } from "./MoreGames";
 import { PlayStage } from "./PlayStage";
 
 // App builds only (.app.tsx), like the API it reads. A shared game's public page: anyone with the
@@ -23,7 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!game) return { title: "Game not found", robots: { index: false } };
   // The same words for search and for link previews; a link-only game's friends get good previews too.
   const title = gameTitle(game.name, game.genre ?? null);
-  const description = gameDescription(game.name, game.genre ?? null);
+  const description = gameDescription(game.name, game.genre ?? null, game.plays ?? 0);
   const image = { url: gamePreview(game), width: 1200, height: 630, alt: `${game.name}, a game made with TypePlay`, type: "image/png" };
   return {
     title,
@@ -67,8 +69,10 @@ export default async function Play({ params }: Props) {
         fits={game.platform === "fill"}
         poster={game.poster ? posterUrl(game.buildId) : undefined}
         plays={game.plays ?? 0}
+        genre={game.genre ? genreName[game.genre] : null}
       />
       <MakeYourOwn id="play-made" more />
+      <MoreGames id={game.id} genre={game.genre ?? null} />
     </main>
   );
 }

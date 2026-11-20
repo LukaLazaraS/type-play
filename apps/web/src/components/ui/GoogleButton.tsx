@@ -54,7 +54,7 @@ export function GoogleButton({
     <div className={cx("googlebutton", `googlebutton--${look}`, busy && "googlebutton--busy", className)} aria-busy={!ready || busy || undefined} inert={busy}>
       {!ready && (
         <span className="googlebutton__hold">
-          <span>Loading Google sign-in…</span>
+          <span>Loading…</span>
         </span>
       )}
       <div ref={frame} className="googlebutton__frame" />

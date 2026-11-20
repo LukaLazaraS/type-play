@@ -16,7 +16,7 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
-import { startStack, useDevEnv, useOwnStack } from "./dev-env.mjs";
+import { doubleText, startStack, useDevEnv, useOwnStack } from "./dev-env.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 
@@ -70,16 +70,6 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       if (line && toggle && line.right > toggle.left + 0.5 && line.bottom > toggle.top && line.top < toggle.bottom) bad.push("the gallery line runs under its switch");
       return bad;
     }, [id, screen]);
-  /** 200% text (a phone's large-text setting), as shot-launch emulates it: every font size and line height doubled. */
-  const doubleText = (p) =>
-    p.evaluate(() => {
-      const els = [...document.querySelectorAll("body *")];
-      const sizes = els.map((el) => [parseFloat(getComputedStyle(el).fontSize), getComputedStyle(el).lineHeight]);
-      els.forEach((el, i) => {
-        el.style.fontSize = `${sizes[i][0] * 2}px`;
-        if (sizes[i][1].endsWith("px")) el.style.lineHeight = `${parseFloat(sizes[i][1]) * 2}px`;
-      });
-    });
   /** innerText with the figures' no-break spaces as plain ones. */
   const text = async (locator) => (await locator.innerText()).replace(/\u00a0/g, " ");
   // Next's dev-mode badge floats over a corner of the page: out of the pictures.
@@ -138,12 +128,22 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     await page.getByRole("switch", { name: "Share this game" }).click();
     const gallerySwitch = page.getByRole("switch", { name: "Show it in the gallery" });
     await gallerySwitch.waitFor({ timeout: 10_000 });
-    check("shared: the gallery switch appears, off", (await gallerySwitch.getAttribute("aria-checked")) === "false" && (await page.locator(`#gallery-state-${g1}`).innerText()).startsWith("Off"));
+    // Search is said before the switch is on (the owner's informed choice), as the switch's description too.
+    check(
+      "shared: the gallery switch appears, off, saying what turning it on does (Explore and search engines)",
+      (await gallerySwitch.getAttribute("aria-checked")) === "false" &&
+        (await page.locator(`#gallery-state-${g1}`).innerText()) === "Off. Turn it on and anyone can find it on Explore and in search engines like Google." &&
+        (await gallerySwitch.getAttribute("aria-describedby")) === `gallery-state-${g1}`,
+    );
     await page.waitForTimeout(200);
     await shot(page, "game-share-gallery-off-desktop");
+    const switchAt = () => gallerySwitch.evaluate((el) => Math.round(el.getBoundingClientRect().top * 10) / 10);
+    const offAt = await switchAt();
     await gallerySwitch.click();
     await page.locator(`[role="switch"][aria-labelledby="gallery-title-${g1}"][aria-checked="true"]`).waitFor({ timeout: 10_000 });
-    check("the gallery switch on: it says anyone can find it on Explore and in search engines", (await page.locator(`#gallery-state-${g1}`).innerText()) === "Anyone can find it on Explore, and in search engines like Google.");
+    check("the gallery switch on: it says anyone can find it on Explore and in search engines", (await page.locator(`#gallery-state-${g1}`).innerText()) === "On. Anyone can find it on Explore and in search engines like Google.");
+    const onAt = await switchAt();
+    check("…and the switch stays where it was (desktop)", Math.abs(onAt - offAt) < 0.5, `${offAt} -> ${onAt}`);
     check("the API has it listed", (await api("GET", `/projects/${g1}`)).body?.listed === true);
     await page.waitForTimeout(200);
     await shot(page, "game-share-gallery-on-desktop");
@@ -191,7 +191,7 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     check("a new page view counts again (2 plays)", (await plays(g1)) === before + 2);
     await v.reload({ waitUntil: "domcontentloaded" });
     await v.locator(".play__by").waitFor({ timeout: 60_000 });
-    check("the share page says its plays", (await v.locator(".play__by").innerText()) === "Made with TypePlay · 2 plays", await v.locator(".play__by").innerText());
+    check("the share page says its genre and plays", (await v.locator(".play__by").innerText()) === "Runner · Made with TypePlay · 2 plays", await v.locator(".play__by").innerText());
     check("the share page links to the gallery", (await v.getByRole("link", { name: "More games made with TypePlay" }).getAttribute("href")) === "/explore");
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.locator(".stage__version").waitFor({ timeout: 30_000 });
@@ -352,6 +352,34 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       await p.locator(".play__name").waitFor({ timeout: 60_000 });
       await noBadge(p);
       await shot(p, "play-report-phone", true);
+      // More games under the share page: the gallery's cards, never the game itself, inside every phone width and at
+      // 200% text (rendered on the server: there before any script runs).
+      const moreAt = async (w) => {
+        await p.setViewportSize({ width: w, height: 800 });
+        await p.waitForTimeout(300);
+        return p.evaluate(() => {
+          const row = document.querySelector('[aria-labelledby="play-others"]');
+          return {
+            title: row?.querySelector("h2")?.textContent ?? null,
+            cards: row?.querySelectorAll(".gamecard").length ?? 0,
+            self: [...(row?.querySelectorAll("a") ?? [])].some((a) => a.getAttribute("href") === location.pathname),
+            page: document.documentElement.scrollWidth,
+          };
+        });
+      };
+      const more = [];
+      for (const w of [390, 360, 320, 280]) more.push([w, await moreAt(w)]);
+      check(
+        "phone: More games under the share page (its genre's, then the gallery's), never itself, nothing wider than the screen at 390, 360, 320 and 280",
+        more.every(([w, m]) => m.cards > 0 && m.cards <= 12 && !m.self && m.page <= w && /^More /.test(m.title ?? "")),
+        more.map(([w, m]) => `${w}: ${m.cards} cards, ${m.page}px, "${m.title}"`).join("; "),
+      );
+      await doubleText(p);
+      await p.waitForTimeout(400);
+      const moreBig = await p.evaluate(() => document.documentElement.scrollWidth);
+      check("phone 280 at 200% text: the share page with More games no wider than the screen", moreBig <= 280, `${moreBig}px`);
+      await shot(p, "play-more-280-text200", true);
+      await p.setViewportSize({ width: 390, height: 844 });
       await devSignIn(p, email);
       await p.goto(gameUrl, { waitUntil: "domcontentloaded" });
       await p.locator(".ws__tabs").waitFor({ timeout: 30_000 });
@@ -361,6 +389,16 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       // popover, at 390 and 280 px and at 280 px with 200% text.
       const at390 = await shareFits(p, g1, 390);
       check("phone 390: the Share menu on the screen, its words inside it, the gallery line beside its switch", at390.length === 0, at390.join("; "));
+      // Off and on again: the switch doesn't move as its line changes.
+      const phoneSwitch = p.getByRole("switch", { name: "Show it in the gallery" });
+      const at = () => phoneSwitch.evaluate((el) => Math.round(el.getBoundingClientRect().top * 10) / 10);
+      const onTop = await at();
+      await phoneSwitch.click();
+      await p.locator(`[role="switch"][aria-labelledby="gallery-title-${g1}"][aria-checked="false"]`).waitFor({ timeout: 10_000 });
+      const offTop = await at();
+      await phoneSwitch.click();
+      await p.locator(`[role="switch"][aria-labelledby="gallery-title-${g1}"][aria-checked="true"]`).waitFor({ timeout: 10_000 });
+      check("phone 390: the gallery switch stays where it was, off and on", Math.abs(onTop - offTop) < 0.5 && Math.abs((await at()) - onTop) < 0.5, `${onTop} / ${offTop}`);
       await p.keyboard.press("Escape");
       await p.setViewportSize({ width: 280, height: 653 });
       await p.waitForTimeout(300);

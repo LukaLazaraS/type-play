@@ -26,6 +26,7 @@ import { genreName } from "@/content/gallery";
 import { credits as siteCredits } from "@/content/site";
 import { api, ApiFailure } from "@/lib/api";
 import { credits, creditsWord, estimateWord } from "@/lib/format";
+import { safeNext } from "@/lib/safe-next";
 import { refreshMe, saveAskFirst, useSession } from "@/lib/session";
 
 function subscribe(onChange: () => void) {
@@ -181,6 +182,9 @@ export function CreateApp() {
   // signed out, the sign-in (at the top, under the lead) comes back to the checkout. With billing off (no Paddle token in this build) there is no
   // checkout to go on to: the page stays and says so plainly, and the plan stays in the address through the sign-in.
   const plan = planIdOf(params.get("plan"));
+  // The status bar's Sign in (?signin=1): the sign-in at the top too, then back to the page it was pressed on (`next`).
+  const signinAsked = params.get("signin") === "1";
+  const back = signinAsked ? safeNext(params.get("next")) : "/create";
   const toCheckout = plan && paddleOn ? checkoutHref(`plan:${plan}`) : null;
   const planOff = plan && !paddleOn ? planFacts(plan).name : null;
   useEffect(() => {
@@ -283,11 +287,13 @@ export function CreateApp() {
         <div className="make__signin">
           {error && <ErrorLine>{error}</ErrorLine>}
           <SignIn
-            next={toCheckout ?? (planOff ? `/create?plan=${plan}` : "/create")}
+            next={toCheckout ?? (planOff ? `/create?plan=${plan}` : back)}
             note={
               toCheckout
                 ? "Sign in first; the checkout opens right after."
-                : planOff
+                : back !== "/create" && !planOff
+                  ? "You come back to the page you were on."
+                  : planOff
                   ? closedBeta
                     ? "Your idea stays here while you sign in."
                     : "Your idea stays here while you sign in, ready to build."
@@ -303,7 +309,7 @@ export function CreateApp() {
   return (
     <PageWidget title={signedIn ? "Make your game." : "Your game is next."} lead={planLead}>
       <form className="make__form" onSubmit={submit} noValidate>
-        {plan && signInPart}
+        {(plan || signinAsked) && signInPart}
         <div className="make__idea" {...drop.zone}>
           <TextArea
             id="idea"
@@ -369,7 +375,7 @@ export function CreateApp() {
           />
         </div>
 
-        {!plan && signInPart}
+        {!plan && !signinAsked && signInPart}
 
         {signedIn && (
           <>

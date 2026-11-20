@@ -58,6 +58,9 @@ export const config = {
   supabaseUrl: (env.SUPABASE_URL || "").replace(/\/+$/, ""),
   supabasePublishableKey: env.SUPABASE_PUBLISHABLE_KEY || "",
   databaseUrl: env.DATABASE_URL || "",
+  /** How long GET /public/sitemap keeps its list in memory, in ms (its Cache-Control says 5 minutes too): a flood of
+   * sitemap.xml reads asks the database once per this. 0 turns it off (the e2e, which checks every change at once). */
+  sitemapCacheMs: env.SITEMAP_CACHE_MS !== undefined && env.SITEMAP_CACHE_MS !== "" ? Math.max(0, Number(env.SITEMAP_CACHE_MS) || 0) : 300_000,
   /** Game folders (data/projects/<id>/, a git repo each) and run logs (data/logs/). */
   dataDir: resolve(env.DATA_DIR || join(ROOT, "data")),
   /** Where published builds go: `folder` = gamesBuildsDir (the dev games origin on :3001 serves it),

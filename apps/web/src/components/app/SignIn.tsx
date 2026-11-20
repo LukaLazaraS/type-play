@@ -48,13 +48,12 @@ function GoogleSignIn({ next, note }: { next: string; note?: string }) {
           }
         }}
       />
-      {error ? (
-        <ErrorLine>{error}</ErrorLine>
-      ) : (
-        <p className="field-hint" role="status">
-          {working ? "Signing in…" : note}
-        </p>
-      )}
+      {error ? <ErrorLine>{error}</ErrorLine> : (working || note) && <p className="field-hint">{working ? "Signing in…" : note}</p>}
+      {/* "Signing in…" for screen readers: a live region there from the start, since one added along with its words is
+          often not read out. Unseen and out of the layout (sr-only), so it adds no gap. */}
+      <span className="sr-only" role="status">
+        {working ? "Signing in…" : ""}
+      </span>
     </>
   );
 }

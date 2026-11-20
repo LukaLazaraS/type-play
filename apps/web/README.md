@@ -39,7 +39,8 @@ Run it alongside the site in dev: `cd ../games && npm run build-demo && npm run 
   shape in both billing-off states (the closed beta; open sign-up before billing), 44 px buttons on the touch shapes,
   worst-case data (4-digit credits, long words) at 320 and 360, 200% text at 320 and 390, what the first screen shows
   (the home hero sideways, /create?plan= signed out), the credits table against the API's estimate and a fresh
-  visitor's paths from the prompt box and from a paid plan's button. The walk-throughs that start a
+  visitor's paths from the prompt box and from a paid plan's button, with Google's button on as live (its script
+  answered by the stand-in in `scripts/gis-stub.mjs`, never Google's; shot-signin uses the same). The walk-throughs that start a
   stack of their own (`shot-beta`, `shot-compare`, `shot-header`, `shot-launch`, `shot-platform`, `shot-queue`) take ports
   picked free and a database of the run's own, so
   any number run at once beside the local site and the tests; two in one checkout take turns, as their `next dev` share
@@ -81,14 +82,17 @@ NEXT_PUBLIC_DEV_AUTH=1 npm run dev -w web                  # site on http://loca
   cookie; `src/proxy.app.ts` refreshes it on /create and /games. The Supabase URL and publishable
   key are public by design and live in `src/content/app.ts` (`node scripts/supabase-config.mjs`
   copies them from the root `.env`, printing only lengths). Never the secret key.
-- **Google's own button** (`NEXT_PUBLIC_GOOGLE_BUTTON`, 2026-11-04; off in `deploy/server/compose.yaml` until Luka's
-  steps in `docs/launch/google-sign-in-name.md`): `"1"` replaces the redirect through Supabase with Google's button on
+- **Google's own button** (`NEXT_PUBLIC_GOOGLE_BUTTON`, 2026-11-04; `"1"` in `deploy/server/compose.yaml` since
+  2026-11-20, `docs/launch/google-sign-in-name.md`; DESIGN.md "Google's button"): `"1"` replaces the redirect through Supabase with Google's button on
   this site (Google Identity Services, `lib/google-button.ts`, `components/ui/GoogleButton.tsx`); Google's token goes
   to Supabase's `signInWithIdToken` with a one-time nonce, so Google's screens and emails name typeplay.app, never the
   Supabase project. Where a blocker stops Google's script, the redirect as before; `"only"` shows a line instead. The
   Google client ID is public and sits in `src/content/app.ts` beside Supabase's values (the same script writes it).
   Google draws it only on its client's JavaScript origins, and the live client doesn't list this PC's localhost for
   it (a dev-only client comes with the test environment), so locally it falls back to the redirect.
+  Google's script loads with `hl=en` (its frame would pick the language from where the visitor is). The status bar's
+  **Sign in** (`components/SignInPill.tsx`) opens `/create?signin=1&next=<the page>`: the sign-in at the top, on a
+  phone's first screen, and back to that page after it (`next` checked by `lib/safe-next.ts`).
   Walk-through of every value: `node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-signin.mjs`.
 - **Dev sign-in** (tests only): `NEXT_PUBLIC_DEV_AUTH=1` shows "Dev sign-in" on /create, which
   signs in as `dev:<email>` (the API must run with `DEV_AUTH=1`). A production build with it set
@@ -137,14 +141,22 @@ chat, composer, game stage, versions), `src/app/create/CreateApp.tsx`, `src/app/
   answers 404. **In search only while the game is in the gallery** (2026-11-20, HQ's decision for parked
   row 13): the API's `PublicGame.listed` (its maker put it there, it is shared and built, no admin took it
   out) makes the page `index, follow`, with a search title and description that put the name first
-  (`content/seo.ts` `gameTitle`, `gameDescription`: "Sky Stack: play a free arcade game online | TypePlay",
-  "Sky Stack is a free arcade game you play in your browser, with no download and no sign-up. Made with TypePlay: …",
-  under 60 and 155 letters, shorter forms for long names), the same words in its link preview, and schema.org data
-  (`gameStructuredData`, one `@graph`): a `VideoGame` (name, address, picture, genre, web browser, free with an offer
+  (`content/seo.ts` `gameTitle`, `gameDescription`: "Sky Stack: play a free arcade game online | TypePlay", for a
+  long name "Scrap Siege: free tower defence game"; "Sky Stack: chase a high score in quick rounds. A free arcade game
+  in your browser, no download or sign-up. 1,240 plays. Made with TypePlay.", what you do in the genre in a player's
+  words (`genreHook`, one per genre and one for none) and the plays from 10; under 60 and 155 letters, shorter forms for
+  long names), the same words in its link preview, and schema.org data
+  (`gameStructuredData`, one `@graph`): a `VideoGame` and `WebApplication` (name, address, picture, genre, web browser, free with an offer
   at 0 USD, published when it went into the gallery, modified when it last changed, its plays as a `PlayAction`
   count, TypePlay as publisher; nothing about the maker, no ratings) and a `BreadcrumbList` (TypePlay, the gallery,
-  the game). Shared by link only, taken out, or no answer about it:
-  `noindex, follow` with the same link preview (a link is for friends). Private by
+  the game). Shared by link only, taken out:
+  `noindex, follow` with the same link preview (a link is for friends). The genre is in the figures under the name
+  ("Arcade · Made with TypePlay · 12 plays"), and under the invitation **More <genre> games** (`MoreGames.tsx`, on
+  link-only pages too): up to 12 other gallery games as the gallery's cards, its genre's most played first, then the
+  gallery's, never itself, rendered on the server; no answer from the API, no row. **While the API doesn't answer**,
+  the share page and `/explore` answer **503 with `Retry-After: 120`** (`src/proxy.app.ts` asks the API first, then
+  sends the page as it renders, with its own "We can't load … right now", under that status; a search engine keeps a
+  page through a 5xx and comes back, where a 200 with an error or noindex would drop it). Private by
   default; unsharing makes the page (and its preview) 404 at once, since nothing is cached. The real
   404 status comes from `src/proxy.app.ts`: it asks the API first and sends an unshared game to the
   prerendered `/play/not-shared` (the page itself streams after its shell, as Cache Components pages do,
@@ -732,7 +744,8 @@ screenshots work.
   real (the legal pages' `site.updated`). In app builds (2026-11-20) also `/explore` and every game in the
   gallery (`/play/<id>`, `lastModified` when its page last changed: its playing version or its going into the
   gallery, whichever is later, the same as its `dateModified`), read from the API's
-  `GET /public/sitemap` at request time (`lib/public.ts` `gallerySitemap`, `connection()`: a sitemap is a
+  `GET /public/sitemap` at request time, kept 60 s in the server's memory (`SITEMAP_CACHE_SECONDS`; the last list
+  is kept while the API doesn't answer, so an outage doesn't empty the sitemap) (`lib/public.ts` `gallerySitemap`, `connection()`: a sitemap is a
   special route handler, static unless it uses a request-time API); an API that doesn't answer leaves the
   games out, never an error. Link-only, hidden and unshared games are never in it. At 50,000 games the API's
   list stops (one sitemap file's limit): then `generateSitemaps`.
@@ -740,7 +753,10 @@ screenshots work.
   own, no browser): what a crawler reads in the HTML as served, as Bingbot (no JavaScript) and Googlebot: a gallery
   game's page index with its title, description, canonical, link preview, `VideoGame` (free, its dates) and
   breadcrumb; link-only and hidden pages `noindex`; an unshared game's page 404; `/explore` indexable with one
-  canonical and its `CollectionPage` holding only the gallery game; `sitemap.xml` with `/explore` and
+  canonical and its `CollectionPage` holding only the gallery game; the descriptions differing by genre; the genre on
+  the page; More games on a link-only page (the gallery game, never itself); the co-type `VideoGame` +
+  `WebApplication`; with the API down, 503 with Retry-After on the share page and `/explore` and the sitemap keeping its
+  list; `sitemap.xml` with `/explore` and
   the gallery game only; the sitemap with the API down.
 - **Search engines:** Google Search Console, domain property `typeplay.app` on lazarashvili02@gmail.com
   (verified by a DNS TXT record on Cloudflare, keep it), sitemap submitted 10-16. Bing, Yandex and

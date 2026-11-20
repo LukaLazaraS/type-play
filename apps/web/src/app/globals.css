@@ -680,6 +680,7 @@ q {
   font-weight: 600;
   line-height: 1.45;
   color: var(--on-paper);
+  overflow-wrap: anywhere;
 }
 .error-line--sky {
   color: var(--on-sky);

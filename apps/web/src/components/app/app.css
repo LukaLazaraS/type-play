@@ -495,6 +495,17 @@ body:has(.ws) .ground-band {
   align-items: flex-start;
   gap: 12px;
 }
+/* The redirect button (Google's script blocked): its words wrap inside a narrow column or at 200% text. */
+.signin > .button {
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.25;
+  text-align: center;
+}
+/* The words wrap; Google's G keeps its size beside them (it shrank to a speck at 280px with 200% text). */
+.signin > .button > svg {
+  flex-shrink: 0;
+}
 .devsignin {
   display: flex;
   flex-direction: column;
@@ -535,6 +546,11 @@ body:has(.ws) .ground-band {
   grid-area: 1 / 1;
   min-width: 0;
 }
+/* Google's frame in its own light scheme: under the page's `color-scheme: dark` (globals.css) its iframe would paint an
+   opaque white slab around the button on the lilac panel. */
+.googlebutton__frame {
+  color-scheme: light;
+}
 .googlebutton__hold {
   display: inline-flex;
   align-items: center;
@@ -549,6 +565,7 @@ body:has(.ws) .ground-band {
   color: #e3e3e3;
   font-size: 14px;
   white-space: nowrap;
+  overflow: hidden;
 }
 .googlebutton--light .googlebutton__hold {
   width: 191px;
@@ -560,6 +577,8 @@ body:has(.ws) .ground-band {
   font-size: 13px;
 }
 .googlebutton__hold span {
+  overflow: hidden;
+  text-overflow: ellipsis;
   opacity: 0;
   animation: googlebutton-wait 200ms var(--ease-out) 400ms forwards;
 }
@@ -3548,6 +3567,16 @@ body:has(.ws) {
   line-height: 1.25;
   text-align: center;
 }
+/* More games under it (MoreGames.tsx): the gallery's cards, across the page's whole width under the stage and the
+   invitation. */
+.play__others {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin-top: 12px;
+}
+.play__others .library__title {
+  overflow-wrap: anywhere;
+}
 .play .button {
   touch-action: manipulation;
   -webkit-user-select: none;
@@ -5069,6 +5098,16 @@ body:has(main.explore) > .ground-band {
   padding-top: 14px;
   border-top: 1px solid var(--field);
 }
+/* The gallery switch's two lines in one cell: it is as tall as the longer, the other one there unseen. */
+.share__head > div > .share__states {
+  display: grid;
+}
+.share__states > span {
+  grid-area: 1 / 1;
+}
+.share__states > [aria-hidden="true"] {
+  visibility: hidden;
+}
 .share__head .share__plays {
   margin-top: 6px;
   font-size: 11px;
@@ -5280,7 +5319,8 @@ body:has(main.explore) > .ground-band {
 .closed__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  gap: 8px 24px;
   margin-top: 4px;
 }
 .closed .button {
@@ -5316,6 +5356,15 @@ body:has(main.explore) > .ground-band {
   .closed__who {
     padding: 16px;
   }
+}
+/* A 280px phone: the panel's sides narrow to 8px so Google's light button gets the 191px it needs for "Continue with
+   Google" (192px; at 16px it had 176px and said only "Sign in", under a signed-in name). */
+@media (max-width: 300px) {
+  .closed__who {
+    padding-inline: 8px;
+  }
+}
+@media (max-width: 640px) {
   .closed__field {
     flex: 1 1 100%;
     min-width: 0;

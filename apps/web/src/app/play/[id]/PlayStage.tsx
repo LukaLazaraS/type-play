@@ -9,7 +9,7 @@ import { howToPlay } from "@/content/games";
 import { playsWord } from "@/lib/format";
 import { countPlay } from "@/lib/gallery";
 
-/** The shared game in its frame: the name, Made with TypePlay and its plays, Play, Full screen outside the
+/** The shared game in its frame: the name, its genre, Made with TypePlay and its plays, Play, Full screen outside the
  * game, and Report this game. The game's first start on this page view counts one play. */
 export function PlayStage({
   id,
@@ -19,6 +19,7 @@ export function PlayStage({
   fits,
   poster,
   plays,
+  genre,
 }: {
   id: string;
   buildId: string;
@@ -28,6 +29,8 @@ export function PlayStage({
   fits: boolean;
   poster?: string;
   plays: number;
+  /** Its genre's name ("Tower defence"), or null. */
+  genre?: string | null;
 }) {
   const frame = useRef<GameFrameHandle>(null);
   const full = useRef<HTMLButtonElement>(null);
@@ -46,7 +49,7 @@ export function PlayStage({
             {name}
           </h1>
           <p className="figures play__by">
-            Made with TypePlay{plays > 0 && <> · {playsWord(plays)}</>}
+            {genre && <>{genre} · </>}Made with TypePlay{plays > 0 && <> · {playsWord(plays)}</>}
           </p>
         </div>
         <FullScreenPill ref={full} onClick={() => frame.current?.fullscreen()} />

@@ -14,6 +14,18 @@ export const genreName: Record<Genre, string> = {
   adventure: "Adventure",
 };
 
+/** A genre's games in a heading: "More racing games" under a shared racer (app/play/[id]/MoreGames.tsx). */
+export const genreMore: Record<Genre, string> = {
+  runner: "runner games",
+  platformer: "platformers",
+  puzzle: "puzzle games",
+  racer: "racing games",
+  shooter: "shooters",
+  towerdefence: "tower defence games",
+  arcade: "arcade games",
+  adventure: "adventure games",
+};
+
 /** The library's orders (Luka, 10-27: Popular / New / All): the week's most played, the newest, every game A to Z. */
 export const sorts: { id: GallerySort; name: string }[] = [
   { id: "popular", name: "Popular" },

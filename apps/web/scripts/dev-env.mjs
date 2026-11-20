@@ -33,21 +33,39 @@ export async function useOwnStack(name, count) {
 /** This checkout's `next dev` for this walk-through alone, until it exits (see above); held, it returns at once. */
 export const ownNextDev = () => lock(`next dev in ${join(root, "apps/web")}`);
 
+/** 200% text (a phone's large-text setting), as shot-launch emulates it: every font size and line height doubled. */
+export const doubleText = (page) =>
+  page.evaluate(() => {
+    const els = [...document.querySelectorAll("body *")];
+    const sizes = els.map((el) => [parseFloat(getComputedStyle(el).fontSize), getComputedStyle(el).lineHeight]);
+    els.forEach((el, i) => {
+      el.style.fontSize = `${sizes[i][0] * 2}px`;
+      if (sizes[i][1].endsWith("px")) el.style.lineHeight = `${parseFloat(sizes[i][1]) * 2}px`;
+    });
+  });
+
+/** A checkout without the root .env (a fresh worktree): the site's public Supabase values (content/app.ts, the URL and
+ * the publishable key, nothing secret) stand in for the API this process starts. Set values are kept. */
+export function fillPublicSupabase() {
+  const appTs = readFileSync(join(root, "apps/web/src/content/app.ts"), "utf8");
+  const pick = (marker) => appTs.match(new RegExp(`"([^"]+)", // ${marker}`))?.[1] ?? "";
+  process.env.SUPABASE_URL ||= pick("supabase:url");
+  process.env.SUPABASE_PUBLISHABLE_KEY ||= pick("supabase:publishableKey");
+}
+
 /**
  * The stack a walk-through of its own drives (2026-11-20, for shot-search and shot-gallery alone), on the three ports
  * useOwnStack gave: the API (DEV_AUTH=1, AGENT_FAKE=1: fake builds) on the run's database, the games origin, and the site
  * as `next dev` (an app build with dev sign-in, the closed beta and billing off) in `.next/<name>`. Needs the API built
  * and, for the games to play, the engine and a demo build in apps/games (git-ignored: a checkout without them copies
  * apps/games/engine and builds/robot-runner from the main one). The site's public Supabase values (content/app.ts) stand
- * in when the root .env isn't there, as in a fresh worktree. `stopApi()` ends the API alone (a check with the API down);
+ * in when the root .env isn't there, as in a fresh worktree. `stopApi()` ends the API alone (a check with the API down),
+ * `startApi()` brings it back;
  * `stop()` ends everything and puts tsconfig.json back (`next dev` writes its type folders into it).
  */
 export async function startStack(name, [sitePort, apiPort, gamesPort], { api = {}, site = {} } = {}) {
   const webDir = join(root, "apps/web");
-  const appTs = readFileSync(join(webDir, "src/content/app.ts"), "utf8");
-  const pick = (marker) => appTs.match(new RegExp(`"([^"]+)", // ${marker}`))?.[1] ?? "";
-  process.env.SUPABASE_URL ||= pick("supabase:url");
-  process.env.SUPABASE_PUBLISHABLE_KEY ||= pick("supabase:publishableKey");
+  fillPublicSupabase();
   const tsconfig = join(webDir, "tsconfig.json");
   const tsconfigBefore = readFileSync(tsconfig, "utf8");
   const children = [];
@@ -79,8 +97,12 @@ export async function startStack(name, [sitePort, apiPort, gamesPort], { api = {
     writeFileSync(tsconfig, tsconfigBefore);
   };
   try {
-    const apiProc = start("api", ["dist/main.js"], join(root, "apps/server"), { PORT: String(apiPort), DEV_AUTH: "1", AGENT_FAKE: "1", ADMIN_EMAILS: "", CORS_ORIGINS: base, BILLING_JOBS: "0", ...api });
-    await until("the API", async () => (await (await fetch(`${apiBase}/health`)).json()).agent === "fake", 60, apiProc.log);
+    let apiProc = null;
+    const startApi = async () => {
+      apiProc = start("api", ["dist/main.js"], join(root, "apps/server"), { PORT: String(apiPort), DEV_AUTH: "1", AGENT_FAKE: "1", ADMIN_EMAILS: "", CORS_ORIGINS: base, BILLING_JOBS: "0", ...api });
+      await until("the API", async () => (await (await fetch(`${apiBase}/health`)).json()).agent === "fake", 60, apiProc.log);
+    };
+    await startApi();
     const gamesProc = start("games", [join(root, "apps/games/scripts/serve.mjs"), String(gamesPort)], root, {});
     await until("the games origin", async () => (await fetch(`${gamesBase}/play.html`)).ok, 30, gamesProc.log);
     const siteProc = start("site", [join(root, "node_modules/next/dist/bin/next"), "dev", "-p", String(sitePort)], webDir, {
@@ -96,8 +118,9 @@ export async function startStack(name, [sitePort, apiPort, gamesPort], { api = {
     });
     await until("the site", async () => (await fetch(`${base}/pricing`)).ok, 240, siteProc.log);
     console.log(`stack up: site :${sitePort}, API :${apiPort}, games :${gamesPort}`);
-    // apiLog: the API's last output, for a check that finds it gone (its exit code is in apiExit).
-    return { base, apiBase, gamesBase, stopApi: () => kill(apiProc.child), apiLog: apiProc.log, apiExit: () => apiProc.child.exitCode, stop };
+    // apiLog: the API's last output, for a check that finds it gone (its exit code is in apiExit); startApi: back after
+    // stopApi, on the same port.
+    return { base, apiBase, gamesBase, stopApi: () => kill(apiProc.child), startApi, apiLog: () => apiProc.log(), apiExit: () => apiProc.child.exitCode ?? apiProc.child.signalCode, siteLog: siteProc.log, stop };
   } catch (e) {
     stop();
     throw e;

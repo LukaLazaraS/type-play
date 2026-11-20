@@ -39,19 +39,28 @@ export const galleryFirst = cache(async (sort: GallerySort, genre: Genre | null 
   }
 });
 
+/** The sitemap's list as last read, kept SITEMAP_CACHE_SECONDS (60 unless set; 0 reads every time, as the search check
+ * does): a flood of sitemap.xml requests reaches the API once a minute. Kept past that while the API doesn't answer, so
+ * an outage doesn't empty the sitemap. In this server's memory: the live site is one process. */
+let kept: { at: number; games: GallerySitemap["games"] } | null = null;
+
 /** Every game in the gallery for sitemap.xml (GET /public/sitemap), newest first; null when the API can't say (down, too
- * slow, or an older API without the route): the sitemap then lists the site's own pages alone. */
+ * slow, or an older API without the route) and nothing was read before: the sitemap then lists the site's own pages. */
 export async function gallerySitemap(): Promise<GallerySitemap["games"] | null> {
-  // At request time, like the gallery: a game that joined it is listed at the next read.
+  // At request time, like the gallery: a game that joined it is listed at the next read past the kept time.
   await connection();
+  const keep = Math.max(0, Number(process.env.SITEMAP_CACHE_SECONDS ?? 60) || 0) * 1000;
+  if (kept && Date.now() - kept.at < keep) return kept.games;
   try {
     const res = await fetch(`${app.apiOrigin}/public/sitemap`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return null;
+    if (!res.ok) return kept?.games ?? null;
     const body = (await res.json()) as Partial<GallerySitemap>;
-    if (!Array.isArray(body.games)) return null;
+    if (!Array.isArray(body.games)) return kept?.games ?? null;
     // Only what makes a good address: a game id as the share pages take it, a date that reads.
-    return body.games.filter((g) => typeof g?.id === "string" && /^[a-z0-9]{4,40}$/.test(g.id) && Number.isFinite(Date.parse(g.updatedAt)));
+    const games = body.games.filter((g) => typeof g?.id === "string" && /^[a-z0-9]{4,40}$/.test(g.id) && Number.isFinite(Date.parse(g.updatedAt)));
+    kept = { at: Date.now(), games };
+    return games;
   } catch {
-    return null;
+    return kept?.games ?? null;
   }
 }

@@ -81,6 +81,20 @@ const genreWords: Record<Genre, string> = {
   adventure: "adventure game",
 };
 
+/** What you do in each genre, in a player's words: the first thing a game's description says after its name, so no two
+ * genres read alike. A game without a genre has its own. */
+const genreHook: Record<Genre | "none", string> = {
+  runner: "run, jump and dodge as far as you can",
+  platformer: "jump your way to the end of each level",
+  puzzle: "solve each level one move at a time",
+  racer: "race to the line and beat your best time",
+  shooter: "aim, fire and survive each wave",
+  towerdefence: "build towers and hold back every wave",
+  arcade: "chase a high score in quick rounds",
+  adventure: "explore and find your way to the end",
+  none: "a little game made from one typed idea",
+};
+
 /** What search results show of a title and a description before they cut it off. */
 export const TITLE_MAX = 60;
 export const DESCRIPTION_MAX = 155;
@@ -88,21 +102,25 @@ export const DESCRIPTION_MAX = 155;
 const TITLE_END = ` | ${site.name}`;
 
 /** "Sky Stack: play a free arcade game online" (the layout adds " | TypePlay"): the name, then the words people search a
- * game by (play, free, online, the genre). Shorter while that passes 60 letters: without the genre, then the name alone
- * (a 60-letter name runs over; the name matters more than the rest). */
+ * game by (play, free, online, the genre). Shorter while that passes 60 letters, the genre kept ("Scrap Siege: free tower
+ * defence game"), then the name alone (a 60-letter name runs over; the name matters more than the rest). */
 export function gameTitle(name: string, genre: Genre | null): string {
   const fits = (t: string) => [...t].length + TITLE_END.length <= TITLE_MAX;
-  for (const t of [`${name}: play a free ${genre ? genreWords[genre] : "game"} online`, `${name}: play free online`]) if (fits(t)) return t;
+  const long = `${name}: play a free ${genre ? genreWords[genre] : "game"} online`;
+  const short = `${name}: free ${genre ? genreWords[genre] : "online game"}`;
+  for (const t of [long, short]) if (fits(t)) return t;
   return name;
 }
 
-/** The search result's line: what it is, that it plays free in the browser with nothing to install or sign up for, and
- * how it was made (with the invitation to make one, while it fits); shorter when a long name would take it past 155
- * letters. */
-export function gameDescription(name: string, genre: Genre | null): string {
+/** The search result's line: the name, what you do in its genre (genreHook), that it is free in the browser with nothing
+ * to download or sign up for, how many have played it (from 10 plays: fewer reads thin), and how it was made. Shorter
+ * when a long name would take it past 155 letters: without the plays, then with fewer words about the browser. */
+export function gameDescription(name: string, genre: Genre | null, plays = 0): string {
   const what = genre ? genreWords[genre] : "game";
-  const plays = `${name} is a free ${what} you play in your browser, with no download and no sign-up.`;
-  for (const line of [`${plays} Made with TypePlay: type a game idea, play it in minutes.`, `${plays} Made with TypePlay.`]) {
+  const lead = `${name}: ${genreHook[genre ?? "none"]}.`;
+  const free = `A free ${what} in your browser, no download or sign-up.`;
+  const played = plays >= 10 ? ` ${new Intl.NumberFormat("en-US").format(plays)} plays.` : "";
+  for (const line of [`${lead} ${free}${played} Made with TypePlay.`, `${lead} ${free} Made with TypePlay.`, `${lead} Free in your browser, no download. Made with TypePlay.`]) {
     if ([...line].length <= DESCRIPTION_MAX) return line;
   }
   return `${name}: a free ${what} in your browser. Made with TypePlay.`;
@@ -133,16 +151,19 @@ export function gameStructuredData(game: PublicGame) {
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "VideoGame",
+        // A game that is also a web app: it runs in the browser (Google reads WebApplication; VideoGame alone shows
+        // nothing more). No rating or review: there are none to give.
+        "@type": ["VideoGame", "WebApplication"],
         "@id": `${url}#game`,
         name: game.name,
         url,
-        description: gameDescription(game.name, game.genre),
+        description: gameDescription(game.name, game.genre, game.plays),
         image: `${siteUrl}${gamePreview(game)}`,
         ...(game.genre ? { genre: genreName[game.genre] } : {}),
         gamePlatform: "Web browser",
         applicationCategory: "GameApplication",
         operatingSystem: "Any (runs in a web browser)",
+        browserRequirements: "Requires JavaScript, WebAssembly and WebGL 2",
         isAccessibleForFree: true,
         offers: { "@type": "Offer", price: 0, priceCurrency: "USD", url },
         ...(Number.isFinite(listed) ? { datePublished: new Date(listed).toISOString() } : {}),

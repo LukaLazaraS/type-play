@@ -279,7 +279,7 @@ function ClosedBeta({ email, onJoined }: { email: string | null; onJoined: (cred
         ) : (
           <p>You&apos;re signed in with Google.</p>
         )}
-        <p>Invited with another address? Use that Google account.</p>
+        <p>Invited with another address? Sign in with that Google account.</p>
         <div className="closed__actions">
           {app.googleButton && !googleUnavailable ? (
             <GoogleButton look="light" busy={busy} onUnavailable={() => setGoogleUnavailable(true)} onToken={(credential, nonce) => void anotherByToken(credential, nonce)} />
@@ -289,9 +289,10 @@ function ClosedBeta({ email, onJoined }: { email: string | null; onJoined: (cred
               {busy ? "Opening Google…" : "Use another account"}
             </Button>
           )}
-          <Button look="quiet" size="small" onClick={() => void signOut()} disabled={busy}>
+          {/* Words, not a second pill: Google's 32px button is the one action, Sign out the way out. */}
+          <TextButton look="standalone" onClick={() => void signOut()} disabled={busy}>
             Sign out
-          </Button>
+          </TextButton>
         </div>
         {error && <ErrorLine>{error}</ErrorLine>}
         {app.googleButton && googleUnavailable && !app.googleRedirectFallback && <ErrorLine>{GOOGLE_BLOCKED}</ErrorLine>}

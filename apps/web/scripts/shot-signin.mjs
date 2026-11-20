@@ -17,7 +17,8 @@ import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { useOwnStack } from "./dev-env.mjs";
+import { doubleText, useOwnStack } from "./dev-env.mjs";
+import { GIS_STUB } from "./gis-stub.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
@@ -64,59 +65,17 @@ const admin = (...args) =>
 const sha256hex = (s) => createHash("sha256").update(s).digest("hex");
 const claimsOf = (jwt) => JSON.parse(Buffer.from(String(jwt).split(".")[1] ?? "", "base64url").toString() || "{}");
 
-// ---- The stand-in for Google's script ------------------------------------------------------------
-// google.accounts.id as the site uses it: initialize (kept for the checks), renderButton (a button of Google's measured
-// size: dark 194x40, light 191x32), disableAutoSelect. A click makes an ID token for the newest config's nonce (or, in
-// `wrong-nonce` mode, for another one) and gives it to that config's callback, as Google's library does.
-const GIS_STUB = `(() => {
-  const log = (window.__gis = { configs: [], renders: [], disabled: 0, email: "nobody@dev.test", mode: "ok", credentials: [] });
-  const b64 = (o) => btoa(JSON.stringify(o)).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/, "");
-  const token = (cfg) => {
-    const now = Math.floor(Date.now() / 1000);
-    const nonce = log.mode === "wrong-nonce" ? "f".repeat(64) : cfg.nonce;
-    return b64({ alg: "RS256", kid: "stub", typ: "JWT" }) + "." + b64({ iss: "https://accounts.google.com", aud: cfg.client_id, sub: "g-" + log.email, email: log.email, email_verified: true, name: "Stub Person", nonce, iat: now, exp: now + 3600 }) + ".c3R1Yg";
-  };
-  window.google = { accounts: { id: {
-    initialize(cfg) { log.configs.push(cfg); log.cfg = cfg; },
-    renderButton(el, opts) {
-      log.renders.push(opts);
-      const b = document.createElement("div");
-      const large = opts.size !== "medium", dark = opts.theme === "filled_black";
-      b.setAttribute("role", "button");
-      b.tabIndex = 0;
-      b.className = "stub-gis";
-      b.textContent = opts.text === "continue_with" ? "Continue with Google" : opts.text === "signin" ? "Sign in" : "Sign in with Google";
-      // As wide as its words, or as opts.width when that is more (Google's own rule: width is the least it takes).
-      const natural = opts.text === "signin" ? (large ? 120 : 104) : large ? 194 : 191;
-      Object.assign(b.style, { display: "inline-flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box",
-        width: Math.max(natural, Number(opts.width) || 0) + "px", height: large ? "40px" : "32px", borderRadius: large ? "20px" : "16px",
-        font: "500 14px system-ui, sans-serif", cursor: "pointer", background: dark ? "#131314" : "#ffffff",
-        color: dark ? "#e3e3e3" : "#1f1f1f", border: dark ? "0" : "1px solid #747775" });
-      b.addEventListener("click", () => {
-        // Google calls the button's click_listener first, then the client's callback with the token.
-        opts.click_listener?.();
-        log.clicked = (log.clicked || 0) + 1;
-        const cfg = log.cfg;
-        const credential = token(cfg);
-        log.credentials.push({ credential, cfg: log.configs.indexOf(cfg) });
-        cfg.callback({ credential, select_by: "btn" });
-      });
-      el.appendChild(b);
-    },
-    disableAutoSelect() { log.disabled++; },
-    prompt() {},
-    cancel() {},
-  } } };
-})();`;
+// ---- The stand-in for Google's script: gis-stub.mjs
 
 // ---- The test browser's network: this PC only; Google and Supabase answered here ---------------
-const net = { leaked: [], gisLoads: 0, authorize: [], grants: [], logouts: 0, slowMs: 0 };
+const net = { leaked: [], gisLoads: 0, gisLangs: [], authorize: [], grants: [], logouts: 0, slowMs: 0 };
 const cors = (req) => ({
   "access-control-allow-origin": req.headers()["origin"] ?? "*",
   "access-control-allow-headers": "*",
   "access-control-allow-methods": "GET, POST, OPTIONS",
 });
-/** `gis`: "stub" (the stand-in above), "blocked" (as a blocker would), or "none" (switch off: it must never be asked for). */
+/** `gis`: "stub" (the stand-in above), "blocked" (as a blocker would), "hang" (never answers: the place held while it
+ * loads stays), or "none" (switch off: it must never be asked for). */
 async function wire(ctx, { gis }) {
   await ctx.route(
     () => true,
@@ -126,6 +85,8 @@ async function wire(ctx, { gis }) {
       if (["localhost", "127.0.0.1"].includes(url.hostname)) return route.continue();
       if (url.host === "accounts.google.com" && url.pathname === "/gsi/client") {
         net.gisLoads++;
+        net.gisLangs.push(url.searchParams.get("hl"));
+        if (gis === "hang") return; // left unanswered until the context closes
         if (gis === "stub") return route.fulfill({ status: 200, contentType: "text/javascript", body: GIS_STUB });
         if (gis === "none") net.leaked.push(`asked for Google's script with the switch off`);
         return route.abort("blockedbyclient");
@@ -206,6 +167,20 @@ async function until(what, test, seconds, log) {
   throw new Error(`${what} did not start: ${log?.() ?? ""}`);
 }
 /** The site with the switch at `value`: "" (off), "1" (on) or "only" (on, no redirect where Google's script can't load). */
+/**
+ * How wide the page scrolls with the dev-only test sign-in hidden (production has none; its email box runs past a 280px
+ * screen at 200% text). The scroll width, not element boxes: a box a parent clips (the background's shapes) is no
+ * wider page.
+ */
+const past = (page) =>
+  page.evaluate(() => {
+    const dev = [...document.querySelectorAll(".devsignin")];
+    for (const el of dev) el.style.display = "none";
+    const right = document.documentElement.scrollWidth;
+    for (const el of dev) el.style.display = "";
+    return { right };
+  });
+
 async function site(port, value) {
   const name = value === "" ? "off" : value === "1" ? "on" : value;
   const proc = start(`site-${name}`, [join(root, "node_modules/next/dist/bin/next"), "dev", "-p", String(port)], webDir, {
@@ -339,6 +314,11 @@ try {
     );
     const r1 = g1?.renders.at(-1) ?? {};
     check("on: the dark button (filled_black, large, Sign in with Google, pill, English)", r1.theme === "filled_black" && r1.size === "large" && r1.text === "signin_with" && r1.shape === "pill" && r1.locale === "en", JSON.stringify(r1));
+    check("on: Google's script asked for in English (hl=en: its frame doesn't pick the language from where the visitor is)", net.gisLangs.length > 0 && net.gisLangs.every((l) => l === "en"), net.gisLangs.join(","));
+    check(
+      "on: Google's frame in its own light scheme (no white slab under the page's dark one), no empty paragraph under it",
+      (await page.locator(".googlebutton__frame").evaluate((el) => getComputedStyle(el).colorScheme)) === "light" && (await page.locator(".signin p:empty").count()) === 0,
+    );
     await shot(page, "on-create-desktop", ".signin");
 
     // 2. A token with the wrong nonce: Supabase refuses it, the page says so and stays signed out.
@@ -367,7 +347,7 @@ try {
     net.slowMs = 1500;
     await googleIn(page).click();
     const busyShown = await page.locator(".googlebutton--busy[inert]").waitFor({ timeout: 1_400 }).then(() => true, () => false);
-    const signingIn = await page.getByText("Signing in…").isVisible().catch(() => false);
+    const signingIn = await page.locator(".signin .field-hint", { hasText: "Signing in…" }).isVisible().catch(() => false);
     check("on: while Supabase answers, Google's button takes no second press (inert, dimmed) and the page says Signing in…", busyShown && signingIn);
     net.slowMs = 0;
     await buildButton(page).waitFor({ timeout: 60_000 });
@@ -418,6 +398,29 @@ try {
     );
     await ctxP.close();
 
+    // 6b. The status bar's Sign in, from /pricing on a phone: Google's button on the first screen (above the idea box), and
+    // the sign-in comes back to /pricing.
+    const ctxS = await phone();
+    await wire(ctxS, { gis: "stub" });
+    const ps = await ctxS.newPage();
+    await ps.goto(`${base}/pricing`, { waitUntil: "domcontentloaded", timeout: 180_000 });
+    await ps.locator(".statusbar").getByRole("link", { name: "Sign in" }).click();
+    await googleIn(ps).waitFor({ timeout: 120_000 });
+    const pill = new URL(ps.url());
+    const first = await ps.evaluate(() => ({ google: document.querySelector(".googlebutton")?.getBoundingClientRect().bottom ?? 9999, idea: document.querySelector("#idea")?.getBoundingClientRect().top ?? 0, h: innerHeight }));
+    check(
+      "on: the status bar's Sign in opens /create with Google's button on a phone's first screen, above the idea box",
+      pill.pathname === "/create" && pill.searchParams.get("signin") === "1" && pill.searchParams.get("next") === "/pricing" && first.google <= first.h && first.google <= first.idea,
+      `${pill.pathname}${pill.search}; Google ends at ${Math.round(first.google)} of ${first.h}, the idea box at ${Math.round(first.idea)}`,
+    );
+    await shot(ps, "on-signin-pill-phone");
+    await ps.evaluate((email) => (window.__gis.email = email), invited);
+    await googleIn(ps).click();
+    await ps.waitForURL((u) => u.pathname === "/pricing", { timeout: 60_000 });
+    await ps.locator(".avatarbutton").waitFor({ timeout: 60_000 });
+    check("on: …and the sign-in comes back to /pricing, signed in", new URL(ps.url()).pathname === "/pricing");
+    await ctxS.close();
+
     // 7. The closed beta: signed in uninvited, then Use another account with Google's light button.
     const ctx2 = await desk();
     await wire(ctx2, { gis: "stub" });
@@ -466,8 +469,8 @@ try {
     await googleIn(p4).waitFor({ timeout: 60_000 });
     const fits2 = await p4.evaluate((vw) => document.documentElement.scrollWidth <= vw + 1, 390);
     const g = await googleIn(p4).boundingBox();
-    const out2 = await p4.locator(".closed__actions .button", { hasText: "Sign out" }).boundingBox();
-    check("on, phone 390: the closed-beta screen fits, Google's light button as wide as Sign out under it", fits2 && g && out2 && Math.abs(g.width - out2.width) <= 2 && g.x >= 0 && g.x + g.width <= 390, g && out2 ? `Google ${Math.round(g.width)} px, Sign out ${Math.round(out2.width)} px` : "");
+    const out2 = await p4.locator(".closed__actions .textbutton", { hasText: "Sign out" }).boundingBox();
+    check("on, phone 390: the closed-beta screen fits, Google's light button across the panel, Sign out (words) under it", fits2 && g && out2 && out2.y + out2.height / 2 > g.y + g.height && g.x >= 0 && g.x + g.width <= 390, g && out2 ? `Google ${Math.round(g.width)} px, Sign out ${Math.round(out2.width)} px` : "");
     await shot(p4, "on-closed-beta-phone", ".closed__who");
     await ctx4.close();
 
@@ -488,11 +491,74 @@ try {
       const g = document.querySelector(".googlebutton__frame .stub-gis").getBoundingClientRect();
       return { page: document.documentElement.scrollWidth, inside: g.left >= panel.left && g.right <= panel.right, text: document.querySelector(".googlebutton__frame .stub-gis").textContent, g: Math.round(g.width), panel: Math.round(panel.width) };
     });
-    check("on, phone 280: the closed-beta screen fits, Google's light button inside its panel (Google's shortest words there)", narrow2.page <= 281 && narrow2.inside, JSON.stringify(narrow2));
+    check("on, phone 280: the closed-beta screen fits, Google's light button inside its panel with its full words", narrow2.page <= 281 && narrow2.inside && narrow2.text === "Continue with Google", JSON.stringify(narrow2));
     await shot(p5, "on-closed-beta-280", ".closed__who");
     await ctx5.close();
 
     check("on: nothing left this PC (Google and Supabase answered by the test)", net.leaked.length === 0, net.leaked.join("; "));
+    stop(proc);
+  }
+
+  // ==== Large text (200%) at 280px: the place held while Google loads, our own button, the closed-beta pair ============
+  {
+    const { base, proc } = await site(ON_PORT, "1");
+    const googleIn = (page) => page.locator(".googlebutton__frame .stub-gis");
+    const narrow = () => browser.newContext({ viewport: { width: 280, height: 653 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    // Google's script still on its way: "Loading…" stays inside its place.
+    const ctxH = await narrow();
+    await wire(ctxH, { gis: "hang" });
+    const ph = await ctxH.newPage();
+    await ph.goto(`${base}/create`, { waitUntil: "domcontentloaded", timeout: 180_000 });
+    await ph.locator(".googlebutton__hold span").waitFor({ timeout: 120_000 });
+    await doubleText(ph);
+    await ph.waitForTimeout(700);
+    const hold = await ph.evaluate(() => {
+      const box = document.querySelector(".googlebutton__hold").getBoundingClientRect();
+      const words = document.querySelector(".googlebutton__hold span");
+      return { text: words.textContent, inside: words.getBoundingClientRect().right <= box.right + 0.5 && box.right <= innerWidth };
+    });
+    const holdPast = await past(ph);
+    check("on, 280 at 200% text: the place held while Google's script loads says Loading… inside itself, nothing past the screen", hold.text === "Loading…" && hold.inside && holdPast.right <= 281, JSON.stringify({ ...hold, ...holdPast }));
+    await shot(ph, "on-loading-280-text200", ".signin");
+    await ctxH.close();
+    // Google's script blocked: our own orange button wraps inside the column.
+    const ctxB = await narrow();
+    await wire(ctxB, { gis: "blocked" });
+    const pb = await ctxB.newPage();
+    await pb.goto(`${base}/create`, { waitUntil: "domcontentloaded", timeout: 180_000 });
+    await redirectButton(pb).waitFor({ timeout: 60_000 });
+    const plain = await pb.evaluate(() => document.documentElement.scrollWidth);
+    await doubleText(pb);
+    await pb.waitForTimeout(500);
+    const fallback = await pb.evaluate(() => {
+      const b = document.querySelector(".signin > button.button").getBoundingClientRect();
+      const col = document.querySelector(".signin").getBoundingClientRect();
+      const g = document.querySelector(".signin > button.button > svg").getBoundingClientRect();
+      return { inside: b.left >= col.left - 0.5 && b.right <= col.right + 0.5, g: Math.round(g.width) };
+    });
+    const fallbackPast = await past(pb);
+    check("on, Google's script blocked, 280: our own button inside its column, its G whole (20px), at 100% and 200% text, nothing past the screen", plain <= 281 && fallback.inside && fallback.g >= 19 && fallbackPast.right <= 281, `${plain} / ${JSON.stringify({ ...fallback, ...fallbackPast })}`);
+    await shot(pb, "on-blocked-280-text200", ".signin");
+    await ctxB.close();
+    // Signed in uninvited at 280: the sentence before Google's light button says what its short "Sign in" does; Sign out
+    // is words under it.
+    const ctxC = await narrow();
+    await wire(ctxC, { gis: "stub" });
+    const pc = await ctxC.newPage();
+    await pc.goto(`${base}/create`, { waitUntil: "domcontentloaded", timeout: 180_000 });
+    await googleIn(pc).waitFor({ timeout: 120_000 });
+    await pc.evaluate((email) => (window.__gis.email = email), outsider);
+    await googleIn(pc).click();
+    await closedTitle(pc).waitFor({ timeout: 60_000 });
+    await googleIn(pc).waitFor({ timeout: 60_000 });
+    const pair = await pc.evaluate(() => {
+      const g = document.querySelector(".googlebutton__frame .stub-gis").getBoundingClientRect();
+      const out = [...document.querySelectorAll(".closed__actions .textbutton")].find((b) => b.textContent === "Sign out")?.getBoundingClientRect();
+      return { said: document.querySelector(".closed__who").textContent.includes("Sign in with that Google account."), out: !!out && out.top + out.height / 2 > g.bottom, scheme: getComputedStyle(document.querySelector(".googlebutton__frame")).colorScheme };
+    });
+    check("on, 280, closed beta: \"Sign in with that Google account.\" before Google's button, Sign out as words under it, Google's frame light", pair.said && pair.out && pair.scheme === "light", JSON.stringify(pair));
+    await shot(pc, "on-closed-beta-pair-280", ".closed__who");
+    await ctxC.close();
     stop(proc);
   }
 
@@ -518,6 +584,23 @@ try {
     await blockedLine(p2).waitFor({ timeout: 60_000 });
     check("only, Google's script blocked: a line saying what to do, no redirect button", (await redirectButton(p2).count()) === 0 && (await p2.locator(".googlebutton").count()) === 0);
     await shot(p2, "only-blocked", ".signin");
+    {
+      const p2n = await ctx2.newPage();
+      await p2n.setViewportSize({ width: 280, height: 653 });
+      await p2n.goto(`${base}/create`, { waitUntil: "domcontentloaded", timeout: 180_000 });
+      await blockedLine(p2n).waitFor({ timeout: 60_000 });
+      await doubleText(p2n);
+      await p2n.waitForTimeout(500);
+      const line = await p2n.evaluate(() => {
+        const l = document.querySelector(".signin .error-line").getBoundingClientRect();
+        const col = document.querySelector(".signin").getBoundingClientRect();
+        return { inside: l.right <= col.right + 0.5 };
+      });
+      const linePast = await past(p2n);
+      check("only, blocked, 280 at 200% text: the line (accounts.google.com) breaks inside its column, nothing past the screen", linePast.right <= 281 && line.inside, JSON.stringify({ ...line, ...linePast }));
+      await shot(p2n, "only-blocked-280-text200", ".signin");
+      await p2n.close();
+    }
     // Signed in uninvited (dev sign-in) with Google's script blocked: the closed-beta screen keeps Sign out and says why.
     await p2.fill("#dev-email", outsider);
     await p2.getByRole("button", { name: "Dev sign-in" }).click();
@@ -525,7 +608,7 @@ try {
     await blockedLine(p2).waitFor({ timeout: 60_000 });
     check(
       "only, Google's script blocked, closed beta: the line, Sign out, no Use another account",
-      (await p2.getByRole("button", { name: "Use another account" }).count()) === 0 && (await p2.locator(".closed__actions .button", { hasText: "Sign out" }).count()) === 1,
+      (await p2.getByRole("button", { name: "Use another account" }).count()) === 0 && (await p2.locator(".closed__actions .textbutton", { hasText: "Sign out" }).count()) === 1,
     );
     await shot(p2, "only-blocked-closed-beta", ".closed__who");
     await ctx2.close();

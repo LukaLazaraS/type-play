@@ -19,7 +19,8 @@
 import { googleConfig } from "@/content/app";
 import { site } from "@/content/site";
 
-const SCRIPT = "https://accounts.google.com/gsi/client";
+// hl=en: Google's frame speaks the site's language, not the one it guesses from where the visitor is (Georgian here).
+const SCRIPT = "https://accounts.google.com/gsi/client?hl=en";
 /** How long Google's script may take before the page falls back to the redirect. */
 const LOAD_MS = 10_000;
 /** …and then Google's button, in its own frame: 0x0 when Google refuses the origin or a blocker stops the frame. */
