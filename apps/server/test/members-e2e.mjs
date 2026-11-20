@@ -9,6 +9,7 @@
 // only by the one who asked; the pictures of the game; removing someone (their build stops, their stream ends);
 // leaving; an editor's closed account; the game deleted by its owner.
 import { spawn, spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import pg from "pg";
 import sharp from "sharp";
@@ -17,6 +18,14 @@ import { useTestDatabase } from "./test-db.mjs";
 
 const here = resolve(import.meta.dirname, "..");
 const root = resolve(here, "../..");
+// A checkout without the root .env (a fresh worktree): the site's public Supabase values (content/app.ts) stand in, as
+// in e2e.mjs. Nothing secret: the URL and the publishable key.
+{
+  const appTs = readFileSync(join(root, "apps/web/src/content/app.ts"), "utf8");
+  const pick = (marker) => appTs.match(new RegExp(`"([^"]+)", // ${marker}`))?.[1] ?? "";
+  process.env.SUPABASE_URL ||= pick("supabase:url");
+  process.env.SUPABASE_PUBLISHABLE_KEY ||= pick("supabase:publishableKey");
+}
 await useTestDatabase();
 const PORT = await freePort();
 const API = `http://127.0.0.1:${PORT}`;
