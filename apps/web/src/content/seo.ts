@@ -151,9 +151,10 @@ export function gameStructuredData(game: PublicGame) {
     "@context": "https://schema.org",
     "@graph": [
       {
-        // A game that is also a web app: it runs in the browser (Google reads WebApplication; VideoGame alone shows
-        // nothing more). No rating or review: there are none to give.
-        "@type": ["VideoGame", "WebApplication"],
+        // A VideoGame only: Google's software app types (SoftwareApplication, WebApplication) need a rating or reviews,
+        // which we don't have, so a co-type would make every gallery page an invalid item in Search Console and still
+        // show nothing more. The VideoGame describes the game for any reader of schema.org.
+        "@type": "VideoGame",
         "@id": `${url}#game`,
         name: game.name,
         url,

@@ -43,6 +43,9 @@ export const galleryFirst = cache(async (sort: GallerySort, genre: Genre | null 
  * does): a flood of sitemap.xml requests reaches the API once a minute. Kept past that while the API doesn't answer, so
  * an outage doesn't empty the sitemap. In this server's memory: the live site is one process. */
 let kept: { at: number; games: GallerySitemap["games"] } | null = null;
+/** The read under way, if any: requests that come while it runs wait for it instead of asking the API again (50 at once
+ * past the kept time: one request). */
+let reading: Promise<GallerySitemap["games"] | null> | null = null;
 
 /** Every game in the gallery for sitemap.xml (GET /public/sitemap), newest first; null when the API can't say (down, too
  * slow, or an older API without the route) and nothing was read before: the sitemap then lists the site's own pages. */
@@ -51,6 +54,13 @@ export async function gallerySitemap(): Promise<GallerySitemap["games"] | null> 
   await connection();
   const keep = Math.max(0, Number(process.env.SITEMAP_CACHE_SECONDS ?? 60) || 0) * 1000;
   if (kept && Date.now() - kept.at < keep) return kept.games;
+  reading ??= readSitemap().finally(() => {
+    reading = null;
+  });
+  return reading;
+}
+
+async function readSitemap(): Promise<GallerySitemap["games"] | null> {
   try {
     const res = await fetch(`${app.apiOrigin}/public/sitemap`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
     if (!res.ok) return kept?.games ?? null;

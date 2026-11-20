@@ -2,7 +2,8 @@
 // and the new cookies go to both the page and the browser. App builds only (.app.ts), app routes only.
 // Also gives share pages (/play/<id>) a real 404 for a private, unshared or missing game, and share pages and the
 // gallery (/explore) a 503 while the API doesn't answer: the pages themselves stream after their shell is sent (Cache
-// Components), too late to change the status.
+// Components), too late to change the status. Both checks are for documents only (a browser's or a crawler's page
+// request): the router's prefetches and in-app navigations go straight on, where the page itself answers.
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { app, supabaseConfig } from "@/content/app";
@@ -15,6 +16,19 @@ const RETRY_AFTER = "120";
 const INNER = crypto.randomUUID();
 /** When even that fails: the same words, plainly. */
 const PLAIN = "<!doctype html><html lang=\"en\"><title>TypePlay</title><p>We can't load this right now. Try again in a minute.</p></html>";
+
+/**
+ * A page asked for as a document: a browser's navigation or a crawler's request. Not the app router's own requests: its
+ * prefetches (Next-Router-Prefetch; the status bar's Games link prefetches /explore on every page, twice) and in-app
+ * navigations (RSC: 1, or the _rsc query), which get the page's data and show its own words, with no status anyone
+ * keeps. A browser's fetch() says its destination (Sec-Fetch-Dest) too; a crawler sends none of these.
+ */
+function isDocument(request: NextRequest): boolean {
+  const h = request.headers;
+  if (h.has("rsc") || h.has("next-router-prefetch") || h.has("next-router-segment-prefetch") || request.nextUrl.searchParams.has("_rsc")) return false;
+  const dest = h.get("sec-fetch-dest");
+  return !dest || dest === "document";
+}
 
 /** Whether the API answers this, within 5 s: true (2xx), false (404), null (no answer, or an error). */
 async function ask(path: string): Promise<boolean | null> {
@@ -51,13 +65,19 @@ export async function proxy(request: NextRequest) {
   if (request.headers.get("x-typeplay-inner") === INNER) return NextResponse.next();
   const play = PLAY.exec(request.nextUrl.pathname);
   if (request.nextUrl.pathname.startsWith("/play/") && request.nextUrl.pathname !== "/play/not-shared") {
+    // A prefetch of a share page (each card in More games, the gallery's) or an in-app move to one: the page itself
+    // says not found or can't load; only a document needs the status.
+    if (!isDocument(request)) return NextResponse.next();
     const shared = play ? await ask(`/public/games/${play[1]}`) : false; // false too: not a game id at all
     // Not shared: "This game isn't here", prerendered with a 404 (a rewrite can't set the status).
     if (shared === false) return NextResponse.rewrite(new URL("/play/not-shared", request.url));
     return shared === null ? unavailable(request) : NextResponse.next();
   }
   // The gallery: the same request its page makes first (Popular's first page), one game long.
-  if (request.nextUrl.pathname === "/explore") return (await ask("/public/gallery?sort=popular&limit=1")) ? NextResponse.next() : unavailable(request);
+  if (request.nextUrl.pathname === "/explore") {
+    if (!isDocument(request)) return NextResponse.next();
+    return (await ask("/public/gallery?sort=popular&limit=1")) ? NextResponse.next() : unavailable(request);
+  }
 
   let response = NextResponse.next({ request });
   const client = createServerClient(supabaseConfig.url, supabaseConfig.publishableKey, {
