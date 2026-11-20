@@ -5,6 +5,10 @@ that they signed in to **bensbaqrtdcamxvcugek.supabase.co** (Luka's screenshot: 
 This page says where that happens, the ways to fix it, what was built, and Luka's steps, shortest first. Nothing was
 bought and no account was touched; Claude may not log in or change account settings.
 
+**Status 2026-11-20 (HQ, parked #28 decided):** brand verification passed and is published (step 2), so Google's own
+pages now say **TypePlay** with the logo, on today's redirect too; Google's button is switched on (step 1.2). The rows
+below are the 11-04 picture; step 2 and step 1 say what was done and checked.
+
 ## Where players see the Supabase address today
 
 | Where | Today | With the switch on (built) | After brand verification |
@@ -93,17 +97,30 @@ with Google" 194x40, light "Continue with Google" 191x32.
    `1093794003252-t3b2…apps.googleusercontent.com` (the web client; a future Android or iOS client is added only after
    its own review), and **Skip nonce check** is off. That toggle is what makes the nonce count, and Supabase accepts
    tokens for these client IDs whatever the switch says.
+   **Checked 2026-11-20 without the dashboard** (Supabase's dashboard is not signed in in the automation Edge): Supabase's
+   `/auth/v1/authorize?provider=google` sends Google `client_id` = `.env` `GOOGLE_CLIENT_ID`, the web client, so it is the
+   first of the provider's Client IDs and the button's tokens pass Supabase's audience check (`token_oidc.go` takes any
+   listed ID). The whole list and "Skip nonce check" are readable only in the dashboard (Supabase's default for the
+   toggle is off).
 2. **Done 2026-11-20, by HQ's decision**: `NEXT_PUBLIC_GOOGLE_BUTTON: "1"` in `deploy/server/compose.yaml` (branch
    `signin-name`); it goes live with HQ's merge and `node deploy/deploy.mjs site` (~1 minute).
-3. Check on typeplay.app, on the computer and on the phone: tap **Sign in with Google** (now black). Google's window or
-   Chrome's dialog should say **typeplay.app**, and you're back on the page signed in. Then Google's email in Gmail
-   should name typeplay.app. On the iPhone also try it from the home-screen app, if you added TypePlay to the home
+3. Check on typeplay.app, on the computer and on the phone: tap **Sign in with Google** (now black). Google's window
+   should say **TypePlay** (brand verified, step 2) and Chrome's own dialog **typeplay.app** (Chrome always names the
+   domain), and you're back on the page signed in. Then Google's email in Gmail should name TypePlay. On the iPhone also try it from the home-screen app, if you added TypePlay to the home
    screen (the site can be installed). No test here can reach that case. Reports from other projects say Apple opens
    Google's page there in a separate Safari sheet with its own cookies, so it may fail with today's redirect too. If
    it fails, say so: fixing sign-in in the installed app is a task of its own.
 4. To go back: `"0"` and deploy again.
 
 ### 2. "TypePlay" and the logo instead of "typeplay.app" (15 minutes; Google: minutes, or 2-3 business days)
+
+**Done 2026-11-20 by HQ in the automation Edge** (signed in to Google Cloud there): every field already matched the
+table; the logo uploaded, **Save**, **Verify branding** passed by itself within a minute, with
+`bensbaqrtdcamxvcugek.supabase.co` still an authorized domain (so step 3 is not needed), then **Publish branding**: "Your
+branding has been verified and is being shown to users." Checked the same way as on 11-04 (Google's page for today's
+redirect, fetched without an account): "Sign in to continue to **TypePlay**", the logo with alt "TypePlay"; the Supabase
+address stays only inside hidden link parameters. The client's JavaScript origins (`https://typeplay.app`,
+`http://localhost:3000`) and redirect URI (Supabase's callback) were left as they are.
 
 Google Cloud Console (console.cloud.google.com), project **TypePlay** (`typeplay-app`) → **Google Auth Platform** →
 **Branding**:
