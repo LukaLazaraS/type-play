@@ -62,7 +62,7 @@ const faq: { q: string; a: ReactNode; wide?: boolean }[] = [
       <>
         What a message costs. Each one spends credits for the work it does: usually about {t.fastEdit} for a Fast change, {t.fastGame} for a Fast new
         game, {t.smartGame} for a Smart new game and {t.bestGame} for a Best one; a big game costs more (<TextLink href="#credits">the table above</TextLink>
-        ). The cost shows next to the send button before it runs, and a build that fails gives its credits back.
+        ). An estimate shows next to the send button before it runs, and a build that fails gives its credits back.
       </>
     ),
   },
@@ -161,12 +161,13 @@ export default function Pricing() {
           What credits buy.
         </h2>
         <p className="lead">
-          Each message spends credits for the work it does. Here is what one usually costs. The exact price shows next to Send before it runs, and a
+          Each message spends credits for the work it does. Here is what one usually costs. An estimate shows next to Send before it runs, and a
           build that fails gives its credits back.
         </p>
         <CreditsTable />
         <p className="lead lead--after">
-          Dollars at Medium&apos;s price, {Math.round(mediumPerCredit * 100)} cents a credit; bigger plans pay less per credit. Free has Fast only: {credits.freePerMonth} credits a month,
+          You pay for the work a message did, so a very big game can cost more. Dollars at Medium&apos;s price,{" "}
+          {Math.round(mediumPerCredit * 100)} cents a credit; bigger plans pay less per credit. Free has Fast only: {credits.freePerMonth} credits a month,
           up to {credits.freePerDay} a day. More effort costs more.
         </p>
       </section>

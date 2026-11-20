@@ -37,7 +37,7 @@ for (const kind of ["edit", "new"]) {
 }
 
 // The table's rows (site.ts `creditRows`, components/CreditsTable.tsx): a change and a simple new game at the estimate's
-// "usually" (what the plan cards count games by), a big new game at the top of its range ("up to").
+// "usually" (what the plan cards count games by), a big new game at the top of its range, "about" (nothing caps a charge).
 const cell = {
   change: (m) => estimate("edit", m, "medium", "medium").typical,
   simple: (m) => estimate("new", m, "medium", "medium").typical,
@@ -49,7 +49,7 @@ for (const row of creditRows) {
   const api = MODELS.map((m) => cell[row.id]?.(m));
   ok(same(page, api), `the table's "${row.name}": ${page.join(" / ")} credits on Fast / Smart / Best`, `the app's estimate says ${api.join(" / ")}`);
 }
-ok(creditRows.every((r) => r.upTo === (r.id === "big")), 'only the big new game says "up to"', creditRows.map((r) => `${r.id}:${r.upTo}`).join(", "));
+ok(creditRows.every((r) => r.about === (r.id === "big")), 'only the big new game says "about"', creditRows.map((r) => `${r.id}:${r.about}`).join(", "));
 
 // The plans: the same ids, credits and prices (site.ts writes Ultra+ as "ultra-plus", the API "ultraplus").
 const apiId = (id) => (id === "ultra-plus" ? "ultraplus" : id);

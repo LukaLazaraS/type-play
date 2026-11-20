@@ -46,7 +46,7 @@ export function CreditsTable() {
                 return (
                   <td key={ai.id} role="cell" className="credits__cell">
                     <span className="credits__num">
-                      {row.upTo && <small>up to </small>}
+                      {row.about && <small>about </small>}
                       {cost}
                       <small> credits</small>
                     </span>

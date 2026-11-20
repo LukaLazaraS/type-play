@@ -66,19 +66,19 @@ export const AIS: { id: AI; name: string }[] = [
  * The pricing page's "What credits buy" (components/CreditsTable.tsx): one message a row, the AIs across, every number
  * from `estimates` above, so it moves with the app's own estimate. A change and a simple new game at the estimate's
  * "usually" (the same figure the plan cards count games by: 100 credits / 15 = "about 6 Smart new games"); a big new game
- * at the range's top ("up to"). Each example is a real message we measured: "Make it night time." cost 0.3-0.4 on Fast on
+ * at the range's top, "about" (nothing caps a charge: a message pays for the work it did). Each example is a real message we measured: "Make it night time." cost 0.3-0.4 on Fast on
  * three of the showcase games (agent/runs.jsonl, edit-show-*), the frog game 4.6 on Fast (beta1-fast-frog, 2026-11-19),
  * and a tower defence with a start menu, 3 levels and 4 towers to upgrade 8.2 on Fast and 18 on Smart (RESULTS.md 10-18;
  * its prompt is too long to quote, so the row describes it).
  */
-export const creditRows: { id: string; name: string; example: string; quoted: boolean; upTo: boolean; cost: (ai: AI) => number }[] = [
-  { id: "change", name: "A change", example: "Make it night time.", quoted: true, upTo: false, cost: (ai) => estimates.edit[ai][0] },
+export const creditRows: { id: string; name: string; example: string; quoted: boolean; about: boolean; cost: (ai: AI) => number }[] = [
+  { id: "change", name: "A change", example: "Make it night time.", quoted: true, about: false, cost: (ai) => estimates.edit[ai][0] },
   {
     id: "simple",
     name: "A simple new game",
     example: "A game where a frog jumps between lily pads to cross a pond, avoiding fish.",
     quoted: true,
-    upTo: false,
+    about: false,
     cost: (ai) => estimates.new[ai][0],
   },
   {
@@ -86,7 +86,7 @@ export const creditRows: { id: string; name: string; example: string; quoted: bo
     name: "A big new game",
     example: "Levels, menus and upgrades, like a tower defence with a start menu, 3 levels and 4 towers you can upgrade.",
     quoted: false,
-    upTo: true,
+    about: true,
     cost: (ai) => estimates.new[ai][2],
   },
 ];
@@ -222,7 +222,9 @@ export const plans: Plan[] = [
 export const ownership = {
   title: "Your game is yours.",
   points: [
-    "You own the code, the art and the exported builds.",
+    // The terms (legal.ts): you own the code and art the agent produces for you, and the exported builds; the bundled
+    // free parts (templates, CC0 models) stay ours, yours to use in your games.
+    "You own the code and art made for your game, and the exported builds.",
     "We take no share of what your game earns.",
     "Publish it anywhere, under your own name.",
   ],

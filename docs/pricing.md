@@ -116,7 +116,8 @@ or 13 Best; Ultra+ ≈ 85 or 28 Best. Free ≈ 4 Fast new games or 50 Fast edits
 "about 4 Fast new games", Medium "about 6 Smart new games, 2 Best, or 250 Fast changes", High to Ultra+ "about N Smart
 new games or N Best", computed from the estimate's "usually" and rounded down. Under the plans, "What credits buy"
 (2026-11-20) shows one message per row and AI, with its dollars at Medium's $0.20: a change and a simple new game at the
-estimate's "usually", a big new game (levels, menus, upgrades) at the top of its range, "up to". (Before, from the old
+estimate's "usually", a big new game (levels, menus, upgrades) at the top of its range, "about" (nothing caps a charge: you pay for the
+work a message did, so a very big game can cost more). (Before, from the old
 table: Medium ≈ 15 Smart, 6 Best or 350 Fast edits; High ≈ 41; Ultra ≈ 90; Ultra+ ≈ 195; Free ≈ 12 Fast new games.)
 
 **Against the market:** per credit we sit on the market line ($0.20). Per game we are still

@@ -116,12 +116,18 @@ export default function Home() {
 
       {/* The games, as store listings */}
       <section className="section" id="games" aria-labelledby="games-title">
+        {/* True to content/games.ts: each began as one message (most showcase prompts are two sentences); the showcase
+            six were polished by chat; every game got TypePlay's 11-07 maintenance change for speed and colour, and
+            some an earlier hand fix for speed. The minutes are each game's first build: the October test games are
+            from before builds did more, so they don't read as today's time. */}
         <h2 id="games-title" className="title">
-          Made from one sentence each.
+          Each started from one message.
         </h2>
         <p className="lead">
-          Games made with TypePlay, each from the sentence under it, exactly as typed. Some were
-          then changed by chat. Tap one to play it.
+          Games made with TypePlay. Each began as the words under it, exactly as typed. Some were
+          then changed by chat, and every one got our own fixes for speed and colour. The minutes
+          are each game&apos;s first build; the older ones are from before builds got bigger. Tap
+          one to play it.
         </p>
         <div className="strip">
           {games.map((g) => (
@@ -149,7 +155,7 @@ export default function Home() {
           You pick the AI, per message.
         </h2>
         <p className="lead">
-          Results are partly luck, so you choose every time, and you see the cost before anything
+          Results are partly luck, so you choose every time, and you see an estimate of the cost before anything
           runs. The minutes are measured on real builds: our beta testers&apos; and our own.
         </p>
         <div className="widget settings">
@@ -184,10 +190,11 @@ export default function Home() {
         </h2>
         <div className="widget widget--ink ship">
           <p>
-            Every game is a real Godot project, so the same game exports to the web, Android,
-            iOS and Steam. We make the build; you publish it on your own Google or Apple
-            developer account, under your own name. Next on the list: connect your Google Play
-            account once and publish from TypePlay in one click.
+            Every game is a real Godot project, so the same game can go to the web now, and to
+            Android, iOS and Steam as each export arrives. Then we make the build, and you
+            publish it on your own Google or Apple developer account, under your own name. Next
+            on the list: connect your Google Play account once and publish from TypePlay in one
+            click.
           </p>
           <PlatformSlots />
         </div>
