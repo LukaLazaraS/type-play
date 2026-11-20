@@ -38,9 +38,9 @@ The direct host `db.<ref>.supabase.co` is IPv6-only on the free plan; the pooler
 - **Google Auth Platform:**
   - Branding: app name "TypePlay"; user support email **typeplay-support@googlegroups.com**;
     home `https://typeplay.app`, privacy `/privacy`, terms `/terms`; authorized domains
-    `typeplay.app` and `bensbaqrtdcamxvcugek.supabase.co`; developer contact Luka's Gmail. No logo:
-    a logo requires Google's brand verification (a few business days); add one before launch if
-    we want it on the sign-in screen.
+    `typeplay.app` and `bensbaqrtdcamxvcugek.supabase.co`; developer contact Luka's Gmail. **Logo and
+    brand verification since 2026-11-20** (`docs/launch/typeplay-google-logo-120.png`; verified by
+    Google's automated check and published): Google's pages name the app "TypePlay" with the logo.
   - Audience: External, **In production** (anyone with a Google account; no review needed while we
     ask only for name, email and profile picture).
   - Client "TypePlay web (Supabase)", type Web: JavaScript origins `https://typeplay.app`,
