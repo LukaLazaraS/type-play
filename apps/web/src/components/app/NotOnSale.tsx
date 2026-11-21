@@ -2,6 +2,7 @@ import { TextLink } from "@/components/ui/TextLink";
 import { closedBeta } from "@/content/beta";
 import { notOnSale } from "@/content/billing";
 import { site } from "@/content/site";
+import { Address } from "@/components/ui/Address";
 
 /**
  * Billing off, said plainly wherever a plan or a pack can't be bought yet (the checkout, /billing, /create?plan=): the one
@@ -15,7 +16,10 @@ export function NotOnSale({ plan, pack, free = true }: { plan?: string; pack?: b
       {plan ? notOnSale.plan(plan) : pack ? notOnSale.pack : notOnSale.line}{" "}
       {closedBeta ? (
         <>
-          {notOnSale.beta} <TextLink href={`mailto:${site.email}`}>{site.email}</TextLink>.
+          {notOnSale.beta} <TextLink href={`mailto:${site.email}`}>
+            <Address value={site.email} />
+          </TextLink>
+          .
         </>
       ) : (
         free && notOnSale.free

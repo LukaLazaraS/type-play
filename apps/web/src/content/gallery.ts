@@ -14,6 +14,23 @@ export const genreName: Record<Genre, string> = {
   adventure: "Adventure",
 };
 
+/**
+ * A genre's name where large text on a narrow card or line may have to break it (the gallery's cards and top game, the
+ * share page's line under the name): soft hyphens at its syllables, so every browser breaks "Plat-former", never
+ * "Platforme / r" (one without a hyphenation dictionary broke anywhere), and a genre with its dot after it never leaves the
+ * dot alone on the next line. The hyphens show only where a line breaks; titles, search data and menus keep `genreName`.
+ */
+export const genreBreakable: Record<Genre, string> = {
+  runner: "Run\u00ADner",
+  platformer: "Plat\u00ADform\u00ADer",
+  puzzle: "Puz\u00ADzle",
+  racer: "Rac\u00ADer",
+  shooter: "Shoot\u00ADer",
+  towerdefence: "Tow\u00ADer de\u00ADfence",
+  arcade: "Ar\u00ADcade",
+  adventure: "Ad\u00ADven\u00ADture",
+};
+
 /** A genre's games in a heading: "More racing games" under a shared racer (app/play/[id]/MoreGames.tsx). */
 export const genreMore: Record<Genre, string> = {
   runner: "runner games",

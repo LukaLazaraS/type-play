@@ -102,6 +102,9 @@ const FREE_NOTE = `Free to start: ${siteCredits.freePerMonth} credits a month on
 const SHORT_PICKED = "Say a little more: what you do in your game.";
 /** Signed out from the status bar's Sign in on another page (?signin=1&next=): where the sign-in leads, and the idea. */
 const BACK_NOTE = "After you sign in, you go back to the page you were on. Your idea stays here.";
+/** The same in the closed beta: the beta's words and these in two sentences (they were five). */
+const BETA_BACK_NOTE =
+  "A closed beta for now: sign in with Google, then type the beta code from your invitation or join the waitlist. You come back to the page you were on, and your idea stays here.";
 
 /** The app's front door: the sentence, its genre and tags, the screens, the AI and its cost, then Build. */
 export function CreateApp() {
@@ -295,7 +298,7 @@ export function CreateApp() {
                 ? "Sign in first; the checkout opens right after."
                 : back !== "/create" && !planOff
                   ? closedBeta
-                    ? `${CLOSED_BETA_NOTE} ${BACK_NOTE}`
+                    ? BETA_BACK_NOTE
                     : BACK_NOTE
                   : planOff
                   ? closedBeta

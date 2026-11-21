@@ -72,7 +72,7 @@ body:has(.ws) .ground-band {
   font-weight: 700;
   overflow-wrap: anywhere;
 }
-.account__who span {
+.account__who > span {
   display: block;
   margin-top: 2px;
   font-size: 13px;
@@ -198,6 +198,7 @@ body:has(.ws) .ground-band {
 }
 .ask__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -496,20 +497,6 @@ body:has(.ws) .ground-band {
   align-items: flex-start;
   gap: 12px;
 }
-/* The redirect button (Google's script blocked): its words wrap inside a narrow column or at 200% text, at 1.25 so
-   wrapped lines don't touch. The block padding gives the extra back, so one line stays 54px as before (a 20px G and
-   17px either side): 1.25em of words and 16.375px either side at 17px words. */
-.signin > .button {
-  max-width: 100%;
-  white-space: normal;
-  line-height: 1.25;
-  padding-block: calc(18.5px - 0.125em);
-  text-align: center;
-}
-/* The words wrap; Google's G keeps its size beside them (it shrank to a speck at 280px with 200% text). */
-.signin > .button > svg {
-  flex-shrink: 0;
-}
 .devsignin {
   display: flex;
   flex-direction: column;
@@ -680,7 +667,6 @@ body:has(.ws) .ground-band {
 .make__send .figures {
   font-size: 12px;
   color: var(--on-paper-muted);
-  white-space: nowrap;
 }
 
 /* One of a few pictures, or none (ui/IconChoice.tsx: /create's Genre, Luka 10-27): app icons' squares over their names
@@ -689,6 +675,7 @@ body:has(.ws) .ground-band {
    the ring in the hover colour; the keyboard's focus ring takes the ring's place. Names keep one weight, so a pick never
    re-wraps a name. */
 .iconchoice {
+  container: iconchoice / inline-size;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -798,6 +785,24 @@ body:has(.ws) .ground-band {
     letter-spacing: -0.01em;
   }
 }
+/* Large text on a phone (200%: the widget's inside is 6.5-11em wide; normal text never under 13em, a 280px phone): four
+   names can't share a row, so the pictures go one under another, each name beside its picture, as a list. */
+@container iconchoice (max-width: 12.5em) {
+  .iconchoice__row {
+    --icon: 44px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .iconchoice__opt {
+    flex-direction: row;
+    gap: 14px;
+    padding: 6px 0;
+    text-align: start;
+  }
+  .iconchoice__pic {
+    flex: none;
+  }
+}
 /* Disabled (the form is sending): the pick stays, the others fade, no pointer. */
 .iconchoice:disabled .iconchoice__opt {
   cursor: default;
@@ -857,6 +862,7 @@ body:has(.ws) .ground-band {
 /* Choice rows (ui/ChoiceRows.tsx): /create's AI rows (the larger size, with the AI's tile) and the report's reasons.
    Radios; the picked row on Field, the amber ring around the row, #f8f5fd under a pointer. */
 .choices {
+  container: choices / inline-size;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1580,18 +1586,26 @@ body:has(.ws) .ground-band {
   padding: 0;
   border: 0;
 }
+/* Too narrow for all its choices in a row (large text on a phone): the rest go on a row under, inside the same track. */
 .switch {
   display: inline-flex;
+  flex-wrap: wrap;
   min-width: 0;
+  max-width: 100%;
   margin: 0;
   padding: 3px;
   border: 0;
   border-radius: var(--r-button);
   background: var(--field);
 }
+/* Each choice as wide as its words, and a wrapped row's choices share the track's width (in one row the track is as
+   wide as they are, so nothing grows). A choice alone in a row and still wider than the track (large text on a phone:
+   "Made before 13 Nov 2023") wraps its own words, centred; otherwise it stays one line, as the track wraps first. */
 .switch__opt {
   position: relative;
   display: inline-flex;
+  flex-grow: 1;
+  justify-content: center;
   align-items: center;
   gap: 4px;
   padding: 8px 11px;
@@ -1599,7 +1613,7 @@ body:has(.ws) .ground-band {
   font-size: 14px;
   font-weight: 600;
   color: var(--on-paper-muted);
-  white-space: nowrap;
+  text-align: center;
   cursor: pointer;
   -webkit-user-select: none;
   user-select: none;
@@ -2666,6 +2680,32 @@ body:has(.ws) .ground-band {
     flex-wrap: wrap;
   }
 }
+/* An AI row at large text on a phone (the rows under 12.5em wide; normal text never is): beside the tile and the dot the
+   words had a word a line, so the tile and the dot take the top and the words the row's full width under them. */
+@container choices (max-width: 12.5em) {
+  .choice--tile {
+    grid-template-columns: 40px minmax(0, 1fr) 22px;
+    align-items: start;
+    row-gap: 10px;
+  }
+  .choice--tile .aitile {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .choice--tile .choice__text {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .choice--tile .choice__side {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+  .choice--tile::after {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: center;
+  }
+}
 
 /* The narrowest phones (320-360px): Send and Stop keep their icons; the words stay for screen readers. */
 @media (max-width: 360px) {
@@ -2714,6 +2754,7 @@ body:has(.ws) {
 /* Effort: Low / Medium / High, a size below Fast / Smart / Best. */
 .effort {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-width: 0;
@@ -2747,6 +2788,7 @@ body:has(.ws) {
 /* Made for: Best fit / Phone / Computer / Any screen (the platform choice, 10-25; Best fit first, 10-26): the segmented
    control with an icon per choice, the picked one's line under it. */
 .made {
+  container: made / inline-size;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -2784,6 +2826,13 @@ body:has(.ws) {
   /* Tall enough already: the touch hit area stays inside its own cell, not over the row beside it. */
   .made .switch__opt::after {
     inset: 0;
+  }
+}
+/* Large text on a phone (the widget's inside under 12.5em; normal text never is): two names can't share a row, so the
+   four go one under another. */
+@container made (max-width: 12.5em) {
+  .made__switch {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -3205,6 +3254,7 @@ body:has(.ws) {
 }
 .acct__plan {
   grid-area: plan;
+  container: acctplan / inline-size;
 }
 .acct__usage {
   grid-area: usage;
@@ -3279,9 +3329,19 @@ body:has(.ws) {
   margin: 0;
 }
 .acct__big {
+  max-width: 100%;
   font: 900 56px/1 var(--font-display);
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere; /* the last resort: a balance wider than the card breaks rather than widen the page */
+}
+/* Large text (the card under 12.5em: 13em at 280px with normal text, 11.1em at 430px with 200%): the balance at 5/8 of
+   its size, so "1,309.8" stays one line in the card at 280px. Zoom, not a font size: it scales the reader's own text
+   size (48px times their setting) instead of replacing it. */
+@container acctplan (max-width: 12.5em) {
+  .acct__big {
+    zoom: 0.625;
+  }
 }
 .acct__balance span:last-child {
   font-size: 15px;
@@ -3321,9 +3381,11 @@ body:has(.ws) {
 .acct__home {
   align-self: flex-start;
 }
-/* Notifications: the card's title with its state under it, and the switch at the row's end (the share switch's row). */
+/* Notifications: the card's title with its state under it, and the switch at the row's end (the share switch's row); at
+   large text, when the title takes the row, the switch goes under it. */
 .acct__switch {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -3531,12 +3593,9 @@ body:has(.ws) {
   margin: 8px 0 0;
   color: var(--on-sky-muted);
 }
-/* The line under a shared game's name, and a gallery game's dates under it: each part a box of its own with its dot
-   (PlayStage.tsx Parts), so the line breaks between parts, after a dot. A part wider than the line wraps at its own
-   spaces; only a word longer than the line breaks inside (320px at 200% text: "Tower" / "defence ·"). A date is a box
-   too, so it stays whole beside "since" or under it, and wraps at its own spaces only when it alone is wider (280px at
-   200% text: "12 Nov" / "2026 ·"). */
-.play__part,
+/* A gallery game's date (under the name, beside "In the gallery since"): a box of its own like the line's parts
+   (globals.css ".parts__part"), so it stays whole beside "since" or under it, and wraps at its own spaces only when it
+   alone is wider (280px at 200% text: "12 Nov" / "2026 ·"). */
 .play__date {
   display: inline-block;
   max-width: 100%;
@@ -3608,16 +3667,6 @@ body:has(.ws) {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-}
-/* Large text on a narrow phone (200% at 280px): a button's words wrap inside the widget instead of running past the
-   screen (the share page was 333px wide), at 1.25 so wrapped lines don't touch. At the usual sizes each stays one line
-   at its usual 51px: the block padding gives back what 1.25 adds (0.125em either side). */
-.play__cta .button {
-  max-width: 100%;
-  white-space: normal;
-  line-height: 1.25;
-  padding-block: calc(17px - 0.125em);
-  text-align: center;
 }
 /* More games under it (MoreGames.tsx): the gallery's cards, across the page's whole width under the stage and the
    invitation. */
@@ -3701,7 +3750,14 @@ body:has(.ws) {
     --play-chrome: 274px;
   }
   .play__bar {
+    flex-wrap: wrap;
     padding: 4px 2px 12px 8px;
+  }
+  /* Large text: the name keeps at least 9em of the bar (144px at normal text, where it has 158 or more), so at 200% Full
+     screen goes under the words instead of squeezing the name into a column that breaks it mid-word ("Runne / r"). */
+  .play__titles {
+    flex: 1 1 0;
+    min-width: min(100%, 9em);
   }
   .play__made {
     padding: 24px 20px;
@@ -3917,6 +3973,7 @@ body:has(main.play-gone) > .ground-band {
 
 /* The payments: when, what and the invoice, the amount with its tax and what became of it. */
 .pays {
+  container: pays / inline-size;
   align-self: stretch;
   margin: 0;
   padding: 0;
@@ -4079,6 +4136,24 @@ body:has(main.play-gone) > .ground-band {
   }
   .pays__side {
     grid-area: side;
+  }
+}
+/* Large text on a phone (the list under 12.5em wide; normal text never is, 13em at 280px): the sum and its tax beside the
+   words left them a word's width, so a payment reads down: the day, what it was, then the sum, the tax and the state. */
+@container pays (max-width: 12.5em) {
+  .pays__row {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "when"
+      "what"
+      "side";
+  }
+  .pays__side {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .pays__tax {
+    white-space: normal;
   }
 }
 @media (max-width: 400px) {
@@ -4284,6 +4359,7 @@ body:has(main.play-gone) > .ground-band {
 .droid__builds {
   grid-area: builds;
   align-items: stretch;
+  container: droidbuilds / inline-size;
 }
 .droid__app {
   grid-area: app;
@@ -4342,16 +4418,20 @@ body:has(main.play-gone) > .ground-band {
 /* This app: the icon tile, the name, the package name in figures, the facts. */
 .droid__who {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14px;
   min-width: 0;
   max-width: 100%;
 }
+/* The name keeps at least 7.5em beside the icon (120px at normal text, where a 280px phone leaves 130), so at large text
+   the words go under the icon rather than into a column that breaks the name mid-word ("Runne / r"). */
 .droid__who-text {
   display: flex;
+  flex: 1 1 0;
   flex-direction: column;
   gap: 4px;
-  min-width: 0;
+  min-width: min(100%, 7.5em);
 }
 .droid__appname {
   font-size: 19px;
@@ -4551,6 +4631,18 @@ body:has(main.play-gone) > .ground-band {
   gap: 10px;
   padding: 16px 18px;
 }
+/* A row's three parts need about 30em (the badge, the words, three buttons): in less (large text) the buttons go under
+   the words, as on a phone (the phone rule below), instead of squeezing the words to a letter a line. The card is 43em
+   at desktop and 42em on a tablet with normal text, 21-22em there with 200%. */
+@container droidbuilds (max-width: 30em) {
+  .builds__row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .builds__actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
 .builds__log {
   margin: 0;
   max-height: 240px;
@@ -4708,6 +4800,7 @@ body:has(main.play-gone) > .ground-band {
   font-size: 15px;
   line-height: 1.5;
   color: var(--on-paper-muted);
+  overflow-wrap: anywhere; /* as the step's words: "questionnaire," is wider than the line at 280px with large text */
 }
 .playlist__sub li + li {
   margin-top: 4px;
@@ -4720,9 +4813,6 @@ body:has(main.play-gone) > .ground-band {
   margin: 12px 0 0;
   padding: 0;
   border: 0;
-}
-.playlist__account .switch {
-  flex-wrap: wrap;
 }
 .playlist__rule {
   margin: 0;
@@ -5515,14 +5605,12 @@ body:has(main.explore) > .ground-band {
   .joined {
     padding-inline: 20px;
   }
-  /* A phone: the buttons take the whole width, one above the other; a label too long for its line wraps inside. */
+  /* A phone: the buttons take the whole width, one above the other (a label too long for its line wraps inside, as
+     every button's does). */
   .closed__code-row .button,
   .closed__play .button,
   .closed__actions .button {
     flex: 1 1 100%;
-    white-space: normal;
-    line-height: 1.25;
-    text-align: center;
   }
   /* Google's button too (it draws itself as wide as its place, up to Google's 400px), and its place while it loads. */
   .closed__actions .googlebutton {

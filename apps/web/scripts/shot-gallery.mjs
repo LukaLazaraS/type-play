@@ -73,7 +73,8 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
       return bad;
     }, [id, screen]);
   /** innerText with the figures' no-break spaces as plain ones. */
-  const text = async (locator) => (await locator.innerText()).replace(/\u00a0/g, " ");
+  // Plain words: no-break spaces as spaces, the genres' soft hyphens (content/gallery.ts genreBreakable) gone.
+  const text = async (locator) => (await locator.innerText()).replace(/\u00a0/g, " ").replace(/\u00ad/g, "");
   // Next's dev-mode badge floats over a corner of the page: out of the pictures.
   const noBadge = (page) => page.evaluate(() => document.querySelectorAll("nextjs-portal").forEach((e) => (e.style.display = "none")));
   const worstId = `dev-gallery-worst-${stamp}`;
@@ -270,8 +271,8 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     check("a new page view counts again (2 plays)", (await plays(g1)) === before + 2);
     await v.reload({ waitUntil: "domcontentloaded" });
     await v.locator(".play__by").waitFor({ timeout: 60_000 });
-    // Each part's dot after a no-break space (PlayStage.tsx Parts): read them as plain spaces.
-    const byLine = (await v.locator(".play__by").innerText()).replace(/\u00a0/g, " ");
+    // Each part's dot after a no-break space (PlayStage.tsx Parts): read them as plain spaces, the genre's soft hyphens gone.
+    const byLine = (await v.locator(".play__by").innerText()).replace(/\u00a0/g, " ").replace(/\u00ad/g, "");
     check("the share page says its genre and plays", byLine === "Runner · Made with TypePlay · 2 plays", byLine);
     check("the share page links to the gallery", (await v.getByRole("link", { name: "More games made with TypePlay" }).getAttribute("href")) === "/explore");
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -339,7 +340,7 @@ export async function galleryPart({ browser, base, apiBase, email, check, shot, 
     check("All: every game, A to Z", az.length > 0 && az.every((n, i) => i === 0 || az[i - 1].localeCompare(n, "en", { sensitivity: "base" }) <= 0) && new URL(v.url()).search === "?sort=all", az.slice(0, 4).join(", "));
     await v.getByRole("radio", { name: "Puzzle" }).click();
     await v.locator(".library__grid:not([aria-busy])").waitFor({ timeout: 30_000 });
-    const puzzles = await v.locator(".library .glist__meta").allInnerTexts();
+    const puzzles = (await v.locator(".library .glist__meta").allInnerTexts()).map((m) => m.replace(/\u00ad/g, ""));
     check("a genre: only its games, and the count says how many of all", puzzles.length > 0 && puzzles.every((m) => m.endsWith("Puzzle")) && (await v.locator(".library .gamecard__name").allInnerTexts()).includes("Fruit Pop") && / of /.test(await v.locator(".library__count").innerText()));
     await v.getByRole("radio", { name: "Any genre" }).click();
     await v.fill("#library-search", "fox LOG");

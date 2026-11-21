@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentPropsWithRef, ReactNode } from "react";
-import { buttonClass, type ButtonLook, type ButtonSize } from "./ButtonLink";
+import { buttonClass, buttonLabel, type ButtonLook, type ButtonSize } from "./ButtonLink";
 
 export type ButtonProps = Omit<ComponentPropsWithRef<"button">, "className"> & {
   look?: ButtonLook;
@@ -36,7 +36,7 @@ export function Button({ look, size, className, busy = false, busyLabel, type = 
         onClick?.(e);
       }}
     >
-      {busy && busyLabel !== undefined ? busyLabel : children}
+      {buttonLabel(busy && busyLabel !== undefined ? busyLabel : children)}
     </button>
   );
 }

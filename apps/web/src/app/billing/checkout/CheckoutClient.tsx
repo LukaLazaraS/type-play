@@ -18,6 +18,7 @@ import { api } from "@/lib/api";
 import { usd } from "@/lib/format";
 import { refreshMe, useSession } from "@/lib/session";
 import { safeNext } from "@/lib/supabase";
+import { Address, withAddresses } from "@/components/ui/Address";
 
 type Item = { kind: "plan"; plan: PaidPlan } | { kind: "pack" };
 type Stage = { step: "form"; note?: string } | { step: "opening" } | { step: "paid"; transactionId: string; since: number } | { step: "done" };
@@ -189,7 +190,10 @@ export function CheckoutClient() {
         {slow && (
           <p className="acct__note" role="status">
             Paddle confirmed your payment and is emailing the receipt; your credits should appear within a few minutes, else write to{" "}
-            <TextLink href={`mailto:${support.email}`}>{support.email}</TextLink>.
+            <TextLink href={`mailto:${support.email}`}>
+              <Address value={support.email} />
+            </TextLink>
+            .
           </p>
         )}
       </Shell>
@@ -197,7 +201,7 @@ export function CheckoutClient() {
   }
   if (me.billing?.hold) {
     return (
-      <Shell title={title} lead={HOLD_LINE} leadRole="alert">
+      <Shell title={title} lead={withAddresses(HOLD_LINE)} leadRole="alert">
         <BackButtons back={back} />
       </Shell>
     );

@@ -414,9 +414,14 @@ try {
       `${pill.pathname}${pill.search}; Google ends at ${Math.round(first.google)} of ${first.h}, the idea box at ${Math.round(first.idea)}`,
     );
     await shot(ps, "on-signin-pill-phone");
-    // Its note says where the sign-in goes (fix round 2), after the closed beta's words where the beta is on.
+    // Its note says where the sign-in goes (fix round 2), with the closed beta's words where the beta is on: two
+    // sentences (2026-11-21, they were five).
     const pillNote = (await ps.locator(".signin .field-hint").textContent()).replace(/\s+/g, " ").trim();
-    check("on: …its note says the sign-in goes back to the page you were on, the idea kept", pillNote.endsWith("After you sign in, you go back to the page you were on. Your idea stays here."), pillNote);
+    check(
+      "on: …its note says the closed beta and that the sign-in goes back to the page you were on, the idea kept, in two sentences",
+      pillNote === "A closed beta for now: sign in with Google, then type the beta code from your invitation or join the waitlist. You come back to the page you were on, and your idea stays here.",
+      pillNote,
+    );
     await ps.evaluate((email) => (window.__gis.email = email), invited);
     await googleIn(ps).click();
     await ps.waitForURL((u) => u.pathname === "/pricing", { timeout: 60_000 });

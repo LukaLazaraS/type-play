@@ -13,6 +13,7 @@ import { Toggle } from "@/components/ui/Toggle";
 import { site } from "@/content/site";
 import { api } from "@/lib/api";
 import { playsWord } from "@/lib/format";
+import { withAddresses } from "@/components/ui/Address";
 
 const noop = () => () => {};
 /** The page's own address (http://localhost:3000 in dev, https://typeplay.app live). */
@@ -299,7 +300,7 @@ export function ShareMenu({ project, onChange }: { project: Project; onChange: (
           </div>
           <p className="share__note">
             {project.galleryHidden
-              ? `Its link still works. If you think that's a mistake, write to ${site.email}.`
+              ? withAddresses(`Its link still works. If you think that's a mistake, write to ${site.email}.`)
               : `${project.listed ? "Anyone on Explore sees" : "Friends see"} the game, its name, its description and its plays. Your chat, your ideas and your account stay private.`}
           </p>
         </>

@@ -19,6 +19,7 @@ import { IdentityForm, type Identity } from "./IdentityForm";
 import { KeyCard } from "./KeyCard";
 import { PlayChecklist } from "./PlayChecklist";
 import { useAppIcon } from "./useAppIcon";
+import { Address } from "@/components/ui/Address";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 type Ready = AndroidState & { app: NonNullable<AndroidState["app"]> };
@@ -221,7 +222,9 @@ function IdentityCard({ project, state, iconPreview: initialPreview, onState }: 
             <div>
               <dt>{t.packageName.label}</dt>
               <dd>
-                <span className="figures droid__package">{app.packageName}</span>
+                <span className="figures droid__package">
+                  <Address value={app.packageName} />
+                </span>
                 <span className="field-hint">{app.packageLocked ? t.packageName.locked : t.packageName.lock}</span>
               </dd>
             </div>

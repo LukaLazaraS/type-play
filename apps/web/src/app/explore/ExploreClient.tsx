@@ -12,13 +12,14 @@ import { ReportDialog, type ReportHandle } from "@/components/app/ReportDialog";
 import { ReportGameButton } from "@/components/app/ReportGameButton";
 import { Button } from "@/components/ui/Button";
 import { ErrorLine } from "@/components/ui/ErrorLine";
+import { FigureParts } from "@/components/ui/FigureParts";
 import { GameCard } from "@/components/ui/GameCard";
 import { IconButton } from "@/components/ui/IconButton";
 import { InkPill } from "@/components/ui/InkPill";
 import { PillChoice } from "@/components/ui/PillBar";
 import { PlayCount } from "@/components/ui/PlayCount";
 import { SearchField } from "@/components/ui/SearchField";
-import { genreName, sorts } from "@/content/gallery";
+import { genreBreakable, genreName, sorts } from "@/content/gallery";
 import { howToPlay } from "@/content/games";
 import { playsShort, playsWord } from "@/lib/format";
 import { countPlay, galleryPage, galleryQuery, type GalleryView } from "@/lib/gallery";
@@ -27,17 +28,11 @@ import { posterUrl } from "@/lib/urls";
 const noop = () => () => {};
 const useCanShare = () => useSyncExternalStore(noop, () => typeof navigator.share === "function", () => false);
 
-/** Figures joined with a dot; each one keeps its words together, so a narrow line breaks only between them. */
-const figures = (parts: (string | null)[]) =>
-  parts
-    .filter((p): p is string => !!p)
-    .map((p) => p.replace(/ /g, "\u00a0"))
-    .join(" · ");
 /** The plays the order is about: this week's on Popular (what it sorts by), all of them otherwise. */
 const playsIn = (g: GalleryGame, sort: GallerySort) => (sort === "popular" ? g.playsWeek : g.plays);
 /** The plays in words ("12 plays this week", "1.2K plays"); none said when there are none, as everywhere plays show. */
 const playsWords = (n: number, sort: GallerySort) => (n === 0 ? null : sort === "popular" ? `${playsWord(n)} this week` : playsWord(n));
-const genreOf = (g: GalleryGame) => (g.genre ? genreName[g.genre] : null);
+const genreOf = (g: GalleryGame) => (g.genre ? genreBreakable[g.genre] : null);
 const gamesWord = (n: number) => `${n.toLocaleString("en-US")} ${n === 1 ? "game" : "games"}`;
 /** The search as the API takes it: spaces tidied, 60 letters at most. */
 const tidy = (text: string) => [...text.replace(/\s+/g, " ").trim()].slice(0, 60).join("").trim();
@@ -332,7 +327,9 @@ function Featured({ game, onReport }: { game: GalleryGame; onReport: () => void 
             {game.name}
           </Link>
         </h2>
-        <p className="figures feature__figures">{figures([playsWords(game.playsWeek, "popular"), genreOf(game)])}</p>
+        <p className="figures feature__figures">
+          <FigureParts parts={[playsWords(game.playsWeek, "popular"), genreOf(game)]} />
+        </p>
         <div className="feature__actions">
           <FullScreenPill ref={full} onClick={() => frame.current?.fullscreen()} />
           <InkPill icon={<ShareNetwork size={18} weight="bold" aria-hidden="true" />} onClick={share}>

@@ -17,6 +17,7 @@ import { BETA_CODE_LENGTH } from "@/content/beta";
 import { api, ApiFailure } from "@/lib/api";
 import { useRestored } from "@/lib/restored";
 import { refreshMe, sessionNow, signInWithGoogle, signInWithGoogleToken, signOut, useSession } from "@/lib/session";
+import { Address } from "@/components/ui/Address";
 
 /**
  * The app's pages (create/, games/, account/, billing/: their layout.app.tsx): for someone signed in whose email isn't on
@@ -107,7 +108,11 @@ function Waitlist({ email }: { email: string | null }) {
       {state.on ? (
         <div className="closed__wait">
           <Callout ref={sentence} mark="check" role="status" tabIndex={-1}>
-            You&apos;re on the list. We&apos;ll email <b>{state.email}</b> when TypePlay opens to everyone.
+            You&apos;re on the list. We&apos;ll email{" "}
+            <b>
+              <Address value={state.email} />
+            </b>{" "}
+            when TypePlay opens to everyone.
           </Callout>
           <TextButton look="standalone" aria-disabled={busy || undefined} onClick={() => void change(false)}>
             Take me off the list
@@ -274,7 +279,10 @@ function ClosedBeta({ email, onJoined }: { email: string | null; onJoined: (cred
       <Panel className="closed__who">
         {email ? (
           <p>
-            You&apos;re signed in as <b>{email}</b>
+            You&apos;re signed in as{" "}
+            <b>
+              <Address value={email} />
+            </b>
           </p>
         ) : (
           <p>You&apos;re signed in with Google.</p>

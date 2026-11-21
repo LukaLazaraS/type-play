@@ -23,6 +23,7 @@ import { EffortSwitch, effortLine, ModelSwitch, modelLine } from "./ModelPicker"
 import { NotifyAsk } from "./NotifyAsk";
 import { NotOnSale } from "./NotOnSale";
 import { AddPictures, PictureTray, usePictureDrop, usePictureTray } from "./Pictures";
+import { withAddresses } from "@/components/ui/Address";
 
 type Props = {
   /** "new" until the first build has worked: then a message builds the game again. */
@@ -466,7 +467,7 @@ function CreditPanel({
     // site says waits (never a UTC clock); nothing to buy here.
     text = kind === "free_paused" ? together.paused(owners.name, untilUtcMidnight()) : owners.text;
   } else if (kind === "billing_hold") {
-    text = HOLD_LINE;
+    text = withAddresses(HOLD_LINE);
   } else if (kind === "free_paused") {
     const paused = `Free builds are paused; they start again ${untilUtcMidnight()}: today's free allowance is used up across TypePlay.`;
     if (!paddleOn) {

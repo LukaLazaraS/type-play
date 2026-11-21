@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MakeYourOwn } from "@/components/app/MakeYourOwn";
 import { JsonLd } from "@/components/JsonLd";
-import { genreName } from "@/content/gallery";
+import { genreBreakable } from "@/content/gallery";
 import { gameDescription, gamePreview, gameStructuredData, gameTitle } from "@/content/seo";
 import { site } from "@/content/site";
 import { publicGame, UNAVAILABLE } from "@/lib/public";
@@ -87,7 +87,7 @@ export default async function Play({ params }: Props) {
         fits={game.platform === "fill"}
         poster={game.poster ? posterUrl(game.buildId) : undefined}
         plays={game.plays ?? 0}
-        genre={game.genre ? genreName[game.genre] : null}
+        genre={game.genre ? genreBreakable[game.genre] : null}
         dates={game.listed === true ? galleryDates(game.listedAt ?? null, game.builtAt ?? null) : null}
       />
       <MakeYourOwn id="play-made" more />

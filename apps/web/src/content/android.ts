@@ -202,7 +202,7 @@ export const android = {
     account: {
       title: "Your Google Play account",
       options: [
-        { id: "before", label: "Made before 13 Nov 2023" },
+        { id: "before", label: "Made before 13\u00a0Nov\u00a02023" },
         { id: "after", label: "Made after" },
         { id: "unsure", label: "Not sure" },
       ] as { id: "before" | "after" | "unsure"; label: string }[],

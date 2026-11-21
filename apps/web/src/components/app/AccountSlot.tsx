@@ -14,6 +14,7 @@ import { signOut, useSession } from "@/lib/session";
 import { BuildPill } from "./BuildPill";
 import { FeedbackDialog, useFeedbackGame, type FeedbackHandle } from "./Feedback";
 import { Notices } from "./Notices";
+import { Address } from "@/components/ui/Address";
 // All of the app's styles ride on this component: it is in app builds only.
 import "./app.css";
 
@@ -51,7 +52,11 @@ function Uninvited({ email }: { email: string | null }) {
     >
       <div className="account__who">
         <b>Signed in</b>
-        {email && <span>{email}</span>}
+        {email && (
+          <span>
+            <Address value={email} />
+          </span>
+        )}
       </div>
       <p className="account__problem">TypePlay is in a closed beta for now. It opens to everyone soon.</p>
       <Button
@@ -98,7 +103,11 @@ function Account({ me, problem }: { me: Me | null; problem: string | null }) {
       >
         <div className="account__who">
           <b>{me?.name || "Signed in"}</b>
-          {me && <span>{me.email}</span>}
+          {me && (
+            <span>
+              <Address value={me.email} />
+            </span>
+          )}
         </div>
         {me ? (
           <dl className="account__facts">

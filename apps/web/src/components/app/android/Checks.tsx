@@ -1,5 +1,6 @@
 import { Check } from "@phosphor-icons/react";
 import type { AndroidCheck } from "@typeplay/shared";
+import { withAddresses } from "@/components/ui/Address";
 
 /** The checks list of a finished build: a tick, or the hot dot and one sentence on what is wrong. */
 export function Checks({ checks }: { checks: AndroidCheck[] }) {
@@ -10,7 +11,7 @@ export function Checks({ checks }: { checks: AndroidCheck[] }) {
           {c.ok ? <Check size={16} weight="bold" aria-hidden="true" /> : <span className="checks__dot" aria-hidden="true" />}
           <span>
             {!c.ok && <span className="sr-only">Problem: </span>}
-            {c.text}
+            {withAddresses(c.text)}
           </span>
         </li>
       ))}

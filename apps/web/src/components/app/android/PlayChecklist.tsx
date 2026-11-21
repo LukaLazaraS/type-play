@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
 import { android } from "@/content/android";
+import { Address } from "@/components/ui/Address";
 
 type Account = "before" | "after" | "unsure";
 const ACCOUNT_KEY = "typeplay.playAccount";
@@ -63,7 +64,9 @@ export function PlayChecklist({ packageName }: { packageName: string }) {
                 {s.link && (
                   <>
                     {" "}
-                    <span className="figures playlist__link">{t.testersLink(packageName)}</span> {t.testersRule}
+                    <span className="figures playlist__link">
+                      <Address value={t.testersLink(packageName)} />
+                    </span> {t.testersRule}
                   </>
                 )}
               </p>

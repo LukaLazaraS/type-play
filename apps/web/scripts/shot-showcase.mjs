@@ -73,7 +73,7 @@ const postersOf = (page, wanted) =>
       wanted.map((name) => {
         const card = [...document.querySelectorAll(".library .gamecard")].find((c) => c.querySelector(".gamecard__name")?.textContent === name);
         const img = card?.querySelector("img");
-        return { name, poster: !!img && img.complete && img.naturalWidth > 0, meta: card?.querySelector(".glist__meta")?.textContent?.replace(/ /g, " ") ?? null };
+        return { name, poster: !!img && img.complete && img.naturalWidth > 0, meta: card?.querySelector(".glist__meta")?.textContent?.replace(/ /g, " ").replace(/\u00ad/g, "") ?? null };
       }),
     wanted,
   );

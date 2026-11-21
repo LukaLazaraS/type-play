@@ -157,11 +157,11 @@ ${stack.siteLog().slice(-2500)}`);
   const dates = g.html.match(/<p class="figures play__dates">[\s\S]*?<\/p>/)?.[0] ?? "";
   check(
     "…\"In the gallery since <date>\" under it, server-rendered, the day in plain English in a <time>, no \"updated\" (built before it was listed)",
-    new RegExp(`<span class="play__part">In the gallery since(?:<!-- -->)? (?:<!-- -->)?<span class="play__date"><time datetime="\\d{4}-\\d{2}-\\d{2}">${today}</time>`, "i").test(dates) && !/updated/.test(dates),
+    new RegExp(`<span class="parts__part">In the gallery since(?:<!-- -->)? (?:<!-- -->)?<span class="play__date"><time datetime="\\d{4}-\\d{2}-\\d{2}">${today}</time>`, "i").test(dates) && !/updated/.test(dates),
     dates.replace(/\u00a0/g, " ") || "no dates line",
   );
   // The figures under the name, in the page as served: its genre, then Made with TypePlay.
-  check("…its genre on the page, server-rendered (\"Arcade · Made with TypePlay\", each part a box of its own with its dot)", /<p class="figures play__by"><span class="play__part">Arcade(?:<!-- -->)?(?:\u00a0|&nbsp;)·<\/span> <span class="play__part">Made with TypePlay/.test(g.html), g.html.match(/<p class="figures play__by">[\s\S]{0,120}/)?.[0] ?? "no figures line");
+  check("…its genre on the page, server-rendered (\"Arcade · Made with TypePlay\", each part a box of its own with its dot, the genre's soft hyphen in it)", /<p class="figures play__by"><span class="parts__part">Ar\u00adcade(?:<!-- -->)?(?:\u00a0|&nbsp;)·<\/span> <span class="parts__part">Made with TypePlay/.test(g.html), g.html.match(/<p class="figures play__by">[\s\S]{0,120}/)?.[0] ?? "no figures line");
   check("…its canonical address", canonical(head) === want.canonical, canonical(head) ?? "none");
   const ogImage = meta(head, "og:image") ?? "";
   check(

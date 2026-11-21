@@ -21,6 +21,7 @@ import { api, saveFile } from "@/lib/api";
 import { credits, creditsWord, dayOf, whenParts } from "@/lib/format";
 import { deviceState, markAsked, pushSupport, turnOff, turnOn, type PushSupport } from "@/lib/push";
 import { signOut, useSession } from "@/lib/session";
+import { Address } from "@/components/ui/Address";
 
 /** One line on what the plan gives, from the pricing page's own numbers (content/site.ts). */
 function planLine(plan: PlanId) {
@@ -87,7 +88,11 @@ export function AccountClient() {
           </span>
           <div className="acct__who">
             <b>{me?.name || "Signed in"}</b>
-            {me && <span>{me.email}</span>}
+            {me && (
+              <span>
+                <Address value={me.email} />
+              </span>
+            )}
             <span className="figures acct__via">{session.via === "dev" ? "Dev sign-in (this PC only)" : "Signed in with Google"}</span>
           </div>
           <Button look="quiet" size="small" className="acct__out" onClick={() => void signOut()}>

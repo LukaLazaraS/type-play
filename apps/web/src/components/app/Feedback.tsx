@@ -8,6 +8,7 @@ import { ErrorLine } from "@/components/ui/ErrorLine";
 import { TextArea } from "@/components/ui/Field";
 import { FEEDBACK_COUNT_FROM, FEEDBACK_TEXT_MAX } from "@/content/beta";
 import { api, ApiFailure } from "@/lib/api";
+import { Address } from "@/components/ui/Address";
 
 /** The game a note can carry: the game page's, with its newest answer (the build Luka should look at). */
 export type FeedbackGame = { id: string; name: string; messageId: string | null };
@@ -166,7 +167,9 @@ export function FeedbackDialog({ ref, email }: { ref?: Ref<FeedbackHandle>; emai
             {email && (
               <>
                 {" "}
-                If we need to know more, we&apos;ll write to <b className="feedback__email">{email}</b>.
+                If we need to know more, we&apos;ll write to <b className="feedback__email">
+                  <Address value={email} />
+                </b>.
               </>
             )}
           </DialogText>

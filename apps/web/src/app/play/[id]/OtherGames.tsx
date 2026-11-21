@@ -4,7 +4,7 @@ import type { GalleryGame } from "@typeplay/shared";
 import { GameTile } from "@/components/app/GameTile";
 import { GameCard } from "@/components/ui/GameCard";
 import { PlayCount } from "@/components/ui/PlayCount";
-import { genreName } from "@/content/gallery";
+import { genreBreakable } from "@/content/gallery";
 import { playsShort, playsWord } from "@/lib/format";
 import { posterUrl } from "@/lib/urls";
 
@@ -37,7 +37,7 @@ export function OtherGames({ title, games }: { title: string; games: GalleryGame
             {(g.plays > 0 || g.genre) && (
               <p className="figures glist__meta">
                 {g.plays > 0 && <PlayCount count={playsShort(g.plays)} words={playsWord(g.plays)} />}
-                {g.genre && <span>{genreName[g.genre]}</span>}
+                {g.genre && <span>{genreBreakable[g.genre]}</span>}
               </p>
             )}
           </GameCard>

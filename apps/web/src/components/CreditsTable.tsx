@@ -45,6 +45,12 @@ export function CreditsTable() {
                 const cost = row.cost(ai.id);
                 return (
                   <td key={ai.id} role="cell" className="credits__cell">
+                    {/* Its AI beside it, shown only when the three go one under another (large text on a narrow phone);
+                        screen readers already have it from the header. */}
+                    <span className="credits__cellai" aria-hidden="true">
+                      <ModelTile model={ai.id} />
+                      {ai.name}
+                    </span>
                     <span className="credits__num">
                       {row.about && <small>about </small>}
                       {cost}

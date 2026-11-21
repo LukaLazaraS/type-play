@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { site } from "@/content/site";
+import { Address } from "@/components/ui/Address";
 
 export function Footer() {
   return (
@@ -18,8 +19,7 @@ export function Footer() {
         <Link href="/refunds">Refunds</Link>
         {/* At large text on a narrow phone the address breaks after the @ first. */}
         <a href={`mailto:${site.email}`}>
-          {site.email.split("@")[0]}@<wbr />
-          {site.email.split("@")[1]}
+          <Address value={site.email} />
         </a>
         {site.phone && <a href={`tel:${site.phone.replace(/[^\d+]/g, "")}`}>{site.phone}</a>}
       </nav>

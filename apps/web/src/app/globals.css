@@ -219,8 +219,25 @@ a {
   border-radius: var(--r-button);
   border: 0;
   cursor: pointer;
-  white-space: nowrap;
+  /* The words stay on one line while the button fits where it is, and wrap inside it, centred, only where its words
+     alone are wider than its place (large text on a narrow phone; 2026-11-21). The least it takes is its one-line
+     width up to its place's width, so a button in a tight row never wraps where it used to keep its words. */
+  white-space: normal;
+  text-align: center;
+  min-width: fit-content;
   transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+/* The words (ui/ButtonLink.tsx buttonLabel): 4px more line than type, so wrapped lines don't touch; the 2px taken back
+   either side keeps a one-line label's box at the type's height, so the button's height and its words' place are what
+   they were at line-height 1, with or without an icon. Balanced, so a wrapped label splits evenly. */
+.button__label {
+  line-height: calc(1em + 4px);
+  margin-block: -2px;
+  text-wrap: balance;
+}
+/* An icon keeps its size beside words that wrap (Google's G shrank to a speck at 280px with 200% text). */
+.button > svg {
+  flex-shrink: 0;
 }
 /* Disabled: grey. Busy (aria-busy with aria-disabled, so it keeps the keyboard focus): its own colour, its words say
    what it's doing ("Saving…", "Checking…": DESIGN.md, the closed beta's Join stays hot), no hover or press, the
@@ -374,12 +391,33 @@ a {
   letter-spacing: -0.025em;
   line-height: 1;
   text-wrap: balance;
+  /* A word wider than its line (200% text on a narrow phone: "message." on the home page, "Privacy" on its sheet) breaks
+     inside instead of pushing the page past the screen; a word that fits is never touched (2026-11-21). */
+  overflow-wrap: break-word;
 }
 .figures {
   font-family: var(--font-figures);
   font-size: 11px;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+}
+/* A figures line's parts (ui/FigureParts.tsx: the share page's line under the name, the gallery's top game, a gallery
+   game's dates): each part a box of its own with its dot, so the line breaks between parts, after a dot, and never
+   starts with one. A part wider than the line wraps at its own spaces (280px at 200% text: "1.2K plays" / "this week ·";
+   a genre also at its soft hyphens); only a word longer than the line breaks inside. */
+.parts__part {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+/* An address (ui/Address.tsx: an e-mail, a web address, a package name): a box as wide as itself, so it stays whole and
+   the line breaks around it while it fits, as a plain word; wider than its line, it breaks at its own places (its <wbr>s)
+   and a piece still wider breaks inside. A box doesn't take its link's underline, so it draws the same one itself. */
+.address {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-decoration: inherit;
 }
 .measure {
   max-width: 68ch;
@@ -747,14 +785,9 @@ q {
     align-items: stretch;
     padding: 8px 8px 8px 16px;
   }
-  /* Full width here: under large text "Make my game" wraps inside it instead of running out, as the cards' buttons do. */
+  /* Full width here, under the box (under large text "Make my game" wraps inside it, as every button does). */
   .prompt__field .button {
     width: 100%;
-    white-space: normal;
-    text-align: center;
-    text-wrap: balance;
-    line-height: 1.2;
-    padding-block: 15px;
   }
 }
 
@@ -2060,17 +2093,6 @@ q {
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
-/* A label too long for its line (large text, a narrow phone) wraps inside its card or box instead of running out of it,
-   as the closed beta's buttons do on a phone; the padding gives back what the taller line takes (50px tall, was 51). */
-.plan__action .button,
-.cta--start .cta__actions .button {
-  max-width: 100%;
-  white-space: normal;
-  text-align: center;
-  text-wrap: balance;
-  line-height: 1.2;
-  padding-block: 15px;
-}
 .plan .plan__off {
   font-weight: 600;
   color: var(--on-paper);
@@ -2089,6 +2111,7 @@ q {
 }
 /* The credit pack: a slim paper strip under the plans, name, words and price on one line. */
 .pack {
+  container: pack / inline-size;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -2145,6 +2168,17 @@ q {
   }
   .pack .pack__price {
     font-size: 32px;
+  }
+  /* Large text (the card's inside under 12em; normal text never is, 12.5em at 280px): the price beside the name left it
+     a few letters' width ("Cred / it"), so the price goes under the words and the name has the row. */
+  @container pack (max-width: 12em) {
+    .pack .pack__name {
+      grid-column: 1 / -1;
+    }
+    .pack .pack__price {
+      grid-column: 1 / -1;
+      grid-row: 3;
+    }
   }
   .promises {
     grid-template-columns: 1fr;
@@ -2283,6 +2317,41 @@ q {
   }
   .credits__num small:first-child {
     display: block;
+  }
+}
+/* Large text on a narrow phone (200% at 360px and under, 2026-11-21): three columns left each number less room than
+   "credits", which broke as "credit / s", "$0.0 / 8" and "Sma / rt". Measured in the widget's own em, so large text
+   switches it and a narrow phone at normal text never does (280px is 15.5em there): each row's three AIs go one under
+   another, each with its tile and name; the header row stays for screen readers, out of sight. */
+.credits {
+  container: credits / inline-size;
+}
+.credits__cellai {
+  display: none;
+}
+@container credits (max-width: 10.5em) {
+  .credits__table tr.credits__head {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .credits__table tr {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 16px;
+  }
+  .credits__table .credits__size {
+    margin-bottom: 0;
+  }
+  .credits__cellai {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-weight: 700;
+    color: var(--on-paper);
   }
 }
 

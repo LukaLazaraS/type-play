@@ -20,6 +20,7 @@ import { credits as siteCredits } from "@/content/site";
 import { api } from "@/lib/api";
 import { credits, creditsWord, dayOf, usd, usdCents } from "@/lib/format";
 import { refreshMe, useSession } from "@/lib/session";
+import { Address, withAddresses } from "@/components/ui/Address";
 
 type Load = { status: "loading" } | { status: "ok"; info: BillingInfo } | { status: "error"; message: string };
 
@@ -203,7 +204,7 @@ function Strips({ info, onChanged, onGetPlan }: { info: BillingInfo; onChanged: 
     <div className="bill__strips">
       {strips.map((strip) => (
         <Strip key={strip.key} kind={strip.key} label={strip.text} action={strip.action}>
-          {strip.text}
+          {withAddresses(strip.text)}
         </Strip>
       ))}
     </div>
@@ -516,7 +517,9 @@ function PaymentCard({ info }: { info: BillingInfo }) {
         </p>
       )}
       <p className="acct__note">
-        Help with a payment: <TextLink href={`mailto:${support.email}`}>{support.email}</TextLink>
+        Help with a payment: <TextLink href={`mailto:${support.email}`}>
+          <Address value={support.email} />
+        </TextLink>
         {support.phone && (
           <>
             {" "}

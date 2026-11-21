@@ -383,8 +383,8 @@ try {
   const res = await v.goto(playUrl, { waitUntil: "domcontentloaded", timeout: 120_000 });
   check("public page: 200 for anyone with the link", res?.status() === 200, String(res?.status()));
   await v.locator(".play__name").waitFor({ timeout: 30_000 });
-  // Each part's dot after a no-break space (PlayStage.tsx Parts): read them as plain spaces.
-  const byLine = (await v.locator(".play__by").innerText()).replace(/\u00a0/g, " ");
+  // Each part's dot after a no-break space (PlayStage.tsx Parts): read them as plain spaces, the genre's soft hyphens gone.
+  const byLine = (await v.locator(".play__by").innerText()).replace(/\u00a0/g, " ").replace(/\u00ad/g, "");
   check("public page: the name, its genre (when it has one) and Made with TypePlay", (await v.locator(".play__name").innerText()) === "Cat Box Jumper" && /^([A-Z][a-z ]+ · )?Made with TypePlay$/.test(byLine), byLine);
   // The game's line (2026-11-20): the build's, under the name (its Share menu's edit and reset: shot-gallery.mjs).
   const pitchShown = await v.locator(".play__pitch").innerText().catch(() => "");
