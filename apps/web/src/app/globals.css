@@ -2331,7 +2331,7 @@ q {
     display: block;
   }
 }
-/* Large text on a narrow phone (200% at 360px and under, 2026-11-21): three columns left each number less room than
+/* Large text on a narrow phone (200% at 375px and under, 2026-11-21): three columns left each number less room than
    "credits", which broke as "credit / s", "$0.0 / 8" and "Sma / rt". Measured in the widget's own em, so large text
    switches it and a narrow phone at normal text never does (280px is 15.5em there): each row's three AIs go one under
    another, each with its tile and name; the header row stays for screen readers, out of sight. */
@@ -2341,7 +2341,7 @@ q {
 .credits__cellai {
   display: none;
 }
-@container credits (max-width: 10.5em) {
+@container credits (max-width: 11em) {
   .credits__table tr.credits__head {
     position: absolute;
     width: 1px;

@@ -2783,10 +2783,12 @@ body:has(.ws) {
   flex-direction: column;
   gap: 8px;
 }
-/* With normal text /create's Effort stays one row as before (at 280px on a touch screen it is 2px wider than the row
-   and the track takes them in); only large text (the row under 12.5em) puts the label over its choices. */
+/* With normal text /create's Effort stays one row as before, its three choices too (at 280px on a touch screen the row
+   is 2px wider than its place and runs into the widget's padding, as it always did); only large text (the row under
+   12.5em) puts the label over its choices and lets them wrap. */
 @container makeeffort (min-width: 12.5em) {
-  .make__effort .effort {
+  .make__effort .effort,
+  .make__effort .switch {
     flex-wrap: nowrap;
   }
 }
@@ -4146,9 +4148,10 @@ body:has(main.play-gone) > .ground-band {
     grid-area: side;
   }
 }
-/* Large text on a phone (the list under 12.5em wide; normal text never is, 13em at 280px): the sum and its tax beside the
-   words left them a word's width, so a payment reads down: the day, what it was, then the sum, the tax and the state. */
-@container pays (max-width: 12.5em) {
+/* Large text on a phone, and a 280px phone at normal text (the list under 13.5em wide; 13em at 280px, 15.5em at 320px):
+   the sum, its tax and "paid, refundable until 27 Nov" beside the words left them a letter's width ("invo / ice") and
+   the state ran over them, so a payment reads down: the day, what it was, then the sum, the tax and the state. */
+@container pays (max-width: 13.5em) {
   .pays__row {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
