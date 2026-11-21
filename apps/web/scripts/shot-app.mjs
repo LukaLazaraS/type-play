@@ -34,7 +34,9 @@ const stack =
   process.argv[3] && process.argv[4]
     ? null
     : await startStack("app", await useOwnStack("app", 3), {
-        api: { ANDROID_EXPORT: "1", ANDROID_FAKE: "1", ANDROID_KEY_MASTER: randomBytes(32).toString("hex") },
+        // Billing off on this API (part 3 reads /billing with billing off here): empty values win over the Paddle
+        // sandbox keys in this PC's .env.local, which the API reads in development mode.
+        api: { ANDROID_EXPORT: "1", ANDROID_FAKE: "1", ANDROID_KEY_MASTER: randomBytes(32).toString("hex"), PADDLE_ENV: "", PADDLE_API_KEY: "" },
         site: { NEXT_PUBLIC_PADDLE_ENV: "sandbox", NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "test_shots" },
       });
 const base = stack?.base ?? process.argv[3];
