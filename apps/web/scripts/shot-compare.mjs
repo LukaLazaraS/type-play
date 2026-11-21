@@ -732,7 +732,7 @@ const pointAt = (pick) => async (p) => {
   if (!(await el.evaluate((n) => n.matches(":hover")))) throw new Error("not under the pointer");
 };
 add({ name: "focus-home-prompt", path: "/", ready: heading(/Type it/), act: keyFocus((p) => p.locator("#prompt")) });
-add({ name: "focus-home-button", path: "/", ready: heading(/Type it/), act: keyFocus((p) => p.getByRole("button", { name: "Make my game" })) });
+add({ name: "focus-home-button", path: "/", ready: heading(/Type it/), act: keyFocus((p) => p.getByRole("button", { name: "Make my game" }).first()) });
 add({ name: "focus-home-icon", path: "/", ready: heading(/Type it/), act: keyFocus((p) => p.getByRole("button", { name: /^Open / }).first()) });
 add({ name: "focus-pricing-quiet", path: "/pricing", ready: heading(/Pay for what/), act: keyFocus((p) => p.locator(".plan a").first()) });
 add({ name: "focus-pricing-lead", path: "/pricing", ready: heading(/Pay for what/), act: keyFocus((p) => p.locator(".plan a.button--ink").first()) });
@@ -741,7 +741,7 @@ add({ name: "focus-create-idea", who: "maker", path: "/create", ready: button("B
 add({ name: "focus-create-model", who: "maker", path: "/create", ready: button("Build my game"), act: keyFocus((p) => p.locator(".choice input:checked").last()) });
 add({ name: "focus-create-build", who: "maker", path: "/create", ...draft(IDEA), ready: button("Build my game"), act: keyFocus((p) => p.getByRole("button", { name: "Build my game" })) });
 add({ name: "hover-create-build", who: "maker", path: "/create", ...draft(IDEA), vps: ["desktop"], ready: button("Build my game"), act: pointAt((p) => p.getByRole("button", { name: "Build my game" })) });
-add({ name: "hover-home-button", path: "/", vps: ["desktop"], ready: heading(/Type it/), act: pointAt((p) => p.getByRole("button", { name: "Make my game" })) });
+add({ name: "hover-home-button", path: "/", vps: ["desktop"], ready: heading(/Type it/), act: pointAt((p) => p.getByRole("button", { name: "Make my game" }).first()) });
 add({ name: "focus-explore-card", path: "/explore", ready: heading("Every game."), act: keyFocus((p) => p.locator(".gamecard__link").first()) });
 add({ name: "focus-game-segment", ...runner, act: async (p, vp) => {
   await chatTab(p, vp);
