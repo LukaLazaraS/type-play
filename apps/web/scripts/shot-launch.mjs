@@ -156,15 +156,24 @@ const hydrated = (page, selector) =>
     return !!el && Object.keys(el).some((k) => k.startsWith("__reactProps"));
   }, selector, { timeout: 300_000 });
 /** What runs out of its box at the moment (each `[selector, box selector, what]`: the element itself and every line of its
- * visible text, bare text nodes too, inside its nearest box; screen-reader-only words don't count). */
+ * visible text, bare text nodes too, inside its nearest box; screen-reader-only words don't count: `.sr-only`, and what
+ * a stylesheet hides the same way, in a 1px box clipped away, as the credits table's header row once its AIs read down). */
 const outOfBox = (page, pairs) =>
   page.evaluate((pairs) => {
     const bad = [];
+    const unseen = (el) => {
+      for (let a = el; a; a = a.parentElement) {
+        if (a.classList.contains("sr-only")) return true;
+        const r = a.getBoundingClientRect();
+        if (getComputedStyle(a).clipPath !== "none" && r.width <= 1 && r.height <= 1) return true;
+      }
+      return false;
+    };
     const rects = (el) => {
       const all = [el.getBoundingClientRect()];
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-        if (!n.textContent.trim() || n.parentElement?.closest(".sr-only")) continue;
+        if (!n.textContent.trim() || unseen(n.parentElement)) continue;
         const range = document.createRange();
         range.selectNodeContents(n);
         all.push(...range.getClientRects());
@@ -174,7 +183,7 @@ const outOfBox = (page, pairs) =>
     for (const [sel, boxSel, what] of pairs)
       for (const el of document.querySelectorAll(sel)) {
         const box = el.closest(boxSel)?.getBoundingClientRect();
-        if (!box || !el.getClientRects().length || el.closest(".sr-only")) continue;
+        if (!box || !el.getClientRects().length || unseen(el)) continue;
         const out = Math.max(0, ...rects(el).map((r) => Math.max(box.left - r.left, r.right - box.right)));
         if (out > 1) bad.push(`${what} "${el.textContent.trim().slice(0, 24)}" ${Math.round(out)}px out`);
       }
