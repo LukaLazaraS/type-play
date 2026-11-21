@@ -2346,6 +2346,8 @@ q {
     position: absolute;
     width: 1px;
     height: 1px;
+    /* The row's own padding would keep a 40px box (as .sr-only, nothing but the 1px). */
+    padding: 0;
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
