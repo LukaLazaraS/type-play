@@ -851,6 +851,11 @@ async function settle(page, full) {
       })),
     );
   });
+  // The status bar's account place answered (Sign in, or the credits): a session still loading drew an empty place on
+  // one side only (2026-11-21: /no-such-page's Sign in missing from the after picture at six shapes, there in the page).
+  await page
+    .waitForFunction(() => !document.querySelector(".account__wait") && ![...document.querySelectorAll(".account__credits b")].some((b) => b.textContent === "…"), null, { timeout: 8000 })
+    .catch(() => {});
   await page.waitForTimeout(500);
 }
 const problems = [];
