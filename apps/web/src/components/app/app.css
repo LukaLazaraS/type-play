@@ -1598,14 +1598,11 @@ body:has(.ws) .ground-band {
   border-radius: var(--r-button);
   background: var(--field);
 }
-/* Each choice as wide as its words, and a wrapped row's choices share the track's width (in one row the track is as
-   wide as they are, so nothing grows). A choice alone in a row and still wider than the track (large text on a phone:
-   "Made before 13 Nov 2023") wraps its own words, centred; otherwise it stays one line, as the track wraps first. */
+/* Each choice as wide as its words, on one line, as the track wraps first. A choice alone in a row and still wider than
+   the track (large text on a phone: "Made before 13 Nov 2023") wraps its own words, centred. */
 .switch__opt {
   position: relative;
   display: inline-flex;
-  flex-grow: 1;
-  justify-content: center;
   align-items: center;
   gap: 4px;
   padding: 8px 11px;
@@ -2781,9 +2778,17 @@ body:has(.ws) {
   flex-wrap: wrap;
 }
 .make__effort {
+  container: makeeffort / inline-size;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+/* With normal text /create's Effort stays one row as before (at 280px on a touch screen it is 2px wider than the row
+   and the track takes them in); only large text (the row under 12.5em) puts the label over its choices. */
+@container makeeffort (min-width: 12.5em) {
+  .make__effort .effort {
+    flex-wrap: nowrap;
+  }
 }
 /* Made for: Best fit / Phone / Computer / Any screen (the platform choice, 10-25; Best fit first, 10-26): the segmented
    control with an icon per choice, the picked one's line under it. */
@@ -2804,8 +2809,11 @@ body:has(.ws) {
   align-self: flex-start;
   max-width: 100%;
 }
+/* Each choice on one line, as in every segmented control until a choice alone outgrew its track: in the two-by-two
+   grid at 280px "Any screen" is a hair wider than its cell and would wrap to two lines; large text has one a row. */
 .made .switch__opt {
   gap: 6px;
+  white-space: nowrap;
 }
 .made .switch__opt svg {
   flex: none;

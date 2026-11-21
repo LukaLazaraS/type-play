@@ -235,6 +235,14 @@ a {
   margin-block: -2px;
   text-wrap: balance;
 }
+/* Words alone in their button may take 8px of its padding on each side before they wrap, as a one-line label ran into
+   the padding before (at 280px "AAB for Google Play" and "Upload a PNG" are a few px wider than their button's inside):
+   the label doesn't shrink to the button's inside but stops 16px wider, centred. A percentage doesn't count in the
+   button's own one-line width, so that stays what it was. */
+.button__label:only-child {
+  flex-shrink: 0;
+  max-width: calc(100% + 16px);
+}
 /* An icon keeps its size beside words that wrap (Google's G shrank to a speck at 280px with 200% text). */
 .button > svg {
   flex-shrink: 0;
@@ -418,6 +426,10 @@ a {
   max-width: 100%;
   overflow-wrap: anywhere;
   text-decoration: inherit;
+}
+/* Too long to ever fit a phone's line whole (the Play testers link): words in the line, breaking at the same places. */
+.address--flow {
+  display: inline;
 }
 .measure {
   max-width: 68ch;
