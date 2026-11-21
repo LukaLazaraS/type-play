@@ -2034,11 +2034,13 @@ body:has(.ws) .ground-band {
   }
 }
 /* A narrow card (three side by side on a phone's stage, 80-110px): smaller words and chip, so a name breaks between its
-   words (or at a hyphen) and the chip leaves the picture its room. The card sizes itself from its own width. */
+   words (or at a hyphen) and the chip leaves the picture its room. The card sizes itself from its own width; in its own
+   em too (150px at normal text), so large text counts: two listings side by side on a 390px phone at 200% are 5.4em
+   wide, where "Gingerbread" broke in the middle without a hyphen (the live gallery, 2026-11-21). */
 .gamecard__link {
   container-type: inline-size;
 }
-@container (max-width: 150px) {
+@container (max-width: 150px) or (max-width: 9.375em) {
   .gamecard .gamecard__link .gamecard__name {
     margin: 8px 9px 10px;
     font-size: 13px;
