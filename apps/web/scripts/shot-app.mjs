@@ -25,7 +25,7 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { freePort } from "../../../scripts/test-run.mjs";
-import { startStack, useOwnStack } from "./dev-env.mjs";
+import { pageShot, startStack, useOwnStack } from "./dev-env.mjs";
 import { androidPart, droidEmail } from "./shot-android.mjs";
 import { galleryEmail, galleryPart } from "./shot-gallery.mjs";
 
@@ -151,7 +151,7 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? `: ${detail}` : ""}`);
 };
 const shot = async (page, name, full = false) => {
-  await page.screenshot({ path: join(out, `${name}.png`), fullPage: full });
+  await pageShot(page, { path: join(out, `${name}.png`), fullPage: full });
   console.log("wrote", name);
 };
 

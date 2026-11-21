@@ -3,6 +3,7 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { pageShot } from "./dev-env.mjs";
 
 const out = process.argv[2] ?? "../../.impeccable/review";
 const base = process.argv[3] ?? "http://127.0.0.1:3000";
@@ -33,7 +34,7 @@ for (const s of shots) {
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(800);
   }
-  await page.screenshot({ path: join(out, `${s.name}.png`), fullPage: s.full });
+  await pageShot(page, { path: join(out, `${s.name}.png`), fullPage: s.full });
   await page.close();
   console.log("wrote", s.name);
 }

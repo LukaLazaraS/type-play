@@ -12,7 +12,7 @@ import { deflateSync } from "node:zlib";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
-import { useDevEnv } from "./dev-env.mjs";
+import { pageShot, useDevEnv } from "./dev-env.mjs";
 
 /**
  * A square PNG made here, so the test needs no picture file. `rgb` is one colour, or a function of
@@ -415,7 +415,7 @@ if (process.argv[1] && import.meta.filename === process.argv[1]) {
     console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? `: ${detail}` : ""}`);
   };
   const shot = async (page, name, full = false) => {
-    await page.screenshot({ path: join(out, `${name}.png`), fullPage: full });
+    await pageShot(page, { path: join(out, `${name}.png`), fullPage: full });
     console.log("wrote", name);
   };
   const devSignIn = async (page, email, prompt = "Make an endless runner where a cat jumps over boxes") => {

@@ -24,7 +24,7 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { freePorts } from "../../../scripts/test-run.mjs";
-import { ownNextDev } from "./dev-env.mjs";
+import { ownNextDev, pageShot } from "./dev-env.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
@@ -351,7 +351,7 @@ async function sheets(browser, dir, label) {
         `<style>body{margin:0;padding:16px;background:#fff;font:600 14px system-ui}h1{font-size:18px;margin:0 0 12px}figure{margin:0 0 10px}figcaption{margin:0 0 4px;color:#333}img{display:block}</style><h1>${label}: ${w}${typeof w === "number" ? "px" : ""}, ${title}</h1>${rows}`,
       );
       await page.setViewportSize({ width: (typeof w === "number" ? Math.ceil(w * 0.75) : 420) + 32, height: 400 });
-      await page.screenshot({ path: join(dir, `sheet-${w}-${group}.png`), fullPage: true });
+      await pageShot(page, { path: join(dir, `sheet-${w}-${group}.png`), fullPage: true });
     }
   await page.close();
 }

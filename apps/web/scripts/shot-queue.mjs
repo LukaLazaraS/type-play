@@ -16,7 +16,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
-import { useOwnStack } from "./dev-env.mjs";
+import { pageShot, useOwnStack } from "./dev-env.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
@@ -41,7 +41,7 @@ const check = (name, ok, detail = "") => {
 const shot = async (page, name, full = false) => {
   await page.waitForTimeout(250); // past the 160 ms colour changes
   await page.evaluate(() => document.querySelectorAll("nextjs-portal").forEach((e) => (e.style.display = "none"))).catch(() => {});
-  await page.screenshot({ path: join(out, `${name}.png`), fullPage: full });
+  await pageShot(page, { path: join(out, `${name}.png`), fullPage: full });
   console.log("wrote", name);
 };
 const admin = (...args) =>

@@ -158,6 +158,9 @@ const siteEnv = {
   NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: opts.sale === "on" ? "test_shots" : "",
   // Google's own button, as live since 2026-11-20 (deploy/server/compose.yaml); its script is the stand-in (contextFor).
   NEXT_PUBLIC_GOOGLE_BUTTON: "1",
+  // The account's Notifications card shows only with a key: one stand-in for both sites, as this checkout's
+  // apps/web/.env.local has the real one and an exported base has none (every account page differed by the card).
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: "test_shots",
 };
 const admin = (...args) => {
   const r = spawnSync(process.execPath, [join(root, "node_modules/tsx/dist/cli.mjs"), "src/admin.ts", ...args], {
@@ -880,11 +883,31 @@ async function shoot(sc, vp, text, site) {
     const height = sc.full ? await page.evaluate(() => document.documentElement.scrollHeight) : 0;
     const pieces = height > SEGMENT * 1.5 ? Math.ceil(height / SEGMENT) : 1;
     const files = [];
-    for (let i = 0; i < pieces; i++) {
-      const file = join(out, "shots", `${tag}${i ? `~${i + 1}` : ""}-${site.id}.png`);
-      const clip = pieces > 1 ? { clip: { x: 0, y: i * SEGMENT, width: measured.width, height: Math.min(SEGMENT, height - i * SEGMENT) } } : {};
-      await page.screenshot({ path: file, fullPage: !!sc.full, ...clip, animations: "disabled", caret: "hide", mask: [page.locator("iframe"), page.locator('img[src*="/_next/image"]'), page.getByLabel("Link to the game")], maskColor: "#ff00ff" });
-      files.push(file);
+    const shot = { animations: "disabled", caret: "hide", mask: [page.locator("iframe"), page.locator('img[src*="/_next/image"]'), page.getByLabel("Link to the game")], maskColor: "#ff00ff" };
+    // A touch screen's whole page: Chromium's full-page picture drops the touch emulation while it draws, so the
+    // finger-sized rules (pointer: coarse) were missing from every full phone picture while the measures had them
+    // (2026-11-21: /create's Effort row wrapped on the phone, one line in its picture). The viewport is made as tall as
+    // the page (or a piece) instead and drawn as it is. A page wider than the screen keeps the full-page picture, which
+    // shows how far it runs out.
+    const tallViewport = sc.full && VIEWPORTS[vp].hasTouch && measured.width <= measured.screen;
+    const screenSize = page.viewportSize();
+    try {
+      for (let i = 0; i < pieces; i++) {
+        const file = join(out, "shots", `${tag}${i ? `~${i + 1}` : ""}-${site.id}.png`);
+        const pieceHeight = pieces > 1 ? Math.min(SEGMENT, height - i * SEGMENT) : height;
+        if (tallViewport) {
+          await page.setViewportSize({ width: screenSize.width, height: pieceHeight });
+          await page.evaluate((top) => window.scrollTo(0, top), i * SEGMENT);
+          await page.waitForTimeout(150);
+          await page.screenshot({ path: file, ...shot });
+        } else {
+          const clip = pieces > 1 ? { clip: { x: 0, y: i * SEGMENT, width: measured.width, height: pieceHeight } } : {};
+          await page.screenshot({ path: file, fullPage: !!sc.full, ...clip, ...shot });
+        }
+        files.push(file);
+      }
+    } finally {
+      if (tallViewport) await page.setViewportSize(screenSize);
     }
     return { files, ...measured };
   } finally {

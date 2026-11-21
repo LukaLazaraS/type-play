@@ -8,6 +8,7 @@
 import { chromium } from "playwright";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { pageShot } from "./dev-env.mjs";
 
 const out = process.argv[2] ?? join(import.meta.dirname, "../../../.impeccable/review/app-worst");
 const base = process.argv[3] ?? "http://localhost:3000";
@@ -342,7 +343,7 @@ try {
     await page.goto(base + path, { waitUntil: "domcontentloaded", timeout: 120_000 });
     await page.waitForTimeout(2500);
     if (after) await after(page);
-    await page.screenshot({ path: join(out, `${name}.png`), fullPage: full ?? !path.startsWith("/games/") });
+    await pageShot(page, { path: join(out, `${name}.png`), fullPage: full ?? !path.startsWith("/games/") });
     shots.push(name);
     console.log("wrote", name);
     await ctx.close();
@@ -499,7 +500,7 @@ try {
       page.on("pageerror", (e) => console.log(`page error (play ${id}):`, e.message));
       await page.goto(`${base}/play/${id}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
       await page.waitForTimeout(2000);
-      await page.screenshot({ path: join(out, `play-${id}-${label}.png`), fullPage: true });
+      await pageShot(page, { path: join(out, `play-${id}-${label}.png`), fullPage: true });
       shots.push(`play-${id}-${label}`);
       console.log("wrote", `play-${id}-${label}`);
       if (label === "desk") {

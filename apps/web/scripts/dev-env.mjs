@@ -55,6 +55,27 @@ export const doubleText = async (page) => {
   }
 };
 
+/** A picture of the page as the screen shows it (Playwright's screenshot options; `fullPage` for the whole page).
+ * Chromium's full-page picture drops a touch screen's emulation while it draws, so a phone's finger-sized rules
+ * (`pointer: coarse`) were missing from every full phone picture while the page itself had them (2026-11-21: /create's
+ * Effort row wrapped on the phone, one line in its picture). On a touch screen the viewport is made as tall as the page
+ * for the picture instead, and set back; a page wider than the screen keeps the full-page picture, which shows how far
+ * it runs out. Past 16000px the browser can't draw one picture: shot-compare.mjs cuts those in pieces. */
+export async function pageShot(page, { fullPage, ...options }) {
+  if (!fullPage) return page.screenshot(options);
+  const tall = await page.evaluate(() => matchMedia("(pointer: coarse)").matches && document.documentElement.scrollWidth <= window.innerWidth);
+  if (!tall) return page.screenshot({ ...options, fullPage: true });
+  const screen = page.viewportSize();
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  try {
+    await page.setViewportSize({ width: screen.width, height: Math.min(height, 16000) });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(150);
+    return await page.screenshot(options);
+  } finally {
+    await page.setViewportSize(screen);
+  }
+}
 /** Where the page grows wider than the screen: its width, and the outermost pieces that stick out (not inside a box that
  * clips; screen-reader-only words and Next's dev overlay don't count), then words that run out of a box that stays inside.
  * `{ width, screen, parts }`. */

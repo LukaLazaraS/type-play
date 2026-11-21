@@ -26,7 +26,7 @@ import { chromium } from "playwright";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { doubleText, fillPublicSupabase, useOwnStack } from "./dev-env.mjs";
+import { doubleText, fillPublicSupabase, pageShot, useOwnStack } from "./dev-env.mjs";
 import { GIS_STUB } from "./gis-stub.mjs";
 
 const root = join(import.meta.dirname, "../../..");
@@ -74,7 +74,7 @@ const check = (name, ok, detail = "") => {
 let dir = out;
 const shot = async (page, name, full = true) => {
   await page.evaluate(() => document.querySelectorAll("nextjs-portal").forEach((e) => (e.style.display = "none"))).catch(() => {});
-  await page.screenshot({ path: join(dir, `${name}.png`), fullPage: full });
+  await pageShot(page, { path: join(dir, `${name}.png`), fullPage: full });
 };
 const words = (s) => (s ?? "").replace(/\s+/g, " ").trim();
 /** No sideways scrolling: the page no wider than the viewport the context was given (never window.innerWidth, which a

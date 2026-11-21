@@ -14,7 +14,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
 import webpush from "web-push";
-import { useOwnStack } from "./dev-env.mjs";
+import { pageShot, useOwnStack } from "./dev-env.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
@@ -37,7 +37,7 @@ const check = (name, ok, detail = "") => {
 const shot = async (page, name, full = false) => {
   await page.waitForTimeout(350); // past the 260 ms entrance
   await page.evaluate(() => document.querySelectorAll("nextjs-portal").forEach((e) => (e.style.display = "none"))).catch(() => {});
-  await page.screenshot({ path: join(out, `${name}.png`), fullPage: full });
+  await pageShot(page, { path: join(out, `${name}.png`), fullPage: full });
   console.log("wrote", name);
 };
 const admin = (...args) =>
