@@ -98,6 +98,10 @@ Claude made each call below for now; Luka confirms or changes them in that revie
 
 ## Done
 
+- **The 200% text pass, live 11-21** (HQ job `typeplay-ui-200text-pass-20261120`; PLAN package 9's UI item): every page fits
+  every phone from 280px at 200% text, a word breaking only when it is longer than its whole line; nothing else moved at
+  normal text (before/after of every page, `apps/web/scripts/shot-compare.mjs --every-shape`; DESIGN.md "The Large Text
+  Rule"). Left: the billing-off before/after of the Free plan's game, account and Android pages (PLAN package 9).
 - **#28 Google's own sign-in button, live 11-20** (HQ's decision; job `typeplay-signin-name-share-search-20261120`):
   `NEXT_PUBLIC_GOOGLE_BUTTON: "1"` in `deploy/server/compose.yaml`. Brand verification passed and was published on 11-20
   (logo `docs/launch/typeplay-google-logo-120.png`), so Google's own window names the app "TypePlay" with its logo,
