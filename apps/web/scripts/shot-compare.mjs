@@ -685,7 +685,8 @@ add({ name: "android-off", who: "maker", path: () => `/games/${G.runner.id}/andr
 
 // The Free plan: Sam and his fruit game.
 add({ name: "create-free", who: "free", path: "/create", full: true, ready: button("Build my game") });
-add({ name: "create-short", who: "free", path: "/create", ...draft(IDEA), full: true, patch: [asMe((me) => ({ ...me, credits: { available: 0.4, todayLeft: 0.4, expiring: null } }))], ready: (p) => p.getByRole("link", { name: "Get credits" }).waitFor({ timeout: T }) });
+// Too few credits: Build off, and Get credits beside it while billing is on (with billing off there is nothing to get).
+add({ name: "create-short", who: "free", path: "/create", ...draft(IDEA), full: true, patch: [asMe((me) => ({ ...me, credits: { available: 0.4, todayLeft: 0.4, expiring: null } }))], ready: (p) => (opts.sale === "on" ? p.getByRole("link", { name: "Get credits" }) : p.getByRole("button", { name: "Build my game", disabled: true })).waitFor({ timeout: T }) });
 add({ name: "game-free", who: "free", path: () => `/games/${G.fruit.id}`, ready: (p) => p.locator("h1", { hasText: "Fruit Pop" }).first().waitFor({ state: "attached", timeout: T }), act: chatTab });
 add({ name: "game-daily-limit", who: "free", path: () => `/games/${G.fruit.id}`, patch: [sendFails(402, "daily_limit", "Today's free credits are used.")], ready: (p) => p.locator("h1", { hasText: "Fruit Pop" }).first().waitFor({ state: "attached", timeout: T }), act: async (p, vp) => {
   await chatTab(p, vp);
