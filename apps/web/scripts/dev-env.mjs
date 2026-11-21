@@ -33,15 +33,102 @@ export async function useOwnStack(name, count) {
 /** This checkout's `next dev` for this walk-through alone, until it exits (see above); held, it returns at once. */
 export const ownNextDev = () => lock(`next dev in ${join(root, "apps/web")}`);
 
-/** 200% text (a phone's large-text setting), as shot-launch emulates it: every font size and line height doubled. */
-export const doubleText = (page) =>
-  page.evaluate(() => {
-    const els = [...document.querySelectorAll("body *")];
+/** 200% text (a phone's large-text setting), as shot-launch emulates it: every font size and line height doubled. Not
+ * the stand-in for Google's sign-in button (gis-stub.mjs): Google's real one is its own page in a frame of the size we
+ * ask for, which draws its words itself, so its doubled words in a 40px pill would be a fault of the stand-in only.
+ * Then the viewport one pixel wider and back: Edge keeps a container query in em (the large-text layouts: IconChoice,
+ * the credits table) as it was until a container's size changes, not its font size, and a phone's setting is there
+ * before the page is first laid out (2026-11-21). */
+export const doubleText = async (page) => {
+  await page.evaluate(() => {
+    const els = [...document.querySelectorAll("body *")].filter((el) => !el.closest(".stub-gis"));
     const sizes = els.map((el) => [parseFloat(getComputedStyle(el).fontSize), getComputedStyle(el).lineHeight]);
     els.forEach((el, i) => {
       el.style.fontSize = `${sizes[i][0] * 2}px`;
       if (sizes[i][1].endsWith("px")) el.style.lineHeight = `${parseFloat(sizes[i][1]) * 2}px`;
     });
+  });
+  const vp = page.viewportSize();
+  if (vp) {
+    await page.setViewportSize({ width: vp.width + 1, height: vp.height });
+    await page.setViewportSize(vp);
+  }
+};
+
+/** Where the page grows wider than the screen: its width, and the outermost pieces that stick out (not inside a box that
+ * clips; screen-reader-only words and Next's dev overlay don't count), then words that run out of a box that stays inside.
+ * `{ width, screen, parts }`. */
+export const wideParts = (page) =>
+  page.evaluate(() => {
+    const vw = window.innerWidth;
+    const desc = (el) => `${el.tagName.toLowerCase()}${el.classList.length ? "." + [...el.classList].join(".") : ""}`;
+    const right = (el) => el.getBoundingClientRect().right;
+    const clipped = (el) => {
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) if (getComputedStyle(p).overflowX !== "visible") return true;
+      return false;
+    };
+    const out = [...document.querySelectorAll("body *")].filter((el) => el.getClientRects().length && !el.closest(".sr-only, nextjs-portal") && right(el) > vw + 1 && !clipped(el));
+    // The outermost pieces past the edge; when the page itself grew (a grid or flex box made as wide as what is in it, so
+    // every box up to <body> is past the edge), the innermost ones instead: what made it grow.
+    let picked = out.filter((el) => !(el.parentElement && out.includes(el.parentElement)));
+    if (!picked.length || picked.every((el) => el.parentElement === document.body)) picked = out.filter((el) => ![...el.children].some((c) => out.includes(c)));
+    const parts = picked.slice(0, 6).map((el) => `${desc(el)} to ${Math.round(right(el))}px`);
+    // Words that run past the edge out of a box that doesn't (an unbreakable address in a paragraph): their text, too.
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n && parts.length < 10; n = walker.nextNode()) {
+      const el = n.parentElement;
+      if (!el || !n.textContent.trim() || el.closest("svg, .wallpaper, .sr-only, nextjs-portal, script, style") || clipped(el) || right(el) > vw + 1) continue;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      const r = range.getBoundingClientRect();
+      if (r.width && r.right > vw + 1) parts.push(`"${n.textContent.trim().slice(0, 40)}" in ${desc(el)} to ${Math.round(r.right)}px`);
+    }
+    // Still nothing while the page is wider: the innermost boxes past the edge, inside a clipping box or not (an
+    // absolutely placed box is clipped only by a box it is placed in), drawings and screen-reader-only words too.
+    if (!parts.length && document.documentElement.scrollWidth > vw) {
+      const all = [...document.querySelectorAll("body *")].filter((el) => el.getClientRects().length && !el.closest(".wallpaper, nextjs-portal") && right(el) > vw + 1);
+      for (const el of all.filter((el) => ![...el.children].some((c) => all.includes(c))).slice(0, 6)) parts.push(`${desc(el)} to ${Math.round(right(el))}px (in a clipping box)`);
+    }
+    return { width: document.documentElement.scrollWidth, screen: vw, parts };
+  });
+
+/** Words the layout breaks across two lines inside the word (a large-text fault: "Platforme / r"), each with where it is
+ * and whether the browser may show a hyphen there (a soft hyphen in the word, or `hyphens: auto`). A hyphen, dash or
+ * slash is a place to break, so "power-up" is two words, and so are an address's places (ui/Address.tsx): after "@" and
+ * "_", before a dot that starts a word ("hello@" / "typeplay.app" is not a broken word; "1.2K" stays one word). A word
+ * wider than the page's column it is in is named "(longer than its line)": breaking it is right, the others are faults. Visible text only; screen-reader-only words, Next's dev overlay and logs (`pre`: machine text, which by convention breaks
+ * anywhere) don't count. */
+export const brokenWords = (page) =>
+  page.evaluate(() => {
+    const found = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n && found.length < 12; n = walker.nextNode()) {
+      const el = n.parentElement;
+      if (!el || !n.textContent.trim() || el.closest(".sr-only, nextjs-portal, script, style, noscript, [hidden], pre")) continue;
+      for (const m of n.textContent.matchAll(/[^\s\-\u2010\u2013\u2014/@_.]+(?:\.(?![A-Za-z])[^\s\-\u2010\u2013\u2014/@_.]*)*/g)) {
+        if (m[0].replace(/\u00AD/g, "").length < 2) continue;
+        const range = document.createRange();
+        range.setStart(n, m.index);
+        range.setEnd(n, m.index + m[0].length);
+        const rects = [...range.getClientRects()].filter((r) => r.width > 0);
+        const tops = rects.map((r) => Math.round(r.top));
+        if (tops.length < 2 || Math.max(...tops) - Math.min(...tops) < 4) continue;
+        // Longer than any line it could have: wider, whole, than the page's column it is in (the nearest box at least 60%
+        // of the screen wide: a card's inside, a widget's), as a 7-letter word in a 72px headline on a 280px phone.
+        // Breaking that one is the only way; the fault is a word that would fit (a narrow column, a pill beside it).
+        let box = el;
+        while (box.parentElement && box !== document.body && box.getBoundingClientRect().width < 0.6 * window.innerWidth) box = box.parentElement;
+        const bs = getComputedStyle(box);
+        const room = box.clientWidth - parseFloat(bs.paddingLeft) - parseFloat(bs.paddingRight);
+        const whole = rects.reduce((sum, r) => sum + r.width, 0);
+        const longer = whole > room - 1; // broken, so not whole on a line: its pieces' sum can round to the room itself
+        const cs = getComputedStyle(el);
+        const hyphen = m[0].includes("\u00AD") || cs.hyphens === "auto";
+        const where = el.closest("h1, h2, h3, button, a, label, p, li, td, th, dd, dt, span, div") ?? el;
+        found.push(`"${m[0].replace(/\u00AD/g, "")}" in ${where.tagName.toLowerCase()}${where.classList.length ? "." + [...where.classList].join(".") : ""}${hyphen ? " (hyphen)" : ""}${longer ? " (longer than its line)" : ""}`);
+      }
+    }
+    return found;
   });
 
 /** A checkout without the root .env (a fresh worktree): the site's public Supabase values (content/app.ts, the URL and

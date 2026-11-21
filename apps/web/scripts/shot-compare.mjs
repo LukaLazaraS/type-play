@@ -13,9 +13,21 @@
 // resized by each site's own image optimizer differ by a few pixels between runs, and the Share menu's link shows each
 // site's own address, so those are masked (their boxes still count).
 // Build the API first (npm run build -w @typeplay/server), then, through the CPU limiter:
-//   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-compare.mjs [--base <ref>] [--only <regex>] [outDir]
-// Output in .impeccable/review/compare/: shots/<scenario>-<desktop|phone>-<base|after>.png, diff/<scenario>-<viewport>.png
-// for the pairs that differ (the differing pixels red on a pale copy), report.json and index.html (differences first).
+//   node packages/agent/tools/cpu.mjs node apps/web/scripts/shot-compare.mjs [--base <ref>] [--only <regex>]
+//     [--every-shape] [--sale on|beta|off] [--base-only | --after-only] [--shapes <list>] [--texts <list>] [outDir]
+// --every-shape (the whole pass, 2026-11-21): every page (PAGES below) at every phone shape, the tablet and desktop, each
+//   at 100% and 200% text (dev-env.mjs doubleText, as the UI checks emulate a phone's large-text setting); the popups and
+//   states at desktop and phone as before, plus the phone and 320 at 200%; focus and hover at 100% only.
+// --sale: which way the site sells, by its build flags (content/billing.ts `sale`): on (the default: Paddle's client
+//   token, the closed beta), beta (the closed beta without the token: typeplay.app today), off (open sign-up, no token).
+//   The billing scenarios that need the token only run "on"; the others show their own state on every run.
+// --base-only / --after-only: one site alone, measured, nothing compared (a quick inventory before a change, or of it).
+// --shapes <viewports> and --texts <100,200>: a slice of --every-shape's pairs (viewports by name: phone, 320x568, ...).
+// Every shot is measured: the page's width against the screen (and the outermost pieces past it), and the words broken
+// across two lines inside the word (a hyphen the browser adds is named; "Platforme / r" is not one).
+// Output in .impeccable/review/compare/ (compare-<sale> for beta and off): shots/<scenario>-<viewport>[-200]-<base|after>.png,
+// diff/<scenario>-<viewport>[-200].png for the pairs that differ (the differing pixels red on a pale copy), report.json and
+// index.html (differences first, then pages wider than the screen or with broken words).
 import { chromium } from "playwright";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -23,20 +35,29 @@ import { join } from "node:path";
 import pg from "pg";
 import { urlOf } from "../../../scripts/local-db.mjs";
 import { endedRunDatabases, freePorts, runDatabase } from "../../../scripts/test-run.mjs";
-import { ownNextDev } from "./dev-env.mjs";
+import { brokenWords, doubleText, fillPublicSupabase, ownNextDev, wideParts } from "./dev-env.mjs";
+import { GIS_STUB } from "./gis-stub.mjs";
 
 const root = join(import.meta.dirname, "../../..");
 const webDir = join(root, "apps/web");
 const serverDir = join(root, "apps/server");
 
-const opts = { base: "HEAD", only: null, out: join(root, ".impeccable/review/compare") };
+const opts = { base: "HEAD", only: null, out: null, every: false, sale: "on", one: false };
 for (let i = 2; i < process.argv.length; i++) {
   const a = process.argv[i];
   if (a === "--base") opts.base = process.argv[++i];
   else if (a === "--only") opts.only = new RegExp(process.argv[++i]);
+  else if (a === "--every-shape") opts.every = true;
+  else if (a === "--sale") opts.sale = process.argv[++i];
+  else if (a === "--base-only") opts.one = "base";
+  else if (a === "--after-only") opts.one = "after";
+  else if (a === "--shapes") opts.shapes = process.argv[++i].split(",");
+  else if (a === "--texts") opts.texts = process.argv[++i].split(",").map(Number);
   else opts.out = a;
 }
-const out = opts.out;
+if (!["on", "beta", "off"].includes(opts.sale)) throw new Error(`--sale is on, beta or off, not ${opts.sale}`);
+const out = opts.out ?? join(root, ".impeccable/review", opts.sale === "on" ? "compare" : `compare-${opts.sale}`);
+fillPublicSupabase(); // a checkout without the root .env: the public values stand in, as in the other walk-throughs
 for (const d of ["shots", "diff", "logs"]) mkdirSync(join(out, d), { recursive: true });
 
 const DATA = join(root, "data/shots/api-data");
@@ -71,7 +92,7 @@ function exportBase() {
 const SITES = [
   { id: "base", dir: exportBase(), url: `http://localhost:${PORT.base}`, port: PORT.base },
   { id: "after", dir: webDir, url: `http://localhost:${PORT.after}`, port: PORT.after },
-];
+].filter((s) => !opts.one || s.id === opts.one);
 
 // ---- The stack ------------------------------------------------------------------------------------------------------
 const children = [];
@@ -110,7 +131,7 @@ const apiEnv = {
   DATA_DIR: DATA,
   DEV_AUTH: "1",
   AGENT_FAKE: "1",
-  BETA_INVITE_ONLY: "1",
+  BETA_INVITE_ONLY: opts.sale === "off" ? "" : "1",
   ADMIN_EMAILS: "",
   ANDROID_EXPORT: "1",
   ANDROID_FAKE: "1",
@@ -124,16 +145,19 @@ const apiEnv = {
   PADDLE_API_KEY: "",
 };
 const siteEnv = {
-  NEXT_DIST_DIR: ".next/shots",
+  // One build folder per sale state: the flags are compiled into the pages.
+  NEXT_DIST_DIR: opts.sale === "on" ? ".next/shots" : `.next/shots-${opts.sale}`,
   NEXT_TELEMETRY_DISABLED: "1",
   NEXT_PUBLIC_APP: "1",
   NEXT_PUBLIC_DEV_AUTH: "1",
-  NEXT_PUBLIC_CLOSED_BETA: "1",
+  NEXT_PUBLIC_CLOSED_BETA: opts.sale === "off" ? "" : "1",
   NEXT_PUBLIC_API_ORIGIN: apiBase,
   NEXT_PUBLIC_GAMES_ORIGIN: gamesBase,
   // Billing pages render "on" only with a client token; whether a user has billing is GET /me's (patched per scenario).
-  NEXT_PUBLIC_PADDLE_ENV: "sandbox",
-  NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "test_shots",
+  NEXT_PUBLIC_PADDLE_ENV: opts.sale === "on" ? "sandbox" : "",
+  NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: opts.sale === "on" ? "test_shots" : "",
+  // Google's own button, as live since 2026-11-20 (deploy/server/compose.yaml); its script is the stand-in (contextFor).
+  NEXT_PUBLIC_GOOGLE_BUTTON: "1",
 };
 const admin = (...args) => {
   const r = spawnSync(process.execPath, [join(root, "node_modules/tsx/dist/cli.mjs"), "src/admin.ts", ...args], {
@@ -396,6 +420,11 @@ add({ name: "pricing", path: "/pricing", full: true, ready: heading(/Pay for wha
 for (const doc of ["terms", "privacy", "refunds"]) add({ name: doc, path: `/${doc}`, full: true, ready: (p) => p.locator("article").waitFor({ timeout: T }) });
 add({ name: "not-found", path: "/no-such-page", ready: heading("No such screen.") });
 add({ name: "create-out", path: "/create", ...draft(IDEA), full: true, ready: button("Sign in with Google") });
+// The header's Sign in (?signin=1&next=): Google's button first, with the note on where you go back to.
+add({ name: "create-signin", path: "/create?signin=1&next=/explore", full: true, ready: button("Sign in with Google") });
+// A plan's button from /pricing, signed out: the answer by sale state at the top, then Google's button.
+add({ name: "create-plan-out", path: "/create?plan=medium", full: true, ready: button("Sign in with Google") });
+add({ name: "games-out", path: "/games", full: true, ready: button("Sign in with Google") });
 add({ name: "explore-empty", path: "/explore", full: true, ready: heading("No games here yet.") });
 step("share four games and put them in the gallery", async () => {
   // Popular: Robot Runner (upright) first; New: Desert Racer (wide) first, so both stage layouts show.
@@ -414,14 +443,12 @@ add({ name: "explore-report", path: "/explore", ready: heading("Every game."), a
 add({ name: "play", path: () => `/play/${G.runner.id}`, full: true, ready: heading("Robot Runner") });
 add({ name: "play-wide", path: () => `/play/${G.racer.id}`, full: true, ready: heading("Desert Racer") });
 add({ name: "play-report", path: () => `/play/${G.runner.id}`, ready: heading("Robot Runner"), act: async (p) => {
-  await click(p, "Report this game");
-  await dialogOpen(p);
+  await clickUntilOpen(p.getByRole("button", { name: "Report this game" }).first(), p.locator("dialog[open]"));
   await p.locator("dialog[open] label").first().click();
   await p.locator("dialog[open] textarea").fill("The music is from a film.");
 } });
 add({ name: "play-report-sent", path: () => `/play/${G.runner.id}`, patch: [answer("POST", "/public/games/*/report", 200, {})], ready: heading("Robot Runner"), act: async (p) => {
-  await click(p, "Report this game");
-  await dialogOpen(p);
+  await clickUntilOpen(p.getByRole("button", { name: "Report this game" }).first(), p.locator("dialog[open]"));
   await p.locator("dialog[open] label").first().click();
   await p.locator("dialog[open]").getByRole("button", { name: "Send report" }).click();
   await p.getByText("Thanks for telling us.").first().waitFor();
@@ -724,11 +751,56 @@ add({ name: "focus-game-pill", ...runner, act: async (p, vp) => {
 add({ name: "focus-checkout-box", who: "maker", path: "/billing/checkout?item=plan:medium", patch: [asMe(meFree)], ready: button("Continue to payment"), act: keyFocus((p) => p.getByRole("checkbox")) });
 add({ name: "focus-android-heading", ...hub, full: false, patch: [editJson("/projects/*/android", () => androidHub())], act: keyFocus((p) => p.locator("#droid-build")) });
 
+// ---- Which scenarios run where ----------------------------------------------------------------------------------------
+// The pages (a screen as it opens, no popup): with --every-shape, each at every shape and at 100% and 200% text.
+const PAGES = new Set([
+  "home", "pricing", "terms", "privacy", "refunds", "not-found", "create-out", "create-signin", "create-plan-out", "games-out",
+  "explore-empty", "explore", "explore-new", "play", "play-wide", "play-gone", "create", "games", "account", "game",
+  "game-chat", "game-wide", "game-failed", "game-building", "billing-off", "billing-free", "billing-paid", "checkout",
+  "checkout-off", "checkout-none", "android-setup", "android", "android-no-game", "android-off", "create-free",
+  "create-short", "game-free", "account-free", "android-free", "games-empty", "closed",
+]);
+// What needs Paddle's client token (billing on), and the closed beta's own page (not at open sign-up).
+for (const s of S) {
+  if (!s.name) continue;
+  if (/^(billing-(free|paid|preview|cancel|strips)|checkout(-pack-free|-has-plan)?$|focus-checkout-box$|game-(past-due|no-credits|daily-limit)$)/.test(s.name)) s.sales = ["on"];
+  if (/^closed/.test(s.name)) s.sales = ["on", "beta"];
+}
+
 // ---- Shooting and comparing -----------------------------------------------------------------------------------------
-const VIEWPORTS = {
-  desktop: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 },
-  phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true },
+/** Phones (upright and sideways) and the tablet are touch screens; desktop has a mouse. `phone` is 390x844. */
+const shape = (width, height) => {
+  const touch = Math.max(width, height) < 1100;
+  return { viewport: { width, height }, deviceScaleFactor: 1, ...(touch ? { isMobile: true, hasTouch: true } : {}) };
 };
+const VIEWPORTS = {
+  desktop: shape(1440, 900),
+  phone: shape(390, 844),
+  "280x653": shape(280, 653),
+  "320x568": shape(320, 568),
+  "360x780": shape(360, 780),
+  "375x667": shape(375, 667),
+  "412x915": shape(412, 915),
+  "430x932": shape(430, 932),
+  "844x390": shape(844, 390),
+  "768x1024": shape(768, 1024),
+};
+/** The layout a scenario's act sees: the game page's tabs (Chat / Play) show below 960px. */
+const kindOf = (vp) => (VIEWPORTS[vp].viewport.width < 960 ? "phone" : "desktop");
+/** [viewport, text %] pairs for a scenario: as before (desktop and phone at 100%), or the whole pass (--every-shape),
+ * narrowed by --shapes and --texts when given (a quicker slice of the same pass). */
+function shotsOf(s) {
+  const own = s.vps ?? ["desktop", "phone"];
+  let pairs;
+  if (!opts.every) pairs = own.map((vp) => [vp, 100]);
+  else if (PAGES.has(s.name)) {
+    const kinds = new Set(own.map(kindOf));
+    const all = Object.keys(VIEWPORTS).filter((vp) => kinds.has(kindOf(vp)));
+    pairs = [100, 200].flatMap((text) => all.map((vp) => [vp, text]));
+  } else if (/^(focus|hover)-/.test(s.name)) pairs = own.map((vp) => [vp, 100]);
+  else pairs = [...own.map((vp) => [vp, 100]), ...["phone", "320x568"].filter((vp) => own.some((o) => kindOf(o) === "phone")).map((vp) => [vp, 200])];
+  return pairs.filter(([vp, text]) => (!opts.shapes || opts.shapes.includes(vp)) && (!opts.texts || opts.texts.includes(text)));
+}
 let browser = null;
 const contexts = new Map();
 async function contextFor(site, vp, who) {
@@ -746,6 +818,10 @@ async function contextFor(site, vp, who) {
     // Paddle.js stands in: nothing is fetched from Paddle.
     window.Paddle = { Environment: { set() {} }, Initialize() {}, Checkout: { open() {} } };
   }, who ? USERS[who].email : null);
+  // Google's button (on, as live): its script is answered by the stand-in, never Google's.
+  await ctx.route((url) => url.host === "accounts.google.com" && url.pathname === "/gsi/client", (route) =>
+    route.fulfill({ status: 200, contentType: "text/javascript", body: GIS_STUB }),
+  );
   // No game ever starts: the frame shows a blank page instead of the engine.
   await ctx.route(`${gamesBase}/play.html**`, (route) => route.fulfill({ contentType: "text/html", body: "<!doctype html><body style=\"margin:0;background:#2a1858\"></body>" }));
   contexts.set(key, ctx);
@@ -775,21 +851,42 @@ async function settle(page, full) {
   await page.waitForTimeout(500);
 }
 const problems = [];
-async function shoot(sc, vp, site) {
+/** The tallest piece of a page in one picture (see shoot). */
+const SEGMENT = 8000;
+/** A pair's name in files and the report: the scenario, the viewport, "-200" at 200% text. */
+const tagOf = (name, vp, text) => `${name}-${vp}${text === 200 ? "-200" : ""}`;
+async function shoot(sc, vp, text, site) {
   const ctx = await contextFor(site, vp, sc.who);
   const page = await ctx.newPage();
-  page.on("pageerror", (e) => problems.push(`${sc.name} ${vp} ${site.id}: page error: ${e.message}`));
+  const tag = tagOf(sc.name, vp, text);
+  page.on("pageerror", (e) => problems.push(`${tag} ${site.id}: page error: ${e.message}`));
   try {
     if (sc.init) await page.addInitScript(sc.init, sc.initArg?.());
     for (const p of sc.patch ?? []) await p(page);
     const path = typeof sc.path === "function" ? sc.path() : sc.path;
     await page.goto(site.url + path, { waitUntil: "domcontentloaded", timeout: 240_000 });
     if (sc.ready) await sc.ready(page);
-    if (sc.act) await sc.act(page, vp);
+    if (sc.act) await sc.act(page, kindOf(vp));
+    // The dev-only sign-in isn't on the live site: out of the picture and the measures.
+    await page.addStyleTag({ content: ".devsignin{display:none!important}" }).catch(() => {});
+    if (text === 200) {
+      await doubleText(page);
+      await page.waitForTimeout(300);
+    }
     await settle(page, sc.full);
-    const file = join(out, "shots", `${sc.name}-${vp}-${site.id}.png`);
-    await page.screenshot({ path: file, fullPage: !!sc.full, animations: "disabled", caret: "hide", mask: [page.locator("iframe"), page.locator('img[src*="/_next/image"]'), page.getByLabel("Link to the game")], maskColor: "#ff00ff" });
-    return file;
+    const measured = { ...(await wideParts(page)), broken: await brokenWords(page) };
+    // A page taller than the browser draws in one picture (16384px: past it the picture repeats the page's top, as a
+    // long page at 200% text on a phone is) is shot in pieces of SEGMENT, `<tag>~2-<site>.png` and on.
+    const height = sc.full ? await page.evaluate(() => document.documentElement.scrollHeight) : 0;
+    const pieces = height > SEGMENT * 1.5 ? Math.ceil(height / SEGMENT) : 1;
+    const files = [];
+    for (let i = 0; i < pieces; i++) {
+      const file = join(out, "shots", `${tag}${i ? `~${i + 1}` : ""}-${site.id}.png`);
+      const clip = pieces > 1 ? { clip: { x: 0, y: i * SEGMENT, width: measured.width, height: Math.min(SEGMENT, height - i * SEGMENT) } } : {};
+      await page.screenshot({ path: file, fullPage: !!sc.full, ...clip, animations: "disabled", caret: "hide", mask: [page.locator("iframe"), page.locator('img[src*="/_next/image"]'), page.getByLabel("Link to the game")], maskColor: "#ff00ff" });
+      files.push(file);
+    }
+    return { files, ...measured };
   } finally {
     await page.close();
   }
@@ -843,15 +940,34 @@ async function compare(fileA, fileB, diffFile) {
   else rmSync(diffFile, { force: true });
   return { pixels: r.n, size: r.sizeA.join("×") === r.sizeB.join("×") ? r.sizeA.join("×") : `${r.sizeA.join("×")} vs ${r.sizeB.join("×")}`, box: r.box };
 }
+/** A word broken where it shouldn't be: not at a hyphen the browser shows, and not a word longer than its whole line. */
+const badBreak = (w) => !w.endsWith("(hyphen)") && !w.endsWith("(longer than its line)");
+/** A shot that doesn't fit: wider than the screen, or a word broken where it shouldn't be (badBreak). */
+const faulty = (m, screen) => !!m && (m.width > screen || m.broken.some(badBreak));
 function report(results) {
-  const sorted = [...results].sort((x, y) => (y.pixels > 0) - (x.pixels > 0) || x.name.localeCompare(y.name));
-  writeFileSync(join(out, "report.json"), JSON.stringify({ base: sha, at: new Date().toISOString(), results: sorted, problems }, null, 2));
-  const row = (r) => `<tr><td>${r.name}</td><td>${r.vp}</td><td>${r.error ?? (r.pixels ? `<b>${r.pixels.toLocaleString("en-US")} px</b>` : "same")}</td><td>${r.size ?? ""}</td><td>${r.box ? r.box.join(", ") : ""}</td>` +
-    `<td>${["base", "after"].map((s) => `<a href="shots/${r.name}-${r.vp}-${s}.png">${s}</a>`).join(" · ")}${r.pixels ? ` · <a href="diff/${r.name}-${r.vp}.png">diff</a>` : ""}</td></tr>`;
-  writeFileSync(join(out, "index.html"), `<!doctype html><meta charset="utf-8"><title>shot-compare ${sha}</title><style>body{font:14px system-ui;margin:24px}td{padding:4px 10px;border-bottom:1px solid #ddd}</style>` +
-    `<h1>Base ${sha} vs this checkout</h1><p>${results.filter((r) => r.pixels).length} of ${results.length} pairs differ; ${problems.length} problems.</p>` +
-    `<table><tr><th>Scenario</th><th>Width</th><th>Differs</th><th>Size</th><th>Where</th><th>Pictures</th></tr>${sorted.map(row).join("")}</table>` +
-    (problems.length ? `<h2>Problems</h2><ul>${problems.map((p) => `<li>${p}</li>`).join("")}</ul>` : ""));
+  const rank = (r) => (r.pixels > 0 ? 2 : 0) + (faulty(r.after ?? r.base, r.screen) ? 1 : 0);
+  const sorted = [...results].sort((x, y) => rank(y) - rank(x) || x.tag.localeCompare(y.tag));
+  const sides = SITES.map((s) => s.id);
+  const summary = Object.fromEntries(sides.map((id) => [id, { wide: results.filter((r) => r[id] && r[id].width > r.screen).length, broken: results.filter((r) => r[id]?.broken.some(badBreak)).length }]));
+  writeFileSync(join(out, "report.json"), JSON.stringify({ base: sha, sale: opts.sale, at: new Date().toISOString(), summary, results: sorted, problems }, null, 2));
+  const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const fit = (r, id) => {
+    const m = r[id];
+    if (!m) return "";
+    const wide = m.width > r.screen ? `<b>${m.width}px</b> ${esc(m.parts.join(", "))}` : "fits";
+    return `${wide}${m.broken.length ? `<br>${esc(m.broken.join("; "))}` : ""}`;
+  };
+  const row = (r) => `<tr><td>${r.name}</td><td>${r.vp}${r.text === 200 ? " · 200%" : ""}</td><td>${r.error ?? (opts.one ? "" : r.pixels ? `<b>${r.pixels.toLocaleString("en-US")} px</b>` : "same")}</td><td>${r.size ?? ""}</td><td>${r.box ? r.box.join(", ") : ""}</td>` +
+    sides.map((id) => `<td>${fit(r, id)}</td>`).join("") +
+    `<td>${Array.from({ length: r.pieces ?? 1 }, (_, i) => {
+      const at = i ? `~${i + 1}` : "";
+      return `${i ? `<br>piece ${i + 1}: ` : ""}${sides.map((s) => `<a href="shots/${r.tag}${at}-${s}.png">${s}</a>`).join(" · ")}${r.pixels && existsSync(join(out, "diff", `${r.tag}${at}.png`)) ? ` · <a href="diff/${r.tag}${at}.png">diff</a>` : ""}`;
+    }).join("")}</td></tr>`;
+  writeFileSync(join(out, "index.html"), `<!doctype html><meta charset="utf-8"><title>shot-compare ${sha}</title><style>body{font:14px system-ui;margin:24px}td{padding:4px 10px;border-bottom:1px solid #ddd;vertical-align:top}</style>` +
+    `<h1>${opts.one ? (opts.one === "base" ? `Base ${sha} alone` : "This checkout alone") : `Base ${sha} vs this checkout`} (sale: ${opts.sale})</h1><p>${opts.one ? "" : `${results.filter((r) => r.pixels).length} of ${results.length} pairs differ; `}${problems.length} problems. ` +
+    sides.map((id) => `${id}: ${summary[id].wide} wider than the screen, ${summary[id].broken} with a word broken inside`).join("; ") + `.</p>` +
+    `<table><tr><th>Scenario</th><th>Viewport</th><th>Differs</th><th>Size</th><th>Where</th>${sides.map((id) => `<th>Fits (${id})</th>`).join("")}<th>Pictures</th></tr>${sorted.map(row).join("")}</table>` +
+    (problems.length ? `<h2>Problems</h2><ul>${problems.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>` : ""));
 }
 
 // ---- Run ------------------------------------------------------------------------------------------------------------
@@ -904,21 +1020,35 @@ try {
       continue;
     }
     if (opts.only && !opts.only.test(s.name)) continue;
-    for (const vp of s.vps ?? ["desktop", "phone"]) {
-      const files = {};
+    if (s.sales && !s.sales.includes(opts.sale)) continue;
+    for (const [vp, text] of shotsOf(s)) {
+      const shots = {};
       for (const site of SITES) {
         try {
-          files[site.id] = await shoot(s, vp, site);
+          shots[site.id] = await shoot(s, vp, text, site);
         } catch (e) {
-          files[site.id] = null;
-          problems.push(`${s.name} ${vp} ${site.id}: ${(e instanceof Error ? e.message : String(e)).split("\n")[0]}`);
+          shots[site.id] = null;
+          problems.push(`${tagOf(s.name, vp, text)} ${site.id}: ${(e instanceof Error ? e.message : String(e)).split("\n")[0]}`);
         }
       }
-      const r = { name: s.name, vp };
-      if (files.base && files.after) Object.assign(r, await compare(files.base, files.after, join(out, "diff", `${s.name}-${vp}.png`)));
-      else r.error = `not shot on ${["base", "after"].filter((id) => !files[id]).join(" and ")}`;
+      const r = { name: s.name, vp, text, tag: tagOf(s.name, vp, text), screen: VIEWPORTS[vp].viewport.width };
+      for (const id of ["base", "after"]) if (shots[id]) r[id] = { width: shots[id].width, parts: shots[id].parts, broken: shots[id].broken };
+      if (shots.base && shots.after) {
+        // Piece by piece (a tall page); a piece only one side has counts as all its pixels differing.
+        const n = Math.max(shots.base.files.length, shots.after.files.length);
+        Object.assign(r, { pixels: 0, size: null, box: null, pieces: n });
+        for (let i = 0; i < n; i++) {
+          const [a, b] = [shots.base.files[i], shots.after.files[i]];
+          const c = a && b ? await compare(a, b, join(out, "diff", `${r.tag}${i ? `~${i + 1}` : ""}.png`)) : { pixels: 1, size: `piece ${i + 1} on ${a ? "base" : "after"} only`, box: null };
+          r.pixels += c.pixels;
+          if (i === 0 || c.size?.includes("vs") || c.size?.includes("only")) r.size = i === 0 ? c.size : `${r.size}; ${c.size}`;
+          if (c.box && !r.box) r.box = [c.box[0], c.box[1] + i * SEGMENT, c.box[2], c.box[3] + i * SEGMENT];
+        }
+      }
+      else if (!opts.one || !shots[opts.one]) r.error = `not shot on ${SITES.map((x) => x.id).filter((id) => !shots[id]).join(" and ")}`;
       results.push(r);
-      log(`${s.name} ${vp}: ${r.error ?? (r.pixels ? `${r.pixels} px differ${r.box ? ` in ${r.box.join(",")}` : ""}` : "same")}`);
+      const fit = (m) => (m ? `${m.width > r.screen ? `${m.width}px wide` : "fits"}${m.broken.length ? `, ${m.broken.length} broken` : ""}` : "-");
+      log(`${r.tag}: ${r.error ?? (opts.one ? fit(r[opts.one]) : `${r.pixels ? `${r.pixels} px differ${r.box ? ` in ${r.box.join(",")}` : ""}` : "same"}; base ${fit(r.base)}, after ${fit(r.after)}`)}`);
       report(results);
     }
   }
@@ -934,8 +1064,10 @@ try {
   rmSync(DATA, { recursive: true, force: true });
   report(results);
   const differing = results.filter((r) => r.pixels);
-  console.log(`\n${results.length} pairs: ${results.length - differing.length - results.filter((r) => r.error).length} the same, ${differing.length} differ` +
-    `${differing.length ? `: ${differing.map((r) => `${r.name} ${r.vp}`).join(", ")}` : ""}; ${problems.length} problems${problems.length ? `:\n  ${problems.join("\n  ")}` : ""}`);
+  const unfit = (id) => results.filter((r) => faulty(r[id], r.screen)).map((r) => r.tag);
+  console.log(`\n${results.length} ${opts.one ? "shots" : `pairs: ${results.length - differing.length - results.filter((r) => r.error).length} the same, ${differing.length} differ` +
+    `${differing.length ? `: ${differing.map((r) => r.tag).join(", ")}` : ""}`}; ${problems.length} problems${problems.length ? `:\n  ${problems.join("\n  ")}` : ""}`);
+  for (const id of SITES.map((s) => s.id)) console.log(`${id}: ${unfit(id).length} don't fit (wider than the screen or a word broken inside)${unfit(id).length ? `: ${unfit(id).join(", ")}` : ""}`);
   console.log(`report: ${join(out, "index.html")}`);
 }
 process.exit(problems.length ? 1 : 0);

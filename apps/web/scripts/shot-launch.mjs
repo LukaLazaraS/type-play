@@ -26,7 +26,7 @@ import { chromium } from "playwright";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fillPublicSupabase, useOwnStack } from "./dev-env.mjs";
+import { doubleText, fillPublicSupabase, useOwnStack } from "./dev-env.mjs";
 import { GIS_STUB } from "./gis-stub.mjs";
 
 const root = join(import.meta.dirname, "../../..");
@@ -155,20 +155,6 @@ const hydrated = (page, selector) =>
     const el = document.querySelector(sel);
     return !!el && Object.keys(el).some((k) => k.startsWith("__reactProps"));
   }, selector, { timeout: 300_000 });
-/** 200% text (a phone's large-text setting, WCAG 1.4.4), as the UI check emulates it: every element's computed font size
- * and line height doubled, all read first so none is doubled twice; the status bar's too. */
-const doubleText = (page) =>
-  page.evaluate(() => {
-    const els = [...document.querySelectorAll("body *")];
-    const sizes = els.map((el) => {
-      const cs = getComputedStyle(el);
-      return [parseFloat(cs.fontSize), cs.lineHeight];
-    });
-    els.forEach((el, i) => {
-      el.style.fontSize = `${sizes[i][0] * 2}px`;
-      if (sizes[i][1].endsWith("px")) el.style.lineHeight = `${parseFloat(sizes[i][1]) * 2}px`;
-    });
-  });
 /** What runs out of its box at the moment (each `[selector, box selector, what]`: the element itself and every line of its
  * visible text, bare text nodes too, inside its nearest box; screen-reader-only words don't count). */
 const outOfBox = (page, pairs) =>
